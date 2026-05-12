@@ -60,30 +60,7 @@ export default function Home() {
                 </Link>
               </div>
 
-              {/* Direct Access for Demo */}
-              <div className="pt-8 border-t border-slate-100">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Quick Testing Access</p>
-                <div className="flex flex-wrap gap-3">
-                  <button 
-                    onClick={() => useAppStore.getState().loginAsDemo('student')}
-                    className="px-4 py-2 bg-slate-100 hover:bg-[#0D5BFF] hover:text-white text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-                  >
-                    Enter as Guardian
-                  </button>
-                  <button 
-                    onClick={() => useAppStore.getState().loginAsDemo('tutor')}
-                    className="px-4 py-2 bg-slate-100 hover:bg-[#0D5BFF] hover:text-white text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-                  >
-                    Enter as Teacher
-                  </button>
-                  <button 
-                    onClick={() => useAppStore.getState().loginAsDemo('admin')}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
-                  >
-                    Enter as Admin
-                  </button>
-                </div>
-              </div>
+
             </motion.div>
 
             <motion.div 

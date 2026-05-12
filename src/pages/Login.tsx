@@ -109,41 +109,7 @@ export default function Login() {
              {loading ? 'Authenticating...' : 'Enter Dashboard'}
            </button>
 
-           <div className="mt-8 pt-8 border-t border-slate-100">
-             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4 text-center">Quick Access for Testing</p>
-             <div className="grid grid-cols-3 gap-2">
-               <button 
-                 type="button"
-                 onClick={async () => {
-                    await useAppStore.getState().loginAsDemo('student');
-                    navigate('/dashboard');
-                  }}
-                 className="px-2 py-2.5 bg-slate-50 hover:bg-blue-50 text-[#0B132B] text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-slate-100"
-               >
-                 Guardian
-               </button>
-               <button 
-                 type="button"
-                 onClick={async () => {
-                    await useAppStore.getState().loginAsDemo('tutor');
-                    navigate('/dashboard');
-                  }}
-                 className="px-2 py-2.5 bg-slate-50 hover:bg-blue-50 text-[#0B132B] text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-slate-100"
-               >
-                 Teacher
-               </button>
-               <button 
-                 type="button"
-                 onClick={async () => {
-                    await useAppStore.getState().loginAsDemo('admin');
-                    navigate('/dashboard');
-                  }}
-                 className="px-2 py-2.5 bg-slate-50 hover:bg-slate-800 hover:text-white text-[#0B132B] text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-slate-100"
-               >
-                 Admin
-               </button>
-             </div>
-           </div>
+
         </form>
       </div>
     </div>
