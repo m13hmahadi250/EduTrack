@@ -49,9 +49,9 @@ export default function Sidebar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="w-80 h-screen bg-white border-r border-slate-100 flex flex-col p-8 sticky top-0">
+    <div className="w-full lg:w-80 h-full lg:h-screen bg-white lg:border-r border-slate-100 flex flex-col p-6 lg:p-8 sticky top-0">
       {/* Logo */}
-      <div className="flex items-center space-x-3 mb-16">
+      <div className="hidden lg:flex items-center space-x-3 mb-16">
         <div className="w-10 h-10 bg-[#0D5BFF] rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200">
            E
         </div>

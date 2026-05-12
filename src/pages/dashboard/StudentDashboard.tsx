@@ -16,9 +16,12 @@ import {
   Calendar,
   Play,
   ChevronRight,
+  ChevronLeft,
+  ArrowLeft,
   Zap
 } from 'lucide-react';
 import MapTracker from '../../components/MapTracker';
+import ImageUpload from '../../components/ImageUpload';
 import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
@@ -415,58 +418,85 @@ export default function StudentDashboard() {
             <div className="lg:col-span-3 space-y-8">
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Tutor Selection Panel */}
-                <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
-                  {filteredTutors.map(tutor => (
-                    <div 
-                      key={tutor.id} 
-                      onClick={() => setSelectedTutor(tutor)}
-                      className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                        selectedTutor?.id === tutor.id 
-                        ? 'border-[#0D5BFF] bg-blue-50/30' 
-                        : 'border-slate-100 bg-white hover:border-slate-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start relative z-10">
-                        <div>
-                          <h3 className="text-sm font-black text-[#0B132B] flex items-center uppercase italic group-hover:text-[#0D5BFF] transition-colors">
-                            {tutor.name}
-                            <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] ml-2" />
-                          </h3>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                            {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/hr` : 'N/A'}
-                          </p>
-                        </div>
-                        {tutor.isTrackingOn && (
-                          <span className="flex h-2.5 w-2.5 relative">
-                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
-                          </span>
-                        )}
-                      </div>
+                {(!selectedTutor || window.innerWidth > 1024) && (
+                  <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="lg:hidden mb-6">
+                       <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
                     </div>
-                  ))}
-                </div>
+                    {filteredTutors.map(tutor => (
+                      <div 
+                        key={tutor.id} 
+                        onClick={() => setSelectedTutor(tutor)}
+                        className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                          selectedTutor?.id === tutor.id 
+                          ? 'border-[#0D5BFF] bg-blue-50/30' 
+                          : 'border-slate-100 bg-white hover:border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4 relative z-10">
+                          {tutor.profileImage ? (
+                            <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-lg font-black italic text-[#0D5BFF] border border-slate-100">
+                               {tutor.name.charAt(0)}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-sm font-black text-[#0B132B] flex items-center uppercase italic group-hover:text-[#0D5BFF] transition-colors">
+                                {tutor.name}
+                                <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] ml-2" />
+                              </h3>
+                              {tutor.isTrackingOn && (
+                                <span className="flex h-2.5 w-2.5 relative">
+                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                              {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/hr` : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Tutor Details & Booking */}
-                <div className="space-y-8">
-                  {selectedTutor ? (
-                    <>
-                      <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm relative overflow-hidden">
-                        <div className="flex items-start justify-between mb-8">
-                           <div className="flex items-center space-x-6">
-                              <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] border border-slate-100">
-                                {selectedTutor.name.charAt(0)}
-                              </div>
-                              <div>
-                                <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
-                                <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
-                              </div>
-                           </div>
-                           <div className="text-right">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Rate</p>
-                              <p className="text-2xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/hr</span></p>
-                           </div>
-                        </div>
+                {(selectedTutor || window.innerWidth > 1024) && (
+                  <div className="space-y-8">
+                    {selectedTutor ? (
+                      <>
+                        <button 
+                          onClick={() => setSelectedTutor(null)}
+                          className="lg:hidden flex items-center gap-3 px-6 py-3 bg-white rounded-full border border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#0B132B] shadow-sm mb-4"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-[#0D5BFF]" />
+                          Back to Mentors
+                        </button>
+                        <div className="bg-white rounded-[3rem] p-6 lg:p-10 border border-slate-100 shadow-sm relative overflow-hidden">
+                          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-8">
+                             <div className="flex items-center space-x-6">
+                                {selectedTutor.profileImage ? (
+                                  <img src={selectedTutor.profileImage} alt={selectedTutor.name} className="w-20 h-20 rounded-[2rem] object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] border border-slate-100">
+                                    {selectedTutor.name.charAt(0)}
+                                  </div>
+                                )}
+                                <div>
+                                  <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
+                                  <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
+                                </div>
+                             </div>
+                             <div className="lg:text-right p-4 bg-slate-50 lg:bg-transparent rounded-2xl">
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Rate</p>
+                                <p className="text-2xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/hr</span></p>
+                             </div>
+                          </div>
 
                         <div className="grid grid-cols-2 gap-8 mb-8">
                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
@@ -576,8 +606,9 @@ export default function StudentDashboard() {
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
+          </div>
           </motion.div>
         )}
 
@@ -757,9 +788,16 @@ export default function StudentDashboard() {
             className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm max-w-4xl"
           >
              <div className="flex items-center justify-between mb-16">
-                <div>
-                   <h3 className="text-3xl font-black text-[#0B132B] uppercase italic">Account Sector</h3>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
+                <div className="flex items-center gap-8">
+                   <ImageUpload 
+                     userId={currentUser.id} 
+                     currentImageUrl={currentUser.profileImage} 
+                     onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
+                   />
+                   <div>
+                      <h3 className="text-3xl font-black text-[#0B132B] uppercase italic">Account Sector</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
+                   </div>
                 </div>
                 <button 
                   onClick={() => setIsEditingAccount(!isEditingAccount)}

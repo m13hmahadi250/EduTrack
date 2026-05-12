@@ -64,6 +64,7 @@ service cloud.firestore {
                (data.get('group', null) == null || data.group is string) &&
                (data.get('studentClass', null) == null || data.studentClass is string) &&
                (data.get('school', null) == null || data.school is string) &&
+               (data.get('profileImage', null) == null || data.profileImage is string) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 

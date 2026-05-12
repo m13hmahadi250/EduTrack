@@ -14,6 +14,7 @@ import {
   Award
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import heroImage from '../assets/images/regenerated_image_1778584226799.png';
 
 export default function Home() {
   return (
@@ -30,7 +31,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="max-w-3xl"
+              className="max-w-3xl relative z-20"
             >
               <div className="inline-flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 mb-6">
                 <span className="relative flex h-2 w-2">
@@ -40,7 +41,7 @@ export default function Home() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0D5BFF]">Live in Bangladesh</span>
               </div>
               
-              <h1 className="text-[4rem] sm:text-[6rem] lg:text-[7.5rem] font-black font-heading leading-[0.82] tracking-[-0.04em] mb-8 uppercase">
+              <h1 className="text-[3rem] sm:text-[6rem] lg:text-[7.5rem] font-black font-heading leading-[0.9] sm:leading-[0.82] tracking-[-0.04em] mb-8 uppercase">
                 <span className="block text-[#0B132B] opacity-90">Expert</span>
                 <span className="block text-[#0D5BFF] italic">Education</span>
                 <span className="block text-[#0B132B] -mt-2">At Home</span>
@@ -93,7 +94,7 @@ export default function Home() {
             >
               <div className="relative z-10 rounded-[3rem] overflow-hidden border-[12px] border-white shadow-2xl rotate-2">
                 <img 
-                  src="https://images.unsplash.com/photo-1577896851231-70ef1460011e?auto=format&fit=crop&q=80&w=800" 
+                  src={heroImage} 
                   alt="Education" 
                   className="w-full h-[600px] object-cover"
                   referrerPolicy="no-referrer"

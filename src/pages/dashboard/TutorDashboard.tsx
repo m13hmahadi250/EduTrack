@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MapTracker from '../../components/MapTracker';
+import ImageUpload from '../../components/ImageUpload';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, DashboardInput } from '../../components/DashboardComponents';
 
@@ -101,7 +102,8 @@ export default function TutorDashboard() {
     availability: currentUser?.availability || '',
     experience: currentUser?.experience || '',
     subjects: currentUser?.subjects || [],
-    classes: currentUser?.classes || []
+    classes: currentUser?.classes || [],
+    availabilitySlots: currentUser?.availabilitySlots || {}
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -113,7 +115,8 @@ export default function TutorDashboard() {
         availability: currentUser.availability || '',
         experience: currentUser.experience || '',
         subjects: currentUser.subjects || [],
-        classes: currentUser.classes || []
+        classes: currentUser.classes || [],
+        availabilitySlots: currentUser.availabilitySlots || {}
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -579,8 +582,12 @@ export default function TutorDashboard() {
           >
             <div className="lg:col-span-1 space-y-8">
                      <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm flex flex-col items-center">
-                        <div className="w-40 h-40 bg-slate-50 rounded-[3.5rem] border-4 border-white shadow-xl flex items-center justify-center text-6xl font-black italic text-slate-300 mb-8 overflow-hidden">
-                           {currentUser.name.charAt(0)}
+                        <div className="mb-8">
+                           <ImageUpload 
+                             userId={currentUser.id} 
+                             currentImageUrl={currentUser.profileImage} 
+                             onUpload={(url) => updateUser(currentUser.id, { profileImage: url })}
+                           />
                         </div>
                         <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-center">{currentUser.name}</h2>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8">{currentUser.university || 'Expert Educator'}</p>
@@ -625,7 +632,7 @@ export default function TutorDashboard() {
                  <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm">
                     <h3 className="text-2xl font-black text-[#0B132B] uppercase italic mb-12">Update Academic Data</h3>
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
-                       <div className="grid md:grid-cols-2 gap-8">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
                          <ProfileField label="Availability Window" value={profileForm.availability} onChange={(v) => setProfileForm({...profileForm, availability: v})} placeholder="Mon-Fri, 4-8 PM" />
                        </div>
@@ -678,6 +685,20 @@ export default function TutorDashboard() {
                           placeholder="Your teaching philosophy..."
                          />
                        </div>
+
+                       <div className="space-y-6 pt-8 border-t border-slate-100">
+                          <div className="flex items-center gap-4">
+                             <Calendar className="w-5 h-5 text-[#0D5BFF]" />
+                             <h3 className="text-xl font-black text-[#0B132B] uppercase italic">Visual Availability Matrix</h3>
+                          </div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">Select your active session windows. These slots will be visible to parents for instant booking.</p>
+                          
+                          <AvailabilityCalendar 
+                            slots={profileForm.availabilitySlots} 
+                            onChange={(slots) => setProfileForm({...profileForm, availabilitySlots: slots})} 
+                          />
+                       </div>
+
                        <button 
                          disabled={isUpdating}
                          className="w-full py-6 bg-[#0B132B] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-2xl hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
@@ -723,6 +744,45 @@ export default function TutorDashboard() {
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose">
                             {currentUser.availability || 'System Default (Flexible)'}
                           </p>
+                       </div>
+                    </div>
+
+                    <div className="bg-white rounded-[4rem] p-12 lg:p-16 border border-slate-100 shadow-sm">
+                       <div className="flex items-center gap-4 mb-10">
+                          <Calendar className="w-6 h-6 text-[#0D5BFF]" />
+                          <h3 className="text-xl font-black text-[#0B132B] uppercase italic">Visual Schedule</h3>
+                       </div>
+                       
+                       <div className="grid grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar">
+                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
+                            const dayName = day === 'Sun' ? 'Sunday' : 
+                                          day === 'Mon' ? 'Monday' : 
+                                          day === 'Tue' ? 'Tuesday' :
+                                          day === 'Wed' ? 'Wednesday' :
+                                          day === 'Thu' ? 'Thursday' :
+                                          day === 'Fri' ? 'Friday' : 'Saturday';
+                            const daySlots = currentUser.availabilitySlots?.[dayName] || [];
+                            
+                            return (
+                              <div key={day} className="min-w-[100px] space-y-3">
+                                 <div className="text-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] font-black uppercase text-[#0B132B] italic">{day}</span>
+                                 </div>
+                                 <div className="space-y-1.5 px-1">
+                                    {daySlots.map(slot => (
+                                      <div key={slot} className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl text-center">
+                                        <span className="text-[8px] font-black text-[#0D5BFF]">{slot}</span>
+                                      </div>
+                                    ))}
+                                    {daySlots.length === 0 && (
+                                      <div className="px-3 py-4 border border-dashed border-slate-100 rounded-xl text-center">
+                                        <span className="text-[7px] font-black text-slate-200">REST</span>
+                                      </div>
+                                    )}
+                                 </div>
+                              </div>
+                            );
+                          })}
                        </div>
                     </div>
                  </div>
@@ -819,15 +879,92 @@ function TrackerBar({ label, percentage, color }: { label: string, percentage: n
     <div className="space-y-3">
       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
         <span className="text-slate-400">{label}</span>
-        <span>{percentage}%</span>
+        <span className="text-[#0D5BFF] italic">{percentage}%</span>
       </div>
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className={`h-full ${color} rounded-full`}
+          className={`h-full ${color}`}
         />
+      </div>
+    </div>
+  );
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const HOURS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', 
+  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
+];
+
+function AvailabilityCalendar({ slots, onChange }: { slots: { [key: string]: string[] }, onChange: (slots: { [key: string]: string[] }) => void }) {
+  const toggleSlot = (day: string, hour: string) => {
+    const daySlots = slots[day] || [];
+    const newDaySlots = daySlots.includes(hour)
+      ? daySlots.filter(h => h !== hour)
+      : [...daySlots, hour].sort();
+    
+    onChange({
+      ...slots,
+      [day]: newDaySlots
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl shadow-slate-100/50">
+      <div className="overflow-x-auto custom-scrollbar">
+        <div className="flex min-w-[800px]">
+          {/* Hour Labels */}
+          <div className="w-20 pt-16 flex flex-col border-r border-slate-50 bg-slate-50/50">
+            {HOURS.map(hour => (
+              <div key={hour} className="h-14 flex items-center justify-center border-b border-white">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{hour}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Days Columns */}
+          {DAYS.map(day => (
+            <div key={day} className="flex-1 min-w-[100px] border-r border-slate-50 last:border-r-0">
+              <div className="h-16 flex items-center justify-center bg-[#0B132B] text-white border-b border-slate-800">
+                <span className="text-[9px] font-black uppercase italic tracking-widest">{day.slice(0, 3)}</span>
+              </div>
+              <div className="flex flex-col">
+                {HOURS.map(hour => {
+                  const isActive = slots[day]?.includes(hour);
+                  return (
+                    <button
+                      key={`${day}-${hour}`}
+                      type="button"
+                      onClick={() => toggleSlot(day, hour)}
+                      className={`h-14 border-b border-slate-50 transition-all flex items-center justify-center group relative overflow-hidden ${
+                        isActive ? 'bg-[#0D5BFF]' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      {isActive ? (
+                        <CheckCircle className="w-5 h-5 text-white/50" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-slate-100 group-hover:scale-150 transition-transform"></div>
+                      )}
+                      
+                      <div className={`absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}></div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="p-6 bg-[#0B132B] border-t border-slate-800 flex items-center justify-between">
+         <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-[#0D5BFF]" />
+            <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Active Slot</span>
+         </div>
+         <p className="text-[8px] font-black text-[#0D5BFF] uppercase italic">Click to toggle availability</p>
       </div>
     </div>
   );

@@ -29,6 +29,7 @@ export interface User {
   name: string;
   phone: string;
   email: string;
+  profileImage?: string;
   balance?: number;
   
   // Shared / Filtering
@@ -61,6 +62,7 @@ export interface User {
   experience?: string;
   availability?: string; // e.g. "Mon-Fri, 4PM-8PM"
   hourlyRate?: number;
+  availabilitySlots?: { [key: string]: string[] }; // e.g., { 'Monday': ['14:00-16:00'] }
 }
 
 export interface Session {
