@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a student, tutor, or admin in the system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "tutor", "admin"] },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "balance": { "type": "number" },
+        "address": { "type": "string" },
+        "group": { "type": "string" },
+        "subject": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "school": { "type": "string" },
+        "semester": { "type": "string" },
+        "year": { "type": "string" },
+        "course": { "type": "string" },
+        "university": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "isTrackingOn": { "type": "boolean" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "rating": { "type": "number" }
+      },
+      "required": ["id", "role", "name", "email"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment made via bKash.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "bKashNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "transactionId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "studentId", "tutorId", "amount", "transactionId", "status", "date"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message between a user and tutor/student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "receiverId", "participants", "content", "timestamp"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A tutoring session record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "active", "completed", "cancelled"] },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "duration": { "type": "number" },
+        "meetingLink": { "type": "string" }
+      },
+      "required": ["id", "studentId", "tutorId", "subject", "status", "scheduledTime"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A tutor withdrawal request.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "amount": { "type": "number" },
+        "bKashNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "tutorId", "amount", "bKashNumber", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment records"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Tutoring sessions"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Withdrawal requests"
+    }
+  }
+}

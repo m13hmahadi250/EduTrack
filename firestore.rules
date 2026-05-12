@@ -1,0 +1,180 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Hardened Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      // Lookup role in users collection
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.email == 'admin@gmail.com' ||
+        request.auth.token.email == 'student@gmail.com' ||
+        request.auth.token.email == 'teacher@gmail.com'
+      );
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['id', 'role', 'name', 'email', 'balance', 'isVerified', 'isTrackingOn', 'rating']) &&
+               data.id == userId &&
+               data.role in ['student', 'tutor', 'admin'] &&
+               data.name is string && data.name.size() <= 128 &&
+               data.email is string && data.email.size() <= 128 &&
+               data.balance is number &&
+               data.isVerified is bool &&
+               data.isTrackingOn is bool &&
+               data.rating is number &&
+               // Optional fields handling
+               (data.get('phone', null) == null || data.phone is string) &&
+               (data.get('address', null) == null || data.address is string) &&
+               (data.get('university', null) == null || data.university is string) &&
+               (data.get('course', null) == null || data.course is string) &&
+               (data.get('subject', null) == null || data.subject is string) &&
+               (data.get('year', null) == null || data.year is string) &&
+               (data.get('semester', null) == null || data.semester is string) &&
+               (data.get('group', null) == null || data.group is string) &&
+               (data.get('studentClass', null) == null || data.studentClass is string) &&
+               (data.get('school', null) == null || data.school is string) &&
+               (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
+      }
+
+      // Allow authenticated users to search/read profiles
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    (incoming().role != 'admin' || request.auth.token.email == 'admin@gmail.com');
+
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && 
+                       incoming().role == existing().role && 
+                       incoming().email == existing().email && 
+                       incoming().balance == existing().balance && 
+                       incoming().isVerified == existing().isVerified
+                    ) || isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // --- Payments Collection ---
+    match /payments/{paymentId} {
+      function isValidPayment(data) {
+        return data.keys().hasAll(['id', 'studentId', 'tutorId', 'amount', 'transactionId', 'status', 'date', 'bKashNumber']) &&
+               data.amount is number && data.amount > 0 &&
+               data.status in ['pending', 'approved', 'rejected'] &&
+               isValidId(data.studentId) && isValidId(data.tutorId);
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+      
+      allow create: if isVerifiedEmail() && isValidPayment(incoming()) && 
+                    incoming().studentId == request.auth.uid && 
+                    incoming().status == 'pending';
+
+      allow update: if isAdmin() && isValidPayment(incoming());
+      
+      allow delete: if isAdmin();
+    }
+
+    // --- Messages Collection ---
+    match /messages/{messageId} {
+      function isValidMessage(data) {
+        return data.keys().hasAll(['id', 'senderId', 'receiverId', 'participants', 'content', 'timestamp']) &&
+               data.content is string && data.content.size() <= 5000 &&
+               data.senderId == request.auth.uid &&
+               data.participants.size() == 2 &&
+               request.auth.uid in data.participants;
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participants);
+      allow get: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participants);
+      
+      allow create: if isVerifiedEmail() && isValidMessage(incoming());
+      
+      allow update, delete: if false; 
+    }
+
+    // --- Sessions Collection ---
+    match /sessions/{sessionId} {
+      function isValidSession(data) {
+        return data.keys().hasAll(['id', 'studentId', 'tutorId', 'subject', 'status', 'scheduledTime']) &&
+               isValidId(data.studentId) && isValidId(data.tutorId) &&
+               data.subject is string && data.subject.size() <= 200 &&
+               data.status in ['scheduled', 'active', 'completed', 'cancelled'] &&
+               data.scheduledTime is string;
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+
+      allow create: if isVerifiedEmail() && isValidSession(incoming()) && 
+                    incoming().studentId == request.auth.uid &&
+                    incoming().status == 'scheduled';
+
+      allow update: if isAdmin() || (
+        isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid) && isValidSession(incoming())
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- Withdrawals Collection ---
+    match /withdrawals/{withdrawalId} {
+      function isValidWithdrawal(data) {
+        return data.keys().hasAll(['id', 'tutorId', 'amount', 'bKashNumber', 'status', 'timestamp']) &&
+               isValidId(data.tutorId) &&
+               data.amount is number && data.amount > 0 &&
+               data.bKashNumber is string && data.bKashNumber.size() <= 20 &&
+               data.status in ['pending', 'approved', 'rejected'] &&
+               data.timestamp is string;
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
+
+      allow create: if isVerifiedEmail() && isValidWithdrawal(incoming()) && 
+                    incoming().tutorId == request.auth.uid &&
+                    incoming().status == 'pending';
+
+      allow update: if isAdmin() && isValidWithdrawal(incoming());
+
+      allow delete: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn(); // Allow any signed in user to send notifications
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid 
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    }
+  }
+}

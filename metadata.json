@@ -1,0 +1,8 @@
+{
+  "name": "EduTrack",
+  "description": "A modern tutor finder platform for Bangladeshi students and parents featuring real-time GPS tracking, secure messaging, and bKash payment processing.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
