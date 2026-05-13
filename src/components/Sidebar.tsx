@@ -15,11 +15,13 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { currentUser, logout } = useAppStore();
+  const { currentUser, messages, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   if (!currentUser) return null;
+
+  const totalUnreadMessages = messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
 
   const isAdmin = currentUser.role === 'admin';
   const isTutor = currentUser.role === 'tutor';
@@ -43,7 +45,7 @@ export default function Sidebar() {
         { id: 'payments', label: 'Inbound Revenue', icon: CreditCard, path: '/dashboard/payments' },
         { id: 'withdrawals', label: 'Tutor Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
     ] : []),
-    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages' },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -64,18 +66,23 @@ export default function Sidebar() {
           Professional
         </p>
         <nav className="space-y-2">
-          {navItems.map((item) => (
+          {navItems.map((item: any) => (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group ${
+              className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
                 isActive(item.path) 
                 ? 'bg-[#0B132B] text-white shadow-xl shadow-slate-200' 
                 : 'text-slate-500 hover:bg-slate-50 hover:text-[#0B132B]'
               }`}
             >
               <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-400 group-hover:text-[#0B132B]'}`} />
-              <span className="text-sm font-black uppercase italic tracking-wider">{item.label}</span>
+              <span className="text-sm font-black uppercase italic tracking-wider flex-1 text-left">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-1 rounded-full animate-pulse">
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>

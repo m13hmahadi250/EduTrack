@@ -1,4 +1,4 @@
-import { useAppStore } from '../../store';
+import { useAppStore, User } from '../../store';
 import { 
   CheckCircle, 
   XCircle, 
@@ -13,7 +13,8 @@ import {
   FileText,
   Activity,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect } from 'react';
@@ -21,10 +22,23 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MetricCard } from '../../components/DashboardComponents';
 
 export default function AdminDashboard() {
-  const { users, payments, verifyTutor, approvePayment, rejectPayment, withdrawals, approveWithdrawal, rejectWithdrawal } = useAppStore();
+  const { 
+    users, 
+    payments, 
+    verifyTutor, 
+    approvePayment, 
+    rejectPayment, 
+    withdrawals, 
+    approveWithdrawal, 
+    rejectWithdrawal,
+    sendNotification,
+    sendMessage,
+    currentUser
+  } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'verifications' | 'payments' | 'withdrawals'>('verifications');
+  const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
 
   useEffect(() => {
     const path = location.pathname;
@@ -40,6 +54,30 @@ export default function AdminDashboard() {
       withdrawals: '/dashboard/withdrawals'
     };
     navigate(pathMap[tab]);
+  };
+
+  const promptForBio = async (tutor: User) => {
+    try {
+      await sendNotification(
+        tutor.id, 
+        'Bio Required', 
+        'Please update your professional bio to help students learn more about your expertise.', 
+        'warning'
+      );
+      
+      if (currentUser) {
+        await sendMessage({
+          senderId: currentUser.id,
+          receiverId: tutor.id,
+          content: "Hello! We noticed your profile is missing a bio. A professional bio significantly increases your booking rate. Please head to your profile settings and add a brief description of your experience and teaching style.",
+          participants: [currentUser.id, tutor.id]
+        });
+      }
+      
+      alert(`Prompt sent to ${tutor.name}`);
+    } catch (error) {
+      console.error("Failed to send prompt:", error);
+    }
   };
 
   const tutors = users.filter(u => u.role === 'tutor');
@@ -156,10 +194,29 @@ export default function AdminDashboard() {
                         <h4 className="text-xl font-black text-[#0B132B] uppercase italic">{tutor.name}</h4>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">{tutor.university || 'Independent Expert'}</p>
                         <div className="flex gap-4 mt-4">
-                           <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border ${tutor.nidStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                           {/* NID Status Badge */}
+                           <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
+                             tutor.nidStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                             tutor.nidStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                             'bg-amber-50 text-amber-600 border-amber-100'
+                           }`}>
+                             <div className={`w-1.5 h-1.5 rounded-full ${
+                               tutor.nidStatus === 'approved' ? 'bg-emerald-500' : 
+                               tutor.nidStatus === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'
+                             }`} />
                              NID: {tutor.nidStatus || 'Pending'}
                            </span>
-                           <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border ${tutor.academicStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+
+                           {/* Academic Status Badge */}
+                           <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
+                             tutor.academicStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                             tutor.academicStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                             'bg-amber-50 text-amber-600 border-amber-100'
+                           }`}>
+                             <div className={`w-1.5 h-1.5 rounded-full ${
+                               tutor.academicStatus === 'approved' ? 'bg-emerald-500' : 
+                               tutor.academicStatus === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'
+                             }`} />
                              Acad: {tutor.academicStatus || 'Pending'}
                            </span>
                         </div>
@@ -167,33 +224,17 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 w-full md:w-fit">
-                    {/* Identity Verification Block */}
-                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">NID Integrity</p>
-                       <div className="flex items-center gap-3">
-                         <button className="flex-1 py-3 bg-white text-[#0B132B] rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-200 hover:border-[#0D5BFF] transition-all">View Scan</button>
-                         <button onClick={() => verifyTutor(tutor.id, 'nid', 'approved')} className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-emerald-100">
-                           <CheckCircle className="w-5 h-5" />
-                         </button>
-                         <button onClick={() => verifyTutor(tutor.id, 'nid', 'rejected')} className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-rose-100">
-                           <XCircle className="w-5 h-5" />
-                         </button>
-                       </div>
-                    </div>
-
-                    {/* Academic Verification Block */}
-                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Academic Proof</p>
-                       <div className="flex items-center gap-3">
-                         <button className="flex-1 py-3 bg-white text-[#0B132B] rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-200 hover:border-[#0D5BFF] transition-all">Review Certs</button>
-                         <button onClick={() => verifyTutor(tutor.id, 'academic', 'approved')} className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-emerald-100">
-                           <CheckCircle className="w-5 h-5" />
-                         </button>
-                         <button onClick={() => verifyTutor(tutor.id, 'academic', 'rejected')} className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-rose-100">
-                           <XCircle className="w-5 h-5" />
-                         </button>
-                       </div>
-                    </div>
+                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Protocol Actions</p>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setSelectedTutor(tutor)}
+                            className="flex-1 py-3 bg-[#0B132B] text-white rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-200 hover:bg-[#0D5BFF] transition-all"
+                          >
+                            Open Profile
+                          </button>
+                        </div>
+                     </div>
                   </div>
                 </div>
               ))}
@@ -296,6 +337,162 @@ export default function AdminDashboard() {
                </div>
              )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Verification Modal */}
+      <AnimatePresence>
+        {selectedTutor && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 md:px-0">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedTutor(null)}
+              className="absolute inset-0 bg-[#0B132B]/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-[4rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-auto max-h-[90vh]"
+            >
+              {/* Left Column: Info */}
+              <div className="flex-1 p-12 overflow-y-auto custom-scrollbar border-r border-slate-100">
+                <div className="flex items-center gap-6 mb-10">
+                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] shadow-inner">
+                    {selectedTutor.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-black text-[#0B132B] uppercase italic leading-none mb-2">{selectedTutor.name}</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedTutor.university || 'Expert Profile'}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">Professional Bio</p>
+                    <div className="relative group">
+                      <p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-[#0D5BFF] pl-4 bg-slate-50 py-4 rounded-r-2xl">
+                        "{selectedTutor.bio || 'This expert has not provided a bio description yet. Verification should proceed based on credentials.'}"
+                      </p>
+                      {!selectedTutor.bio && (
+                        <button 
+                          onClick={() => promptForBio(selectedTutor)}
+                          className="mt-4 w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-100"
+                        >
+                          <Bell className="w-3 h-3" />
+                          Prompt for Bio
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Email Node</p>
+                      <p className="text-[10px] font-bold text-[#0B132B] truncate">{selectedTutor.email}</p>
+                    </div>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Expertise</p>
+                      <p className="text-[10px] font-bold text-[#0B132B]">{selectedTutor.course || 'Expert'}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Verification Protocol Check</p>
+                    <div className="space-y-4">
+                      {/* NID Section */}
+                      <div className="p-6 bg-[#0B132B] text-white rounded-3xl border border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Shield className="w-4 h-4 text-[#0D5BFF]" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">NID DOCUMENTATION</span>
+                          </div>
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {selectedTutor.nidStatus || 'Awaiting'}
+                          </span>
+                        </div>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => verifyTutor(selectedTutor.id, 'nid', 'approved')}
+                            className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase italic transition-all"
+                          >
+                            Approve NID
+                          </button>
+                          <button 
+                            onClick={() => verifyTutor(selectedTutor.id, 'nid', 'rejected')}
+                            className="flex-1 py-3 bg-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/30 rounded-xl text-[9px] font-black uppercase italic transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Academic Section */}
+                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B]">ACADEMIC CREDENTIALS</span>
+                          </div>
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {selectedTutor.academicStatus || 'Awaiting'}
+                          </span>
+                        </div>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => verifyTutor(selectedTutor.id, 'academic', 'approved')}
+                            className="flex-1 py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-[9px] font-black uppercase italic transition-all"
+                          >
+                            Verify Academic
+                          </button>
+                          <button 
+                            onClick={() => verifyTutor(selectedTutor.id, 'academic', 'rejected')}
+                            className="flex-1 py-3 bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-500 rounded-xl text-[9px] font-black uppercase italic transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Visual Evidence */}
+              <div className="flex-1 bg-slate-100 p-8 flex flex-col">
+                <div className="flex items-center justify-between mb-6">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Evidence</h4>
+                   <button 
+                    onClick={() => setSelectedTutor(null)}
+                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                   >
+                     <LayoutDashboard className="w-5 h-5 rotate-45" />
+                   </button>
+                </div>
+                
+                <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 p-4 shadow-inner flex flex-col">
+                   <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-8">
+                      <div>
+                         <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Document scan preview unavailable in simulation mode</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="mt-6 p-6 bg-amber-50 border border-amber-100 rounded-2xl">
+                   <div className="flex items-center gap-3 mb-2">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest italic">Admin Advisory</span>
+                   </div>
+                   <p className="text-[9px] font-bold text-amber-700 leading-relaxed uppercase opacity-70">
+                      Ensure photo identity matches name and university affiliation before authorizing full expert access.
+                   </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

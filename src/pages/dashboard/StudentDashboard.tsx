@@ -25,9 +25,10 @@ import ImageUpload from '../../components/ImageUpload';
 import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
+import RatingModal from '../../components/RatingModal';
 
 export default function StudentDashboard() {
-  const { currentUser, users, submitPayment, payments, sessions, bookSession } = useAppStore();
+  const { currentUser, users, submitPayment, payments, sessions, bookSession, updateLocation } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterClass, setFilterClass] = useState('');
@@ -37,13 +38,31 @@ export default function StudentDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit'>('overview');
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const [pendingRatingSession, setPendingRatingSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    // Look for completed sessions that haven't been rated yet
+    const completedUnrated = sessions.find(s => s.status === 'completed' && !s.rating && s.studentId === currentUser?.id);
+    if (completedUnrated) {
+      setPendingRatingSession(completedUnrated);
+    }
+  }, [sessions, currentUser?.id]);
 
   const refreshLocationManual = () => {
     if ('geolocation' in navigator) {
       setIsRefreshingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          useAppStore.getState().updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
+          updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
           setIsRefreshingLocation(false);
         },
         (err) => {
@@ -83,12 +102,12 @@ export default function StudentDashboard() {
       if ('geolocation' in navigator) {
         currentWatchId = navigator.geolocation.watchPosition(
           (position) => {
-            useAppStore.getState().updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
+            updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
           },
           (error) => {
             console.error("Error watching student position", error);
             navigator.geolocation.getCurrentPosition(
-              (pos) => useAppStore.getState().updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
+              (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
               (err) => console.error("Current position failed", err)
             );
           },
@@ -156,9 +175,11 @@ export default function StudentDashboard() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   
   // Booking state
-  const [bookingDate, setBookingDate] = useState('');
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bookingSlot, setBookingSlot] = useState('');
   const [bookingSubject, setBookingSubject] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
   const myPayments = payments.filter(p => p.studentId === currentUser?.id);
   const mySessions = sessions.filter(s => s.studentId === currentUser?.id);
@@ -186,21 +207,34 @@ export default function StudentDashboard() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTutor || !currentUser || !bookingDate || !bookingSubject) return;
+    if (!selectedTutor || !currentUser || !bookingDate || !bookingSlot || !bookingSubject) {
+      alert("Please fill all booking requirements");
+      return;
+    }
 
-    await bookSession({
-      studentId: currentUser.id,
-      tutorId: selectedTutor.id,
-      subject: bookingSubject,
-      scheduledTime: bookingDate,
-    });
+    setIsBooking(true);
+    try {
+      const scheduledTime = `${bookingDate}T${bookingSlot}:00`;
 
-    setBookingSuccess(true);
-    setTimeout(() => {
-      setBookingSuccess(false);
-      setBookingDate('');
-      setBookingSubject('');
-    }, 3000);
+      await bookSession({
+        studentId: currentUser.id,
+        tutorId: selectedTutor.id,
+        subject: bookingSubject,
+        scheduledTime,
+      });
+
+      setBookingSuccess(true);
+      setTimeout(() => {
+        setBookingSuccess(false);
+        setBookingSlot('');
+        setBookingSubject('');
+      }, 3000);
+    } catch (error) {
+      console.error(error);
+      alert("Booking failed. Please check availability.");
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   const handleAccountUpdate = async (e: React.FormEvent) => {
@@ -250,7 +284,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px">
+      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },
@@ -343,8 +377,16 @@ export default function StudentDashboard() {
             className="grid grid-cols-1 lg:grid-cols-4 gap-8"
           >
             {/* Filters Sidebar */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
+            <div className={`lg:col-span-1 space-y-6 ${windowWidth <= 1024 && !showFilters ? 'hidden' : 'block'}`}>
+              <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm relative">
+                {windowWidth <= 1024 && (
+                   <button 
+                     onClick={() => setShowFilters(false)}
+                     className="absolute top-6 right-6 p-2 bg-slate-50 rounded-xl text-slate-400"
+                   >
+                     <ChevronLeft className="w-4 h-4" />
+                   </button>
+                )}
                 <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">System Filtering</h3>
                 
                 <div className="space-y-6">
@@ -387,17 +429,21 @@ export default function StudentDashboard() {
                     </select>
                   </FilterGroup>
 
-                  <FilterGroup label="Reputation">
+                  <FilterGroup label="Minimum Rating">
                     <div className="flex items-center space-x-2">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           onClick={() => setFilterRating(star === filterRating ? 0 : star)}
                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${filterRating >= star ? 'bg-amber-50 text-amber-500 border border-amber-100' : 'bg-slate-50 text-slate-300'}`}
+                          title={`${star} Stars & Up`}
                         >
                           <Star className={`w-4 h-4 ${filterRating >= star ? 'fill-amber-500' : ''}`} />
                         </button>
                       ))}
+                      {filterRating > 0 && (
+                        <span className="text-[10px] font-black text-amber-600 ml-2 uppercase italic">{filterRating}+</span>
+                      )}
                     </div>
                   </FilterGroup>
 
@@ -405,6 +451,7 @@ export default function StudentDashboard() {
                     onClick={() => {
                       setSearchTerm('');
                       setFilterSubject('');
+                      setFilterClass('');
                       setFilterRating(0);
                     }}
                     className="w-full py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
@@ -416,10 +463,19 @@ export default function StudentDashboard() {
             </div>
 
             <div className="lg:col-span-3 space-y-8">
+              {windowWidth <= 1024 && !showFilters && !selectedTutor && (
+                 <button 
+                   onClick={() => setShowFilters(true)}
+                   className="w-full py-4 bg-white border border-slate-100 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm"
+                 >
+                   <Search className="w-4 h-4 text-[#0D5BFF]" />
+                   Filter & Search Experts
+                 </button>
+              )}
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Tutor Selection Panel */}
-                {(!selectedTutor || window.innerWidth > 1024) && (
-                  <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+                {(!selectedTutor || windowWidth > 1024) && (
+                  <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar lg:sticky lg:top-4">
                     <div className="lg:hidden mb-6">
                        <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
@@ -448,12 +504,20 @@ export default function StudentDashboard() {
                                 {tutor.name}
                                 <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] ml-2" />
                               </h3>
-                              {tutor.isTrackingOn && (
-                                <span className="flex h-2.5 w-2.5 relative">
-                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {tutor.rating && (
+                                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                    <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
+                                  </div>
+                                )}
+                                {tutor.isTrackingOn && (
+                                  <span className="flex h-2.5 w-2.5 relative">
+                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
                               {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/hr` : 'N/A'}
@@ -466,7 +530,7 @@ export default function StudentDashboard() {
                 )}
 
                 {/* Tutor Details & Booking */}
-                {(selectedTutor || window.innerWidth > 1024) && (
+                {(selectedTutor || windowWidth > 1024) && (
                   <div className="space-y-8">
                     {selectedTutor ? (
                       <>
@@ -489,7 +553,16 @@ export default function StudentDashboard() {
                                 )}
                                 <div>
                                   <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
-                                  <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
+                                  <div className="flex items-center gap-3">
+                                    <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
+                                    {selectedTutor.rating && (
+                                      <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                        <span className="text-[10px] font-black text-amber-700">{selectedTutor.rating.toFixed(1)}</span>
+                                        <span className="text-[8px] font-bold text-amber-400 ml-1">({selectedTutor.totalRatings || 0} reviews)</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                              </div>
                              <div className="lg:text-right p-4 bg-slate-50 lg:bg-transparent rounded-2xl">
@@ -498,21 +571,76 @@ export default function StudentDashboard() {
                              </div>
                           </div>
 
-                        <div className="grid grid-cols-2 gap-8 mb-8">
-                           <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Experience</p>
-                              <p className="text-[10px] font-black text-[#0B132B] uppercase italic">{selectedTutor.experience || 'Not Specified'}</p>
-                           </div>
-                           <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Subject Mastery</p>
-                              <div className="flex flex-wrap gap-1">
-                                {(selectedTutor.subjects || []).map(s => (
-                                  <span key={s} className="px-2 py-0.5 bg-[#0D5BFF]/10 text-[#0D5BFF] text-[7px] font-black uppercase rounded-full">{s}</span>
-                                ))}
-                                {(selectedTutor.subjects || []).length === 0 && <span className="text-[8px] font-bold text-slate-300">N/A</span>}
-                              </div>
-                           </div>
-                        </div>
+                         <div className="grid grid-cols-2 gap-8 mb-8">
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
+                               <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                     <div className="flex items-center gap-2">
+                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                        <span className="text-[8px] font-black uppercase text-[#0B132B]">NID Identity</span>
+                                     </div>
+                                     <span className={`text-[8px] font-black uppercase ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                        {selectedTutor.nidStatus === 'approved' ? 'Verified' : 'Pending'}
+                                     </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                     <div className="flex items-center gap-2">
+                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                        <span className="text-[8px] font-black uppercase text-[#0B132B]">Academic Certs</span>
+                                     </div>
+                                     <span className={`text-[8px] font-black uppercase ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                        {selectedTutor.academicStatus === 'approved' ? 'Verified' : 'Pending'}
+                                     </span>
+                                  </div>
+                               </div>
+                            </div>
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Experience</p>
+                               <p className="text-[10px] font-black text-[#0B132B] uppercase italic">{selectedTutor.experience || 'Not Specified'}</p>
+                            </div>
+                         </div>
+
+                         {/* Student's Personal Rating History with this Tutor */}
+                         {mySessions.filter(s => s.tutorId === selectedTutor.id && s.rating).length > 0 && (
+                            <div className="mb-8 p-6 bg-[#0D5BFF]/5 rounded-[2rem] border border-[#0D5BFF]/10 flex items-center justify-between">
+                               <div>
+                                  <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-1">Your Rating History</p>
+                                  <p className="text-[10px] font-black text-[#0B132B] uppercase italic">
+                                     You have rated this expert {mySessions.filter(s => s.tutorId === selectedTutor.id && s.rating).length} times
+                                  </p>
+                               </div>
+                               <div className="flex gap-1">
+                                  {(() => {
+                                     const ratedSessions = mySessions.filter(s => s.tutorId === selectedTutor.id && s.rating);
+                                     const avg = ratedSessions.reduce((acc, s) => acc + (s.rating || 0), 0) / ratedSessions.length;
+                                     return [1,2,3,4,5].map(st => (
+                                        <Star key={st} className={`w-3 h-3 ${st <= Math.round(avg) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                                     ));
+                                  })()}
+                               </div>
+                            </div>
+                         )}
+
+                         {/* Unrated Sessions Prompt */}
+                         {mySessions.find(s => s.tutorId === selectedTutor.id && s.status === 'completed' && !s.rating) && (
+                            <div className="mb-8 p-6 bg-amber-50 rounded-[2rem] border border-amber-100 flex items-center justify-between">
+                               <div>
+                                  <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1">Feedback Needed</p>
+                                  <p className="text-[10px] font-black text-amber-900 uppercase italic">You have unrated sessions with this tutor</p>
+                               </div>
+                               <button 
+                                 type="button"
+                                 onClick={() => {
+                                   const unrated = mySessions.find(s => s.tutorId === selectedTutor.id && s.status === 'completed' && !s.rating);
+                                   if (unrated) setPendingRatingSession(unrated);
+                                 }}
+                                 className="px-6 py-3 bg-amber-500 text-white rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg shadow-amber-100"
+                               >
+                                  Rate Now
+                               </button>
+                            </div>
+                         )}
 
                         <div className="space-y-6 mb-10">
                            <div>
@@ -543,16 +671,46 @@ export default function StudentDashboard() {
                           </motion.div>
                         ) : (
                           <form onSubmit={handleBookingSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="space-y-2">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Target Time</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Session Date</label>
                                 <input 
-                                  type="datetime-local" 
+                                  type="date" 
+                                  min={new Date().toISOString().split('T')[0]}
                                   value={bookingDate}
                                   onChange={e => setBookingDate(e.target.value)}
                                   className="w-full bg-slate-100 border-none rounded-xl p-3 text-[10px] font-black uppercase text-[#0B132B]"
                                   required
                                 />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Available Slots</label>
+                                <select 
+                                  value={bookingSlot}
+                                  onChange={e => setBookingSlot(e.target.value)}
+                                  className="w-full bg-slate-100 border-none rounded-xl p-3 text-[10px] font-black uppercase text-[#0B132B] focus:outline-none"
+                                  required
+                                >
+                                  <option value="">SELECT SLOT</option>
+                                  {(() => {
+                                    const dayName = new Date(bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
+                                    const slots = selectedTutor.availabilitySlots?.[dayName] || [];
+                                    return slots.length > 0 
+                                      ? slots.map(slot => (
+                                          <option key={slot} value={slot}>{slot}</option>
+                                        ))
+                                      : <option disabled value="">NO SLOTS FOR {dayName.toUpperCase()}</option>;
+                                  })()}
+                                </select>
+                                {(() => {
+                                  const dayName = new Date(bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
+                                  const slots = selectedTutor.availabilitySlots?.[dayName] || [];
+                                  return slots.length === 0 && (
+                                    <p className="text-[7px] font-black text-rose-500 uppercase tracking-widest mt-1 ml-3 px-1">
+                                      Expert is not active on {dayName}. Try another date.
+                                    </p>
+                                  );
+                                })()}
                               </div>
                               <div className="space-y-2">
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Intel Subject</label>
@@ -569,8 +727,16 @@ export default function StudentDashboard() {
                                 </select>
                               </div>
                             </div>
-                            <button className="w-full py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all">
-                              Initiate Booking
+                            <button 
+                              disabled={isBooking}
+                              className="w-full py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            >
+                              {isBooking ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                  Synchronizing...
+                                </>
+                              ) : 'Initiate Booking'}
                             </button>
                           </form>
                         )}
@@ -631,11 +797,29 @@ export default function StudentDashboard() {
                               <p className="text-xs font-black text-[#0B132B] uppercase italic">{sess.subject}</p>
                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{new Date(sess.scheduledTime).toLocaleDateString()}</p>
                            </div>
-                           <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                             sess.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'
-                           }`}>
-                             {sess.status}
-                           </span>
+                           <div className="flex flex-col items-end gap-2">
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                               sess.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'
+                             }`}>
+                               {sess.status}
+                             </span>
+                             {sess.status === 'completed' && !sess.rating && (
+                               <button 
+                                 onClick={() => setPendingRatingSession(sess)}
+                                 className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest hover:underline flex items-center gap-1"
+                               >
+                                 <Star className="w-2 h-2 fill-[#0D5BFF]" />
+                                 Rate Tutor
+                               </button>
+                             )}
+                             {sess.rating && (
+                               <div className="flex items-center gap-1">
+                                 {[1,2,3,4,5].map(st => (
+                                   <Star key={st} className={`w-2 h-2 ${st <= sess.rating! ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                                 ))}
+                               </div>
+                             )}
+                           </div>
                         </div>
                       ))}
                    </div>
@@ -915,6 +1099,16 @@ export default function StudentDashboard() {
                </div>
              )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingRatingSession && (
+          <RatingModal 
+            sessionId={pendingRatingSession.id}
+            tutorName={users.find(u => u.id === pendingRatingSession.tutorId)?.name || 'Your Tutor'}
+            onClose={() => setPendingRatingSession(null)}
+          />
         )}
       </AnimatePresence>
     </div>

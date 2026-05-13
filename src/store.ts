@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
@@ -22,6 +24,12 @@ import {
 import { auth, db } from './lib/firebase';
 
 export type Role = 'student' | 'tutor' | 'admin';
+
+export interface AvailabilitySlot {
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  startTime: string; // HH:mm
+  endTime: string;   // HH:mm
+}
 
 export interface User {
   id: string;
@@ -56,13 +64,14 @@ export interface User {
   isTrackingOn?: boolean;
   location?: { lat: number; lng: number };
   rating?: number;
+  totalRatings?: number;
+  ratingSum?: number;
   
   // New Profile Details
   bio?: string;
   experience?: string;
-  availability?: string; // e.g. "Mon-Fri, 4PM-8PM"
   hourlyRate?: number;
-  availabilitySlots?: { [key: string]: string[] }; // e.g., { 'Monday': ['14:00-16:00'] }
+  availabilitySlots?: { [key: string]: string[] }; 
 }
 
 export interface Session {
@@ -76,6 +85,8 @@ export interface Session {
   scheduledTime: string;
   duration?: number; // in minutes
   meetingLink?: string;
+  rating?: number;
+  feedback?: string;
 }
 
 export interface Withdrawal {
@@ -105,6 +116,7 @@ export interface Message {
   participants: string[];
   content: string;
   timestamp: string;
+  isRead: boolean;
 }
 
 export interface Notification {
@@ -129,12 +141,14 @@ interface AppState {
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (requestedRole?: Role) => Promise<void>;
   loginAsDemo: (role: Role) => Promise<void>;
   logout: () => Promise<void>;
   signup: (userData: Partial<User>, password: string) => Promise<void>;
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   updateLocation: (id: string, lat: number, lng: number) => Promise<void>;
   toggleTracking: (id: string, isOn: boolean) => Promise<void>;
+  updateAvailabilitySlots: (slots: { [key: string]: string[] }) => Promise<void>;
   
   // Admin actions
   verifyTutor: (id: string, type: 'nid' | 'academic', status: 'approved' | 'rejected') => Promise<void>;
@@ -151,10 +165,12 @@ interface AppState {
   startSession: (sessionId: string) => Promise<void>;
   endSession: (sessionId: string) => Promise<void>;
   cancelSession: (sessionId: string) => Promise<void>;
+  rateSession: (sessionId: string, rating: number, feedback: string) => Promise<void>;
   requestWithdrawal: (withdrawal: Omit<Withdrawal, 'id' | 'status' | 'timestamp'>) => Promise<void>;
   
   // Messages
-  sendMessage: (msg: Omit<Message, 'id' | 'timestamp'>) => Promise<void>;
+  sendMessage: (msg: Omit<Message, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
+  markMessagesAsRead: (senderId: string) => Promise<void>;
   
   // Notifications
   sendNotification: (userId: string, title: string, message: string, type?: Notification['type']) => Promise<void>;
@@ -252,6 +268,35 @@ export const useAppStore = create<AppState>((set, get) => {
 
     login: async (email, password) => {
       await signInWithEmailAndPassword(auth, email, password);
+    },
+
+    loginWithGoogle: async (requestedRole) => {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const { user } = result;
+
+      // Check if user exists in Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (!userDoc.exists()) {
+        // New user from Google
+        const newUser: User = {
+          id: user.uid,
+          email: user.email!,
+          name: user.displayName || 'Google User',
+          phone: user.phoneNumber || '',
+          role: requestedRole || 'student', // Default to student if no role specified
+          balance: 0,
+          isVerified: false,
+          isTrackingOn: false,
+          rating: 0,
+          profileImage: user.photoURL || undefined
+        };
+        await setDoc(doc(db, 'users', user.uid), newUser);
+        set({ currentUser: newUser });
+      } else {
+        set({ currentUser: userDoc.data() as User });
+      }
     },
 
     loginAsDemo: async (role: Role) => {
@@ -380,6 +425,17 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      }
+    },
+
+    updateAvailabilitySlots: async (slots) => {
+      const user = get().currentUser;
+      if (!user) return;
+      try {
+        await updateDoc(doc(db, 'users', user.id), { availabilitySlots: slots });
+        set({ currentUser: { ...user, availabilitySlots: slots } });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
       }
     },
 
@@ -540,6 +596,34 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
+    rateSession: async (sessionId, rating, feedback) => {
+      try {
+        const session = get().sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
+        // Update session with rating
+        await updateDoc(doc(db, 'sessions', sessionId), { rating, feedback });
+
+        // Update tutor rating stats
+        const tutorRef = doc(db, 'users', session.tutorId);
+        const tutor = get().users.find(u => u.id === session.tutorId);
+        
+        if (tutor) {
+          const newRatingSum = (tutor.ratingSum || 0) + rating;
+          const newTotalRatings = (tutor.totalRatings || 0) + 1;
+          const newAverageRating = newRatingSum / newTotalRatings;
+
+          await updateDoc(tutorRef, {
+            rating: newAverageRating,
+            ratingSum: newRatingSum,
+            totalRatings: newTotalRatings
+          });
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${sessionId}`);
+      }
+    },
+
     requestWithdrawal: async (withdrawalData) => {
       const id = `with_${Date.now()}`;
       try {
@@ -572,7 +656,8 @@ export const useAppStore = create<AppState>((set, get) => {
           ...msgData,
           id,
           participants: [msgData.senderId, msgData.receiverId],
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          isRead: false
         });
         
         // Notify Receiver
@@ -584,6 +669,26 @@ export const useAppStore = create<AppState>((set, get) => {
         );
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `messages/${id}`);
+      }
+    },
+
+    markMessagesAsRead: async (senderId) => {
+      const user = get().currentUser;
+      if (!user) return;
+      
+      const unreadMessages = get().messages.filter(m => 
+        m.receiverId === user.id && m.senderId === senderId && !m.isRead
+      );
+
+      if (unreadMessages.length === 0) return;
+
+      try {
+        const promises = unreadMessages.map(m => 
+          updateDoc(doc(db, 'messages', m.id), { isRead: true })
+        );
+        await Promise.all(promises);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'messages/markAsRead');
       }
     },
 

@@ -30,7 +30,10 @@
             "lng": { "type": "number" }
           }
         },
-        "rating": { "type": "number" }
+        "rating": { "type": "number" },
+        "totalRatings": { "type": "number" },
+        "ratingSum": { "type": "number" },
+        "availabilitySlots": { "type": "object" }
       },
       "required": ["id", "role", "name", "email"]
     },
@@ -60,9 +63,10 @@
         "receiverId": { "type": "string" },
         "participants": { "type": "array", "items": { "type": "string" } },
         "content": { "type": "string" },
-        "timestamp": { "type": "string" }
+        "timestamp": { "type": "string" },
+        "isRead": { "type": "boolean" }
       },
-      "required": ["id", "senderId", "receiverId", "participants", "content", "timestamp"]
+      "required": ["id", "senderId", "receiverId", "participants", "content", "timestamp", "isRead"]
     },
     "Session": {
       "title": "Session",
@@ -78,7 +82,9 @@
         "endTime": { "type": "string" },
         "scheduledTime": { "type": "string" },
         "duration": { "type": "number" },
-        "meetingLink": { "type": "string" }
+        "meetingLink": { "type": "string" },
+        "rating": { "type": "number" },
+        "feedback": { "type": "string" }
       },
       "required": ["id", "studentId", "tutorId", "subject", "status", "scheduledTime"]
     },

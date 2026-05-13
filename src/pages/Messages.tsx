@@ -15,7 +15,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Messages() {
-  const { currentUser, users, messages, sendMessage } = useAppStore();
+  const { currentUser, users, messages, sendMessage, markMessagesAsRead } = useAppStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,6 +26,13 @@ export default function Messages() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, selectedUserId]);
+
+  // Mark as read when selecting a user or when new messages arrive for the selected user
+  useEffect(() => {
+    if (selectedUserId && currentUser) {
+      markMessagesAsRead(selectedUserId);
+    }
+  }, [selectedUserId, messages.length, currentUser?.id]);
 
   if (!currentUser) return null;
 
@@ -76,9 +83,12 @@ export default function Messages() {
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-6 space-y-2">
             {filteredPartners.map(partner => {
-              const lastMessage = messages
-                .filter(m => m.participants.includes(partner.id) && m.participants.includes(currentUser.id))
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+              const partnerMessages = messages
+                .filter(m => m.participants.includes(partner.id) && m.participants.includes(currentUser.id));
+              
+              const lastMessage = [...partnerMessages].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+              
+              const unreadCount = partnerMessages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
 
               return (
                 <button 
@@ -110,11 +120,23 @@ export default function Messages() {
                         </span>
                       )}
                     </div>
-                    <p className={`text-[9px] font-black uppercase italic tracking-widest truncate opacity-60 ${
-                      selectedUserId === partner.id ? 'text-blue-50' : 'text-slate-400'
-                    }`}>
-                      {lastMessage ? lastMessage.content : `CONNECT WITH ${partner.role.toUpperCase()}`}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-[9px] font-black uppercase italic tracking-widest truncate opacity-60 flex-1 ${
+                        selectedUserId === partner.id ? 'text-blue-50' : 'text-slate-400'
+                      }`}>
+                        {lastMessage ? (
+                          <>
+                            {lastMessage.senderId === currentUser.id && "YOU: "}
+                            {lastMessage.content}
+                          </>
+                        ) : `CONNECT WITH ${partner.role.toUpperCase()}`}
+                      </p>
+                      {unreadCount > 0 && selectedUserId !== partner.id && (
+                        <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse flex-shrink-0">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {selectedUserId === partner.id && (
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-bl-[3rem]"></div>
@@ -189,7 +211,13 @@ export default function Messages() {
                              <span className="text-[9px] font-black text-slate-400 uppercase italic tracking-widest">
                                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                              </span>
-                             {isMe && <CheckCheck className="w-3.5 h-3.5 text-[#0D5BFF]" />}
+                             {isMe && (
+                               msg.isRead ? (
+                                 <CheckCheck className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                               ) : (
+                                 <Check className="w-3.5 h-3.5 text-slate-300" />
+                               )
+                             )}
                           </div>
                         </div>
                       </motion.div>

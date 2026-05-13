@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Sparkles, Zap, Gift } from 'lucide-react';
 
 export default function PromotionalBanner() {
-  const adText = "SPECIAL OFFER: JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • USE CODE: EDU2026 • VERIFIED TUTORS GET EXCLUSIVE BADGES • REAL-TIME TRACKING NOW LIVE IN ALL CITIES • ";
+  const adText = "SPECIAL OFFER: JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • VERIFIED TUTORS GET EXCLUSIVE BADGES • REAL-TIME TRACKING NOW LIVE IN ALL CITIES • ";
 
   return (
     <div className="bg-[#0B132B] text-white py-3 overflow-hidden whitespace-nowrap border-b border-white/10 relative z-[60]">

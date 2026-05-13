@@ -19,7 +19,9 @@ import {
   ChevronRight,
   Settings,
   Briefcase,
-  GraduationCap
+  GraduationCap,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -50,13 +52,14 @@ export default function TutorDashboard() {
     cancelSession,
     requestWithdrawal,
     updateUser,
+    updateAvailabilitySlots,
     users
   } = useAppStore();
 
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'my_session' | 'balance' | 'transit_mode' | 'pro_profile'>('my_session');
+  const [activeTab, setActiveTab] = useState<'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability'>('my_session');
 
   const refreshLocationManual = () => {
     if ('geolocation' in navigator) {
@@ -80,15 +83,17 @@ export default function TutorDashboard() {
     if (path.endsWith('/balance')) setActiveTab('balance');
     else if (path.endsWith('/transit')) setActiveTab('transit_mode');
     else if (path.endsWith('/profile')) setActiveTab('pro_profile');
+    else if (path.endsWith('/availability')) setActiveTab('availability');
     else setActiveTab('my_session');
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'my_session' | 'balance' | 'transit_mode' | 'pro_profile') => {
+  const handleTabChange = (tab: 'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability') => {
     const pathMap = {
       my_session: '/dashboard',
       balance: '/dashboard/balance',
       transit_mode: '/dashboard/transit',
-      pro_profile: '/dashboard/profile'
+      pro_profile: '/dashboard/profile',
+      availability: '/dashboard/availability'
     };
     navigate(pathMap[tab]);
   };
@@ -99,7 +104,6 @@ export default function TutorDashboard() {
   const [profileForm, setProfileForm] = useState({
     bio: currentUser?.bio || '',
     hourlyRate: currentUser?.hourlyRate || 0,
-    availability: currentUser?.availability || '',
     experience: currentUser?.experience || '',
     subjects: currentUser?.subjects || [],
     classes: currentUser?.classes || [],
@@ -112,7 +116,6 @@ export default function TutorDashboard() {
       setProfileForm({
         bio: currentUser.bio || '',
         hourlyRate: currentUser.hourlyRate || 0,
-        availability: currentUser.availability || '',
         experience: currentUser.experience || '',
         subjects: currentUser.subjects || [],
         classes: currentUser.classes || [],
@@ -273,7 +276,7 @@ export default function TutorDashboard() {
             <div className="lg:col-span-2 space-y-8">
               <div className="grid grid-cols-2 gap-6">
                 <MetricCard label="Active Students" value={Array.from(new Set(sessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(s => s.studentId))).length.toString()} />
-                <MetricCard label="Completed" value={sessions.filter(s => s.status === 'completed').length.toString()} />
+                <MetricCard label="Tutor Rating" value={currentUser?.rating?.toFixed(1) || '0.0'} />
               </div>
 
               <div className="space-y-6">
@@ -341,7 +344,7 @@ export default function TutorDashboard() {
             </div>
 
             <div className="space-y-8">
-              <ReputationTracker />
+              <ReputationTracker rating={currentUser?.rating || 0} totalReviews={currentUser?.totalRatings || 0} />
               <WeeklyGrowthChart />
             </div>
           </motion.div>
@@ -592,31 +595,43 @@ export default function TutorDashboard() {
                         <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-center">{currentUser.name}</h2>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8">{currentUser.university || 'Expert Educator'}</p>
                         
-                        {/* Verification Status Progress */}
-                        <div className="w-full space-y-4 mb-10">
-                           <div className="flex items-center justify-between px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100">
-                             <div className="flex items-center gap-3">
-                               <ShieldCheck className={`w-4 h-4 ${currentUser.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
-                               <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]">NID Identity</span>
-                             </div>
-                             <span className={`text-[8px] font-black uppercase tracking-widest ${
-                               currentUser.nidStatus === 'approved' ? 'text-emerald-500' : currentUser.nidStatus === 'rejected' ? 'text-rose-500' : 'text-amber-500'
-                             }`}>
-                               {currentUser.nidStatus || 'Pending'}
-                             </span>
-                           </div>
-                           <div className="flex items-center justify-between px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100">
-                             <div className="flex items-center gap-3">
-                               <GraduationCap className={`w-4 h-4 ${currentUser.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
-                               <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]">Academic Certs</span>
-                             </div>
-                             <span className={`text-[8px] font-black uppercase tracking-widest ${
-                               currentUser.academicStatus === 'approved' ? 'text-emerald-500' : currentUser.academicStatus === 'rejected' ? 'text-rose-500' : 'text-amber-500'
-                             }`}>
-                               {currentUser.academicStatus || 'Pending'}
-                             </span>
-                           </div>
-                        </div>
+                         {/* Verification Status Progress */}
+                         <div className="w-full space-y-4 mb-10">
+                            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <ShieldCheck className={`w-4 h-4 ${currentUser.nidStatus === 'approved' ? 'text-emerald-500' : currentUser.nidStatus === 'rejected' ? 'text-rose-500' : 'text-slate-300'}`} />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]">NID Identity</span>
+                              </div>
+                              <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
+                                currentUser.nidStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                currentUser.nidStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                                'bg-amber-50 text-amber-600 border-amber-100'
+                              }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  currentUser.nidStatus === 'approved' ? 'bg-emerald-500' : 
+                                  currentUser.nidStatus === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'
+                                }`} />
+                                {currentUser.nidStatus || 'Pending'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <GraduationCap className={`w-4 h-4 ${currentUser.academicStatus === 'approved' ? 'text-emerald-500' : currentUser.academicStatus === 'rejected' ? 'text-rose-500' : 'text-slate-300'}`} />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]">Academic Certs</span>
+                              </div>
+                              <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
+                                currentUser.academicStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                currentUser.academicStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                                'bg-amber-50 text-amber-600 border-amber-100'
+                              }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  currentUser.academicStatus === 'approved' ? 'bg-emerald-500' : 
+                                  currentUser.academicStatus === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'
+                                }`} />
+                                {currentUser.academicStatus || 'Pending'}
+                              </span>
+                            </div>
+                         </div>
 
                         <button 
                          onClick={() => setIsEditingProfile(!isEditingProfile)}
@@ -634,7 +649,7 @@ export default function TutorDashboard() {
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
-                         <ProfileField label="Availability Window" value={profileForm.availability} onChange={(v) => setProfileForm({...profileForm, availability: v})} placeholder="Mon-Fri, 4-8 PM" />
+                         <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />
                        </div>
                         <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Authorized Subjects</label>
@@ -742,7 +757,7 @@ export default function TutorDashboard() {
                             <h3 className="text-sm font-black text-[#0B132B] uppercase italic">Availability</h3>
                           </div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose">
-                            {currentUser.availability || 'System Default (Flexible)'}
+                            {Object.keys(currentUser.availabilitySlots || {}).length > 0 ? 'Slots Configured' : 'System Default (Flexible)'}
                           </p>
                        </div>
                     </div>
@@ -790,6 +805,63 @@ export default function TutorDashboard() {
             </div>
           </motion.div>
         )}
+
+        {activeTab === 'availability' && (
+          <motion.div
+            key="availability"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="space-y-8"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-blue-50 rounded-[2.5rem] flex items-center justify-center border-4 border-white shadow-xl">
+                  <Calendar className="w-10 h-10 text-[#0D5BFF]" />
+                </div>
+                <div>
+                  <h2 className="text-4xl font-black text-[#0B132B] uppercase italic leading-none">Schedule Manager</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Optimize your academic performance windows</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <AvailabilityCalendar 
+                  slots={currentUser.availabilitySlots || {}} 
+                  onChange={(slots) => updateAvailabilitySlots(slots)} 
+                />
+              </div>
+              <div className="space-y-8">
+                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-4 mb-8">
+                    <Zap className="w-6 h-6 text-amber-500" />
+                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic">Efficiency Tips</h3>
+                  </div>
+                  <div className="space-y-6">
+                    <p className="text-[11px] font-black uppercase italic text-slate-400 leading-loose">
+                      • Evening slots (6 PM - 10 PM) typically receive 3x more search visibility.<br/>
+                      • Keep at least 4 slots per day to maintain a "Flexible" tag.<br/>
+                      • Consistent weekly patterns help students book in advance.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white shadow-2xl">
+                   <div className="flex items-center gap-4 mb-6">
+                      <Clock className="w-5 h-5 text-[#0D5BFF]" />
+                      <h3 className="text-sm font-black uppercase italic">Slot Pulse</h3>
+                   </div>
+                   <div className="flex items-end justify-between">
+                      <span className="text-5xl font-black italic">{Object.values(currentUser.availabilitySlots || {}).flat().length}</span>
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest pb-2">Active Windows</span>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -810,25 +882,39 @@ function ProfileField({ label, value, onChange, placeholder, type = "text" }: { 
   );
 }
 
-function ReputationTracker() {
+function ReputationTracker({ rating, totalReviews }: { rating: number, totalReviews: number }) {
   return (
     <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-3xl -z-0"></div>
       
       <div className="flex items-center space-x-3 mb-10 relative z-10">
-         <TrendingUp className="w-6 h-6 text-[#0D5BFF]" />
-         <h3 className="text-xl font-black uppercase italic">Reputation Tracker</h3>
+         <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+         <h3 className="text-xl font-black uppercase italic">Student Feedback</h3>
+      </div>
+
+      <div className="relative z-10 mb-8">
+         <div className="flex items-end gap-3">
+            <span className="text-6xl font-black italic text-[#0D5BFF]">{rating.toFixed(1)}</span>
+            <div className="pb-2">
+               <div className="flex gap-1 mb-1">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} className={`w-3 h-3 ${s <= Math.round(rating) ? 'fill-amber-500 text-amber-500' : 'text-slate-700'}`} />
+                  ))}
+               </div>
+               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{totalReviews} Reviews Received</p>
+            </div>
+         </div>
       </div>
 
       <div className="space-y-8 relative z-10">
-        <TrackerBar label="Tutor Rank" percentage={98} color="bg-emerald-500" />
+        <TrackerBar label="Tutor Rank" percentage={Math.min(100, Math.round((rating / 5) * 100))} color="bg-emerald-500" />
         <TrackerBar label="Punctuality" percentage={94} color="bg-[#0D5BFF]" />
-        <TrackerBar label="Completion" percentage={100} color="bg-purple-500" />
+        <TrackerBar label="Safety Rating" percentage={100} color="bg-purple-500" />
       </div>
 
       <div className="mt-12 p-6 bg-white/5 rounded-3xl border border-white/10 relative z-10">
         <p className="text-[10px] font-medium text-slate-400 italic leading-relaxed">
-          Insights based on your last 10 sessions. High punctuality improves your visibility to parents.
+          Your reputation score is calculated based on direct student feedback and session punctuality.
         </p>
       </div>
     </div>

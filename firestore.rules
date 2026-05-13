@@ -44,7 +44,7 @@ service cloud.firestore {
     // --- Users Collection ---
     match /users/{userId} {
       function isValidUser(data) {
-        return data.keys().hasAll(['id', 'role', 'name', 'email', 'balance', 'isVerified', 'isTrackingOn', 'rating']) &&
+        return data.keys().hasAll(['id', 'role', 'name', 'email', 'balance', 'isVerified', 'isTrackingOn']) &&
                data.id == userId &&
                data.role in ['student', 'tutor', 'admin'] &&
                data.name is string && data.name.size() <= 128 &&
@@ -52,23 +52,21 @@ service cloud.firestore {
                data.balance is number &&
                data.isVerified is bool &&
                data.isTrackingOn is bool &&
-               data.rating is number &&
-               // Optional fields handling
+               // Optional/New fields handling
+               (data.get('rating', null) == null || data.rating is number) &&
+               (data.get('totalRatings', null) == null || data.totalRatings is number) &&
+               (data.get('ratingSum', null) == null || data.ratingSum is number) &&
+               (data.get('availabilitySlots', null) == null || data.availabilitySlots is map) &&
                (data.get('phone', null) == null || data.phone is string) &&
                (data.get('address', null) == null || data.address is string) &&
                (data.get('university', null) == null || data.university is string) &&
-               (data.get('course', null) == null || data.course is string) &&
-               (data.get('subject', null) == null || data.subject is string) &&
-               (data.get('year', null) == null || data.year is string) &&
-               (data.get('semester', null) == null || data.semester is string) &&
-               (data.get('group', null) == null || data.group is string) &&
-               (data.get('studentClass', null) == null || data.studentClass is string) &&
-               (data.get('school', null) == null || data.school is string) &&
+               (data.get('experience', null) == null || data.experience is string) &&
+               (data.get('bio', null) == null || data.bio is string) &&
+               (data.get('hourlyRate', null) == null || data.hourlyRate is number) &&
                (data.get('profileImage', null) == null || data.profileImage is string) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
-      // Allow authenticated users to search/read profiles
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
@@ -79,6 +77,10 @@ service cloud.firestore {
                        incoming().email == existing().email && 
                        incoming().balance == existing().balance && 
                        incoming().isVerified == existing().isVerified
+                    ) || (
+                       // Allow rating updates from students
+                       isSignedIn() && 
+                       incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingSum', 'totalRatings'])
                     ) || isAdmin();
 
       allow delete: if isAdmin();
@@ -108,11 +110,11 @@ service cloud.firestore {
     // --- Messages Collection ---
     match /messages/{messageId} {
       function isValidMessage(data) {
-        return data.keys().hasAll(['id', 'senderId', 'receiverId', 'participants', 'content', 'timestamp']) &&
+        return data.keys().hasAll(['id', 'senderId', 'receiverId', 'participants', 'content', 'timestamp', 'isRead']) &&
                data.content is string && data.content.size() <= 5000 &&
-               data.senderId == request.auth.uid &&
+               data.senderId == (request.method == 'create' ? request.auth.uid : existing().senderId) &&
                data.participants.size() == 2 &&
-               request.auth.uid in data.participants;
+               (request.auth.uid in data.participants);
       }
 
       allow list: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participants);
@@ -120,7 +122,14 @@ service cloud.firestore {
       
       allow create: if isVerifiedEmail() && isValidMessage(incoming());
       
-      allow update, delete: if false; 
+      allow update: if isSignedIn() && (
+        // Receiver can mark as read
+        (request.auth.uid == existing().receiverId && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['isRead']) &&
+         incoming().isRead == true)
+      );
+
+      allow delete: if isAdmin();
     }
 
     // --- Sessions Collection ---
@@ -130,7 +139,11 @@ service cloud.firestore {
                isValidId(data.studentId) && isValidId(data.tutorId) &&
                data.subject is string && data.subject.size() <= 200 &&
                data.status in ['scheduled', 'active', 'completed', 'cancelled'] &&
-               data.scheduledTime is string;
+               data.scheduledTime is string &&
+               (data.get('rating', null) == null || data.rating is number) &&
+               (data.get('feedback', null) == null || data.feedback is string) &&
+               (data.get('duration', null) == null || data.duration is number) &&
+               (data.get('meetingLink', null) == null || data.meetingLink is string);
       }
 
       allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));

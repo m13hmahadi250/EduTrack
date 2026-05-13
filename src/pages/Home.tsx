@@ -372,6 +372,51 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Footer Section */}
+      <footer className="bg-white border-t border-slate-100 py-16 px-4 md:px-0">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+          <div className="col-span-1 md:col-span-2">
+            <h4 className="text-2xl font-black text-[#0B132B] uppercase italic mb-6">EduTrack</h4>
+            <p className="text-slate-500 font-medium max-w-sm leading-relaxed mb-6">
+              The premier platform for secure, verified home tutoring in Bangladesh. Built with safety and excellence at its core.
+            </p>
+            <div className="flex gap-4">
+              <div className="w-10 h-10 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div className="w-10 h-10 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h5 className="text-[10px] font-black text-[#0B132B] uppercase tracking-[0.2em] mb-6">Quick Links</h5>
+            <ul className="space-y-4">
+              <li><Link to="/signup" className="text-slate-500 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
+              <li><Link to="/signup" className="text-slate-500 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
+              <li><Link to="/login" className="text-slate-500 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-black text-[#0B132B] uppercase tracking-[0.2em] mb-6">Contact</h5>
+            <p className="text-slate-500 text-sm font-bold uppercase mb-2">Chattogram, Bangladesh</p>
+            <p className="text-[#0D5BFF] text-sm font-bold uppercase">m13hmahadi@gmail.com</p>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto pt-8 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            © {new Date().getFullYear()} EduTrack. All rights reserved.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-[8px] font-black text-slate-300 uppercase italic">Designed & Built by</span>
+            <span className="text-[10px] font-black text-[#0B132B] uppercase italic">Mohammed Mahadi Hossain</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

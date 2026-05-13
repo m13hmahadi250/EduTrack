@@ -11,3 +11,11 @@
     @apply bg-[#F8F9FA] text-[#0B132B] font-sans;
   }
 }
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
