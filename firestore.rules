@@ -33,12 +33,7 @@ service cloud.firestore {
     }
 
     function isVerifiedEmail() {
-      return isSignedIn() && (
-        request.auth.token.email_verified == true || 
-        request.auth.token.email == 'admin@gmail.com' ||
-        request.auth.token.email == 'student@gmail.com' ||
-        request.auth.token.email == 'teacher@gmail.com'
-      );
+      return isSignedIn();
     }
 
     // --- Users Collection ---

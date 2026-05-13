@@ -25,8 +25,11 @@
         "area": { "type": "string" },
         "thana": { "type": "string" },
         "teachingAreas": { "type": "array", "items": { "type": "string" } },
+        "nidNumber": { "type": "string" },
+        "birthDate": { "type": "string" },
         "isVerified": { "type": "boolean" },
         "isTrackingOn": { "type": "boolean" },
+        "hasDismissedProfileNotice": { "type": "boolean" },
         "location": {
           "type": "object",
           "properties": {

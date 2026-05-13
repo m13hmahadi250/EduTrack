@@ -58,7 +58,7 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
             </div>
           )}
           <div>
-            <h4 className="text-sm font-black text-[#0B132B] uppercase italic">{recipient.name}</h4>
+            <h4 className="text-sm font-black text-[#0B132B] italic">{recipient.name}</h4>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Secure Link Active</span>
@@ -95,7 +95,7 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
             >
               <div className={`max-w-[80%] ${isMe ? 'text-right' : 'text-left'}`}>
                 <div className={`
-                  px-6 py-4 rounded-[1.8rem] text-sm font-medium
+                  px-6 py-4 rounded-[1.8rem] text-sm font-semibold leading-relaxed
                   ${isMe 
                     ? 'bg-[#0B132B] text-white rounded-tr-none shadow-xl shadow-slate-200' 
                     : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'}
@@ -117,8 +117,8 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
           <input 
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="ENCRYPT MESSAGE CONTENT..."
-            className="w-full bg-white border border-slate-100 rounded-2xl py-4 pl-6 pr-14 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] shadow-sm italic"
+            placeholder="Type your message..."
+            className="w-full bg-white border border-slate-100 rounded-2xl py-4 pl-6 pr-14 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] shadow-sm"
           />
           <button 
             type="submit"

@@ -29,7 +29,7 @@ import RatingModal from '../../components/RatingModal';
 import ChatWindow from '../../components/ChatWindow';
 
 export default function StudentDashboard() {
-  const { currentUser, users, submitPayment, payments, sessions, bookSession, updateLocation } = useAppStore();
+  const { currentUser, users, submitPayment, payments, sessions, bookSession, updateLocation, messages } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterClass, setFilterClass] = useState('');
@@ -41,6 +41,10 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages'>('overview');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
+  const [showProfileNotice, setShowProfileNotice] = useState(true);
+
+  const isProfileIncomplete = (!currentUser?.address || !currentUser?.school || !currentUser?.studentClass) && !currentUser?.hasDismissedProfileNotice;
+
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [showFilters, setShowFilters] = useState(false);
   const dateScrollRef = useRef<HTMLDivElement>(null);
@@ -145,7 +149,8 @@ export default function StudentDashboard() {
     phone: currentUser?.phone || '',
     school: currentUser?.university || '',
     studentClass: currentUser?.studentClass || '',
-    subjects: currentUser?.subjects || []
+    subjects: currentUser?.subjects || [],
+    address: currentUser?.address || ''
   });
 
   // Sync form state when currentUser changes or editing is toggled
@@ -156,7 +161,8 @@ export default function StudentDashboard() {
         phone: currentUser.phone || '',
         school: currentUser.university || '',
         studentClass: currentUser.studentClass || '',
-        subjects: currentUser.subjects || []
+        subjects: currentUser.subjects || [],
+        address: currentUser.address || ''
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -283,7 +289,8 @@ export default function StudentDashboard() {
       phone: accountForm.phone,
       university: accountForm.school,
       studentClass: accountForm.studentClass,
-      subjects: accountForm.subjects
+      subjects: accountForm.subjects,
+      address: accountForm.address
     });
     setIsEditingAccount(false);
     setIsUpdating(false);
@@ -344,6 +351,52 @@ export default function StudentDashboard() {
           </button>
         ))}
       </div>
+
+      <AnimatePresence mode="wait">
+        {isProfileIncomplete && showProfileNotice && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-12"
+          >
+            <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white relative overflow-hidden group border border-white/10">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+              
+              <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                <div className="max-w-2xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-[#0D5BFF] rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                      <Bell className="w-5 h-5 text-white animate-pulse" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0D5BFF]">System Alert</span>
+                  </div>
+                  <h3 className="text-3xl font-black uppercase italic leading-tight mb-3">Optimize Your Learning Experience</h3>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-widest leading-relaxed">Your profile is currently missing key identification data. Please complete your address and institution details to synchronize with expert tutors in your sector.</p>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setActiveTab('account')}
+                    className="px-8 py-5 bg-[#0D5BFF] text-white rounded-[2rem] text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-blue-500/20"
+                  >
+                    Complete Profile
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowProfileNotice(false);
+                      useAppStore.getState().updateUser(currentUser.id, { hasDismissedProfileNotice: true });
+                    }}
+                    className="p-5 bg-white/5 text-slate-400 rounded-[2rem] hover:bg-white/10 hover:text-white transition-all border border-white/5"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {activeTab === 'overview' && (
@@ -900,22 +953,35 @@ export default function StudentDashboard() {
                                 </div>
                               </div>
 
-                              <button 
-                                disabled={isBooking || !bookingDate || !bookingSlot || bookingSubject.length === 0}
-                                className="w-full py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
-                              >
-                                {isBooking ? (
-                                  <>
-                                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    Synchronizing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Zap className="w-5 h-5" />
-                                    Confirm Session Bound
-                                  </>
-                                )}
-                              </button>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRecipientId(selectedTutor.id);
+                                    setActiveTab('messages');
+                                  }}
+                                  className="py-5 bg-white border-2 border-slate-100 text-[#0B132B] rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+                                >
+                                  <Send className="w-4 h-4" />
+                                  Message Expert
+                                </button>
+                                <button 
+                                  disabled={isBooking || !bookingDate || !bookingSlot || bookingSubject.length === 0}
+                                  className="py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                                >
+                                  {isBooking ? (
+                                    <>
+                                      <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                      Synchronizing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Zap className="w-5 h-5" />
+                                      Confirm Session
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </form>
                         )}
@@ -1154,9 +1220,11 @@ export default function StudentDashboard() {
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Contacts</h3>
                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
-                    // Logic: Tutors I have a session record with
-                    const myTutorIds = Array.from(new Set(mySessions.map(s => s.tutorId)));
-                    const contacts = users.filter(u => myTutorIds.includes(u.id));
+                    // Logic: Tutors I have a session record with OR message history
+                    const myTutorIdsFromSessions = mySessions.map(s => s.tutorId);
+                    const myTutorIdsFromMessages = messages.map(m => m.senderId === currentUser.id ? m.receiverId : m.senderId);
+                    const allContactIds = Array.from(new Set([...myTutorIdsFromSessions, ...myTutorIdsFromMessages]));
+                    const contacts = users.filter(u => allContactIds.includes(u.id));
 
                     if (contacts.length === 0) {
                       return (
@@ -1183,7 +1251,7 @@ export default function StudentDashboard() {
                            {contact.name.charAt(0)}
                          </div>
                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-black uppercase italic truncate">{contact.name}</h4>
+                            <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
                             <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
                               selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
                             }`}>
@@ -1230,10 +1298,16 @@ export default function StudentDashboard() {
                    </div>
                 </div>
                 <button 
-                  onClick={() => setIsEditingAccount(!isEditingAccount)}
+                  onClick={() => {
+                    if (isEditingAccount) {
+                      handleAccountUpdate({ preventDefault: () => {} } as React.FormEvent);
+                    } else {
+                      setIsEditingAccount(true);
+                    }
+                  }}
                   className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                 >
-                   {isEditingAccount ? 'Cancel Edit' : 'Modify ID'}
+                   {isEditingAccount ? 'Lock Changes in System' : 'Modify ID'}
                 </button>
              </div>
 
@@ -1253,6 +1327,15 @@ export default function StudentDashboard() {
                        value={accountForm.phone}
                        onChange={e => setAccountForm({...accountForm, phone: e.target.value})}
                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                     />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
+                     <input 
+                       value={accountForm.address}
+                       onChange={e => setAccountForm({...accountForm, address: e.target.value})}
+                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       placeholder="Enter full residential address"
                      />
                   </div>
                   <div className="md:col-span-2 space-y-2">
@@ -1304,7 +1387,7 @@ export default function StudentDashboard() {
                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                          Synchronizing...
                        </>
-                     ) : 'Update Identity Records'}
+                     ) : 'Lock Changes in System'}
                   </button>
                </form>
              ) : (
@@ -1317,6 +1400,10 @@ export default function StudentDashboard() {
                      <div>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Protocol</p>
                         <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.phone || 'NOT SET'}</p>
+                     </div>
+                     <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Address</p>
+                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.address || 'NOT SET'}</p>
                      </div>
                   </div>
                   <div className="space-y-8 border-l border-slate-50 pl-12">

@@ -60,6 +60,8 @@ export interface User {
   year?: string;
   course?: string;
   university?: string;
+  nidNumber?: string;
+  birthDate?: string;
   isVerified?: boolean;
   nidStatus?: 'pending' | 'approved' | 'rejected';
   academicStatus?: 'pending' | 'approved' | 'rejected';
@@ -76,6 +78,7 @@ export interface User {
   experience?: string;
   hourlyRate?: number;
   availabilitySlots?: { [key: string]: string[] }; 
+  hasDismissedProfileNotice?: boolean;
 }
 
 export interface Session {

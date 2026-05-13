@@ -396,6 +396,14 @@ export default function AdminDashboard() {
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Expertise</p>
                       <p className="text-[10px] font-bold text-[#0B132B]">{selectedTutor.course || 'Expert'}</p>
                     </div>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">NID Number</p>
+                      <p className="text-[10px] font-bold text-[#0B132B]">{selectedTutor.nidNumber || 'Not Provided'}</p>
+                    </div>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Birth Date</p>
+                      <p className="text-[10px] font-bold text-[#0B132B]">{selectedTutor.birthDate || 'Not Provided'}</p>
+                    </div>
                   </div>
 
                   <div>

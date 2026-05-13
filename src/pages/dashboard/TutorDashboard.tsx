@@ -58,7 +58,8 @@ export default function TutorDashboard() {
     requestWithdrawal,
     updateUser,
     updateAvailabilitySlots,
-    users
+    users,
+    messages
   } = useAppStore();
 
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
@@ -66,6 +67,9 @@ export default function TutorDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability' | 'messages'>('my_session');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
+  const [showProfileNotice, setShowProfileNotice] = useState(true);
+
+  const isProfileIncomplete = (!currentUser?.nidNumber || !currentUser?.birthDate || !currentUser?.district || !currentUser?.bio) && !currentUser?.hasDismissedProfileNotice;
 
   const refreshLocationManual = () => {
     if ('geolocation' in navigator) {
@@ -119,7 +123,9 @@ export default function TutorDashboard() {
     district: currentUser?.district || '',
     area: currentUser?.area || '',
     thana: currentUser?.thana || '',
-    teachingAreas: currentUser?.teachingAreas || []
+    teachingAreas: currentUser?.teachingAreas || [],
+    nidNumber: currentUser?.nidNumber || '',
+    birthDate: currentUser?.birthDate || ''
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -135,7 +141,9 @@ export default function TutorDashboard() {
         district: currentUser.district || '',
         area: currentUser.area || '',
         thana: currentUser.thana || '',
-        teachingAreas: currentUser.teachingAreas || []
+        teachingAreas: currentUser.teachingAreas || [],
+        nidNumber: currentUser.nidNumber || '',
+        birthDate: currentUser.birthDate || ''
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -289,6 +297,53 @@ export default function TutorDashboard() {
           </button>
         ))}
       </div>
+
+      <AnimatePresence mode="wait">
+        {isProfileIncomplete && showProfileNotice && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-8"
+          >
+            <div className="bg-[#0D5BFF] rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-700" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/20 rounded-full -ml-24 -mb-24 blur-2xl" />
+              
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                      <Bell className="w-4 h-4 text-white animate-bounce" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Optimization Required</span>
+                  </div>
+                  <h3 className="text-2xl font-black uppercase italic leading-tight">Complete your profile to unlock full system capabilities</h3>
+                  <p className="text-[10px] font-medium text-blue-100 uppercase tracking-widest max-w-xl">Our algorithm prioritizes complete profiles. Please provide your NID, Birth Date, and Professional Bio to begin verifying your account.</p>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => handleTabChange('pro_profile')}
+                    className="px-8 py-4 bg-white text-[#0B132B] rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-blue-900/20"
+                  >
+                    Fill-up Profile
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowProfileNotice(false);
+                      updateUser(currentUser.id, { hasDismissedProfileNotice: true });
+                    }}
+                    className="p-4 bg-white/10 text-white rounded-2xl hover:bg-white/20 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {activeTab === 'my_session' && (
@@ -623,9 +678,11 @@ export default function TutorDashboard() {
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Students</h3>
                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
-                    // Logic: Students I have a session record with
-                    const myStudentIds = Array.from(new Set(sessions.map(s => s.studentId)));
-                    const contacts = users.filter(u => myStudentIds.includes(u.id));
+                    // Logic: Students I have a session record with OR message history
+                    const myStudentIdsFromSessions = sessions.map(s => s.studentId);
+                    const myStudentIdsFromMessages = messages.map(m => m.senderId === currentUser.id ? m.receiverId : m.senderId);
+                    const allContactIds = Array.from(new Set([...myStudentIdsFromSessions, ...myStudentIdsFromMessages]));
+                    const contacts = users.filter(u => allContactIds.includes(u.id));
 
                     if (contacts.length === 0) {
                       return (
@@ -652,7 +709,7 @@ export default function TutorDashboard() {
                            {contact.name.charAt(0)}
                          </div>
                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-black uppercase italic truncate">{contact.name}</h4>
+                            <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
                             <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
                               selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
                             }`}>
@@ -698,6 +755,17 @@ export default function TutorDashboard() {
                         <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-center">{currentUser.name}</h2>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 text-center">{currentUser.university || 'Expert Educator'}</p>
                         
+                        <div className="w-full space-y-3 mb-8">
+                           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">NID</span>
+                              <span className="text-[10px] font-black text-[#0B132B]">{currentUser.nidNumber || 'Pending Submission'}</span>
+                           </div>
+                           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">DOB</span>
+                              <span className="text-[10px] font-black text-[#0B132B]">{currentUser.birthDate || 'Pending Submission'}</span>
+                           </div>
+                        </div>
+
                         {(currentUser.district || currentUser.area) && (
                           <div className="flex items-center gap-2 mb-8 bg-blue-50/50 px-4 py-2 rounded-full border border-blue-50">
                             <MapPin className="w-3 h-3 text-[#0D5BFF]" />
@@ -746,10 +814,16 @@ export default function TutorDashboard() {
                          </div>
 
                         <button 
-                         onClick={() => setIsEditingProfile(!isEditingProfile)}
+                         onClick={() => {
+                           if (isEditingProfile) {
+                             handleProfileUpdate({ preventDefault: () => {} } as React.FormEvent);
+                           } else {
+                             setIsEditingProfile(true);
+                           }
+                         }}
                          className="w-full py-5 bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all"
                         >
-                          {isEditingProfile ? 'Lock Progress' : 'Modify Credentials'}
+                          {isEditingProfile ? 'Lock Changes in System' : 'Modify Credentials'}
                         </button>
                      </div>
             </div>
@@ -776,6 +850,11 @@ export default function TutorDashboard() {
 
 
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <ProfileField label="National ID (NID)" value={profileForm.nidNumber} onChange={(v) => setProfileForm({...profileForm, nidNumber: v})} placeholder="Enter 10 or 17 digit NID" />
+                         <ProfileField label="Date of Birth" value={profileForm.birthDate} onChange={(v) => setProfileForm({...profileForm, birthDate: v})} type="date" />
+                       </div>
+
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                          <ProfileField label="District" value={profileForm.district} onChange={(v) => setProfileForm({...profileForm, district: v})} placeholder="e.g. Dhaka" />
                          <ProfileField label="Thana" value={profileForm.thana} onChange={(v) => setProfileForm({...profileForm, thana: v})} placeholder="e.g. Mirpur" />
