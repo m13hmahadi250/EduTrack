@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { 
@@ -26,20 +26,34 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import RatingModal from '../../components/RatingModal';
+import ChatWindow from '../../components/ChatWindow';
 
 export default function StudentDashboard() {
   const { currentUser, users, submitPayment, payments, sessions, bookSession, updateLocation } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterClass, setFilterClass] = useState('');
+  const [filterArea, setFilterArea] = useState('');
   const [filterRating, setFilterRating] = useState(0);
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages'>('overview');
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [showFilters, setShowFilters] = useState(false);
+  const dateScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollDates = (direction: 'left' | 'right') => {
+    if (dateScrollRef.current) {
+      const scrollAmount = 300;
+      dateScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -80,6 +94,7 @@ export default function StudentDashboard() {
     else if (path.endsWith('/activity')) setActiveTab('activity');
     else if (path.endsWith('/profile')) setActiveTab('account');
     else if (path.endsWith('/transit')) setActiveTab('transit');
+    else if (path.endsWith('/messages')) setActiveTab('messages');
     else setActiveTab('overview');
   }, [location.pathname]);
 
@@ -89,7 +104,8 @@ export default function StudentDashboard() {
       find: '/dashboard/search',
       activity: '/dashboard/activity',
       account: '/dashboard/profile',
-      transit: '/dashboard/transit'
+      transit: '/dashboard/transit',
+      messages: '/dashboard/messages'
     };
     navigate(pathMap[tab]);
   };
@@ -158,15 +174,25 @@ export default function StudentDashboard() {
   const filteredTutors = users.filter(user => {
     if (user.role !== 'tutor' || !user.isVerified) return false;
     
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          user.university?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.course?.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = user.name.toLowerCase().includes(searchLower) || 
+                          user.university?.toLowerCase().includes(searchLower) ||
+                          user.course?.toLowerCase().includes(searchLower) ||
+                          user.district?.toLowerCase().includes(searchLower) ||
+                          user.thana?.toLowerCase().includes(searchLower) ||
+                          user.area?.toLowerCase().includes(searchLower) ||
+                          user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower));
     
     const matchesSubject = !filterSubject || user.subjects?.some(s => s.toLowerCase().includes(filterSubject.toLowerCase()));
     const matchesClass = !filterClass || user.classes?.some(c => c.toLowerCase().includes(filterClass.toLowerCase()));
+    const matchesArea = !filterArea || 
+                         user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
+                         user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
+                         user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
+                         user.area?.toLowerCase().includes(filterArea.toLowerCase());
     const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
 
-    return matchesSearch && matchesSubject && matchesClass && matchesRating;
+    return matchesSearch && matchesSubject && matchesClass && matchesArea && matchesRating;
   });
 
   const [bKashNumber, setBkashNumber] = useState('');
@@ -177,9 +203,20 @@ export default function StudentDashboard() {
   // Booking state
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookingSlot, setBookingSlot] = useState('');
-  const [bookingSubject, setBookingSubject] = useState('');
+  const [bookingSubject, setBookingSubject] = useState<string[]>([]);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+
+  // Helper to get next 30 days
+  const availableDates = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() + i);
+    return date.toISOString().split('T')[0];
+  });
+
+  const getDayName = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
+  };
 
   const myPayments = payments.filter(p => p.studentId === currentUser?.id);
   const mySessions = sessions.filter(s => s.studentId === currentUser?.id);
@@ -207,7 +244,7 @@ export default function StudentDashboard() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTutor || !currentUser || !bookingDate || !bookingSlot || !bookingSubject) {
+    if (!selectedTutor || !currentUser || !bookingDate || !bookingSlot || bookingSubject.length === 0) {
       alert("Please fill all booking requirements");
       return;
     }
@@ -219,7 +256,7 @@ export default function StudentDashboard() {
       await bookSession({
         studentId: currentUser.id,
         tutorId: selectedTutor.id,
-        subject: bookingSubject,
+        subject: bookingSubject.join(', '),
         scheduledTime,
       });
 
@@ -227,7 +264,7 @@ export default function StudentDashboard() {
       setTimeout(() => {
         setBookingSuccess(false);
         setBookingSlot('');
-        setBookingSubject('');
+        setBookingSubject([]);
       }, 3000);
     } catch (error) {
       console.error(error);
@@ -290,6 +327,7 @@ export default function StudentDashboard() {
           { id: 'find', label: 'Find Tutor' },
           { id: 'activity', label: 'Activity Log' },
           { id: 'transit', label: 'Transit Tracker' },
+          { id: 'messages', label: 'Messages' },
           { id: 'account', label: 'My Account' }
         ].map((tab) => (
           <button
@@ -416,6 +454,19 @@ export default function StudentDashboard() {
                     </select>
                   </FilterGroup>
 
+                  <FilterGroup label="Location / Area">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="DISTRICT OR AREA..."
+                        value={filterArea}
+                        onChange={e => setFilterArea(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
+                      />
+                      <MapPin className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
+                    </div>
+                  </FilterGroup>
+
                   <FilterGroup label="Categorization">
                     <select 
                       value={filterSubject}
@@ -452,6 +503,7 @@ export default function StudentDashboard() {
                       setSearchTerm('');
                       setFilterSubject('');
                       setFilterClass('');
+                      setFilterArea('');
                       setFilterRating(0);
                     }}
                     className="w-full py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
@@ -505,11 +557,17 @@ export default function StudentDashboard() {
                                 <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] ml-2" />
                               </h3>
                               <div className="flex items-center gap-1.5">
+                                {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
+                                   <div className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
+                                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                                      <span className="text-[7px] font-black uppercase tracking-widest">Active Today</span>
+                                   </div>
+                                )}
                                 {tutor.rating && (
-                                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                    <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
-                                  </div>
+                                   <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                     <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                     <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
+                                   </div>
                                 )}
                                 {tutor.isTrackingOn && (
                                   <span className="flex h-2.5 w-2.5 relative">
@@ -568,11 +626,25 @@ export default function StudentDashboard() {
                              <div className="lg:text-right p-4 bg-slate-50 lg:bg-transparent rounded-2xl">
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Rate</p>
                                 <p className="text-2xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/hr</span></p>
+                                <div className="mt-2 flex items-center justify-end gap-1 text-[#0D5BFF]">
+                                   <MapPin className="w-3 h-3" />
+                                   <span className="text-[8px] font-black uppercase tracking-widest">{selectedTutor.district}, {selectedTutor.area}</span>
+                                </div>
                              </div>
                           </div>
 
-                         <div className="grid grid-cols-2 gap-8 mb-8">
-                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                          <div className="mb-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Teaching Areas Pool</p>
+                             <div className="flex flex-wrap gap-2">
+                                {(selectedTutor.teachingAreas || []).map(area => (
+                                  <span key={area} className="px-3 py-1 bg-white border border-slate-200 text-[8px] font-black uppercase italic text-[#0D5BFF] rounded-full">{area}</span>
+                                ))}
+                                {(selectedTutor.teachingAreas || []).length === 0 && <span className="text-[8px] italic text-slate-400">No specific areas listed</span>}
+                             </div>
+                          </div>
+
+                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-2 md:col-span-1">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
                                <div className="space-y-3">
                                   <div className="flex items-center justify-between">
@@ -595,9 +667,24 @@ export default function StudentDashboard() {
                                   </div>
                                </div>
                             </div>
-                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col justify-center">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Experience</p>
                                <p className="text-[10px] font-black text-[#0B132B] uppercase italic">{selectedTutor.experience || 'Not Specified'}</p>
+                            </div>
+                            <div className="p-6 bg-[#0B132B] rounded-[2rem] border border-white/5 flex flex-col justify-center">
+                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3">Availability Week</p>
+                               <div className="flex gap-1.5 items-center">
+                                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+                                     const hasSlots = (selectedTutor.availabilitySlots?.[day] || []).length > 0;
+                                     return (
+                                        <div 
+                                          key={day} 
+                                          className={`w-3 h-3 rounded-[4px] border ${hasSlots ? 'bg-[#0D5BFF] border-[#0D5BFF]' : 'bg-transparent border-white/10'}`}
+                                          title={`${day}: ${hasSlots ? 'Available' : 'No Slots'}`}
+                                        />
+                                     );
+                                  })}
+                               </div>
                             </div>
                          </div>
 
@@ -670,74 +757,166 @@ export default function StudentDashboard() {
                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Check your session log for arrival</p>
                           </motion.div>
                         ) : (
-                          <form onSubmit={handleBookingSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="space-y-2">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Session Date</label>
-                                <input 
-                                  type="date" 
-                                  min={new Date().toISOString().split('T')[0]}
-                                  value={bookingDate}
-                                  onChange={e => setBookingDate(e.target.value)}
-                                  className="w-full bg-slate-100 border-none rounded-xl p-3 text-[10px] font-black uppercase text-[#0B132B]"
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Available Slots</label>
-                                <select 
-                                  value={bookingSlot}
-                                  onChange={e => setBookingSlot(e.target.value)}
-                                  className="w-full bg-slate-100 border-none rounded-xl p-3 text-[10px] font-black uppercase text-[#0B132B] focus:outline-none"
-                                  required
-                                >
-                                  <option value="">SELECT SLOT</option>
-                                  {(() => {
-                                    const dayName = new Date(bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
-                                    const slots = selectedTutor.availabilitySlots?.[dayName] || [];
-                                    return slots.length > 0 
-                                      ? slots.map(slot => (
-                                          <option key={slot} value={slot}>{slot}</option>
-                                        ))
-                                      : <option disabled value="">NO SLOTS FOR {dayName.toUpperCase()}</option>;
-                                  })()}
-                                </select>
+                          <form onSubmit={handleBookingSubmit} className="space-y-8">
+                            {/* Visual Date Selection */}
+                             <div className="space-y-4">
+                               <div className="flex items-center justify-between px-4">
+                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">1. Select Target Date</label>
+                                 <div className="flex items-center gap-1.5 bg-[#0D5BFF]/5 px-2 py-1 rounded-lg">
+                                    <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-pulse" />
+                                    <span className="text-[8px] font-bold text-[#0D5BFF] uppercase tracking-widest">30 Day Window</span>
+                                 </div>
+                               </div>
+                               <div className="relative group">
+                                 <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                   <button 
+                                     type="button"
+                                     onClick={() => scrollDates('left')}
+                                     className="pointer-events-auto ml-1 p-2 bg-white/90 backdrop-blur shadow-lg rounded-full text-[#0B132B] hover:bg-white transition-all transform active:scale-95"
+                                   >
+                                     <ChevronLeft className="w-4 h-4" />
+                                   </button>
+                                 </div>
+                                 <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                   <button 
+                                     type="button"
+                                     onClick={() => scrollDates('right')}
+                                     className="pointer-events-auto mr-1 p-2 bg-white/90 backdrop-blur shadow-lg rounded-full text-[#0B132B] hover:bg-white transition-all transform active:scale-95"
+                                   >
+                                     <ChevronRight className="w-4 h-4" />
+                                   </button>
+                                 </div>
+                                 <div 
+                                   ref={dateScrollRef}
+                                   className="flex gap-3 overflow-x-auto pb-6 pt-2 hide-scrollbar snap-x cursor-grab active:cursor-grabbing px-4 scroll-smooth"
+                                 >
+                                   {availableDates.map((date) => {
+                                     const dayName = getDayName(date);
+                                     const hasSlots = (selectedTutor.availabilitySlots?.[dayName] || []).length > 0;
+                                     const isSelected = bookingDate === date;
+                                     const isToday = date === new Date().toISOString().split('T')[0];
+                                     
+                                     return (
+                                       <button
+                                         key={date}
+                                         type="button"
+                                         onClick={() => {
+                                           setBookingDate(date);
+                                           setBookingSlot(''); // Reset slot when date changes
+                                         }}
+                                         className={`flex-shrink-0 w-24 p-5 rounded-3xl border transition-all snap-start ${
+                                           isSelected 
+                                           ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-200 -translate-y-1' 
+                                           : hasSlots 
+                                             ? 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-300 hover:shadow-lg' 
+                                             : 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed opacity-50'
+                                         }`}
+                                       >
+                                         <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
+                                           {dayName.substring(0, 3)}
+                                         </p>
+                                         <p className="text-xl font-black">
+                                           {new Date(date).getDate()}
+                                         </p>
+                                         {isToday && !isSelected && <p className="text-[7px] font-black text-[#0D5BFF] uppercase mt-1">Today</p>}
+                                         {!hasSlots && <p className="text-[7px] font-black uppercase tracking-tighter mt-1">Full</p>}
+                                       </button>
+                                     );
+                                   })}
+                                 </div>
+                               </div>
+                             </div>
+
+                            {/* Visual Slot Selection */}
+                            <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">2. Select Time Node</label>
+                              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                                 {(() => {
-                                  const dayName = new Date(bookingDate).toLocaleDateString('en-US', { weekday: 'long' });
+                                  const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
-                                  return slots.length === 0 && (
-                                    <p className="text-[7px] font-black text-rose-500 uppercase tracking-widest mt-1 ml-3 px-1">
-                                      Expert is not active on {dayName}. Try another date.
-                                    </p>
-                                  );
+                                  
+                                  if (slots.length === 0) {
+                                    return (
+                                      <div className="col-span-full py-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100">
+                                        <Clock className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                                          No temporal slots available for this cycle
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+
+                                  return slots.map(slot => (
+                                    <button
+                                      key={slot}
+                                      type="button"
+                                      onClick={() => setBookingSlot(slot)}
+                                      className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                        bookingSlot === slot 
+                                        ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
+                                        : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                                      }`}
+                                    >
+                                      {slot}
+                                    </button>
+                                  ));
                                 })()}
                               </div>
-                              <div className="space-y-2">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-3">Intel Subject</label>
-                                <select 
-                                  value={bookingSubject}
-                                  onChange={e => setBookingSubject(e.target.value)}
-                                  className="w-full bg-slate-100 border-none rounded-xl p-3 text-[10px] font-black uppercase text-[#0B132B] focus:outline-none"
-                                  required
-                                >
-                                  <option value="">SELECT SUBJECT</option>
-                                  {AVAILABLE_SUBJECTS.map(sub => (
-                                    <option key={sub} value={sub}>{sub.toUpperCase()}</option>
-                                  ))}
-                                </select>
-                              </div>
                             </div>
-                            <button 
-                              disabled={isBooking}
-                              className="w-full py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                            >
-                              {isBooking ? (
-                                <>
-                                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                  Synchronizing...
-                                </>
-                              ) : 'Initiate Booking'}
-                            </button>
+
+                            {/* Subject Selection & Submit */}
+                            <div className="space-y-6 pt-4">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between px-2">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Define Intel Focus</label>
+                                  {bookingSubject.length > 0 && (
+                                    <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto pr-2 hide-scrollbar py-2">
+                                  {AVAILABLE_SUBJECTS.map(sub => {
+                                    const isSelected = bookingSubject.includes(sub);
+                                    return (
+                                      <button
+                                        key={sub}
+                                        type="button"
+                                        onClick={() => {
+                                          setBookingSubject(prev => 
+                                            isSelected 
+                                              ? prev.filter(s => s !== sub) 
+                                              : [...prev, sub]
+                                          );
+                                        }}
+                                        className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                          isSelected 
+                                          ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
+                                          : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
+                                        }`}
+                                      >
+                                        {sub}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              <button 
+                                disabled={isBooking || !bookingDate || !bookingSlot || bookingSubject.length === 0}
+                                className="w-full py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                              >
+                                {isBooking ? (
+                                  <>
+                                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    Synchronizing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Zap className="w-5 h-5" />
+                                    Confirm Session Bound
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </form>
                         )}
                       </div>
@@ -960,6 +1139,73 @@ export default function StudentDashboard() {
                    </div>
                 </div>
              </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'messages' && (
+          <motion.div 
+            key="messages"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="grid lg:grid-cols-3 gap-8 h-[700px]"
+          >
+            <div className="lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+               <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Contacts</h3>
+               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
+                  {(() => {
+                    // Logic: Tutors I have a session record with
+                    const myTutorIds = Array.from(new Set(mySessions.map(s => s.tutorId)));
+                    const contacts = users.filter(u => myTutorIds.includes(u.id));
+
+                    if (contacts.length === 0) {
+                      return (
+                        <div className="py-20 text-center opacity-20">
+                          <Users className="w-12 h-12 mx-auto mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No active secure links established.</p>
+                        </div>
+                      );
+                    }
+
+                    return contacts.map(contact => (
+                      <button
+                        key={contact.id}
+                        onClick={() => setSelectedRecipientId(contact.id)}
+                        className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group ${
+                          selectedRecipientId === contact.id 
+                          ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
+                          : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
+                        }`}
+                      >
+                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                           selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
+                         }`}>
+                           {contact.name.charAt(0)}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-black uppercase italic truncate">{contact.name}</h4>
+                            <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
+                              selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
+                            }`}>
+                              {contact.university}
+                            </p>
+                         </div>
+                      </button>
+                    ));
+                  })()}
+               </div>
+            </div>
+            <div className="lg:col-span-2">
+               {selectedRecipientId ? (
+                 <ChatWindow recipientId={selectedRecipientId} />
+               ) : (
+                 <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
+                    <Send className="w-12 h-12 mb-6" />
+                    <h3 className="text-xl font-black uppercase italic">Initialize Comms</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest mt-2">Select a certified contact from the uplink</p>
+                 </div>
+               )}
+            </div>
           </motion.div>
         )}
 

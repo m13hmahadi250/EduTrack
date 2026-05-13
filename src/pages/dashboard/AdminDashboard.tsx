@@ -69,8 +69,7 @@ export default function AdminDashboard() {
         await sendMessage({
           senderId: currentUser.id,
           receiverId: tutor.id,
-          content: "Hello! We noticed your profile is missing a bio. A professional bio significantly increases your booking rate. Please head to your profile settings and add a brief description of your experience and teaching style.",
-          participants: [currentUser.id, tutor.id]
+          content: "Hello! We noticed your profile is missing a bio. A professional bio significantly increases your booking rate. Please head to your profile settings and add a brief description of your experience and teaching style."
         });
       }
       

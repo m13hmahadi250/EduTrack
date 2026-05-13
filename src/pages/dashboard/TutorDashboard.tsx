@@ -21,7 +21,8 @@ import {
   Briefcase,
   GraduationCap,
   Plus,
-  Trash2
+  Trash2,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -29,6 +30,9 @@ import MapTracker from '../../components/MapTracker';
 import ImageUpload from '../../components/ImageUpload';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, DashboardInput } from '../../components/DashboardComponents';
+
+import RatingModal from '../../components/RatingModal';
+import ChatWindow from '../../components/ChatWindow';
 
 const dummyData = [
   { name: 'Mon', earnings: 1200 },
@@ -59,7 +63,8 @@ export default function TutorDashboard() {
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability'>('my_session');
+  const [activeTab, setActiveTab] = useState<'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability' | 'messages'>('my_session');
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
 
   const refreshLocationManual = () => {
     if ('geolocation' in navigator) {
@@ -84,16 +89,18 @@ export default function TutorDashboard() {
     else if (path.endsWith('/transit')) setActiveTab('transit_mode');
     else if (path.endsWith('/profile')) setActiveTab('pro_profile');
     else if (path.endsWith('/availability')) setActiveTab('availability');
+    else if (path.endsWith('/messages')) setActiveTab('messages');
     else setActiveTab('my_session');
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability') => {
+  const handleTabChange = (tab: 'my_session' | 'balance' | 'transit_mode' | 'pro_profile' | 'availability' | 'messages') => {
     const pathMap = {
       my_session: '/dashboard',
       balance: '/dashboard/balance',
       transit_mode: '/dashboard/transit',
       pro_profile: '/dashboard/profile',
-      availability: '/dashboard/availability'
+      availability: '/dashboard/availability',
+      messages: '/dashboard/messages'
     };
     navigate(pathMap[tab]);
   };
@@ -107,7 +114,11 @@ export default function TutorDashboard() {
     experience: currentUser?.experience || '',
     subjects: currentUser?.subjects || [],
     classes: currentUser?.classes || [],
-    availabilitySlots: currentUser?.availabilitySlots || {}
+    availabilitySlots: currentUser?.availabilitySlots || {},
+    district: currentUser?.district || '',
+    area: currentUser?.area || '',
+    thana: currentUser?.thana || '',
+    teachingAreas: currentUser?.teachingAreas || []
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -119,7 +130,11 @@ export default function TutorDashboard() {
         experience: currentUser.experience || '',
         subjects: currentUser.subjects || [],
         classes: currentUser.classes || [],
-        availabilitySlots: currentUser.availabilitySlots || {}
+        availabilitySlots: currentUser.availabilitySlots || {},
+        district: currentUser.district || '',
+        area: currentUser.area || '',
+        thana: currentUser.thana || '',
+        teachingAreas: currentUser.teachingAreas || []
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -247,6 +262,7 @@ export default function TutorDashboard() {
           { id: 'my_session', label: 'My Session' },
           { id: 'balance', label: 'Balance' },
           { id: 'transit_mode', label: 'Transit Mode' },
+          { id: 'messages', label: 'Messages' },
           { id: 'pro_profile', label: 'Pro Profile' }
         ].map((tab) => (
           <button
@@ -320,6 +336,16 @@ export default function TutorDashboard() {
                                <Square className="w-4 h-4 fill-current" /> Finish Session
                              </button>
                            )}
+                           <button 
+                             onClick={() => {
+                               setSelectedRecipientId(sess.studentId);
+                               handleTabChange('messages');
+                             }}
+                             className="w-12 h-12 flex items-center justify-center text-slate-200 hover:text-[#0D5BFF] transition-colors"
+                             title="Message Student"
+                           >
+                             <Send className="w-5 h-5" />
+                           </button>
                            <button 
                              onClick={() => cancelSession(sess.id)}
                              className="w-12 h-12 flex items-center justify-center text-slate-200 hover:text-rose-500 transition-colors"
@@ -575,6 +601,73 @@ export default function TutorDashboard() {
           </motion.div>
         )}
 
+        {activeTab === 'messages' && (
+          <motion.div 
+            key="messages"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="grid lg:grid-cols-3 gap-8 h-[700px]"
+          >
+            <div className="lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+               <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Students</h3>
+               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
+                  {(() => {
+                    // Logic: Students I have a session record with
+                    const myStudentIds = Array.from(new Set(sessions.map(s => s.studentId)));
+                    const contacts = users.filter(u => myStudentIds.includes(u.id));
+
+                    if (contacts.length === 0) {
+                      return (
+                        <div className="py-20 text-center opacity-20">
+                          <Users className="w-12 h-12 mx-auto mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No active secure links established.</p>
+                        </div>
+                      );
+                    }
+
+                    return contacts.map(contact => (
+                      <button
+                        key={contact.id}
+                        onClick={() => setSelectedRecipientId(contact.id)}
+                        className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group ${
+                          selectedRecipientId === contact.id 
+                          ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
+                          : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
+                        }`}
+                      >
+                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                           selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
+                         }`}>
+                           {contact.name.charAt(0)}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-black uppercase italic truncate">{contact.name}</h4>
+                            <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
+                              selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
+                            }`}>
+                              {contact.university || contact.email}
+                            </p>
+                         </div>
+                      </button>
+                    ));
+                  })()}
+               </div>
+            </div>
+            <div className="lg:col-span-2">
+               {selectedRecipientId ? (
+                 <ChatWindow recipientId={selectedRecipientId} />
+               ) : (
+                 <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
+                    <Send className="w-12 h-12 mb-6" />
+                    <h3 className="text-xl font-black uppercase italic">Initialize Comms</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest mt-2">Select a certified contact from the uplink</p>
+                 </div>
+               )}
+            </div>
+          </motion.div>
+        )}
+
         {activeTab === 'pro_profile' && (
           <motion.div 
             key="profile"
@@ -593,7 +686,16 @@ export default function TutorDashboard() {
                            />
                         </div>
                         <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-center">{currentUser.name}</h2>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8">{currentUser.university || 'Expert Educator'}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 text-center">{currentUser.university || 'Expert Educator'}</p>
+                        
+                        {(currentUser.district || currentUser.area) && (
+                          <div className="flex items-center gap-2 mb-8 bg-blue-50/50 px-4 py-2 rounded-full border border-blue-50">
+                            <MapPin className="w-3 h-3 text-[#0D5BFF]" />
+                            <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">
+                              {currentUser.district}{currentUser.thana ? `, ${currentUser.thana}` : ''}{currentUser.area ? ` (${currentUser.area})` : ''}
+                            </span>
+                          </div>
+                        )}
                         
                          {/* Verification Status Progress */}
                          <div className="w-full space-y-4 mb-10">
@@ -646,7 +748,62 @@ export default function TutorDashboard() {
                {isEditingProfile ? (
                  <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm">
                     <h3 className="text-2xl font-black text-[#0B132B] uppercase italic mb-12">Update Academic Data</h3>
+
+
+
+
+
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                         <ProfileField label="District" value={profileForm.district} onChange={(v) => setProfileForm({...profileForm, district: v})} placeholder="e.g. Dhaka" />
+                         <ProfileField label="Thana" value={profileForm.thana} onChange={(v) => setProfileForm({...profileForm, thana: v})} placeholder="e.g. Mirpur" />
+                         <ProfileField label="Area" value={profileForm.area} onChange={(v) => setProfileForm({...profileForm, area: v})} placeholder="e.g. Mirpur 1" />
+                       </div>
+
+                       <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Teaching Areas (Searchable by students)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              id="teachingAreaInput"
+                              placeholder="Add an area..."
+                              className="flex-1 bg-slate-50 border border-slate-100 rounded-full py-4 px-8 text-xs font-black uppercase italic text-[#0B132B] focus:outline-none focus:border-[#0D5BFF]"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = e.currentTarget.value.trim();
+                                  if (val && !profileForm.teachingAreas.includes(val)) {
+                                    setProfileForm({...profileForm, teachingAreas: [...profileForm.teachingAreas, val]});
+                                    e.currentTarget.value = '';
+                                  }
+                                }
+                              }}
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById('teachingAreaInput') as HTMLInputElement;
+                                const val = input.value.trim();
+                                if (val && !profileForm.teachingAreas.includes(val)) {
+                                  setProfileForm({...profileForm, teachingAreas: [...profileForm.teachingAreas, val]});
+                                  input.value = '';
+                                }
+                              }}
+                              className="w-14 h-14 bg-[#0B132B] text-white rounded-2xl flex items-center justify-center"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {profileForm.teachingAreas.map(area => (
+                              <span key={area} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-[#0D5BFF] border border-blue-100 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                {area}
+                                <button type="button" onClick={() => setProfileForm({...profileForm, teachingAreas: profileForm.teachingAreas.filter(a => a !== area)})}>
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                       </div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
                          <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />

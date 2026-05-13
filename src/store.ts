@@ -43,6 +43,10 @@ export interface User {
   // Shared / Filtering
   subjects?: string[]; // Subjects they teach or study
   classes?: string[]; // Classes they teach or are in
+  district?: string;
+  area?: string;
+  thana?: string;
+  teachingAreas?: string[]; // Areas where the tutor provides service
   
   // Student Specific
   address?: string;
@@ -169,7 +173,7 @@ interface AppState {
   requestWithdrawal: (withdrawal: Omit<Withdrawal, 'id' | 'status' | 'timestamp'>) => Promise<void>;
   
   // Messages
-  sendMessage: (msg: Omit<Message, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
+  sendMessage: (msg: Omit<Message, 'id' | 'timestamp' | 'isRead' | 'participants'>) => Promise<void>;
   markMessagesAsRead: (senderId: string) => Promise<void>;
   
   // Notifications
@@ -782,9 +786,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
 
   // Listen to messages where user is sender or receiver
-  const messagesQuery = (role === 'admin')
-    ? query(collection(db, 'messages'))
-    : query(collection(db, 'messages'), where('participants', 'array-contains', uid));
+  const messagesQuery = query(collection(db, 'messages'), where('participants', 'array-contains', uid));
   
   const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
     const messages = snapshot.docs.map(doc => doc.data() as Message);

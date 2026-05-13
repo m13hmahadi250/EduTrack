@@ -63,6 +63,10 @@ service cloud.firestore {
                (data.get('experience', null) == null || data.experience is string) &&
                (data.get('bio', null) == null || data.bio is string) &&
                (data.get('hourlyRate', null) == null || data.hourlyRate is number) &&
+               (data.get('teachingAreas', null) == null || data.teachingAreas is list) &&
+               (data.get('district', null) == null || data.district is string) &&
+               (data.get('area', null) == null || data.area is string) &&
+               (data.get('thana', null) == null || data.thana is string) &&
                (data.get('profileImage', null) == null || data.profileImage is string) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
@@ -117,8 +121,8 @@ service cloud.firestore {
                (request.auth.uid in data.participants);
       }
 
-      allow list: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participants);
-      allow get: if isAdmin() || (isSignedIn() && request.auth.uid in resource.data.participants);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
       
       allow create: if isVerifiedEmail() && isValidMessage(incoming());
       

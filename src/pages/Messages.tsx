@@ -15,7 +15,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Messages() {
-  const { currentUser, users, messages, sendMessage, markMessagesAsRead } = useAppStore();
+  const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,7 +36,23 @@ export default function Messages() {
 
   if (!currentUser) return null;
 
-  const chatPartners = users.filter(u => u.id !== currentUser.id && u.role !== 'admin' && (u.role === 'student' || u.isVerified));
+  const chatPartners = users.filter(u => {
+    if (u.id === currentUser.id) return false;
+    
+    // Check for sessions
+    const hasSession = sessions.some(s => 
+      (s.studentId === currentUser.id && s.tutorId === u.id) || 
+      (s.studentId === u.id && s.tutorId === currentUser.id)
+    );
+
+    // Check for message history (allows admins to connect or continued support)
+    const hasHistory = messages.some(m => 
+      (m.senderId === currentUser.id && m.receiverId === u.id) || 
+      (m.senderId === u.id && m.receiverId === currentUser.id)
+    );
+
+    return hasSession || hasHistory;
+  });
   const filteredPartners = chatPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const selectedUser = users.find(u => u.id === selectedUserId);
@@ -53,7 +69,6 @@ export default function Messages() {
     sendMessage({
       senderId: currentUser.id,
       receiverId: selectedUserId,
-      participants: [currentUser.id, selectedUserId],
       content: inputText
     });
     setInputText('');

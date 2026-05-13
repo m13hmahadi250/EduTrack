@@ -8,7 +8,18 @@ export const AVAILABLE_SUBJECTS = [
   'Higher Math',
   'General Science',
   'Bangla',
-  'Religious Studies'
+  'Religious Studies',
+  'Accounting',
+  'Finance',
+  'Economics',
+  'Business Studies',
+  'Management',
+  'Statistics',
+  'History',
+  'Geography',
+  'Social Science',
+  'Sociology',
+  'Psychology'
 ];
 
 export const AVAILABLE_CLASSES = [
