@@ -22,6 +22,7 @@ import {
   GraduationCap,
   Plus,
   Trash2,
+  Check,
   Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -194,16 +195,25 @@ export default function TutorDashboard() {
 
   if (!currentUser) return null;
 
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     setIsUpdating(true);
-    await updateUser(currentUser.id, {
-      ...profileForm,
-      hourlyRate: Number(profileForm.hourlyRate)
-    });
-    setIsEditingProfile(false);
-    setIsUpdating(false);
+    try {
+      await updateUser(currentUser.id, {
+        ...profileForm,
+        hourlyRate: Number(profileForm.hourlyRate)
+      });
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+      setIsEditingProfile(false);
+    } catch (error) {
+      console.error("Failed to update profile", error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleWithdrawRequest = async (e: React.FormEvent) => {
@@ -748,6 +758,18 @@ export default function TutorDashboard() {
                {isEditingProfile ? (
                  <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm">
                     <h3 className="text-2xl font-black text-[#0B132B] uppercase italic mb-12">Update Academic Data</h3>
+
+                    {updateSuccess && (
+                      <div className="mb-8 p-6 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                          <Check className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-emerald-600 uppercase italic">System Synchronized</p>
+                          <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-widest">Your teaching profile is now globally updated.</p>
+                        </div>
+                      </div>
+                    )}
 
 
 

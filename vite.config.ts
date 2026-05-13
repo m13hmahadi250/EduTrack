@@ -20,11 +20,15 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     build: {
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('firebase')) return 'firebase';
+              if (id.includes('leaflet')) return 'leaflet';
+              if (id.includes('recharts') || id.includes('d3')) return 'charts';
+              if (id.includes('motion')) return 'motion';
               return 'vendor';
             }
           },

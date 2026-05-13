@@ -21,6 +21,10 @@
         "year": { "type": "string" },
         "course": { "type": "string" },
         "university": { "type": "string" },
+        "district": { "type": "string" },
+        "area": { "type": "string" },
+        "thana": { "type": "string" },
+        "teachingAreas": { "type": "array", "items": { "type": "string" } },
         "isVerified": { "type": "boolean" },
         "isTrackingOn": { "type": "boolean" },
         "location": {
