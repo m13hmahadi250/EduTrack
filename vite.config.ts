@@ -20,7 +20,7 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     build: {
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 5000,
       rollupOptions: {
         output: {
           manualChunks(id) {

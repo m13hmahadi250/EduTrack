@@ -826,10 +826,10 @@ export default function TutorDashboard() {
                             ))}
                           </div>
                        </div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
-                         <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />
-                       </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
+                          <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />
+                        </div>
                         <div className="space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Authorized Subjects</label>
                           <div className="flex flex-wrap gap-2">
@@ -869,8 +869,8 @@ export default function TutorDashboard() {
                              ))}
                           </div>
                         </div>
-                       <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />
-                       <div className="space-y-3">
+
+                        <div className="space-y-3">
                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Mission Statement / Bio</label>
                          <textarea 
                           value={profileForm.bio}

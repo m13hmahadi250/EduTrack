@@ -34,7 +34,12 @@ export default function Login() {
         }
         navigate('/dashboard');
       } catch (err: any) {
-        setError(err.message || 'Invalid email or password');
+        console.error("Login error:", err);
+        let msg = err.message || 'Invalid email or password';
+        if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
+          msg = 'Authentication Error (invalid-credential). If you are on Vercel, check that your domain is added to "Authorized Domains" in Firebase Auth settings and Google provider is enabled.';
+        }
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -127,7 +132,12 @@ export default function Login() {
                    await useAppStore.getState().loginWithGoogle();
                    navigate('/dashboard');
                  } catch (err: any) {
-                   setError(err.message || 'Google Auth failed');
+                   console.error("Google Auth error:", err);
+                   let msg = err.message || 'Google Auth failed';
+                   if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
+                     msg = 'Google Auth Error (invalid-credential). Ensure your Vercel URL is added to "Authorized Domains" in Firebase Console > Authentication > Settings.';
+                   }
+                   setError(msg);
                  } finally {
                    setLoading(false);
                  }
