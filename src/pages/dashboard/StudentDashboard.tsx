@@ -614,11 +614,33 @@ export default function StudentDashboard() {
                     return (
                       <div key={sess.id} className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex items-center justify-between group">
                         <div className="flex items-center space-x-6">
-                           <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center text-[#0D5BFF] transition-colors border ${sess.status === 'active' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-                             {sess.status === 'active' ? <Zap className="w-6 h-6 text-rose-500" /> : <Calendar className="w-6 h-6" />}
+                           <div className="relative">
+                             {tutor?.profileImage ? (
+                               <img 
+                                 src={tutor.profileImage} 
+                                 alt={tutor.name} 
+                                 className="w-14 h-14 rounded-[1.2rem] object-cover border border-slate-100"
+                                 referrerPolicy="no-referrer"
+                               />
+                             ) : (
+                               <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center text-[#0D5BFF] transition-colors border ${sess.status === 'active' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                                 {sess.status === 'active' ? <Zap className="w-6 h-6 text-rose-500" /> : <Calendar className="w-6 h-6" />}
+                               </div>
+                             )}
+                             {sess.status === 'active' && (
+                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 border-2 border-white rounded-full animate-pulse" />
+                             )}
                            </div>
                            <div>
-                              <h4 className="text-lg font-black text-[#0B132B] uppercase italic">{tutor?.name}</h4>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-lg font-black text-[#0B132B] uppercase italic">{tutor?.name}</h4>
+                                {tutor?.rating && (
+                                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                    <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
+                                  </div>
+                                )}
+                              </div>
                               <div className="flex items-center gap-3">
                                 <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject} • {new Date(sess.scheduledTime).toLocaleString()}</p>
                                 {sess.status === 'scheduled' && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) <= 24 * 60 * 60 * 1000 && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) > 0 && (
