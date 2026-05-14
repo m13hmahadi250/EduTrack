@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   Search, 
   MapPin, 
@@ -27,11 +28,30 @@ import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import RatingModal from '../../components/RatingModal';
 import ChatWindow from '../../components/ChatWindow';
+import { PaymentService, PaymentProvider } from '../../services/paymentService';
 
 export default function StudentDashboard() {
-  const { currentUser, users, submitPayment, payments, sessions, bookSession, updateLocation, messages } = useAppStore();
+  const { 
+    currentUser, 
+    users, 
+    submitPayment, 
+    payments, 
+    sessions, 
+    bookSession, 
+    updateLocation, 
+    messages 
+  } = useAppStore(useShallow((state) => ({
+    currentUser: state.currentUser,
+    users: state.users,
+    submitPayment: state.submitPayment,
+    payments: state.payments,
+    sessions: state.sessions,
+    bookSession: state.bookSession,
+    updateLocation: state.updateLocation,
+    messages: state.messages
+  })));
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterSubject, setFilterSubject] = useState('');
+  const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
   const [filterClass, setFilterClass] = useState('');
   const [filterArea, setFilterArea] = useState('');
   const [filterRating, setFilterRating] = useState(0);
@@ -177,34 +197,39 @@ export default function StudentDashboard() {
   };
 
   // Filter only verified tutors matching search and filters
-  const filteredTutors = users.filter(user => {
-    if (user.role !== 'tutor' || !user.isVerified) return false;
-    
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = user.name.toLowerCase().includes(searchLower) || 
-                          user.university?.toLowerCase().includes(searchLower) ||
-                          user.course?.toLowerCase().includes(searchLower) ||
-                          user.district?.toLowerCase().includes(searchLower) ||
-                          user.thana?.toLowerCase().includes(searchLower) ||
-                          user.area?.toLowerCase().includes(searchLower) ||
-                          user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower));
-    
-    const matchesSubject = !filterSubject || user.subjects?.some(s => s.toLowerCase().includes(filterSubject.toLowerCase()));
-    const matchesClass = !filterClass || user.classes?.some(c => c.toLowerCase().includes(filterClass.toLowerCase()));
-    const matchesArea = !filterArea || 
-                         user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
-                         user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
-                         user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
-                         user.area?.toLowerCase().includes(filterArea.toLowerCase());
-    const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
+  const filteredTutors = useMemo(() => {
+    return users.filter(user => {
+      if (user.role !== 'tutor' || !user.isVerified) return false;
+      
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = user.name.toLowerCase().includes(searchLower) || 
+                            user.university?.toLowerCase().includes(searchLower) ||
+                            user.course?.toLowerCase().includes(searchLower) ||
+                            user.district?.toLowerCase().includes(searchLower) ||
+                            user.thana?.toLowerCase().includes(searchLower) ||
+                            user.area?.toLowerCase().includes(searchLower) ||
+                            user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower));
+      
+      const matchesSubject = filterSubjects.length === 0 || 
+                             filterSubjects.some(fs => user.subjects?.some(s => s.toLowerCase().includes(fs.toLowerCase())));
+      const matchesClass = !filterClass || user.classes?.some(c => c.toLowerCase().includes(filterClass.toLowerCase()));
+      const matchesArea = !filterArea || 
+                           user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
+                           user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
+                           user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
+                           user.area?.toLowerCase().includes(filterArea.toLowerCase());
+      const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
 
-    return matchesSearch && matchesSubject && matchesClass && matchesArea && matchesRating;
-  });
+      return matchesSearch && matchesSubject && matchesClass && matchesArea && matchesRating;
+    });
+  }, [users, searchTerm, filterSubjects, filterClass, filterArea, filterRating]);
 
   const [bKashNumber, setBkashNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProvider>('bkash');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   
   // Booking state
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
@@ -214,38 +239,100 @@ export default function StudentDashboard() {
   const [isBooking, setIsBooking] = useState(false);
 
   // Helper to get next 30 days
-  const availableDates = Array.from({ length: 30 }, (_, i) => {
+  const availableDates = useMemo(() => Array.from({ length: 30 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() + i);
     return date.toISOString().split('T')[0];
-  });
+  }), []);
 
   const getDayName = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
   };
 
-  const myPayments = payments.filter(p => p.studentId === currentUser?.id);
-  const mySessions = sessions.filter(s => s.studentId === currentUser?.id);
-  const activeSession = mySessions.find(s => s.status === 'active');
+  const myPayments = useMemo(() => payments.filter(p => p.studentId === currentUser?.id), [payments, currentUser?.id]);
+  const mySessions = useMemo(() => sessions.filter(s => s.studentId === currentUser?.id), [sessions, currentUser?.id]);
+  const activeSession = useMemo(() => mySessions.find(s => s.status === 'active'), [mySessions]);
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const calculateETA = () => {
+    if (!currentUser?.location) return null;
+    const sess = mySessions.find(s => s.status === 'active' || s.status === 'scheduled');
+    const tutor = users.find(u => u.id === sess?.tutorId);
+    if (!tutor?.location || !tutor.isTrackingOn) return null;
+
+    const lat1 = currentUser.location.lat;
+    const lon1 = currentUser.location.lng;
+    const lat2 = tutor.location.lat;
+    const lon2 = tutor.location.lng;
+
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+
+    // Assuming average speed of 15 km/h in city traffic
+    const speedKmH = 15;
+    const timeHours = distance / speedKmH;
+    const timeMinutes = Math.round(timeHours * 60);
+
+    return {
+      distance: distance.toFixed(2),
+      minutes: timeMinutes
+    };
+  };
+
+  const eta = useMemo(() => calculateETA(), [currentUser?.location, mySessions, users]);
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTutor || !currentUser) return;
+    if (!amount || isProcessingPayment || !selectedTutor || !currentUser) return;
 
-    submitPayment({
-      studentId: currentUser.id,
-      tutorId: selectedTutor.id,
-      bKashNumber,
-      amount: Number(amount),
-      transactionId
-    });
-    setPaymentSuccess(true);
-    setTimeout(() => {
-      setPaymentSuccess(false);
-      setBkashNumber('');
-      setAmount('');
-      setTransactionId('');
-    }, 3000);
+    setIsProcessingPayment(true);
+    
+    try {
+      // Use manual transactionId if provided, otherwise simulate
+      let finalTransactionId = transactionId;
+      
+      if (!finalTransactionId) {
+        const response = await PaymentService.initiatePayment(selectedPaymentProvider, parseFloat(amount));
+        if (response.success && response.transactionId) {
+          finalTransactionId = response.transactionId;
+          setTransactionId(finalTransactionId);
+        } else {
+          alert(response.message || 'Payment failed. Please try again.');
+          setIsProcessingPayment(false);
+          return;
+        }
+      } else {
+        // Just a small delay to simulate processing manual ID
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      submitPayment({
+        studentId: currentUser.id,
+        tutorId: selectedTutor.id,
+        amount: parseFloat(amount),
+        bKashNumber: bKashNumber || `${selectedPaymentProvider.toUpperCase()}-Gateway`,
+        transactionId: finalTransactionId,
+      });
+      setPaymentSuccess(true);
+      
+      setTimeout(() => {
+        setPaymentSuccess(false);
+        setBkashNumber('');
+        setAmount('');
+        setTransactionId('');
+      }, 5000);
+    } catch (error) {
+      console.error('Payment Error:', error);
+      alert('A technical error occurred during the payment flow.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -306,9 +393,22 @@ export default function StudentDashboard() {
           <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
             Student Panel
           </h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-            Central Operations for {currentUser.name}
+          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+            Central Operations for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
+          <div className="mt-4 flex">
+            {currentUser.isVerified ? (
+              <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Verified Student</span>
+              </div>
+            ) : (
+              <div className="px-5 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl flex items-center space-x-3">
+                <Zap className="w-4 h-4 text-rose-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">Unverified Account</span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-4">
            {activeSession && (
@@ -340,8 +440,8 @@ export default function StudentDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
-              activeTab === tab.id ? 'text-[#0D5BFF]' : 'text-slate-300 hover:text-slate-500'
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
+              activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
             {tab.label}
@@ -414,6 +514,58 @@ export default function StudentDashboard() {
               <MetricCard label="Learning Hours" value={mySessions.filter(s => s.status === 'completed').length.toString()} />
             </div>
 
+            {activeSession && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-rose-500 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200 group"
+              >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
+                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
+                      <Play className="w-8 h-8 text-white fill-white animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-100">Live Operation In Progress</span>
+                        <div className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                        </div>
+                      </div>
+                      <h3 className="text-3xl font-black uppercase italic leading-tight">
+                        Session with {users.find(u => u.id === activeSession.tutorId)?.name || 'Expert'}
+                      </h3>
+                      <p className="text-[10px] font-bold text-rose-100 uppercase tracking-widest mt-2">
+                        Focus: {activeSession.subject} • Started at {activeSession.startTime ? new Date(activeSession.startTime).toLocaleTimeString() : 'Just now'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => handleTabChange('transit')}
+                      className="px-8 py-4 bg-white text-rose-500 rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-rose-900/20 flex items-center gap-2 group/btn"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      <span>Track Expert Location</span>
+                      <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </button>
+                    {activeSession.meetingLink && (
+                      <a 
+                        href={activeSession.meetingLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-8 py-4 bg-[#0B132B] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-black transition-all shadow-xl shadow-rose-900/20"
+                      >
+                        Join Digital Classroom
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             <div className="grid lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Upcoming Engagements</h3>
@@ -443,10 +595,14 @@ export default function StudentDashboard() {
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Expert Radius</h3>
                 <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
                    {activeSession && users.find(u => u.id === activeSession.tutorId)?.location ? (
-                     <MapTracker tutorLocation={[
-                       users.find(u => u.id === activeSession.tutorId)!.location!.lat, 
-                       users.find(u => u.id === activeSession.tutorId)!.location!.lng
-                     ]} />
+                     <MapTracker 
+                       tutorLocation={[
+                         users.find(u => u.id === activeSession.tutorId)!.location!.lat, 
+                         users.find(u => u.id === activeSession.tutorId)!.location!.lng
+                       ]} 
+                       tutorName={users.find(u => u.id === activeSession.tutorId)?.name}
+                       eta={eta}
+                     />
                    ) : (
                      <div className="w-full h-full flex flex-col items-center justify-center text-center opacity-30 p-8">
                        <MapPin className="w-10 h-10 mb-4" />
@@ -520,17 +676,31 @@ export default function StudentDashboard() {
                     </div>
                   </FilterGroup>
 
-                  <FilterGroup label="Categorization">
-                    <select 
-                      value={filterSubject}
-                      onChange={e => setFilterSubject(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none"
-                    >
-                      <option value="">ALL SUBJECTS</option>
-                      {AVAILABLE_SUBJECTS.map(sub => (
-                        <option key={sub} value={sub}>{sub.toUpperCase()}</option>
-                      ))}
-                    </select>
+                  <FilterGroup label="Subject Specialization">
+                    <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar hide-scrollbar py-2">
+                      {AVAILABLE_SUBJECTS.map(sub => {
+                        const isSelected = filterSubjects.includes(sub);
+                        return (
+                          <button
+                            key={sub}
+                            onClick={() => {
+                              setFilterSubjects(prev => 
+                                isSelected 
+                                  ? prev.filter(s => s !== sub) 
+                                  : [...prev, sub]
+                              );
+                            }}
+                            className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
+                              isSelected 
+                              ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
+                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                            }`}
+                          >
+                            {sub}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </FilterGroup>
 
                   <FilterGroup label="Minimum Rating">
@@ -554,7 +724,7 @@ export default function StudentDashboard() {
                   <button 
                     onClick={() => {
                       setSearchTerm('');
-                      setFilterSubject('');
+                      setFilterSubjects([]);
                       setFilterClass('');
                       setFilterArea('');
                       setFilterRating(0);
@@ -597,7 +767,7 @@ export default function StudentDashboard() {
                       >
                         <div className="flex items-center gap-4 relative z-10">
                           {tutor.profileImage ? (
-                            <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                            <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
                           ) : (
                             <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-lg font-black italic text-[#0D5BFF] border border-slate-100">
                                {tutor.name.charAt(0)}
@@ -607,7 +777,7 @@ export default function StudentDashboard() {
                             <div className="flex justify-between items-center">
                               <h3 className="text-sm font-black text-[#0B132B] flex items-center uppercase italic group-hover:text-[#0D5BFF] transition-colors">
                                 {tutor.name}
-                                <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] ml-2" />
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 ml-2" />
                               </h3>
                               <div className="flex items-center gap-1.5">
                                 {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
@@ -656,7 +826,7 @@ export default function StudentDashboard() {
                           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-8">
                              <div className="flex items-center space-x-6">
                                 {selectedTutor.profileImage ? (
-                                  <img src={selectedTutor.profileImage} alt={selectedTutor.name} className="w-20 h-20 rounded-[2rem] object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                                  <img src={selectedTutor.profileImage} alt={selectedTutor.name} className="w-20 h-20 rounded-[2rem] object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
                                 ) : (
                                   <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] border border-slate-100">
                                     {selectedTutor.name.charAt(0)}
@@ -987,25 +1157,81 @@ export default function StudentDashboard() {
                         )}
                       </div>
 
-                      <div className="bg-[#E51275] rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
-                        <div className="flex items-center space-x-4 mb-8">
-                          <CreditCard className="w-6 h-6" />
-                          <h3 className="text-xl font-black uppercase italic">Secured Payout</h3>
+                      <div className={`${selectedPaymentProvider === 'bkash' ? 'bg-[#E51275]' : selectedPaymentProvider === 'nagad' ? 'bg-[#F6921E]' : 'bg-[#002B49]'} rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden transition-colors duration-500`}>
+                        <div className="flex items-center justify-between mb-8">
+                          <div className="flex items-center space-x-4">
+                            <CreditCard className="w-6 h-6" />
+                            <h3 className="text-xl font-black uppercase italic">Secured Checkout</h3>
+                          </div>
+                          <div className="flex gap-2">
+                             {(['bkash', 'nagad'] as PaymentProvider[]).map(p => (
+                               <button 
+                                 key={p}
+                                 onClick={() => setSelectedPaymentProvider(p)}
+                                 className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                   selectedPaymentProvider === p 
+                                   ? 'bg-white text-[#0B132B] border-white' 
+                                   : 'bg-white/10 border-white/20 hover:bg-white/20'
+                                 }`}
+                               >
+                                 {p}
+                               </button>
+                             ))}
+                          </div>
                         </div>
                         {paymentSuccess ? (
-                           <div className="p-8 bg-white/10 rounded-[2rem] text-center">
-                              <h4 className="text-lg font-black uppercase italic">TRX Received</h4>
+                           <div className="p-8 bg-white/10 rounded-[2rem] text-center border border-white/20 backdrop-blur-sm">
+                              <CheckCircle className="w-12 h-12 text-white mx-auto mb-4" />
+                              <h4 className="text-lg font-black uppercase italic">Transaction Confirmed</h4>
+                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2">TRX ID: {transactionId}</p>
                            </div>
                         ) : (
                           <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                           <DashboardInput label="bKash ID" value={bKashNumber} onChange={setBkashNumber} placeholder="017..." />
-                           <div className="flex gap-4">
-                              <DashboardInput label="Volume ৳" value={amount} onChange={setAmount} placeholder="1000" type="number" />
-                              <DashboardInput label="Trx Hash" value={transactionId} onChange={setTransactionId} placeholder="..." />
+                           <div className="space-y-4">
+                             <DashboardInput 
+                               label={`${selectedPaymentProvider.toUpperCase()} Number`} 
+                               value={bKashNumber} 
+                               onChange={setBkashNumber} 
+                               placeholder="017..." 
+                             />
+                             <div className="flex gap-4">
+                                <DashboardInput 
+                                  label="Amount ৳" 
+                                  value={amount} 
+                                  onChange={setAmount} 
+                                  placeholder="1000" 
+                                  type="number" 
+                                />
+                                <DashboardInput 
+                                  label="Transaction ID" 
+                                  value={transactionId} 
+                                  onChange={setTransactionId} 
+                                  placeholder="TRX..." 
+                                />
+                             </div>
                            </div>
-                           <button className="w-full bg-white text-[#E51275] py-4 rounded-xl font-black uppercase italic tracking-widest">
-                             Authorize Transfer
+                           
+                           <button 
+                             disabled={isProcessingPayment || !amount}
+                             className={`w-full py-5 rounded-2xl font-black uppercase italic tracking-widest transition-all scale-100 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${
+                               selectedPaymentProvider === 'bkash' ? 'bg-white text-[#E51275]' : 
+                               selectedPaymentProvider === 'nagad' ? 'bg-white text-[#F6921E]' : 
+                               'bg-[#00AAAD] text-white'
+                             }`}
+                           >
+                             {isProcessingPayment ? (
+                               <div className="w-5 h-5 border-3 border-current/30 border-t-current rounded-full animate-spin"></div>
+                             ) : (
+                               <>
+                                 <Zap className="w-5 h-5" />
+                                 Pay via {selectedPaymentProvider.toUpperCase()}
+                               </>
+                             )}
                            </button>
+                           
+                           <p className="text-[8px] font-medium text-white/50 text-center uppercase tracking-widest mt-4">
+                             Secure simulation active. No real funds will be deducted.
+                           </p>
                           </form>
                         )}
                       </div>
@@ -1136,10 +1362,11 @@ export default function StudentDashboard() {
                            const tutor = users.find(u => u.id === sess?.tutorId);
                            return tutor?.name;
                         })()}
+                        eta={eta}
                       />
                    </div>
 
-                   <div className="grid grid-cols-2 gap-6">
+                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">My Status</p>
                          <p className="text-sm font-black text-[#0B132B] uppercase italic">Location Sync Active</p>
@@ -1148,6 +1375,15 @@ export default function StudentDashboard() {
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Signal Quality</p>
                          <p className="text-sm font-black text-emerald-500 uppercase italic">High Precision</p>
                       </div>
+                      {eta && (
+                        <div className="p-8 bg-[#0D5BFF] rounded-[2.5rem] border border-blue-400 shadow-xl shadow-blue-100 col-span-2 lg:col-span-1">
+                           <p className="text-[8px] font-black text-blue-100 uppercase tracking-widest mb-1">Estimated Arrival</p>
+                           <div className="flex items-baseline gap-2">
+                              <p className="text-2xl font-black text-white italic">{eta.minutes} MINS</p>
+                              <p className="text-[9px] font-black text-blue-200 uppercase italic">({eta.distance} KM)</p>
+                           </div>
+                        </div>
+                      )}
                    </div>
                 </div>
              </div>
@@ -1235,31 +1471,40 @@ export default function StudentDashboard() {
                       );
                     }
 
-                    return contacts.map(contact => (
-                      <button
-                        key={contact.id}
-                        onClick={() => setSelectedRecipientId(contact.id)}
-                        className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group ${
-                          selectedRecipientId === contact.id 
-                          ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
-                          : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
-                        }`}
-                      >
-                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
-                           selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
-                         }`}>
-                           {contact.name.charAt(0)}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
-                            <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
-                              selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
-                            }`}>
-                              {contact.university}
-                            </p>
-                         </div>
-                      </button>
-                    ));
+                    return contacts.map(contact => {
+                      const unreadCount = messages.filter(m => m.senderId === contact.id && m.receiverId === currentUser.id && !m.isRead).length;
+                      
+                      return (
+                        <button
+                          key={contact.id}
+                          onClick={() => setSelectedRecipientId(contact.id)}
+                          className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group relative ${
+                            selectedRecipientId === contact.id 
+                            ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
+                            : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
+                          }`}
+                        >
+                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                             selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
+                           }`}>
+                             {contact.name.charAt(0)}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
+                              <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
+                                selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
+                              }`}>
+                                {contact.university}
+                              </p>
+                           </div>
+                           {unreadCount > 0 && selectedRecipientId !== contact.id && (
+                             <div className="bg-[#E51275] text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg shadow-rose-100 animate-bounce">
+                               {unreadCount}
+                             </div>
+                           )}
+                        </button>
+                      );
+                    });
                   })()}
                </div>
             </div>
@@ -1311,126 +1556,157 @@ export default function StudentDashboard() {
                 </button>
              </div>
 
-             {isEditingAccount ? (
-               <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Gaurdian Name</label>
-                     <input 
-                       value={accountForm.name}
-                       onChange={e => setAccountForm({...accountForm, name: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                     />
+              {isEditingAccount ? (
+                <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Gaurdian Name</label>
+                       <input 
+                         value={accountForm.name}
+                         onChange={e => setAccountForm({...accountForm, name: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Logic</label>
+                       <input 
+                         value={accountForm.phone}
+                         onChange={e => setAccountForm({...accountForm, phone: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
+                       <input 
+                         value={accountForm.address}
+                         onChange={e => setAccountForm({...accountForm, address: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                         placeholder="Enter full residential address"
+                       />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Student Institution</label>
+                       <input 
+                         value={accountForm.school}
+                         onChange={e => setAccountForm({...accountForm, school: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Class / Level</label>
+                       <select 
+                         value={accountForm.studentClass}
+                         onChange={e => setAccountForm({...accountForm, studentClass: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       >
+                         <option value="">SELECT CLASS</option>
+                         {AVAILABLE_CLASSES.map(cls => (
+                           <option key={cls} value={cls}>{cls.toUpperCase()}</option>
+                         ))}
+                       </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-4">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
+                       <div className="flex flex-wrap gap-2">
+                          {AVAILABLE_SUBJECTS.map(sub => (
+                            <button
+                              key={sub}
+                              type="button"
+                              onClick={() => toggleSubject(sub)}
+                              className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                accountForm.subjects.includes(sub)
+                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
+                                : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                              }`}
+                            >
+                              {sub}
+                            </button>
+                          ))}
+                       </div>
+                    </div>
+                    <button 
+                      disabled={isUpdating}
+                      className="md:col-span-2 py-6 bg-[#0B132B] text-white rounded-3xl font-black uppercase italic tracking-widest hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                    >
+                       {isUpdating ? (
+                         <>
+                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                           Synchronizing...
+                         </>
+                       ) : 'Lock Changes in System'}
+                    </button>
+                </form>
+              ) : (
+                <div className="space-y-12">
+                  <div className="grid md:grid-cols-2 gap-12">
+                    <div className="space-y-8">
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Identity UID</p>
+                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.name}</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Protocol</p>
+                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.phone || 'NOT SET'}</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Address</p>
+                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.address || 'NOT SET'}</p>
+                       </div>
+                    </div>
+                    <div className="space-y-8 border-l border-slate-50 pl-12">
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Institution</p>
+                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.university || 'NOT SET'}</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Class</p>
+                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.studentClass || 'NOT SET'}</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Learning Interest</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                             {(currentUser.subjects || []).map(sub => (
+                               <span key={sub} className="px-3 py-1 bg-slate-50 border border-slate-100 text-[8px] font-black uppercase italic text-slate-400 rounded-full">{sub}</span>
+                             ))}
+                             {(currentUser.subjects || []).length === 0 && <span className="text-xs italic text-slate-300 uppercase">None selected</span>}
+                          </div>
+                       </div>
+                       <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                          <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-2">Member Since</p>
+                          <p className="text-sm font-black text-[#0B132B] uppercase italic">May 2024</p>
+                       </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Logic</label>
-                     <input 
-                       value={accountForm.phone}
-                       onChange={e => setAccountForm({...accountForm, phone: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                     />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
-                     <input 
-                       value={accountForm.address}
-                       onChange={e => setAccountForm({...accountForm, address: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       placeholder="Enter full residential address"
-                     />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Student Institution</label>
-                     <input 
-                       value={accountForm.school}
-                       onChange={e => setAccountForm({...accountForm, school: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                     />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Class / Level</label>
-                     <select 
-                       value={accountForm.studentClass}
-                       onChange={e => setAccountForm({...accountForm, studentClass: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                     >
-                       <option value="">SELECT CLASS</option>
-                       {AVAILABLE_CLASSES.map(cls => (
-                         <option key={cls} value={cls}>{cls.toUpperCase()}</option>
-                       ))}
-                     </select>
-                  </div>
-                  <div className="md:col-span-2 space-y-4">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
-                     <div className="flex flex-wrap gap-2">
-                        {AVAILABLE_SUBJECTS.map(sub => (
-                          <button
-                            key={sub}
-                            type="button"
-                            onClick={() => toggleSubject(sub)}
-                            className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
-                              accountForm.subjects.includes(sub)
-                              ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
-                              : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
-                            }`}
-                          >
-                            {sub}
-                          </button>
-                        ))}
-                     </div>
-                  </div>
-                  <button 
-                    disabled={isUpdating}
-                    className="md:col-span-2 py-6 bg-[#0B132B] text-white rounded-3xl font-black uppercase italic tracking-widest hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                  >
-                     {isUpdating ? (
-                       <>
-                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                         Synchronizing...
-                       </>
-                     ) : 'Lock Changes in System'}
-                  </button>
-               </form>
-             ) : (
-               <div className="grid md:grid-cols-2 gap-12">
-                  <div className="space-y-8">
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Identity UID</p>
-                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.name}</p>
-                     </div>
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Protocol</p>
-                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.phone || 'NOT SET'}</p>
-                     </div>
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Address</p>
-                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.address || 'NOT SET'}</p>
-                     </div>
-                  </div>
-                  <div className="space-y-8 border-l border-slate-50 pl-12">
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Institution</p>
-                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.university || 'NOT SET'}</p>
-                     </div>
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Class</p>
-                        <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.studentClass || 'NOT SET'}</p>
-                     </div>
-                     <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Learning Interest</p>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                           {(currentUser.subjects || []).map(sub => (
-                             <span key={sub} className="px-3 py-1 bg-slate-50 border border-slate-100 text-[8px] font-black uppercase italic text-slate-400 rounded-full">{sub}</span>
-                           ))}
-                           {(currentUser.subjects || []).length === 0 && <span className="text-xs italic text-slate-300 uppercase">None selected</span>}
+
+                  <div className="pt-12 border-t border-slate-100">
+                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Payment Logic History</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {payments.map(p => (
+                        <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">TRX: {p.transactionId}</span>
+                              <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${
+                                p.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                              }`}>
+                                {p.status}
+                              </span>
+                            </div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                              {new Date(p.date).toLocaleString()} • Sent via {p.bKashNumber}
+                            </p>
+                          </div>
+                          <div className="text-2xl font-black text-[#0B132B] italic">৳{p.amount}</div>
                         </div>
-                     </div>
-                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-2">Member Since</p>
-                        <p className="text-sm font-black text-[#0B132B] uppercase italic">May 2024</p>
-                     </div>
+                      ))}
+                      {payments.length === 0 && (
+                        <div className="p-12 text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No transaction records found</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-               </div>
-             )}
+                </div>
+              )}
           </motion.div>
         )}
       </AnimatePresence>

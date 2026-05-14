@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, Session, Withdrawal } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   Bell, 
   MapPin, 
@@ -59,8 +60,24 @@ export default function TutorDashboard() {
     updateUser,
     updateAvailabilitySlots,
     users,
-    messages
-  } = useAppStore();
+    messages,
+    payments
+  } = useAppStore(useShallow((state) => ({
+    currentUser: state.currentUser,
+    toggleTracking: state.toggleTracking,
+    updateLocation: state.updateLocation,
+    sessions: state.sessions,
+    withdrawals: state.withdrawals,
+    startSession: state.startSession,
+    endSession: state.endSession,
+    cancelSession: state.cancelSession,
+    requestWithdrawal: state.requestWithdrawal,
+    updateUser: state.updateUser,
+    updateAvailabilitySlots: state.updateAvailabilitySlots,
+    users: state.users,
+    messages: state.messages,
+    payments: state.payments
+  })));
 
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const location = useLocation();
@@ -69,7 +86,14 @@ export default function TutorDashboard() {
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
 
-  const isProfileIncomplete = (!currentUser?.nidNumber || !currentUser?.birthDate || !currentUser?.district || !currentUser?.bio) && !currentUser?.hasDismissedProfileNotice;
+  const isProfileIncomplete = (!currentUser?.bio || !currentUser?.hourlyRate || !currentUser?.nidNumber || !currentUser?.nidImage || !currentUser?.academicCertificates?.length) && !currentUser?.hasDismissedProfileNotice;
+
+  const missingFields = [
+    !currentUser?.bio && 'Bio',
+    !currentUser?.hourlyRate && 'Hourly Rate',
+    (!currentUser?.nidNumber || !currentUser?.nidImage) && 'NID Credentials',
+    (!currentUser?.academicCertificates || currentUser?.academicCertificates.length === 0) && 'Academic Certificates'
+  ].filter(Boolean) as string[];
 
   const refreshLocationManual = () => {
     if ('geolocation' in navigator) {
@@ -239,7 +263,7 @@ export default function TutorDashboard() {
     }, 3000);
   };
 
-  const activeSessions = sessions.filter(s => s.status !== 'completed' && s.status !== 'cancelled');
+  const activeSessions = useMemo(() => sessions.filter(s => s.status !== 'completed' && s.status !== 'cancelled'), [sessions]);
 
   return (
     <div className="space-y-12">
@@ -249,22 +273,24 @@ export default function TutorDashboard() {
           <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
             Tutor Panel
           </h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-            System Status for {currentUser.name}
+          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+            System Status for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
+          <div className="mt-4 flex">
+            {currentUser.isVerified ? (
+              <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Verified Expert</span>
+              </div>
+            ) : (
+              <div className="px-5 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl flex items-center space-x-3">
+                <Zap className="w-4 h-4 text-rose-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">Verification Pending</span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-4">
-           {currentUser.isVerified ? (
-             <div className="px-6 py-3 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center space-x-3">
-               <ShieldCheck className="w-5 h-5" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B]">Verified Status</span>
-             </div>
-           ) : (
-             <div className="px-6 py-3 bg-amber-50 text-amber-600 border border-amber-100 rounded-full flex items-center space-x-3">
-               <Zap className="w-5 h-5" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B]">Review Pending</span>
-             </div>
-           )}
            <button 
              onClick={() => handleTabChange('pro_profile')}
              className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all"
@@ -286,8 +312,8 @@ export default function TutorDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
-              activeTab === tab.id ? 'text-[#0D5BFF]' : 'text-slate-300 hover:text-slate-500'
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
+              activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
             {tab.label}
@@ -319,22 +345,34 @@ export default function TutorDashboard() {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Optimization Required</span>
                   </div>
                   <h3 className="text-2xl font-black uppercase italic leading-tight">Complete your profile to unlock full system capabilities</h3>
-                  <p className="text-[10px] font-medium text-blue-100 uppercase tracking-widest max-w-xl">Our algorithm prioritizes complete profiles. Please provide your NID, Birth Date, and Professional Bio to begin verifying your account.</p>
+                  <div className="flex flex-wrap gap-2 my-3">
+                    {missingFields.map(field => (
+                      <span key={field} className="px-3 py-1 bg-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/10">
+                        Missing: {field}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] font-medium text-blue-100 uppercase tracking-widest max-w-xl">Our optimized matching algorithm prioritizes experts with 100% complete profiles. Providing all credentials ensures faster verification and higher ranking in student search results.</p>
                 </div>
                 
                 <div className="flex items-center gap-4">
                   <button 
-                    onClick={() => handleTabChange('pro_profile')}
-                    className="px-8 py-4 bg-white text-[#0B132B] rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-blue-900/20"
+                    onClick={() => {
+                      handleTabChange('pro_profile');
+                      setIsEditingProfile(true);
+                    }}
+                    className="px-8 py-4 bg-white text-[#0D5BFF] border-2 border-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-blue-50 transition-all shadow-2xl shadow-blue-900/40 flex items-center gap-2 group/btn"
                   >
-                    Fill-up Profile
+                    <span>Update My Experts Profile</span>
+                    <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                   </button>
                   <button 
                     onClick={() => {
                       setShowProfileNotice(false);
                       updateUser(currentUser.id, { hasDismissedProfileNotice: true });
                     }}
-                    className="p-4 bg-white/10 text-white rounded-2xl hover:bg-white/20 transition-all"
+                    className="p-4 bg-white/10 text-white rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-white/5"
+                    title="Dismiss notification"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -359,6 +397,57 @@ export default function TutorDashboard() {
                 <MetricCard label="Active Students" value={Array.from(new Set(sessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(s => s.studentId))).length.toString()} />
                 <MetricCard label="Tutor Rating" value={currentUser?.rating?.toFixed(1) || '0.0'} />
               </div>
+
+              {sessions.find(s => s.status === 'active') && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#0D5BFF] rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-200 group"
+                >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
+                  <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-center gap-6">
+                      <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
+                        <Play className="w-8 h-8 text-white fill-white animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100">Live Session Active</span>
+                          <div className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                          </div>
+                        </div>
+                        <h3 className="text-3xl font-black uppercase italic leading-tight">
+                          Teaching {users.find(u => u.id === sessions.find(s => s.status === 'active')?.studentId)?.name || 'Student'}
+                        </h3>
+                        <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-2">
+                          Subject: {sessions.find(s => s.status === 'active')?.subject} • Started at {new Date(sessions.find(s => s.status === 'active')?.startTime || Date.now()).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => {
+                          const activeSess = sessions.find(s => s.status === 'active');
+                          if (activeSess) endSession(activeSess.id);
+                        }}
+                        className="px-8 py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-blue-900/20 flex items-center gap-2 group/btn"
+                      >
+                        <Square className="w-4 h-4 fill-white" />
+                        <span>Complete Session</span>
+                      </button>
+                      <button 
+                        onClick={() => handleTabChange('transit_mode')}
+                        className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all border border-white/10"
+                        title="Transit Mode"
+                      >
+                        <MapPin className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -693,31 +782,40 @@ export default function TutorDashboard() {
                       );
                     }
 
-                    return contacts.map(contact => (
-                      <button
-                        key={contact.id}
-                        onClick={() => setSelectedRecipientId(contact.id)}
-                        className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group ${
-                          selectedRecipientId === contact.id 
-                          ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
-                          : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
-                        }`}
-                      >
-                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
-                           selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
-                         }`}>
-                           {contact.name.charAt(0)}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
-                            <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
-                              selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
-                            }`}>
-                              {contact.university || contact.email}
-                            </p>
-                         </div>
-                      </button>
-                    ));
+                    return contacts.map(contact => {
+                      const unreadCount = messages.filter(m => m.senderId === contact.id && m.receiverId === currentUser.id && !m.isRead).length;
+                      
+                      return (
+                        <button
+                          key={contact.id}
+                          onClick={() => setSelectedRecipientId(contact.id)}
+                          className={`w-full p-5 rounded-[2rem] border transition-all flex items-center gap-4 text-left group relative ${
+                            selectedRecipientId === contact.id 
+                            ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-100' 
+                            : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
+                          }`}
+                        >
+                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                             selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
+                           }`}>
+                             {contact.name.charAt(0)}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
+                              <p className={`text-[8px] font-black uppercase tracking-widest truncate ${
+                                selectedRecipientId === contact.id ? 'opacity-60' : 'text-slate-400'
+                              }`}>
+                                {contact.university || contact.email}
+                              </p>
+                           </div>
+                           {unreadCount > 0 && selectedRecipientId !== contact.id && (
+                             <div className="bg-[#E51275] text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg shadow-rose-100 animate-bounce">
+                               {unreadCount}
+                             </div>
+                           )}
+                        </button>
+                      );
+                    });
                   })()}
                </div>
             </div>
@@ -1106,6 +1204,35 @@ export default function TutorDashboard() {
                   </div>
                 </div>
 
+                <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm mb-12">
+                   <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Earning & Payment History</h3>
+                   <div className="grid grid-cols-1 gap-4">
+                     {payments.map(p => (
+                       <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
+                         <div>
+                           <div className="flex items-center gap-3 mb-1">
+                             <span className="text-[10px] font-black text-[#0B132B] uppercase italic">TRX: {p.transactionId}</span>
+                             <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${
+                               p.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                             }`}>
+                               {p.status}
+                             </span>
+                           </div>
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                             {new Date(p.date).toLocaleString()} • From {users.find(u => u.id === p.studentId)?.name || 'Student'}
+                           </p>
+                         </div>
+                         <div className="text-2xl font-black text-emerald-600 italic">+৳{p.amount}</div>
+                       </div>
+                     ))}
+                     {payments.length === 0 && (
+                       <div className="p-12 text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
+                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No earning records synchronized</p>
+                       </div>
+                     )}
+                   </div>
+                </div>
+
                 <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white shadow-2xl">
                    <div className="flex items-center gap-4 mb-6">
                       <Clock className="w-5 h-5 text-[#0D5BFF]" />
@@ -1125,7 +1252,7 @@ export default function TutorDashboard() {
   );
 }
 
-function ProfileField({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string | number, onChange: (v: string) => void, placeholder?: string, type?: string }) {
+const ProfileField = memo(({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string | number, onChange: (v: string) => void, placeholder?: string, type?: string }) => {
   return (
     <div className="space-y-3">
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{label}</label>
@@ -1138,12 +1265,14 @@ function ProfileField({ label, value, onChange, placeholder, type = "text" }: { 
       />
     </div>
   );
-}
+});
 
-function ReputationTracker({ rating, totalReviews }: { rating: number, totalReviews: number }) {
+const ReputationTracker = memo(({ rating, totalReviews }: { rating: number, totalReviews: number }) => {
   return (
     <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-3xl -z-0"></div>
+      <AnimatePresence>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-3xl -z-0"></div>
+      </AnimatePresence>
       
       <div className="flex items-center space-x-3 mb-10 relative z-10">
          <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
@@ -1177,9 +1306,9 @@ function ReputationTracker({ rating, totalReviews }: { rating: number, totalRevi
       </div>
     </div>
   );
-}
+});
 
-function WeeklyGrowthChart() {
+const WeeklyGrowthChart = memo(() => {
   return (
     <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm min-h-[300px]">
       <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Weekly Growth</h3>
@@ -1216,9 +1345,9 @@ function WeeklyGrowthChart() {
       </div>
     </div>
   );
-}
+});
 
-function TrackerBar({ label, percentage, color }: { label: string, percentage: number, color: string }) {
+const TrackerBar = memo(({ label, percentage, color }: { label: string, percentage: number, color: string }) => {
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -1235,7 +1364,7 @@ function TrackerBar({ label, percentage, color }: { label: string, percentage: n
       </div>
     </div>
   );
-}
+});
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = [
@@ -1243,7 +1372,7 @@ const HOURS = [
   '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
 ];
 
-function AvailabilityCalendar({ slots, onChange }: { slots: { [key: string]: string[] }, onChange: (slots: { [key: string]: string[] }) => void }) {
+const AvailabilityCalendar = memo(({ slots, onChange }: { slots: { [key: string]: string[] }, onChange: (slots: { [key: string]: string[] }) => void }) => {
   const toggleSlot = (day: string, hour: string) => {
     const daySlots = slots[day] || [];
     const newDaySlots = daySlots.includes(hour)
@@ -1312,4 +1441,4 @@ function AvailabilityCalendar({ slots, onChange }: { slots: { [key: string]: str
       </div>
     </div>
   );
-}
+});

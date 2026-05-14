@@ -3,17 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppStore } from './store';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import DashboardRouter from './pages/DashboardRouter';
-import Messages from './pages/Messages';
 import DashboardLayout from './components/DashboardLayout';
 import PromotionalBanner from './components/PromotionalBanner';
+
+// Lazy load pages for better initial bundle size
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const DashboardRouter = lazy(() => import('./pages/DashboardRouter'));
+const Messages = lazy(() => import('./pages/Messages'));
+
+const LoadingScreen = () => (
+  <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="flex flex-col items-center">
+      <div className="w-16 h-16 border-[6px] border-[#0D5BFF]/10 border-t-[#0D5BFF] rounded-full animate-spin mb-4"></div>
+      <p className="text-[#0B132B] font-black uppercase tracking-widest text-[10px]">Loading EduTrack</p>
+    </div>
+  </div>
+);
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const currentUser = useAppStore(state => state.currentUser);
@@ -23,18 +34,11 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 }
 
 function LayoutWrapper() {
-  const { isLoading, currentUser } = useAppStore();
+  const isLoading = useAppStore(state => state.isLoading);
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 border-[6px] border-[#0D5BFF]/10 border-t-[#0D5BFF] rounded-full animate-spin mb-4"></div>
-          <p className="text-[#0B132B] font-black uppercase tracking-widest text-[10px]">Loading EduTrack</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   const isAuthPage = location.pathname.startsWith('/dashboard') || location.pathname === '/messages';
@@ -48,21 +52,23 @@ function LayoutWrapper() {
          <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-50/50 rounded-full blur-3xl"></div>
       </div>
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard/*" element={
-            <ProtectedRoute>
-              <DashboardRouter />
-            </ProtectedRoute>
-          } />
-          <Route path="/messages" element={
-            <ProtectedRoute>
-              <Messages />
-            </ProtectedRoute>
-          } />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/dashboard/*" element={
+              <ProtectedRoute>
+                <DashboardRouter />
+              </ProtectedRoute>
+            } />
+            <Route path="/messages" element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   );

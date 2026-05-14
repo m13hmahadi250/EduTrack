@@ -88,14 +88,23 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Profile Status Card */}
-      <div className="mb-6 p-5 bg-amber-50/50 rounded-2xl border border-amber-100">
+      <div className={`mb-6 p-5 rounded-2xl border transition-all ${
+        currentUser.isVerified 
+          ? 'bg-emerald-50 border-emerald-100' 
+          : 'bg-rose-50 border-rose-100'
+      }`}>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Profile Status</span>
-          <Shield className="w-4 h-4 text-amber-500" />
+          <span className={`text-[10px] font-black uppercase tracking-widest ${
+            currentUser.isVerified ? 'text-emerald-600' : 'text-rose-600'
+          }`}>Profile Status</span>
+          <Shield className={`w-4 h-4 ${
+            currentUser.isVerified ? 'text-emerald-500' : 'text-rose-500 animate-pulse'
+          }`} />
         </div>
-        <div className="text-sm font-black text-amber-900 uppercase italic">
-          {currentUser.isVerified ? 'Verified Account' : 'Pending Verification'}
+        <div className={`text-sm font-black uppercase italic ${
+          currentUser.isVerified ? 'text-emerald-900' : 'text-rose-900'
+        }`}>
+          {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}
         </div>
       </div>
 
@@ -106,7 +115,9 @@ export default function Sidebar() {
         </div>
         <div>
           <div className="text-xs font-black text-[#0B132B] truncate max-w-[140px] uppercase italic">{currentUser.name}</div>
-          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentUser.role === 'tutor' ? 'Teacher Account' : 'Student Account'}</div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            {currentUser.role === 'tutor' ? 'Teacher Account' : currentUser.role === 'admin' ? 'Admin Account' : 'Student Account'}
+          </div>
         </div>
       </div>
 

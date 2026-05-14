@@ -145,6 +145,7 @@ interface AppState {
   messages: Message[];
   notifications: Notification[];
   isLoading: boolean;
+  typingStatus: { [userId: string]: string | null };
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
@@ -182,6 +183,9 @@ interface AppState {
   // Notifications
   sendNotification: (userId: string, title: string, message: string, type?: Notification['type']) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
+  
+  // Typing
+  setTyping: (targetId: string, isTyping: boolean) => Promise<void>;
   
   // Internal sync
   setLoading: (loading: boolean) => void;
@@ -236,6 +240,7 @@ export const useAppStore = create<AppState>((set, get) => {
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
       // User is signed in, fetch profile
+      set({ isLoading: true });
       try {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
@@ -270,43 +275,57 @@ export const useAppStore = create<AppState>((set, get) => {
     messages: [],
     notifications: [],
     isLoading: true,
+    typingStatus: {},
 
     setLoading: (loading) => set({ isLoading: loading }),
 
     login: async (email, password) => {
-      await signInWithEmailAndPassword(auth, email, password);
+      set({ isLoading: true });
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        set({ isLoading: false });
+        throw error;
+      }
     },
 
     loginWithGoogle: async (requestedRole) => {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const { user } = result;
+      set({ isLoading: true });
+      try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const { user } = result;
 
-      // Check if user exists in Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
-      if (!userDoc.exists()) {
-        // New user from Google
-        const newUser: User = {
-          id: user.uid,
-          email: user.email!,
-          name: user.displayName || 'Google User',
-          phone: user.phoneNumber || '',
-          role: requestedRole || 'student', // Default to student if no role specified
-          balance: 0,
-          isVerified: false,
-          isTrackingOn: false,
-          rating: 0,
-          profileImage: user.photoURL || undefined
-        };
-        await setDoc(doc(db, 'users', user.uid), newUser);
-        set({ currentUser: newUser });
-      } else {
-        set({ currentUser: userDoc.data() as User });
+        // Check if user exists in Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        if (!userDoc.exists()) {
+          // New user from Google
+          const newUser: User = {
+            id: user.uid,
+            email: user.email!,
+            name: user.displayName || 'Google User',
+            phone: user.phoneNumber || '',
+            role: requestedRole || 'student', // Default to student if no role specified
+            balance: 0,
+            isVerified: false,
+            isTrackingOn: false,
+            rating: 0,
+            profileImage: user.photoURL || undefined
+          };
+          await setDoc(doc(db, 'users', user.uid), newUser);
+          set({ currentUser: newUser });
+        } else {
+          set({ currentUser: userDoc.data() as User });
+        }
+      } catch (error) {
+        set({ isLoading: false });
+        throw error;
       }
     },
 
     loginAsDemo: async (role: Role) => {
+      set({ isLoading: true });
       const demoAccounts = {
         student: { email: 'student@gmail.com', password: 'password123' },
         tutor: { email: 'teacher@gmail.com', password: 'password123' },
@@ -319,17 +338,18 @@ export const useAppStore = create<AppState>((set, get) => {
       } catch (error: any) {
         // Only attempt signup if the user definitely does not exist
         if (error.code === 'auth/user-not-found') {
-          await get().signup({ 
-            email, 
-            name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-            role,
-            phone: '01700000000'
-          }, password);
+          try {
+            await get().signup({ 
+              email, 
+              name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+              role,
+              phone: '01700000000'
+            }, password);
+          } catch (signupErr) {
+            set({ isLoading: false });
+            throw signupErr;
+          }
         } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-          // If credentials fail but user might exist, try to update password or just throw clear error
-          // For demo, we expect the preset password to work. 
-          // If it fails with invalid-credential and it's not user-not-found, it might be an existing user with different password.
-          // Let's try to signup anyway since it's a demo, but catch the email-already-in-use specifically.
           try {
             await get().signup({ 
               email, 
@@ -338,12 +358,14 @@ export const useAppStore = create<AppState>((set, get) => {
               phone: '01700000000'
             }, password);
           } catch (signupError: any) {
+            set({ isLoading: false });
             if (signupError.message?.includes('auth/email-already-in-use') || signupError.code === 'auth/email-already-in-use') {
               throw new Error(`Demo account ${email} exists with a different password. Please use the standard login or contact support.`);
             }
             throw signupError;
           }
         } else {
+          set({ isLoading: false });
           throw error;
         }
       }
@@ -355,32 +377,38 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     signup: async (userData, password) => {
-      // Create auth user
-      const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
-      const uid = result.user.uid;
-
-      // Determine role - handle the requested admin email
-      let finalRole: Role = userData.role as Role;
-      if (userData.email === 'admin@gmail.com') {
-        finalRole = 'admin';
-      }
-
-      const newUser: User = {
-        ...userData,
-        id: uid,
-        role: finalRole,
-        balance: 0,
-        isVerified: finalRole === 'admin',
-        isTrackingOn: false,
-        rating: 0,
-      } as User;
-
-      // Save to Firestore
+      set({ isLoading: true });
       try {
+        // Create auth user
+        const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
+        const uid = result.user.uid;
+
+        // Determine role - handle the requested admin email
+        let finalRole: Role = userData.role as Role;
+        if (userData.email === 'admin@gmail.com') {
+          finalRole = 'admin';
+        }
+
+        const newUser: User = {
+          ...userData,
+          id: uid,
+          role: finalRole,
+          balance: 0,
+          isVerified: finalRole === 'admin',
+          isTrackingOn: false,
+          rating: 0,
+        } as User;
+
+        // Save to Firestore
         await setDoc(doc(db, 'users', uid), newUser);
         set({ currentUser: newUser });
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `users/${uid}`);
+        set({ isLoading: false });
+        if (error instanceof Error && !error.message.includes('users/')) {
+          handleFirestoreError(error, OperationType.WRITE, `users`);
+        } else {
+          throw error;
+        }
       }
     },
 
@@ -668,10 +696,11 @@ export const useAppStore = create<AppState>((set, get) => {
         });
         
         // Notify Receiver
+        const senderName = get().currentUser?.role === 'admin' ? 'EDUTRACK ADMIN' : (get().currentUser?.name || 'User');
         await get().sendNotification(
           msgData.receiverId, 
           'New Secure Transmission', 
-          `Received a message from ${get().currentUser?.name || 'User'}`, 
+          `Received a message from ${senderName}`, 
           'info'
         );
       } catch (error) {
@@ -722,6 +751,20 @@ export const useAppStore = create<AppState>((set, get) => {
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
       }
+    },
+
+    setTyping: async (targetId, isTyping) => {
+      const user = get().currentUser;
+      if (!user) return;
+      try {
+        await setDoc(doc(db, 'typing', user.id), {
+          typingTo: isTyping ? targetId : null,
+          updatedAt: Timestamp.now()
+        }, { merge: true });
+      } catch (error) {
+        // Silently fail for typing status to avoid UI flicker
+        console.warn('Typing status update failed');
+      }
     }
   };
 });
@@ -731,7 +774,13 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
 
   // Listen to ALL users for tutor searching and admin management
   const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-    const users = snapshot.docs.map(doc => doc.data() as User);
+    const users = snapshot.docs.map(doc => {
+      const data = doc.data() as User;
+      if (data.role === 'admin') {
+        return { ...data, name: 'ADMIN ACCOUNT' };
+      }
+      return data;
+    });
     const updatedCurrentUser = users.find(u => u.id === uid);
     set({ 
       users, 
@@ -751,7 +800,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
   
   const unsubPayments = onSnapshot(paymentsQuery, (snapshot) => {
-    const payments = snapshot.docs.map(doc => doc.data() as Payment);
+    const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
     set({ payments });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'payments');
@@ -808,4 +857,15 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     handleFirestoreError(error, OperationType.LIST, 'notifications');
   });
   activeUnsubscribes.push(unsubNotifs);
+
+  // Listen to typing indicators
+  const unsubTyping = onSnapshot(collection(db, 'typing'), (snapshot) => {
+    const typingStatus: { [userId: string]: string | null } = {};
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      typingStatus[doc.id] = data.typingTo;
+    });
+    set({ typingStatus });
+  });
+  activeUnsubscribes.push(unsubTyping);
 }

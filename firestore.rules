@@ -189,5 +189,12 @@ service cloud.firestore {
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid 
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
     }
+
+    // Typing Indicators
+    match /typing/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) && 
+                   (incoming().get('typingTo', null) == null || isValidId(incoming().typingTo));
+    }
   }
 }

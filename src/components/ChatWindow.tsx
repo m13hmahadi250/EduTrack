@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useAppStore, Message, User } from '../store';
-import { Send, User as UserIcon, ShieldAlert } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import { Send, User as UserIcon, ShieldAlert, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ChatWindowProps {
@@ -8,16 +9,46 @@ interface ChatWindowProps {
 }
 
 export default function ChatWindow({ recipientId }: ChatWindowProps) {
-  const { messages, sendMessage, markMessagesAsRead, currentUser, users } = useAppStore();
+  const { messages, sendMessage, markMessagesAsRead, currentUser, users, typingStatus, setTyping } = useAppStore(useShallow((state) => ({
+    messages: state.messages,
+    sendMessage: state.sendMessage,
+    markMessagesAsRead: state.markMessagesAsRead,
+    currentUser: state.currentUser,
+    users: state.users,
+    typingStatus: state.typingStatus,
+    setTyping: state.setTyping
+  })));
   const [content, setContent] = useState('');
+  const [isTypingLocal, setIsTypingLocal] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recipient = users.find(u => u.id === recipientId);
+  const recipient = useMemo(() => users.find(u => u.id === recipientId), [users, recipientId]);
+
+  const isRecipientTyping = typingStatus[recipientId] === currentUser?.id;
+
+  // Handle typing indicator
+  const handleContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setContent(value);
+
+    if (!isTypingLocal && value.trim()) {
+      setIsTypingLocal(true);
+      setTyping(recipientId, true);
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTypingLocal(false);
+      setTyping(recipientId, false);
+    }, 2000);
+  };
 
   // Filter messages for this conversation
-  const chatMessages = messages
+  const chatMessages = useMemo(() => messages
     .filter(m => (m.senderId === currentUser?.id && m.receiverId === recipientId) || 
                  (m.senderId === recipientId && m.receiverId === currentUser?.id))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()), [messages, currentUser?.id, recipientId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -58,14 +89,16 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
             </div>
           )}
           <div>
-            <h4 className="text-sm font-black text-[#0B132B] italic">{recipient.name}</h4>
+            <h4 className="text-sm font-black text-[#0B132B] italic">
+              {recipient.role === 'admin' ? 'EDUTRACK ADMIN' : recipient.name}
+            </h4>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Secure Link Active</span>
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase">Secure Link Active</span>
             </div>
           </div>
         </div>
-        <div className="px-3 py-1 bg-blue-50 text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest rounded-lg border border-blue-100 italic">
+        <div className="px-3 py-1 bg-blue-50 text-[8px] font-black text-[#0D5BFF] tracking-widest rounded-lg border border-blue-100 italic uppercase">
           Channel {recipient.id.substring(0, 8)}
         </div>
       </div>
@@ -78,7 +111,7 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
         {chatMessages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
             <ShieldAlert className="w-12 h-12 mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] max-w-[200px]">
+            <p className="text-[10px] font-black tracking-[0.2em] max-w-[200px]">
               No data packets transmitted yet. Initiate secure handshake.
             </p>
           </div>
@@ -102,13 +135,40 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
                 `}>
                   {msg.content}
                 </div>
-                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-2 px-2 italic">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
+                <div className={`flex items-center gap-2 mt-2 px-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <p className="text-[8px] font-black text-slate-300 tracking-widest italic">
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  {isMe && (
+                    <div>
+                      {msg.isRead ? (
+                        <CheckCheck className="w-3 h-3 text-[#0D5BFF]" />
+                      ) : (
+                        <Check className="w-3 h-3 text-slate-300" />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           );
         })}
+        {isRecipientTyping && (
+          <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-start"
+          >
+            <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] px-5 py-3 rounded-tl-none flex items-center gap-2">
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce"></span>
+              </div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Typing</span>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Input Area */}
@@ -116,9 +176,9 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
         <div className="relative">
           <input 
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={handleContentChange}
             placeholder="Type your message..."
-            className="w-full bg-white border border-slate-100 rounded-2xl py-4 pl-6 pr-14 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] shadow-sm"
+            className="w-full bg-white border border-slate-100 rounded-2xl py-4 pl-6 pr-14 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] shadow-sm transition-all"
           />
           <button 
             type="submit"

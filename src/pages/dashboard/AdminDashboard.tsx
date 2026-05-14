@@ -89,20 +89,20 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
-            Command Center
+          <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4 text-balance">
+            Admin Account
           </h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-2">
-            <Activity className="w-3 h-3 text-[#0D5BFF]" />
-            Infrastructure Node Alpha-01
+          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#0D5BFF]" />
+            EduTrack Officials | <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
         </div>
         <div className="flex items-center space-x-4">
            <div className="bg-[#0B132B] text-white px-8 py-4 rounded-[2rem] flex items-center space-x-4 shadow-2xl">
-              <Shield className="w-5 h-5 text-[#0D5BFF]" />
+              <Activity className="w-5 h-5 text-[#0D5BFF]" />
               <div className="border-l border-white/10 pl-4">
-                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Authorization</p>
-                <p className="text-[8px] font-black text-emerald-400 uppercase tracking-tighter">Level 4: Root Admin</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 text-emerald-400">System Active</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Official Command node</p>
               </div>
            </div>
         </div>
@@ -161,8 +161,8 @@ export default function AdminDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-[10px] font-black uppercase tracking-[0.3em] italic pb-6 transition-all relative ${
-              activeTab === tab.id ? 'text-[#0D5BFF]' : 'text-slate-300 hover:text-slate-500'
+            className={`text-[10px] font-black font-heading uppercase tracking-[0.3em] italic pb-6 transition-all relative ${
+              activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
             {tab.label}
@@ -269,8 +269,13 @@ export default function AdminDashboard() {
                    {pendingPayments.map(payment => (
                      <div key={payment.id} className="bg-white/5 rounded-[2.5rem] p-8 flex items-center justify-between border border-white/5 hover:bg-white/[0.08] transition-all group">
                         <div className="flex items-center gap-8">
-                           <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20">
-                             TRX: {payment.transactionId}
+                           <div className="flex flex-col gap-2">
+                             <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20">
+                               TRX: {payment.transactionId}
+                             </div>
+                             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4">
+                               Sender: {payment.bKashNumber}
+                             </div>
                            </div>
                            <div className="text-2xl font-black text-white italic">৳{payment.amount}</div>
                         </div>
@@ -302,28 +307,54 @@ export default function AdminDashboard() {
              {pendingWithdrawals.map(req => {
                const tutor = users.find(u => u.id === req.tutorId);
                return (
-                 <div key={req.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col justify-between h-80 transition-all hover:shadow-xl group">
-                    <div>
+                 <div key={req.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col justify-between h-96 transition-all hover:shadow-xl group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -z-0"></div>
+                    <div className="relative z-10">
                        <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center gap-4">
-                             <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors">
+                             <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center font-black italic text-[#0D5BFF] border border-slate-100 group-hover:scale-110 transition-transform">
                                {tutor?.name.charAt(0) || 'E'}
                              </div>
                              <div>
-                                <h4 className="text-lg font-black text-[#0B132B] uppercase italic leading-none mb-1">{tutor?.name || 'Expert'}</h4>
-                                <p className="text-[9px] font-black text-slate-400 font-mono tracking-widest">{req.bKashNumber}</p>
+                                <h4 className="text-xl font-black text-[#0B132B] uppercase italic leading-none mb-2">{tutor?.name || 'Expert'}</h4>
+                                <div className="flex flex-col gap-1">
+                                  <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-lg w-fit">bKash: {req.bKashNumber}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                                    Requested: {new Date(req.timestamp).toLocaleString(undefined, { 
+                                      year: 'numeric', 
+                                      month: 'short', 
+                                      day: 'numeric', 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })}
+                                  </p>
+                                </div>
                              </div>
                           </div>
-                          <div className="text-3xl font-black text-[#0B132B] italic">৳{req.amount}</div>
+                          <div className="text-4xl font-black text-[#0B132B] italic">৳{req.amount}</div>
                        </div>
-                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">
-                         Tutor hash withdrawal request initiated via bKash gateway. Verify balance before clearing.
-                       </p>
+                       <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-8 italic">
+                          <p className="text-[10px] font-medium text-slate-500 leading-relaxed uppercase">
+                            Tutor balance withdrawal request initiated via bKash gateway. Verify the expert's previous session completions before authorizing the payout stream.
+                          </p>
+                       </div>
                     </div>
 
-                    <div className="flex gap-4">
-                       <button onClick={() => approveWithdrawal(req.id)} className="flex-1 py-5 bg-[#0D5BFF] text-white rounded-2xl font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 active:scale-95 transition-all">Clear Payout</button>
-                       <button onClick={() => rejectWithdrawal(req.id)} className="px-8 py-5 border-2 border-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-300 hover:border-rose-500 hover:text-rose-500 transition-all">Revoke</button>
+                    <div className="flex gap-4 relative z-10">
+                       <button 
+                         onClick={() => approveWithdrawal(req.id)} 
+                         className="flex-1 py-5 bg-[#0D5BFF] text-white rounded-[1.5rem] font-black uppercase italic tracking-widest shadow-2xl shadow-blue-500/20 hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-3"
+                       >
+                         <CheckCircle className="w-5 h-5" />
+                         Approve Payout
+                       </button>
+                       <button 
+                         onClick={() => rejectWithdrawal(req.id)} 
+                         className="flex-1 py-5 bg-white border-2 border-slate-100 text-rose-500 rounded-[1.5rem] font-black uppercase italic tracking-widest hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center gap-3"
+                       >
+                         <XCircle className="w-5 h-5" />
+                         Reject
+                       </button>
                     </div>
                  </div>
                );
@@ -463,6 +494,34 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Financial Footprint */}
+                    <div className="space-y-4">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Financial Footprint</p>
+                      <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Wallet className="w-4 h-4 text-[#0D5BFF]" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B]">Earning History</span>
+                          </div>
+                          <span className="text-xl font-black text-[#0B132B] italic">৳{selectedTutor.balance || 0}</span>
+                        </div>
+                        <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                          {payments.filter(p => p.tutorId === selectedTutor.id).map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 italic">
+                               <div className="flex flex-col">
+                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{new Date(p.date).toLocaleDateString()}</span>
+                                 <span className="text-[9px] font-bold text-[#0B132B]">{p.transactionId}</span>
+                               </div>
+                               <span className={`text-[10px] font-black ${p.status === 'approved' ? 'text-emerald-600' : 'text-slate-300'}`}>+৳{p.amount}</span>
+                            </div>
+                          ))}
+                          {payments.filter(p => p.tutorId === selectedTutor.id).length === 0 && (
+                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-4">No financial events synchronized</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -518,6 +577,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-slate-50">
                     <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Timestamp</th>
+                    <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Sender ID</th>
                     <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Hash</th>
                     <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Payload (৳)</th>
                     <th className="p-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Verification</th>
@@ -528,6 +588,11 @@ export default function AdminDashboard() {
                     <tr key={payment.id} className="h-20 group hover:bg-slate-50/80 transition-colors">
                       <td className="px-8 text-[10px] font-black text-slate-500 tracking-widest">
                         {new Date(payment.date).toLocaleString()}
+                      </td>
+                      <td className="px-8">
+                        <span className="text-[11px] font-black font-mono text-[#0B132B]">
+                          {payment.bKashNumber}
+                        </span>
                       </td>
                       <td className="px-8 flex items-center gap-4">
                         <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300">

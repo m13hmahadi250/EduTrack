@@ -175,7 +175,11 @@ export default function Messages() {
                   <div>
                     <h3 className="text-xl font-black text-[#0B132B] uppercase italic flex items-center gap-2">
                        {selectedUser.name}
-                       {selectedUser.isVerified && <ShieldCheck className="w-5 h-5 text-[#0D5BFF]" />}
+                       {selectedUser.isVerified ? (
+                         <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                       ) : (
+                         <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
+                       )}
                     </h3>
                     <div className="flex items-center space-x-3 mt-1">
                       <span className="flex h-2 w-2 relative">

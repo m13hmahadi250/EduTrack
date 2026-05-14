@@ -3,7 +3,8 @@ import { LogOut, User as UserIcon, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../store';
 
 export default function Navbar() {
-  const { currentUser, logout } = useAppStore();
+  const currentUser = useAppStore(state => state.currentUser);
+  const logout = useAppStore(state => state.logout);
   const navigate = useNavigate();
 
   const handleLogout = () => {

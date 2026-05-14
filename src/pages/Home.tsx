@@ -421,7 +421,7 @@ export default function Home() {
   );
 }
 
-function TrustCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+const TrustCard = React.memo(({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => {
   return (
     <div className="group p-8 rounded-3xl bg-[#F8F9FA] hover:bg-white border border-transparent hover:border-slate-100 hover:shadow-2xl transition-all duration-500">
       <div className="mb-6 p-4 bg-white shadow-sm border border-slate-50 inline-block rounded-2xl text-[#0D5BFF] transform group-hover:scale-110 transition-transform">
@@ -433,18 +433,18 @@ function TrustCard({ icon, title, description }: { icon: React.ReactNode, title:
       </p>
     </div>
   );
-}
+});
 
-function StatBlock({ value, label }: { value: string, label: string }) {
+const StatBlock = React.memo(({ value, label }: { value: string, label: string }) => {
   return (
     <div className="p-8 border-r border-slate-100 last:border-0 flex flex-col justify-center items-center text-center">
        <div className="text-4xl lg:text-5xl font-black font-heading text-[#0D5BFF] mb-2">{value}</div>
        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0B132B]">{label}</div>
     </div>
   );
-}
+});
 
-function Step({ number, title, desc }: { number: string, title: string, desc: string }) {
+const Step = React.memo(({ number, title, desc }: { number: string, title: string, desc: string }) => {
   return (
     <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left group">
       <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center border-2 border-slate-100 shadow-sm mb-6 group-hover:border-[#0D5BFF] group-hover:shadow-xl transition-all duration-300">
@@ -456,13 +456,13 @@ function Step({ number, title, desc }: { number: string, title: string, desc: st
       </p>
     </div>
   );
-}
+});
 
-function TutorPreviewCard({ name, uni, subj, rating, img }: { name: string, uni: string, subj: string, rating: number, img: string }) {
+const TutorPreviewCard = React.memo(({ name, uni, subj, rating, img }: { name: string, uni: string, subj: string, rating: number, img: string }) => {
   return (
     <div className="bg-[#F8F9FA] rounded-[2.5rem] p-4 border border-slate-100 hover:border-[#0D5BFF]/30 hover:shadow-2xl transition-all duration-500 group">
       <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
-        <img src={img} alt={name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
+        <img src={img} alt={name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
           <span className="text-[10px] font-black text-[#0B132B]">{rating}</span>
@@ -478,4 +478,4 @@ function TutorPreviewCard({ name, uni, subj, rating, img }: { name: string, uni:
       </div>
     </div>
   );
-}
+});

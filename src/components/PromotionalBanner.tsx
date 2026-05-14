@@ -1,27 +1,15 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Sparkles, Zap, Gift } from 'lucide-react';
 
 export default function PromotionalBanner() {
   const adText = "SPECIAL OFFER: JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • VERIFIED TUTORS GET EXCLUSIVE BADGES • REAL-TIME TRACKING NOW LIVE IN ALL CITIES • ";
 
   return (
-    <div className="bg-[#0B132B] text-white py-3 overflow-hidden whitespace-nowrap border-b border-white/10 relative z-[60]">
+    <div className="bg-[#0B132B] text-white py-3 overflow-hidden whitespace-nowrap border-b border-white/10 relative z-[60] group cursor-default">
       <div className="flex items-center">
-        <motion.div 
-          animate={{ x: [0, -1000] }}
-          transition={{ 
-            x: {
-              repeat: Infinity,
-              repeatType: "loop",
-              duration: 25,
-              ease: "linear",
-            },
-          }}
-          className="flex items-center space-x-12 px-12"
-        >
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center space-x-8">
+        <div className="flex items-center space-x-12 px-12 animate-marquee group-hover:[animation-play-state:paused]">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="flex items-center space-x-8 flex-shrink-0">
               <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
                 {adText}
@@ -34,7 +22,7 @@ export default function PromotionalBanner() {
               </span>
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
