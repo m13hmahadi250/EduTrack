@@ -28,11 +28,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Lookup role in users collection
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isVerifiedEmail() {
+      // Temporarily relaxing for dev environment, but keeping structure for hardening
       return isSignedIn();
     }
 
@@ -47,21 +47,14 @@ service cloud.firestore {
                data.balance is number &&
                data.isVerified is bool &&
                data.isTrackingOn is bool &&
-               // Optional/New fields handling
                (data.get('rating', null) == null || data.rating is number) &&
                (data.get('totalRatings', null) == null || data.totalRatings is number) &&
                (data.get('ratingSum', null) == null || data.ratingSum is number) &&
-               (data.get('availabilitySlots', null) == null || data.availabilitySlots is map) &&
                (data.get('phone', null) == null || data.phone is string) &&
                (data.get('address', null) == null || data.address is string) &&
                (data.get('university', null) == null || data.university is string) &&
-               (data.get('experience', null) == null || data.experience is string) &&
                (data.get('bio', null) == null || data.bio is string) &&
                (data.get('hourlyRate', null) == null || data.hourlyRate is number) &&
-               (data.get('teachingAreas', null) == null || data.teachingAreas is list) &&
-               (data.get('district', null) == null || data.district is string) &&
-               (data.get('area', null) == null || data.area is string) &&
-               (data.get('thana', null) == null || data.thana is string) &&
                (data.get('profileImage', null) == null || data.profileImage is string) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
@@ -71,13 +64,12 @@ service cloud.firestore {
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
                     (incoming().role != 'admin' || request.auth.token.email == 'admin@gmail.com');
 
-      allow update: if (isOwner(userId) && isValidUser(incoming()) && 
+      allow update: if (isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && 
                        incoming().role == existing().role && 
                        incoming().email == existing().email && 
                        incoming().balance == existing().balance && 
                        incoming().isVerified == existing().isVerified
                     ) || (
-                       // Allow rating updates from students
                        isSignedIn() && 
                        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingSum', 'totalRatings'])
                     ) || isAdmin();
@@ -97,11 +89,15 @@ service cloud.firestore {
       allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
       
-      allow create: if isVerifiedEmail() && isValidPayment(incoming()) && 
+      allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming()) && 
                     incoming().studentId == request.auth.uid && 
                     incoming().status == 'pending';
 
-      allow update: if isAdmin() && isValidPayment(incoming());
+      allow update: if (isAdmin() && isValidPayment(incoming())) || (
+        isSignedIn() && resource.data.studentId == request.auth.uid && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+        incoming().status == 'cancelled'
+      );
       
       allow delete: if isAdmin();
     }
@@ -119,10 +115,9 @@ service cloud.firestore {
       allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
       allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
       
-      allow create: if isVerifiedEmail() && isValidMessage(incoming());
+      allow create: if isSignedIn() && isValidId(messageId) && isValidMessage(incoming());
       
       allow update: if isSignedIn() && (
-        // Receiver can mark as read
         (request.auth.uid == existing().receiverId && 
          incoming().diff(existing()).affectedKeys().hasOnly(['isRead']) &&
          incoming().isRead == true)
@@ -138,17 +133,13 @@ service cloud.firestore {
                isValidId(data.studentId) && isValidId(data.tutorId) &&
                data.subject is string && data.subject.size() <= 200 &&
                data.status in ['scheduled', 'active', 'completed', 'cancelled'] &&
-               data.scheduledTime is string &&
-               (data.get('rating', null) == null || data.rating is number) &&
-               (data.get('feedback', null) == null || data.feedback is string) &&
-               (data.get('duration', null) == null || data.duration is number) &&
-               (data.get('meetingLink', null) == null || data.meetingLink is string);
+               data.scheduledTime is string;
       }
 
       allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
 
-      allow create: if isVerifiedEmail() && isValidSession(incoming()) && 
+      allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming()) && 
                     incoming().studentId == request.auth.uid &&
                     incoming().status == 'scheduled';
 
@@ -173,7 +164,7 @@ service cloud.firestore {
       allow list: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
       allow get: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
 
-      allow create: if isVerifiedEmail() && isValidWithdrawal(incoming()) && 
+      allow create: if isSignedIn() && isValidId(withdrawalId) && isValidWithdrawal(incoming()) && 
                     incoming().tutorId == request.auth.uid &&
                     incoming().status == 'pending';
 
@@ -182,15 +173,33 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Notifications
-    match /notifications/{id} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn(); // Allow any signed in user to send notifications
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid 
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    // --- Notifications Collection ---
+    match /notifications/{notificationId} {
+      function isValidNotification(data) {
+        return data.keys().hasAll(['id', 'userId', 'title', 'message', 'type', 'isRead', 'timestamp']) &&
+               data.keys().size() == 7 &&
+               isValidId(data.id) &&
+               isValidId(data.userId) &&
+               data.title is string && data.title.size() <= 200 &&
+               data.message is string && data.message.size() <= 2000 &&
+               data.type in ['info', 'success', 'warning', 'error'] &&
+               data.isRead is bool &&
+               data.timestamp is string;
+      }
+
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidId(notificationId) && isValidNotification(incoming());
+      
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['isRead'])
+      );
+      
+      allow delete: if isAdmin();
     }
 
-    // Typing Indicators
+    // --- Typing Indicators ---
     match /typing/{userId} {
       allow read: if isSignedIn();
       allow write: if isOwner(userId) && 

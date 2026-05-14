@@ -17,9 +17,8 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MetricCard } from '../../components/DashboardComponents';
 
 export default function AdminDashboard() {
   const { 
@@ -79,20 +78,57 @@ export default function AdminDashboard() {
     }
   };
 
-  const tutors = users.filter(u => u.role === 'tutor');
-  const pendingPayments = payments.filter(p => p.status === 'pending');
-  const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending');
-  const allPayments = payments;
+  const tutors = useMemo(() => {
+    const tutorMap = new Map();
+    users.filter(u => u.role === 'tutor').forEach(tutor => {
+      if (!tutorMap.has(tutor.id)) {
+        tutorMap.set(tutor.id, tutor);
+      }
+    });
+    return Array.from(tutorMap.values());
+  }, [users]);
+
+  const pendingPayments = useMemo(() => {
+    const paymentMap = new Map();
+    payments.filter(p => p.status === 'pending').forEach(p => {
+      if (!paymentMap.has(p.id)) {
+        paymentMap.set(p.id, p);
+      }
+    });
+    return Array.from(paymentMap.values());
+  }, [payments]);
+
+  const pendingWithdrawals = useMemo(() => {
+    const withdrawalMap = new Map();
+    withdrawals.filter(w => w.status === 'pending').forEach(w => {
+      if (!withdrawalMap.has(w.id)) {
+        withdrawalMap.set(w.id, w);
+      }
+    });
+    return Array.from(withdrawalMap.values());
+  }, [withdrawals]);
+
+  const allPayments = useMemo(() => {
+    const paymentMap = new Map();
+    payments.forEach(p => {
+      if (!paymentMap.has(p.id)) {
+        paymentMap.set(p.id, p);
+      }
+    });
+    return Array.from(paymentMap.values());
+  }, [payments]);
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-12">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4 text-balance">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4 text-balance">
             Admin Account
           </h1>
-          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
+          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#0D5BFF]" />
             EduTrack Officials | <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
@@ -110,7 +146,7 @@ export default function AdminDashboard() {
 
       {/* Real-time Status Grid */}
       <div className="grid lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[3rem] p-10 flex flex-col justify-between h-56 shadow-sm overflow-hidden relative group transition-all hover:border-[#0D5BFF]">
+        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-sm overflow-hidden relative group transition-all hover:border-[#0D5BFF]">
            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[4rem] flex items-center justify-center -mr-4 -mt-4 transition-colors group-hover:bg-blue-50">
               <Users className="w-8 h-8 text-slate-200 group-hover:text-[#0D5BFF]" />
            </div>
@@ -121,7 +157,7 @@ export default function AdminDashboard() {
            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Registered Tutors</p>
         </div>
 
-        <div className="lg:col-span-1 bg-[#0D5BFF] rounded-[3rem] p-10 flex flex-col justify-between h-56 shadow-2xl relative overflow-hidden group">
+        <div className="lg:col-span-1 bg-[#0D5BFF] rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-2xl relative overflow-hidden group">
            <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-white/10 rounded-full blur-3xl opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
            <Shield className="w-8 h-8 text-white/20 mb-4" />
            <div>
@@ -131,7 +167,7 @@ export default function AdminDashboard() {
            <p className="text-[10px] font-black text-white/80 uppercase tracking-widest italic">Verification Queue</p>
         </div>
 
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[3rem] p-10 flex flex-col justify-between h-56 shadow-sm group hover:border-amber-400">
+        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-sm group hover:border-amber-400">
            <Zap className={`w-8 h-8 ${pendingPayments.length > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-200'}`} />
            <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Liquid Stream</p>
@@ -140,7 +176,7 @@ export default function AdminDashboard() {
            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Pending Clearances</p>
         </div>
 
-        <div className="lg:col-span-1 border-4 border-dashed border-slate-100 rounded-[3.5rem] p-10 flex flex-col justify-between h-56 text-center group hover:bg-slate-50 transition-all">
+        <div className="lg:col-span-1 border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 text-center group hover:bg-slate-50 transition-all">
            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto shadow-lg border border-slate-50 transition-transform group-hover:rotate-12">
               <Wallet className="w-6 h-6 text-[#0D5BFF]" />
            </div>
@@ -152,7 +188,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Navigation Matrix */}
-      <div className="flex space-x-12 border-b-2 border-slate-100 px-4">
+      <div className="flex space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
         {[
           { id: 'verifications', label: 'Identity Protocol' },
           { id: 'payments', label: 'Inbound Revenue' },
@@ -184,16 +220,25 @@ export default function AdminDashboard() {
           >
             <div className="grid lg:grid-cols-1 gap-8">
               {tutors.map(tutor => (
-                <div key={tutor.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-12 group transition-all hover:shadow-xl">
-                  <div className="flex items-center gap-8">
-                     <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden">
-                       {tutor.name.charAt(0)}
+                <div key={tutor.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 sm:gap-12 group transition-all hover:shadow-xl">
+                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
+                     <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden">
+                       {tutor.profileImage ? (
+                         <img 
+                           src={tutor.profileImage} 
+                           alt={tutor.name} 
+                           className="w-full h-full object-cover" 
+                           referrerPolicy="no-referrer"
+                           loading="lazy"
+                         />
+                       ) : (
+                         tutor.name.charAt(0)
+                       )}
                      </div>
                      <div>
-                        <h4 className="text-xl font-black text-[#0B132B] uppercase italic">{tutor.name}</h4>
+                        <h4 className="text-lg sm:text-xl font-black text-[#0B132B] uppercase italic">{tutor.name}</h4>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">{tutor.university || 'Independent Expert'}</p>
-                        <div className="flex gap-4 mt-4">
-                           {/* NID Status Badge */}
+                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4 mt-4">
                            <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
                              tutor.nidStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                              tutor.nidStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
@@ -206,7 +251,6 @@ export default function AdminDashboard() {
                              NID: {tutor.nidStatus || 'Pending'}
                            </span>
 
-                           {/* Academic Status Badge */}
                            <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
                              tutor.academicStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                              tutor.academicStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
@@ -302,9 +346,24 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="grid lg:grid-cols-2 gap-8"
+            className="space-y-12"
           >
-             {pendingWithdrawals.map(req => {
+             <div className="bg-[#0B132B] rounded-[4rem] p-16 border border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#0D5BFF]/10 to-transparent"></div>
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                   <div>
+                      <h3 className="text-3xl font-black text-white uppercase italic mb-2 tracking-tighter">Treasury: Outbound Queue</h3>
+                      <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] font-heading">Awaiting Expert Fund Clearance</p>
+                   </div>
+                   <div className="bg-white/5 border border-white/10 px-10 py-8 rounded-[3rem] text-right group hover:border-[#0D5BFF] transition-all">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-heading">Total Withdrawal Exposure</p>
+                      <h4 className="text-5xl font-black text-white italic">৳{pendingWithdrawals.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}</h4>
+                   </div>
+                </div>
+             </div>
+
+             <div className="grid lg:grid-cols-2 gap-8">
+               {pendingWithdrawals.map(req => {
                const tutor = users.find(u => u.id === req.tutorId);
                return (
                  <div key={req.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col justify-between h-96 transition-all hover:shadow-xl group relative overflow-hidden">
@@ -313,7 +372,7 @@ export default function AdminDashboard() {
                        <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center gap-4">
                              <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center font-black italic text-[#0D5BFF] border border-slate-100 group-hover:scale-110 transition-transform">
-                               {tutor?.name.charAt(0) || 'E'}
+                               {tutor?.name?.charAt(0) || 'E'}
                              </div>
                              <div>
                                 <h4 className="text-xl font-black text-[#0B132B] uppercase italic leading-none mb-2">{tutor?.name || 'Expert'}</h4>
@@ -366,6 +425,7 @@ export default function AdminDashboard() {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">No pending withdrawal hooks detected in sector</p>
                </div>
              )}
+             </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -390,8 +450,12 @@ export default function AdminDashboard() {
               {/* Left Column: Info */}
               <div className="flex-1 p-12 overflow-y-auto custom-scrollbar border-r border-slate-100">
                 <div className="flex items-center gap-6 mb-10">
-                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] shadow-inner">
-                    {selectedTutor.name.charAt(0)}
+                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] shadow-inner overflow-hidden">
+                    {selectedTutor.profileImage ? (
+                      <img src={selectedTutor.profileImage} alt={selectedTutor.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      selectedTutor.name.charAt(0)
+                    )}
                   </div>
                   <div>
                     <h3 className="text-3xl font-black text-[#0B132B] uppercase italic leading-none mb-2">{selectedTutor.name}</h3>

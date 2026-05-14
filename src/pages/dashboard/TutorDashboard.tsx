@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, Session, Withdrawal } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -29,14 +29,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import MapTracker from '../../components/MapTracker';
-import ImageUpload from '../../components/ImageUpload';
-import FileUpload from '../../components/FileUpload';
+const MapTracker = lazy(() => import('../../components/MapTracker'));
+const ImageUpload = lazy(() => import('../../components/ImageUpload'));
+const FileUpload = lazy(() => import('../../components/FileUpload'));
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES } from '../../constants';
 import { MetricCard, DashboardInput } from '../../components/DashboardComponents';
 
-import RatingModal from '../../components/RatingModal';
-import ChatWindow from '../../components/ChatWindow';
+const RatingModal = lazy(() => import('../../components/RatingModal'));
+const ChatWindow = lazy(() => import('../../components/ChatWindow'));
 
 const dummyData = [
   { name: 'Mon', earnings: 1200 },
@@ -47,6 +47,13 @@ const dummyData = [
   { name: 'Sat', earnings: 2400 },
   { name: 'Sun', earnings: 3200 },
 ];
+
+const MapLoading = () => (
+   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
+     <div className="w-8 h-8 border-4 border-slate-800 border-t-[#0D5BFF] rounded-full animate-spin mb-2"></div>
+     <p className="text-[8px] font-black uppercase tracking-widest leading-loose">Acquiring Uplink...</p>
+   </div>
+);
 
 export default function TutorDashboard() {
   const { 
@@ -271,17 +278,47 @@ export default function TutorDashboard() {
     }, 3000);
   };
 
-  const activeSessions = useMemo(() => sessions.filter(s => s.status !== 'completed' && s.status !== 'cancelled'), [sessions]);
+  const activeSessions = useMemo(() => {
+    const sessionMap = new Map();
+    sessions
+      .filter(s => s.status !== 'completed' && s.status !== 'cancelled')
+      .forEach(s => {
+        if (!sessionMap.has(s.id)) {
+          sessionMap.set(s.id, s);
+        }
+      });
+    return Array.from(sessionMap.values());
+  }, [sessions]);
+
+  const tutorPayments = useMemo(() => {
+    const paymentMap = new Map();
+    payments.forEach(p => {
+      if (!paymentMap.has(p.id)) {
+        paymentMap.set(p.id, p);
+      }
+    });
+    return Array.from(paymentMap.values());
+  }, [payments]);
+
+  const tutorWithdrawals = useMemo(() => {
+    const withdrawalMap = new Map();
+    withdrawals.forEach(w => {
+      if (!withdrawalMap.has(w.id)) {
+        withdrawalMap.set(w.id, w);
+      }
+    });
+    return Array.from(withdrawalMap.values());
+  }, [withdrawals]);
 
   return (
     <div className="space-y-12">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
             Tutor Panel
           </h1>
-          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
             System Status for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
           <div className="mt-4 flex">
@@ -417,8 +454,8 @@ export default function TutorDashboard() {
             className="grid grid-cols-1 lg:grid-cols-3 gap-8"
           >
             <div className="lg:col-span-2 space-y-8">
-              <div className="grid grid-cols-2 gap-6">
-                <MetricCard label="Active Students" value={Array.from(new Set(sessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(s => s.studentId))).length.toString()} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <MetricCard label="Active Students" value={Array.from(new Set(activeSessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(s => s.studentId))).length.toString()} />
                 <MetricCard label="Tutor Rating" value={currentUser?.rating?.toFixed(1) || '0.0'} />
               </div>
 
@@ -426,7 +463,7 @@ export default function TutorDashboard() {
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[#0D5BFF] rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-200 group"
+                  className="bg-[#0D5BFF] rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-200 group"
                 >
                   <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
                   <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -586,11 +623,11 @@ export default function TutorDashboard() {
                  <div className="grid grid-cols-2 gap-4 relative z-10">
                     <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5">
                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Yield</p>
-                      <p className="text-xl font-black italic">৳{sessions.filter(s => s.status === 'completed').length * (currentUser.hourlyRate || 1000)}</p>
+                      <p className="text-xl font-black italic">৳{activeSessions.filter(s => s.status === 'completed').length * (currentUser.hourlyRate || 1000)}</p>
                     </div>
                     <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5">
                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Withdrawn</p>
-                      <p className="text-xl font-black italic">৳{withdrawals.filter(w => w.status === 'approved').reduce((acc, w) => acc + w.amount, 0)}</p>
+                      <p className="text-xl font-black italic">৳{tutorWithdrawals.filter(w => w.status === 'approved').reduce((acc, w) => acc + w.amount, 0)}</p>
                     </div>
                  </div>
                </div>
@@ -623,15 +660,15 @@ export default function TutorDashboard() {
 
             <section className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Financial History</h3>
-               <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
                   <div className="space-y-4">
-                    {withdrawals.map(w => (
-                      <div key={w.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
+                    {tutorWithdrawals.map(w => (
+                      <div key={w.id} className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{new Date(w.timestamp).toLocaleDateString()}</p>
                           <h4 className="text-sm font-black text-[#0B132B] uppercase italic">To: {w.bKashNumber}</h4>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-lg font-black text-[#0B132B] italic">৳{w.amount}</p>
                           <span className={`text-[8px] font-black uppercase tracking-widest ${
                             w.status === 'approved' ? 'text-emerald-500' : w.status === 'rejected' ? 'text-rose-500' : 'text-amber-500'
@@ -642,7 +679,7 @@ export default function TutorDashboard() {
                       </div>
                     ))}
                   </div>
-               </div>
+                </div>
             </section>
           </motion.div>
         )}
@@ -693,24 +730,34 @@ export default function TutorDashboard() {
                       </button>
                    </div>
 
-                   <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
-                      {currentUser.isTrackingOn ? (
-                        <MapTracker 
-                          tutorLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
-                          tutorName="Me (Tutor)"
-                          // Show the first active student's location if available
-                          studentLocation={(() => {
-                            const activeSess = sessions.find(s => s.status === 'active' || s.status === 'scheduled');
-                            const student = users.find(u => u.id === activeSess?.studentId);
-                            return student?.location ? [student.location.lat, student.location.lng] : undefined;
-                          })()}
-                          studentName={(() => {
-                            const activeSess = sessions.find(s => s.status === 'active' || s.status === 'scheduled');
-                            const student = users.find(u => u.id === activeSess?.studentId);
-                            return student?.name;
-                          })()}
-                        />
-                      ) : (
+                    <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
+                       {currentUser.isTrackingOn ? (
+                         <Suspense fallback={<MapLoading />}>
+                           <MapTracker 
+                             tutorLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                             tutorName="Me (Tutor)"
+                             tutorImage={currentUser.profileImage}
+                            students={(() => {
+                              const uniqueStudents = new Map();
+                              sessions
+                                .filter(s => s.status === 'active' || s.status === 'scheduled')
+                                .forEach(s => {
+                                  const student = users.find(u => u.id === s.studentId);
+                                  if (student?.location && !uniqueStudents.has(student.id)) {
+                                    uniqueStudents.set(student.id, {
+                                      id: student.id,
+                                      location: [student.location.lat, student.location.lng] as [number, number],
+                                      name: student.name,
+                                      image: student.profileImage,
+                                      isOnline: student.isTrackingOn
+                                    });
+                                  }
+                                });
+                              return Array.from(uniqueStudents.values());
+                            })()}
+                           />
+                         </Suspense>
+                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-center p-12">
                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
                               <MapPin className="w-10 h-10 text-slate-700" />
@@ -848,7 +895,9 @@ export default function TutorDashboard() {
             </div>
             <div className="lg:col-span-2">
                {selectedRecipientId ? (
-                 <ChatWindow recipientId={selectedRecipientId} />
+                 <Suspense fallback={<div className="h-[400px] bg-slate-50 animate-pulse rounded-3xl" />}>
+                   <ChatWindow recipientId={selectedRecipientId} />
+                 </Suspense>
                ) : (
                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
                     <Send className="w-12 h-12 mb-6" />
@@ -1294,8 +1343,8 @@ export default function TutorDashboard() {
                 <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm mb-12">
                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Earning & Payment History</h3>
                    <div className="grid grid-cols-1 gap-4">
-                     {payments.map(p => (
-                       <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
+                     {tutorPayments.map(p => (
+                       <div key={p.id} className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                          <div>
                            <div className="flex items-center gap-3 mb-1">
                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">TRX: {p.transactionId}</span>
@@ -1312,7 +1361,7 @@ export default function TutorDashboard() {
                          <div className="text-2xl font-black text-emerald-600 italic">+৳{p.amount}</div>
                        </div>
                      ))}
-                     {payments.length === 0 && (
+                     {tutorPayments.length === 0 && (
                        <div className="p-12 text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No earning records synchronized</p>
                        </div>

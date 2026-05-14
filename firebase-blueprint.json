@@ -111,6 +111,21 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "tutorId", "amount", "bKashNumber", "status", "timestamp"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A system or user notification.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "isRead": { "type": "boolean" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "isRead", "timestamp"]
     }
   },
   "firestore": {
@@ -133,6 +148,10 @@
     "/withdrawals/{withdrawalId}": {
       "schema": "Withdrawal",
       "description": "Withdrawal requests"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
     }
   }
 }

@@ -15,13 +15,53 @@
 @layer base {
   body {
     @apply bg-[#F8F9FA] text-[#0B132B] font-sans;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
 }
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .container {
+    @apply px-4;
+  }
+  
+  /* Fix giant map markers on mobile */
+  .custom-div-icon {
+    transform: scale(0.85);
+  }
+
+  /* Faster feeling transitions */
+  * {
+    transition-duration: 200ms !important;
+  }
+}
+
+/* Map specific fixes */
+.leaflet-container {
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply !rounded-[1.5rem] !shadow-2xl !border-0;
+}
+
+.leaflet-popup-tip {
+  @apply !bg-white;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -23,16 +23,23 @@ import {
   FileText,
   Trash2
 } from 'lucide-react';
-import MapTracker from '../../components/MapTracker';
-import ImageUpload from '../../components/ImageUpload';
-import FileUpload from '../../components/FileUpload';
+const MapTracker = lazy(() => import('../../components/MapTracker'));
+const ImageUpload = lazy(() => import('../../components/ImageUpload'));
+const FileUpload = lazy(() => import('../../components/FileUpload'));
+const RatingModal = lazy(() => import('../../components/RatingModal'));
+const ChatWindow = lazy(() => import('../../components/ChatWindow'));
 import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
-import RatingModal from '../../components/RatingModal';
-import ChatWindow from '../../components/ChatWindow';
 import { PaymentService, PaymentProvider } from '../../services/paymentService';
+
+const MapLoading = () => (
+   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+     <div className="w-8 h-8 border-4 border-slate-200 border-t-rose-500 rounded-full animate-spin mb-2"></div>
+     <p className="text-[8px] font-black uppercase tracking-widest leading-loose">Booting Satellite Feed...</p>
+   </div>
+);
 
 export default function StudentDashboard() {
   const { 
@@ -215,7 +222,8 @@ export default function StudentDashboard() {
 
   // Filter only verified tutors matching search and filters
   const filteredTutors = useMemo(() => {
-    return users.filter(user => {
+    const unique = new Map();
+    users.filter(user => {
       if (user.role !== 'tutor' || !user.isVerified) return false;
       
       const searchLower = debouncedSearch.toLowerCase();
@@ -244,7 +252,8 @@ export default function StudentDashboard() {
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
 
       return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating;
-    });
+    }).forEach(u => unique.set(u.id, u));
+    return Array.from(unique.values()) as User[];
   }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterRating]);
 
   const [bKashNumber, setBkashNumber] = useState('');
@@ -272,8 +281,25 @@ export default function StudentDashboard() {
     return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
   };
 
-  const myPayments = useMemo(() => payments.filter(p => p.studentId === currentUser?.id), [payments, currentUser?.id]);
-  const mySessions = useMemo(() => sessions.filter(s => s.studentId === currentUser?.id), [sessions, currentUser?.id]);
+  const myPayments = useMemo(() => {
+    const paymentMap = new Map();
+    payments.filter(p => p.studentId === currentUser?.id).forEach(p => {
+      if (!paymentMap.has(p.id)) {
+        paymentMap.set(p.id, p);
+      }
+    });
+    return Array.from(paymentMap.values());
+  }, [payments, currentUser?.id]);
+
+  const mySessions = useMemo(() => {
+    const sessionMap = new Map();
+    sessions.filter(s => s.studentId === currentUser?.id).forEach(s => {
+      if (!sessionMap.has(s.id)) {
+        sessionMap.set(s.id, s);
+      }
+    });
+    return Array.from(sessionMap.values());
+  }, [sessions, currentUser?.id]);
   const activeSession = useMemo(() => mySessions.find(s => s.status === 'active'), [mySessions]);
 
   const calculateETA = () => {
@@ -416,10 +442,10 @@ export default function StudentDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4">
             Student Panel
           </h1>
-          <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
             Central Operations for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
         </div>
@@ -520,7 +546,7 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-12"
           >
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard label="Sessions" value={mySessions.length.toString()} />
               <MetricCard label="Active Tutors" value={Array.from(new Set(mySessions.filter(s => s.status !== 'cancelled').map(s => s.tutorId))).length.toString()} />
               <MetricCard label="Total Spent" value={`৳${myPayments.filter(p => p.status === 'approved').reduce((acc, curr) => acc + curr.amount, 0)}`} />
@@ -531,7 +557,7 @@ export default function StudentDashboard() {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-rose-500 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200 group"
+                className="bg-rose-500 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200 group"
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
                 <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -611,17 +637,34 @@ export default function StudentDashboard() {
               </div>
               <div className="space-y-6">
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Expert Radius</h3>
-                <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
-                   {activeSession && users.find(u => u.id === activeSession.tutorId)?.location ? (
-                     <MapTracker 
-                       tutorLocation={[
-                         users.find(u => u.id === activeSession.tutorId)!.location!.lat, 
-                         users.find(u => u.id === activeSession.tutorId)!.location!.lng
-                       ]} 
-                       tutorName={users.find(u => u.id === activeSession.tutorId)?.name}
-                       eta={eta}
-                     />
-                   ) : (
+                 <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
+                    {mySessions.some(s => (s.status === 'active' || s.status === 'scheduled') && users.find(u => u.id === s.tutorId)?.location) ? (
+                      <Suspense fallback={<MapLoading />}>
+                        <MapTracker 
+                          studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                          studentName="Me"
+                          tutors={(() => {
+                            const uniqueTutors = new Map();
+                            mySessions
+                              .filter(s => s.status === 'active' || s.status === 'scheduled')
+                              .forEach(s => {
+                                const tutor = users.find(u => u.id === s.tutorId);
+                                if (tutor?.location && !uniqueTutors.has(tutor.id)) {
+                                  uniqueTutors.set(tutor.id, {
+                                    id: tutor.id,
+                                    location: [tutor.location.lat, tutor.location.lng] as [number, number],
+                                    name: tutor.name,
+                                    image: tutor.profileImage,
+                                    isOnline: tutor.isTrackingOn
+                                  });
+                                }
+                              });
+                            return Array.from(uniqueTutors.values());
+                          })()}
+                          eta={eta}
+                        />
+                      </Suspense>
+                    ) : (
                      <div className="w-full h-full flex flex-col items-center justify-center text-center opacity-30 p-8">
                        <MapPin className="w-10 h-10 mb-4" />
                        <p className="text-[8px] font-black uppercase tracking-widest leading-loose">No active transmission signals detected in your sector.</p>
@@ -639,8 +682,31 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="grid grid-cols-1 lg:grid-cols-4 gap-8"
+            className="flex flex-col gap-8"
           >
+            {/* Map Preview of All Tutors */}
+            <div className="bg-white rounded-[3.5rem] p-4 border border-slate-100 shadow-sm overflow-hidden h-72 relative">
+               <div className="absolute top-8 left-8 z-10 bg-white/90 backdrop-blur px-4 py-2 rounded-xl text-[10px] font-black uppercase italic text-[#0B132B] shadow-sm border border-slate-100">
+                 Global Tutor Radius: {filteredTutors.length} Experts Found
+               </div>
+               <Suspense fallback={<MapLoading />}>
+                 <MapTracker 
+                   studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                   studentName="Me"
+                   tutors={filteredTutors
+                     .filter(t => t.location)
+                     .map(t => ({
+                       id: t.id,
+                       location: [t.location!.lat, t.location!.lng] as [number, number],
+                       name: t.name,
+                       image: t.profileImage,
+                       isOnline: t.isTrackingOn
+                     }))}
+                 />
+               </Suspense>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Filters Sidebar */}
             <div className={`lg:col-span-1 space-y-6 ${windowWidth <= 1024 && !showFilters ? 'hidden' : 'block'}`}>
               <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm relative">
@@ -1318,6 +1384,7 @@ export default function StudentDashboard() {
               )}
             </div>
           </div>
+        </div>
           </motion.div>
         )}
 
@@ -1329,9 +1396,9 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-8"
           >
-             <h3 className="text-3xl font-black text-[#0B132B] uppercase italic">Central Activity Logs</h3>
-             <div className="grid lg:grid-cols-2 gap-12">
-                <section className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm h-fit">
+             <h3 className="text-xl sm:text-3xl font-black text-[#0B132B] uppercase italic">Central Activity Logs</h3>
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
+                <section className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm h-fit">
                    <h4 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Lesson History</h4>
                    <div className="space-y-4">
                       {mySessions.map(sess => (
@@ -1368,7 +1435,7 @@ export default function StudentDashboard() {
                    </div>
                 </section>
 
-                <section className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm h-fit">
+                <section className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm h-fit">
                    <h4 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Financial Stream</h4>
                    <div className="space-y-4">
                       {myPayments.map(p => (
@@ -1398,7 +1465,7 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="grid lg:grid-cols-2 gap-12"
           >
-             <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
+             <div className="bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between mb-12">
                    <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
@@ -1420,38 +1487,49 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-8 flex-1">
-                   <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
-                      <MapTracker 
-                        studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
-                        studentName="Me (Gaurdian)"
-                        tutorLocation={(() => {
-                           const sess = mySessions.find(s => s.status === 'active' || s.status === 'scheduled');
-                           const tutor = users.find(u => u.id === sess?.tutorId);
-                           return (tutor?.isTrackingOn && tutor?.location) ? [tutor.location.lat, tutor.location.lng] : undefined;
-                        })()}
-                        tutorName={(() => {
-                           const sess = mySessions.find(s => s.status === 'active' || s.status === 'scheduled');
-                           const tutor = users.find(u => u.id === sess?.tutorId);
-                           return tutor?.name;
-                        })()}
-                        eta={eta}
-                      />
+                   <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative">
+                      <Suspense fallback={<MapLoading />}>
+                        <MapTracker 
+                          studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                          studentName="Me (Guardian)"
+                          studentImage={currentUser.profileImage}
+                          tutors={(() => {
+                            const uniqueTutors = new Map();
+                            mySessions
+                              .filter(s => s.status === 'active' || s.status === 'scheduled')
+                              .forEach(s => {
+                                const tutor = users.find(u => u.id === s.tutorId);
+                                if (tutor?.location && !uniqueTutors.has(tutor.id)) {
+                                  uniqueTutors.set(tutor.id, {
+                                    id: tutor.id,
+                                    location: [tutor.location.lat, tutor.location.lng] as [number, number],
+                                    name: tutor.name,
+                                    image: tutor.profileImage,
+                                    isOnline: tutor.isTrackingOn
+                                  });
+                                }
+                              });
+                            return Array.from(uniqueTutors.values());
+                          })()}
+                          eta={eta}
+                        />
+                      </Suspense>
                    </div>
 
-                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                      <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">My Status</p>
                          <p className="text-sm font-black text-[#0B132B] uppercase italic">Location Sync Active</p>
                       </div>
-                      <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                      <div className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Signal Quality</p>
                          <p className="text-sm font-black text-emerald-500 uppercase italic">High Precision</p>
                       </div>
                       {eta && (
-                        <div className="p-8 bg-[#0D5BFF] rounded-[2.5rem] border border-blue-400 shadow-xl shadow-blue-100 col-span-2 lg:col-span-1">
+                        <div className="p-6 sm:p-8 bg-[#0D5BFF] rounded-[2.5rem] border border-blue-400 shadow-xl shadow-blue-100 sm:col-span-2 lg:col-span-1">
                            <p className="text-[8px] font-black text-blue-100 uppercase tracking-widest mb-1">Estimated Arrival</p>
                            <div className="flex items-baseline gap-2">
-                              <p className="text-2xl font-black text-white italic">{eta.minutes} MINS</p>
+                              <p className="text-lg sm:text-2xl font-black text-white italic">{eta.minutes} MINS</p>
                               <p className="text-[9px] font-black text-blue-200 uppercase italic">({eta.distance} KM)</p>
                            </div>
                         </div>
@@ -1582,7 +1660,9 @@ export default function StudentDashboard() {
             </div>
             <div className="lg:col-span-2">
                {selectedRecipientId ? (
-                 <ChatWindow recipientId={selectedRecipientId} />
+                 <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
+                   <ChatWindow recipientId={selectedRecipientId} />
+                 </Suspense>
                ) : (
                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
                     <Send className="w-12 h-12 mb-6" />
@@ -1792,11 +1872,13 @@ export default function StudentDashboard() {
 
       <AnimatePresence>
         {pendingRatingSession && (
-          <RatingModal 
-            sessionId={pendingRatingSession.id}
-            tutorName={users.find(u => u.id === pendingRatingSession.tutorId)?.name || 'Your Tutor'}
-            onClose={() => setPendingRatingSession(null)}
-          />
+          <Suspense fallback={null}>
+            <RatingModal 
+              sessionId={pendingRatingSession.id}
+              tutorName={users.find(u => u.id === pendingRatingSession.tutorId)?.name || 'Your Tutor'}
+              onClose={() => setPendingRatingSession(null)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
     </div>
