@@ -19,10 +19,13 @@ import {
   ChevronRight,
   ChevronLeft,
   ArrowLeft,
-  Zap
+  Zap,
+  FileText,
+  Trash2
 } from 'lucide-react';
 import MapTracker from '../../components/MapTracker';
 import ImageUpload from '../../components/ImageUpload';
+import FileUpload from '../../components/FileUpload';
 import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
@@ -178,7 +181,10 @@ export default function StudentDashboard() {
     school: currentUser?.university || '',
     studentClass: currentUser?.studentClass || '',
     subjects: currentUser?.subjects || [],
-    address: currentUser?.address || ''
+    address: currentUser?.address || '',
+    nidFrontImg: currentUser?.nidFrontImg || '',
+    nidBackImg: currentUser?.nidBackImg || '',
+    documents: currentUser?.documents || []
   });
 
   // Sync form state when currentUser changes or editing is toggled
@@ -190,7 +196,10 @@ export default function StudentDashboard() {
         school: currentUser.university || '',
         studentClass: currentUser.studentClass || '',
         subjects: currentUser.subjects || [],
-        address: currentUser.address || ''
+        address: currentUser.address || '',
+        nidFrontImg: currentUser.nidFrontImg || '',
+        nidBackImg: currentUser.nidBackImg || '',
+        documents: currentUser.documents || []
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -391,7 +400,10 @@ export default function StudentDashboard() {
       university: accountForm.school,
       studentClass: accountForm.studentClass,
       subjects: accountForm.subjects,
-      address: accountForm.address
+      address: accountForm.address,
+      nidFrontImg: accountForm.nidFrontImg,
+      nidBackImg: accountForm.nidBackImg,
+      documents: accountForm.documents
     });
     setIsEditingAccount(false);
     setIsUpdating(false);
@@ -581,7 +593,12 @@ export default function StudentDashboard() {
                            </div>
                            <div>
                               <h4 className="text-lg font-black text-[#0B132B] uppercase italic">{tutor?.name}</h4>
-                              <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject} • {new Date(sess.scheduledTime).toLocaleString()}</p>
+                              <div className="flex items-center gap-3">
+                                <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject} • {new Date(sess.scheduledTime).toLocaleString()}</p>
+                                {sess.status === 'scheduled' && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) <= 24 * 60 * 60 * 1000 && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) > 0 && (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-md animate-pulse">Starts in &lt;24h</span>
+                                )}
+                              </div>
                            </div>
                         </div>
                         <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest ${sess.status === 'active' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
@@ -1588,7 +1605,6 @@ export default function StudentDashboard() {
              <div className="flex items-center justify-between mb-16">
                 <div className="flex items-center gap-8">
                    <ImageUpload 
-                     userId={currentUser.id} 
                      currentImageUrl={currentUser.profileImage} 
                      onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
                    />

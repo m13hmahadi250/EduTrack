@@ -114,8 +114,12 @@ const Sidebar = memo(() => {
 
       {/* User Info */}
       <div className="flex items-center space-x-4 mb-4 p-4 bg-slate-50 rounded-3xl">
-        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black italic">
-          {currentUser.name.charAt(0)}
+        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black italic overflow-hidden">
+          {currentUser.profileImage ? (
+            <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            currentUser.name.charAt(0)
+          )}
         </div>
         <div>
           <div className="text-xs font-black text-[#0B132B] truncate max-w-[140px] uppercase italic">{currentUser.name}</div>

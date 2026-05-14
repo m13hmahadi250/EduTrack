@@ -538,12 +538,55 @@ export default function AdminDashboard() {
                    </button>
                 </div>
                 
-                <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 p-4 shadow-inner flex flex-col">
-                   <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-8">
-                      <div>
-                         <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Document scan preview unavailable in simulation mode</p>
-                      </div>
+                <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 p-4 shadow-inner flex flex-col overflow-y-auto custom-scrollbar">
+                   <div className="space-y-6">
+                      {selectedTutor.nidFrontImg && (
+                        <div className="space-y-2">
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">NID Front</p>
+                           <div className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                              <img src={selectedTutor.nidFrontImg} alt="NID Front" className="w-full object-contain max-h-64" referrerPolicy="no-referrer" />
+                           </div>
+                        </div>
+                      )}
+                      
+                      {selectedTutor.nidBackImg && (
+                        <div className="space-y-2">
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">NID Back</p>
+                           <div className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                              <img src={selectedTutor.nidBackImg} alt="NID Back" className="w-full object-contain max-h-64" referrerPolicy="no-referrer" />
+                           </div>
+                        </div>
+                      )}
+
+                      {selectedTutor.documents && selectedTutor.documents.length > 0 && (
+                        <div className="space-y-2">
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Academic Documents & ID Cards</p>
+                           <div className="grid gap-4">
+                              {selectedTutor.documents.map((docUrl, idx) => (
+                                <div key={idx} className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50 relative group">
+                                   {docUrl.toLowerCase().endsWith('.pdf') ? (
+                                     <div className="p-8 flex flex-col items-center justify-center text-center">
+                                        <FileText className="w-12 h-12 text-[#0D5BFF] mb-4" />
+                                        <p className="text-[10px] font-black text-[#0B132B] uppercase">Academic Document {idx + 1}</p>
+                                        <a href={docUrl} target="_blank" rel="noreferrer" className="mt-4 px-4 py-2 bg-[#0D5BFF] text-white text-[8px] font-black uppercase rounded-lg">Open PDF</a>
+                                     </div>
+                                   ) : (
+                                     <img src={docUrl} alt={`Document ${idx + 1}`} className="w-full object-contain max-h-96" referrerPolicy="no-referrer" />
+                                   )}
+                                </div>
+                              ))}
+                           </div>
+                        </div>
+                      )}
+
+                      {!selectedTutor.nidFrontImg && !selectedTutor.nidBackImg && (!selectedTutor.documents || selectedTutor.documents.length === 0) && (
+                        <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-8 min-h-[300px]">
+                           <div>
+                              <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No documents uploaded by this expert yet</p>
+                           </div>
+                        </div>
+                      )}
                    </div>
                 </div>
 

@@ -24,12 +24,14 @@ import {
   Plus,
   Trash2,
   Check,
-  Send
+  Send,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MapTracker from '../../components/MapTracker';
 import ImageUpload from '../../components/ImageUpload';
+import FileUpload from '../../components/FileUpload';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES } from '../../constants';
 import { MetricCard, DashboardInput } from '../../components/DashboardComponents';
 
@@ -86,13 +88,13 @@ export default function TutorDashboard() {
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
 
-  const isProfileIncomplete = (!currentUser?.bio || !currentUser?.hourlyRate || !currentUser?.nidNumber || !currentUser?.nidImage || !currentUser?.academicCertificates?.length) && !currentUser?.hasDismissedProfileNotice;
+  const isProfileIncomplete = (!currentUser?.bio || !currentUser?.hourlyRate || !currentUser?.nidNumber || !currentUser?.nidFrontImg || !currentUser?.documents?.length) && !currentUser?.hasDismissedProfileNotice;
 
   const missingFields = [
     !currentUser?.bio && 'Bio',
     !currentUser?.hourlyRate && 'Hourly Rate',
-    (!currentUser?.nidNumber || !currentUser?.nidImage) && 'NID Credentials',
-    (!currentUser?.academicCertificates || currentUser?.academicCertificates.length === 0) && 'Academic Certificates'
+    (!currentUser?.nidNumber || !currentUser?.nidFrontImg) && 'NID Credentials',
+    (!currentUser?.documents || currentUser?.documents.length === 0) && 'Academic Documents'
   ].filter(Boolean) as string[];
 
   const refreshLocationManual = () => {
@@ -149,7 +151,10 @@ export default function TutorDashboard() {
     thana: currentUser?.thana || '',
     teachingAreas: currentUser?.teachingAreas || [],
     nidNumber: currentUser?.nidNumber || '',
-    birthDate: currentUser?.birthDate || ''
+    birthDate: currentUser?.birthDate || '',
+    nidFrontImg: currentUser?.nidFrontImg || '',
+    nidBackImg: currentUser?.nidBackImg || '',
+    documents: currentUser?.documents || []
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -167,7 +172,10 @@ export default function TutorDashboard() {
         thana: currentUser.thana || '',
         teachingAreas: currentUser.teachingAreas || [],
         nidNumber: currentUser.nidNumber || '',
-        birthDate: currentUser.birthDate || ''
+        birthDate: currentUser.birthDate || '',
+        nidFrontImg: currentUser.nidFrontImg || '',
+        nidBackImg: currentUser.nidBackImg || '',
+        documents: currentUser.documents || []
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -486,6 +494,9 @@ export default function TutorDashboard() {
                                <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject}</p>
                                <span className="text-slate-200">•</span>
                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(sess.scheduledTime).toLocaleString()}</p>
+                               {sess.status === 'scheduled' && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) <= 24 * 60 * 60 * 1000 && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) > 0 && (
+                                 <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-md animate-pulse">Starts in &lt;24h</span>
+                               )}
                             </div>
                           </div>
                         </div>
@@ -861,7 +872,6 @@ export default function TutorDashboard() {
                      <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm flex flex-col items-center">
                         <div className="mb-8">
                            <ImageUpload 
-                             userId={currentUser.id} 
                              currentImageUrl={currentUser.profileImage} 
                              onUpload={(url) => updateUser(currentUser.id, { profileImage: url })}
                            />
@@ -967,6 +977,59 @@ export default function TutorDashboard() {
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          <ProfileField label="National ID (NID)" value={profileForm.nidNumber} onChange={(v) => setProfileForm({...profileForm, nidNumber: v})} placeholder="Enter 10 or 17 digit NID" />
                          <ProfileField label="Date of Birth" value={profileForm.birthDate} onChange={(v) => setProfileForm({...profileForm, birthDate: v})} type="date" />
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">NID Front Image</label>
+                            <FileUpload 
+                              currentFileUrl={profileForm.nidFrontImg} 
+                              onUpload={(url) => setProfileForm({...profileForm, nidFrontImg: url})} 
+                              label="Upload NID Front"
+                            />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">NID Back Image</label>
+                            <FileUpload 
+                              currentFileUrl={profileForm.nidBackImg} 
+                              onUpload={(url) => setProfileForm({...profileForm, nidBackImg: url})} 
+                              label="Upload NID Back"
+                            />
+                          </div>
+                       </div>
+
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between px-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current College/ University ID CARD</label>
+                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{profileForm.documents.length} Files</span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             {profileForm.documents.map((docUrl, idx) => (
+                               <div key={idx} className="relative group">
+                                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
+                                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                                        <FileText className="w-5 h-5 text-[#0D5BFF]" />
+                                     </div>
+                                     <div className="flex-1 min-w-0">
+                                        <p className="text-[9px] font-black uppercase text-[#0B132B] truncate leading-none mb-1">Document {idx + 1}</p>
+                                        <p className="text-[8px] font-medium text-slate-400 uppercase tracking-widest truncate">Verified encrypted storage</p>
+                                     </div>
+                                     <button 
+                                       type="button"
+                                       onClick={() => setProfileForm({...profileForm, documents: profileForm.documents.filter((_, i) => i !== idx)})}
+                                       className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                     >
+                                        <Trash2 className="w-4 h-4" />
+                                     </button>
+                                  </div>
+                               </div>
+                             ))}
+                             <FileUpload 
+                               currentFileUrl="" 
+                               onUpload={(url) => setProfileForm({...profileForm, documents: [...profileForm.documents, url]})} 
+                               label="Add New Document (PDF/IMG)"
+                             />
+                          </div>
                        </div>
 
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -9,6 +9,7 @@ import { useAppStore } from './store';
 import Navbar from './components/Navbar';
 import DashboardLayout from './components/DashboardLayout';
 import PromotionalBanner from './components/PromotionalBanner';
+import DeadlineNotifier from './components/DeadlineNotifier';
 
 // Lazy load pages for better initial bundle size
 const Home = lazy(() => import('./pages/Home'));
@@ -45,6 +46,7 @@ function LayoutWrapper() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#0B132B] flex flex-col font-sans relative">
+      <DeadlineNotifier />
       {!isAuthPage && <PromotionalBanner />}
       {!isAuthPage && <Navbar />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">

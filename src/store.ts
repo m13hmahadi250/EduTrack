@@ -65,8 +65,9 @@ export interface User {
   isVerified?: boolean;
   nidStatus?: 'pending' | 'approved' | 'rejected';
   academicStatus?: 'pending' | 'approved' | 'rejected';
-  nidImage?: string;
-  academicCertificates?: string[];
+  nidFrontImg?: string;
+  nidBackImg?: string;
+  documents?: string[];
   isTrackingOn?: boolean;
   location?: { lat: number; lng: number };
   rating?: number;

@@ -116,10 +116,14 @@ export default function Messages() {
                     : 'bg-transparent text-[#0B132B] hover:bg-white hover:shadow-lg'
                   }`}
                 >
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm flex-shrink-0 ${
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm flex-shrink-0 overflow-hidden ${
                     selectedUserId === partner.id ? 'bg-white/20' : 'bg-slate-100 text-slate-300'
                   }`}>
-                    {partner.name.charAt(0)}
+                    {partner.profileImage ? (
+                      <img src={partner.profileImage} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      partner.name.charAt(0)
+                    )}
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
@@ -170,8 +174,12 @@ export default function Messages() {
               {/* Active User Header */}
               <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-white relative z-10 shadow-sm">
                 <div className="flex items-center space-x-6">
-                  <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-2xl font-black italic text-slate-300 border border-slate-100">
-                    {selectedUser.name.charAt(0)}
+                  <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-2xl font-black italic text-slate-300 border border-slate-100 overflow-hidden">
+                    {selectedUser.profileImage ? (
+                      <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      selectedUser.name.charAt(0)
+                    )}
                   </div>
                   <div>
                     <h3 className="text-xl font-black text-[#0B132B] uppercase italic flex items-center gap-2">

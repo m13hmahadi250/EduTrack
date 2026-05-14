@@ -41,8 +41,14 @@ const Navbar = memo(() => {
                 </Link>
                 <Link to="/dashboard" className="text-[#0B132B] hover:text-[#0D5BFF] font-bold text-sm transition-colors uppercase">Dashboard</Link>
                 <div className="flex items-center space-x-2 text-sm text-slate-600 border-l border-slate-200 pl-4 ml-2">
-                  <div className="bg-slate-100 p-1.5 rounded-full">
-                    <UserIcon className="h-4 w-4" />
+                  <div className="p-0.5 rounded-full border border-slate-100 overflow-hidden">
+                    {currentUser.profileImage ? (
+                      <img src={currentUser.profileImage} alt={currentUser.name} className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="bg-slate-100 p-1.5 rounded-full">
+                        <UserIcon className="h-4 w-4" />
+                      </div>
+                    )}
                   </div>
                   <span className="font-bold text-[#0B132B] hidden sm:block">{currentUser.name}</span>
                 </div>

@@ -17,6 +17,11 @@ import { motion } from 'motion/react';
 import heroImage from '../assets/images/regenerated_image_1778584226799.png';
 
 export default function Home() {
+  const users = useAppStore(state => state.users);
+  const featuredTutors = React.useMemo(() => {
+    return users.filter(u => u.role === 'tutor' && u.isVerified).slice(0, 3);
+  }, [users]);
+
   return (
     <div className="bg-[#F8F9FA] text-[#0B132B] font-sans selection:bg-[#0D5BFF] selection:text-white">
       {/* Hero Section - Magazine Style */}
@@ -285,27 +290,40 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <TutorPreviewCard 
-              name="Sarah Rahman" 
-              uni="University of Dhaka" 
-              subj="Physics & Math" 
-              rating={4.9} 
-              img="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400"
-            />
-             <TutorPreviewCard 
-              name="Adnan Sami" 
-              uni="BUET" 
-              subj="Computer Science" 
-              rating={5.0} 
-              img="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
-            />
-             <TutorPreviewCard 
-              name="Nadia Islam" 
-              uni="NSU" 
-              subj="English Literature" 
-              rating={4.8} 
-              img="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400"
-            />
+            {featuredTutors.length > 0 ? featuredTutors.map(tutor => (
+              <TutorPreviewCard 
+                key={tutor.id}
+                name={tutor.name} 
+                uni={tutor.university || 'Expert Educator'} 
+                subj={tutor.subjects?.[0] || 'Academic Mentor'} 
+                rating={tutor.rating || 5.0} 
+                img={tutor.profileImage || `https://i.pravatar.cc/400?u=${tutor.id}`}
+              />
+            )) : (
+              <>
+                <TutorPreviewCard 
+                  name="Sarah Rahman" 
+                  uni="University of Dhaka" 
+                  subj="Physics & Math" 
+                  rating={4.9} 
+                  img="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400"
+                />
+                 <TutorPreviewCard 
+                  name="Adnan Sami" 
+                  uni="BUET" 
+                  subj="Computer Science" 
+                  rating={5.0} 
+                  img="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
+                />
+                 <TutorPreviewCard 
+                  name="Nadia Islam" 
+                  uni="NSU" 
+                  subj="English Literature" 
+                  rating={4.8} 
+                  img="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400"
+                />
+              </>
+            )}
           </div>
         </div>
       </section>
