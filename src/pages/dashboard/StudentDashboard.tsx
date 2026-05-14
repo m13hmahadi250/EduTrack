@@ -26,6 +26,7 @@ import ImageUpload from '../../components/ImageUpload';
 import { motion, AnimatePresence } from 'motion/react';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
+import { Skeleton } from '../../components/Skeleton';
 import RatingModal from '../../components/RatingModal';
 import ChatWindow from '../../components/ChatWindow';
 import { PaymentService, PaymentProvider } from '../../services/paymentService';
@@ -51,6 +52,12 @@ export default function StudentDashboard() {
     messages: state.messages
   })));
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
   const [filterVersion, setFilterVersion] = useState('');
   const [filterClass, setFilterClass] = useState('');
@@ -202,7 +209,7 @@ export default function StudentDashboard() {
     return users.filter(user => {
       if (user.role !== 'tutor' || !user.isVerified) return false;
       
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = debouncedSearch.toLowerCase();
       const matchesSearch = user.name.toLowerCase().includes(searchLower) || 
                             user.university?.toLowerCase().includes(searchLower) ||
                             user.course?.toLowerCase().includes(searchLower) ||
@@ -229,7 +236,7 @@ export default function StudentDashboard() {
 
       return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating;
     });
-  }, [users, searchTerm, filterSubjects, filterVersion, filterClass, filterArea, filterRating]);
+  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterRating]);
 
   const [bKashNumber, setBkashNumber] = useState('');
   const [amount, setAmount] = useState('');
@@ -777,16 +784,31 @@ export default function StudentDashboard() {
                        <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
                     </div>
-                    {filteredTutors.map(tutor => (
-                      <div 
-                        key={tutor.id} 
-                        onClick={() => setSelectedTutor(tutor)}
-                        className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                          selectedTutor?.id === tutor.id 
-                          ? 'border-[#0D5BFF] bg-blue-50/30' 
-                          : 'border-slate-100 bg-white hover:border-slate-200'
-                        }`}
-                      >
+                    {debouncedSearch !== searchTerm ? (
+                      Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-6 rounded-[2.5rem] border-2 border-slate-50 bg-white">
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="w-12 h-12 rounded-2xl" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-1/3 rounded-lg" />
+                              <Skeleton className="h-3 w-1/2 rounded-lg" />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      filteredTutors.map(tutor => (
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          key={tutor.id} 
+                          onClick={() => setSelectedTutor(tutor)}
+                          className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                            selectedTutor?.id === tutor.id 
+                            ? 'border-[#0D5BFF] bg-blue-50/30' 
+                            : 'border-slate-100 bg-white hover:border-slate-200'
+                          }`}
+                        >
                         <div className="flex items-center gap-4 relative z-10">
                           {tutor.profileImage ? (
                             <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
@@ -827,10 +849,11 @@ export default function StudentDashboard() {
                             </p>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              )}
 
                 {/* Tutor Details & Booking */}
                 {(selectedTutor || windowWidth > 1024) && (

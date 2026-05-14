@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'tutor'>('student');
@@ -29,10 +30,21 @@ export default function Signup() {
       navigate('/dashboard');
     } catch (err: any) {
       console.error("Signup error:", err);
-      let msg = err.message || 'Registration failed';
-      if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
-        msg = 'Authentication Error (invalid-credential). Ensure your Firebase configuration is correct and if on Vercel, allow the domain.';
+      let msg = 'Registration failed. Please try again.';
+      const errStr = String(err);
+      
+      if (err.code === 'auth/email-already-in-use') {
+        msg = 'This email is already registered. Please sign in instead.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'The email address is badly formatted.';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'The password is too weak. Please use at least 6 characters.';
+      } else if (err.code === 'auth/invalid-credential' || errStr.includes('invalid-credential')) {
+        msg = 'Registration Error. Please check your information and try again.';
+      } else if (err.message) {
+        msg = err.message;
       }
+
       setError(msg);
     } finally {
       setLoading(false);
@@ -67,11 +79,19 @@ export default function Signup() {
         </div>
 
         <form className="space-y-6" onSubmit={handleSignup}>
-          {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
-              {error}
-            </div>
-          )}
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 shadow-sm"
+              >
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Input label="Full Name / Guardian Name" name="name" required onChange={handleInputChange} />

@@ -383,8 +383,24 @@ export default function TutorDashboard() {
         )}
       </AnimatePresence>
 
+      {activeTab === 'pro_profile' && currentUser?.profileImage && (
+        <img 
+          src={currentUser.profileImage} 
+          alt="Preload" 
+          className="hidden" 
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+      )}
       <AnimatePresence mode="wait">
-        {activeTab === 'my_session' && (
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          transition={{ duration: 0.3 }}
+        >
+          {activeTab === 'my_session' && (
           <motion.div 
             key="my_session"
             initial={{ opacity: 0, y: 20 }}
@@ -1255,7 +1271,8 @@ export default function TutorDashboard() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </motion.div>
+    </AnimatePresence>
     </div>
   );
 }

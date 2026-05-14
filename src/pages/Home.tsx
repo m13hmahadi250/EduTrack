@@ -89,7 +89,12 @@ export default function Home() {
                 <div className="flex -space-x-3">
                   {[1,2,3,4].map(idx => (
                     <div key={idx} className="w-10 h-10 rounded-full border-4 border-white bg-slate-200 overflow-hidden">
-                       <img src={`https://i.pravatar.cc/100?u=${idx}`} alt="user" />
+                       <img 
+                         src={`https://i.pravatar.cc/100?u=${idx}`} 
+                         alt="user" 
+                         loading="lazy" 
+                         referrerPolicy="no-referrer" 
+                       />
                     </div>
                   ))}
                   <div className="w-10 h-10 rounded-full border-4 border-white bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">

@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { 
@@ -14,7 +15,7 @@ import {
   Wallet
 } from 'lucide-react';
 
-export default function Sidebar() {
+const Sidebar = memo(() => {
   const { currentUser, messages, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -133,4 +134,6 @@ export default function Sidebar() {
       </button>
     </div>
   );
-}
+});
+
+export default Sidebar;

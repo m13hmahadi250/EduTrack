@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { LucideIcon } from 'lucide-react';
 
-export function MetricCard({ label, value, color = "text-[#0D5BFF]", icon: Icon }: { label: string, value: string, color?: string, icon?: LucideIcon }) {
+export const MetricCard = memo(({ label, value, color = "text-[#0D5BFF]", icon: Icon }: { label: string, value: string, color?: string, icon?: LucideIcon }) => {
   return (
     <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:border-[#0D5BFF]/20 transition-all group overflow-hidden relative">
       <div className="absolute -top-10 -right-10 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-150 transition-all duration-500 font-bold"></div>
@@ -14,18 +14,18 @@ export function MetricCard({ label, value, color = "text-[#0D5BFF]", icon: Icon 
       </div>
     </div>
   );
-}
+});
 
-export function FilterGroup({ label, children }: { label: string, children: React.ReactNode }) {
+export const FilterGroup = memo(({ label, children }: { label: string, children: React.ReactNode }) => {
   return (
     <div className="space-y-4">
       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">{label}</h4>
       {children}
     </div>
   );
-}
+});
 
-export function DashboardInput({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, type?: string }) {
+export const DashboardInput = memo(({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, type?: string }) => {
   return (
     <div className="space-y-1.5 flex-grow">
       <label className="block text-[8px] font-black text-pink-200 uppercase tracking-[0.2em] ml-2">{label}</label>
@@ -39,4 +39,4 @@ export function DashboardInput({ label, value, onChange, placeholder, type = "te
       />
     </div>
   );
-}
+});

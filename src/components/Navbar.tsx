@@ -1,8 +1,9 @@
+import React, { memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User as UserIcon, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../store';
 
-export default function Navbar() {
+const Navbar = memo(() => {
   const currentUser = useAppStore(state => state.currentUser);
   const logout = useAppStore(state => state.logout);
   const navigate = useNavigate();
@@ -68,4 +69,6 @@ export default function Navbar() {
       </div>
     </nav>
   );
-}
+});
+
+export default Navbar;

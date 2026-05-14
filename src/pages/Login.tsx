@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showInvalidCredPopup, setShowInvalidCredPopup] = useState(false);
   
   const login = useAppStore(state => state.login);
   const currentUser = useAppStore(state => state.currentUser);
@@ -33,12 +35,27 @@ export default function Login() {
           await login(email, password);
         }
         navigate('/dashboard');
-      } catch (err: any) {
+        } catch (err: any) {
         console.error("Login error:", err);
-        let msg = err.message || 'Invalid email or password';
-        if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
-          msg = 'Authentication Error (invalid-credential). If you are on Vercel, check that your domain is added to "Authorized Domains" in Firebase Auth settings and Google provider is enabled.';
+        let msg = 'Invalid email or password';
+        const errStr = String(err);
+        
+        // Handle specific Firebase Auth error codes
+        if (err.code === 'auth/wrong-password') {
+          msg = 'Incorrect password. Please try again.';
+        } else if (err.code === 'auth/user-not-found') {
+          msg = 'No account found with this email.';
+        } else if (err.code === 'auth/invalid-email') {
+          msg = 'The email address is badly formatted.';
+        } else if (err.code === 'auth/invalid-credential' || errStr.includes('invalid-credential')) {
+          msg = 'Wrong email or password. Please try again.';
+          setShowInvalidCredPopup(true);
+        } else if (err.code === 'auth/too-many-requests') {
+          msg = 'Too many failed login attempts. Please try again later.';
+        } else if (err.message) {
+          msg = err.message;
         }
+
         setError(msg);
       } finally {
         setLoading(false);
@@ -50,6 +67,40 @@ export default function Login() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
+      <AnimatePresence>
+        {showInvalidCredPopup && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowInvalidCredPopup(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100"
+            >
+              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-rose-500" />
+              </div>
+              <h3 className="text-xl font-bold text-[#0B132B] mb-3">Login Failed</h3>
+              <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                The email or password you entered is incorrect. Please check your credentials and try again.
+              </p>
+              <button 
+                onClick={() => setShowInvalidCredPopup(false)}
+                className="w-full py-4 bg-[#0D5BFF] text-white rounded-2xl text-sm font-black uppercase tracking-wider hover:bg-blue-700 active:scale-[0.98] transition-all shadow-[0_8px_16px_rgba(13,91,255,0.2)]"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 p-8 relative">
         <button className="absolute top-8 right-8 text-slate-400 hover:text-slate-600" onClick={() => navigate('/')}>
           <X className="w-5 h-5" />
@@ -78,11 +129,19 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-           {error && (
-              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
-                {error}
-              </div>
-            )}
+           <AnimatePresence>
+             {error && (
+               <motion.div 
+                 initial={{ opacity: 0, y: -10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -10 }}
+                 className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 shadow-sm"
+               >
+                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                 <span>{error}</span>
+               </motion.div>
+             )}
+           </AnimatePresence>
            <div>
              <label className="block text-[10px] font-black font-heading uppercase text-[#9CA3AF] tracking-wider mb-2">Email Address</label>
              <input
@@ -135,7 +194,7 @@ export default function Login() {
                    console.error("Google Auth error:", err);
                    let msg = err.message || 'Google Auth failed';
                    if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
-                     msg = 'Google Auth Error (invalid-credential). Ensure your Vercel URL is added to "Authorized Domains" in Firebase Console > Authentication > Settings.';
+                     msg = 'Google Auth error. Please try again.';
                    }
                    setError(msg);
                  } finally {
