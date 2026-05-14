@@ -88,25 +88,28 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div className={`mb-6 p-5 rounded-2xl border transition-all ${
-        currentUser.isVerified 
-          ? 'bg-emerald-50 border-emerald-100' 
-          : 'bg-rose-50 border-rose-100'
-      }`}>
-        <div className="flex justify-between items-center mb-2">
-          <span className={`text-[10px] font-black uppercase tracking-widest ${
-            currentUser.isVerified ? 'text-emerald-600' : 'text-rose-600'
-          }`}>Profile Status</span>
-          <Shield className={`w-4 h-4 ${
-            currentUser.isVerified ? 'text-emerald-500' : 'text-rose-500 animate-pulse'
-          }`} />
-        </div>
-        <div className={`text-sm font-black uppercase italic ${
-          currentUser.isVerified ? 'text-emerald-900' : 'text-rose-900'
+      {/* Profile Status Card - Only for tutors/admins */}
+      {currentUser.role !== 'student' && (
+        <div className={`mb-6 p-5 rounded-2xl border transition-all ${
+          currentUser.isVerified 
+            ? 'bg-emerald-50 border-emerald-100' 
+            : 'bg-rose-50 border-rose-100'
         }`}>
-          {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}
+          <div className="flex justify-between items-center mb-2">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${
+              currentUser.isVerified ? 'text-emerald-600' : 'text-rose-600'
+            }`}>Profile Status</span>
+            <Shield className={`w-4 h-4 ${
+              currentUser.isVerified ? 'text-emerald-500' : 'text-rose-500 animate-pulse'
+            }`} />
+          </div>
+          <div className={`text-sm font-black uppercase italic ${
+            currentUser.isVerified ? 'text-emerald-900' : 'text-rose-900'
+          }`}>
+            {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* User Info */}
       <div className="flex items-center space-x-4 mb-4 p-4 bg-slate-50 rounded-3xl">

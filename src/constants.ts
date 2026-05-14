@@ -1,26 +1,61 @@
-export const AVAILABLE_SUBJECTS = [
-  'Mathematics',
-  'Physics',
-  'Chemistry',
-  'English',
-  'ICT',
-  'Biology',
-  'Higher Math',
-  'General Science',
-  'Bangla',
-  'Religious Studies',
-  'Accounting',
-  'Finance',
-  'Economics',
-  'Business Studies',
-  'Management',
-  'Statistics',
-  'History',
-  'Geography',
-  'Social Science',
-  'Sociology',
-  'Psychology'
+export const AVAILABLE_VERSIONS = [
+  'Bangla Version',
+  'English Version',
+  'Madrasha'
 ];
+
+export const SUBJECT_CATEGORIES = {
+  'Bangla Version': [
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Higher Math',
+    'General Science',
+    'Bangla',
+    'English',
+    'ICT',
+    'Religious Studies',
+    'Accounting',
+    'Finance',
+    'Economics',
+    'Business Studies',
+    'Management',
+    'History',
+    'Geography',
+    'Social Science'
+  ],
+  'English Version': [
+    'Mathematics (EV)',
+    'Physics (EV)',
+    'Chemistry (EV)',
+    'Biology (EV)',
+    'Higher Math (EV)',
+    'General Science (EV)',
+    'Bangla (EV)',
+    'English (EV)',
+    'ICT (EV)',
+    'Religious Studies (EV)',
+    'Accounting (EV)',
+    'Finance (EV)',
+    'Economics (EV)',
+    'Business Studies (EV)',
+    'Management (EV)'
+  ],
+  'Madrasha': [
+    'Quran Majid',
+    'Hadith Sharif',
+    'Fiqh and Usul-e-Fiqh',
+    'Arabic 1st Paper',
+    'Arabic 2nd Paper',
+    'Al-Aqaid and Al-Fiqh',
+    'Mathematics (Madrasha)',
+    'English (Madrasha)',
+    'Social Science (Madrasha)'
+  ]
+};
+
+export const AVAILABLE_SUBJECTS = Object.values(SUBJECT_CATEGORIES).flat();
 
 export const AVAILABLE_CLASSES = [
   'Class 1',

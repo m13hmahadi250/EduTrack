@@ -24,7 +24,7 @@ import {
 import MapTracker from '../../components/MapTracker';
 import ImageUpload from '../../components/ImageUpload';
 import { motion, AnimatePresence } from 'motion/react';
-import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
+import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import RatingModal from '../../components/RatingModal';
 import ChatWindow from '../../components/ChatWindow';
@@ -52,6 +52,7 @@ export default function StudentDashboard() {
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
+  const [filterVersion, setFilterVersion] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterArea, setFilterArea] = useState('');
   const [filterRating, setFilterRating] = useState(0);
@@ -212,6 +213,12 @@ export default function StudentDashboard() {
       
       const matchesSubject = filterSubjects.length === 0 || 
                              filterSubjects.some(fs => user.subjects?.some(s => s.toLowerCase().includes(fs.toLowerCase())));
+      
+      const matchesVersion = !filterVersion || user.subjects?.some(s => {
+        const categorySubjects = SUBJECT_CATEGORIES[filterVersion as keyof typeof SUBJECT_CATEGORIES] || [];
+        return categorySubjects.includes(s);
+      });
+
       const matchesClass = !filterClass || user.classes?.some(c => c.toLowerCase().includes(filterClass.toLowerCase()));
       const matchesArea = !filterArea || 
                            user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
@@ -220,9 +227,9 @@ export default function StudentDashboard() {
                            user.area?.toLowerCase().includes(filterArea.toLowerCase());
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
 
-      return matchesSearch && matchesSubject && matchesClass && matchesArea && matchesRating;
+      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating;
     });
-  }, [users, searchTerm, filterSubjects, filterClass, filterArea, filterRating]);
+  }, [users, searchTerm, filterSubjects, filterVersion, filterClass, filterArea, filterRating]);
 
   const [bKashNumber, setBkashNumber] = useState('');
   const [amount, setAmount] = useState('');
@@ -396,19 +403,6 @@ export default function StudentDashboard() {
           <p className="text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
             Central Operations for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
-          <div className="mt-4 flex">
-            {currentUser.isVerified ? (
-              <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Verified Student</span>
-              </div>
-            ) : (
-              <div className="px-5 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl flex items-center space-x-3">
-                <Zap className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">Unverified Account</span>
-              </div>
-            )}
-          </div>
         </div>
         <div className="flex items-center space-x-4">
            {activeSession && (
@@ -650,6 +644,24 @@ export default function StudentDashboard() {
                     </div>
                   </FilterGroup>
 
+                  <FilterGroup label="Curriculum Version">
+                    <div className="flex flex-wrap gap-2">
+                      {['', ...AVAILABLE_VERSIONS].map(v => (
+                        <button
+                          key={v}
+                          onClick={() => setFilterVersion(v)}
+                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
+                            filterVersion === v 
+                            ? 'bg-[#0B132B] border-[#0B132B] text-white shadow-md' 
+                            : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                          }`}
+                        >
+                          {v || 'ALL'}
+                        </button>
+                      ))}
+                    </div>
+                  </FilterGroup>
+
                   <FilterGroup label="Inbound Logic">
                     <select 
                       value={filterClass}
@@ -677,29 +689,39 @@ export default function StudentDashboard() {
                   </FilterGroup>
 
                   <FilterGroup label="Subject Specialization">
-                    <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar hide-scrollbar py-2">
-                      {AVAILABLE_SUBJECTS.map(sub => {
-                        const isSelected = filterSubjects.includes(sub);
-                        return (
-                          <button
-                            key={sub}
-                            onClick={() => {
-                              setFilterSubjects(prev => 
-                                isSelected 
-                                  ? prev.filter(s => s !== sub) 
-                                  : [...prev, sub]
+                    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar hide-scrollbar py-2">
+                      {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
+                        <div key={category} className="space-y-2">
+                          <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                            <div className="w-1 h-1 bg-[#0D5BFF] rounded-full" />
+                            {category}
+                          </label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {subjects.map(sub => {
+                              const isSelected = filterSubjects.includes(sub);
+                              return (
+                                <button
+                                  key={sub}
+                                  onClick={() => {
+                                    setFilterSubjects(prev => 
+                                      isSelected 
+                                        ? prev.filter(s => s !== sub) 
+                                        : [...prev, sub]
+                                    );
+                                  }}
+                                  className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
+                                    isSelected 
+                                    ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
+                                    : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                                  }`}
+                                >
+                                  {sub}
+                                </button>
                               );
-                            }}
-                            className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
-                              isSelected 
-                              ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
-                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
-                            }`}
-                          >
-                            {sub}
-                          </button>
-                        );
-                      })}
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </FilterGroup>
 
@@ -1096,30 +1118,40 @@ export default function StudentDashboard() {
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
                                   )}
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto pr-2 hide-scrollbar py-2">
-                                  {AVAILABLE_SUBJECTS.map(sub => {
-                                    const isSelected = bookingSubject.includes(sub);
-                                    return (
-                                      <button
-                                        key={sub}
-                                        type="button"
-                                        onClick={() => {
-                                          setBookingSubject(prev => 
-                                            isSelected 
-                                              ? prev.filter(s => s !== sub) 
-                                              : [...prev, sub]
+                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 hide-scrollbar py-2 border-l border-slate-50 pl-4">
+                                  {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
+                                    <div key={category} className="space-y-3">
+                                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                        {category}
+                                      </label>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {subjects.map(sub => {
+                                          const isSelected = bookingSubject.includes(sub);
+                                          return (
+                                            <button
+                                              key={sub}
+                                              type="button"
+                                              onClick={() => {
+                                                setBookingSubject(prev => 
+                                                  isSelected 
+                                                    ? prev.filter(s => s !== sub) 
+                                                    : [...prev, sub]
+                                                );
+                                              }}
+                                              className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                                isSelected 
+                                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
+                                                : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
+                                              }`}
+                                            >
+                                              {sub}
+                                            </button>
                                           );
-                                        }}
-                                        className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                          isSelected 
-                                          ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
-                                          : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
-                                        }`}
-                                      >
-                                        {sub}
-                                      </button>
-                                    );
-                                  })}
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
 
@@ -1604,24 +1636,32 @@ export default function StudentDashboard() {
                          ))}
                        </select>
                     </div>
-                    <div className="md:col-span-2 space-y-4">
+                    <div className="md:col-span-2 space-y-6">
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
-                       <div className="flex flex-wrap gap-2">
-                          {AVAILABLE_SUBJECTS.map(sub => (
-                            <button
-                              key={sub}
-                              type="button"
-                              onClick={() => toggleSubject(sub)}
-                              className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                accountForm.subjects.includes(sub)
-                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
-                                : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
-                              }`}
-                            >
-                              {sub}
-                            </button>
-                          ))}
-                       </div>
+                       {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
+                         <div key={category} className="space-y-3 pl-4">
+                           <div className="flex items-center gap-2">
+                             <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
+                           </div>
+                           <div className="flex flex-wrap gap-2">
+                             {subjects.map(sub => (
+                               <button
+                                 key={sub}
+                                 type="button"
+                                 onClick={() => toggleSubject(sub)}
+                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                   accountForm.subjects.includes(sub)
+                                   ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
+                                   : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                                 }`}
+                               >
+                                 {sub}
+                               </button>
+                             ))}
+                           </div>
+                         </div>
+                       ))}
                     </div>
                     <button 
                       disabled={isUpdating}

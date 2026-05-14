@@ -394,7 +394,7 @@ export const useAppStore = create<AppState>((set, get) => {
           id: uid,
           role: finalRole,
           balance: 0,
-          isVerified: finalRole === 'admin',
+          isVerified: finalRole === 'admin' || finalRole === 'student',
           isTrackingOn: false,
           rating: 0,
         } as User;

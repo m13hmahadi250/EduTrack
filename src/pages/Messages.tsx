@@ -10,6 +10,7 @@ import {
   Clock,
   User as UserIcon,
   ShieldCheck,
+  ShieldAlert,
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';

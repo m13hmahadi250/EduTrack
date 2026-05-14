@@ -30,7 +30,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MapTracker from '../../components/MapTracker';
 import ImageUpload from '../../components/ImageUpload';
-import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES } from '../../constants';
+import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES } from '../../constants';
 import { MetricCard, DashboardInput } from '../../components/DashboardComponents';
 
 import RatingModal from '../../components/RatingModal';
@@ -1007,24 +1007,32 @@ export default function TutorDashboard() {
                           <ProfileField label="Hourly Rate (৳)" value={profileForm.hourlyRate} onChange={(v) => setProfileForm({...profileForm, hourlyRate: Number(v)})} type="number" />
                           <ProfileField label="Professional Experience" value={profileForm.experience} onChange={(v) => setProfileForm({...profileForm, experience: v})} placeholder="3+ Years in Academic Coaching" />
                         </div>
-                        <div className="space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Authorized Subjects</label>
-                          <div className="flex flex-wrap gap-2">
-                             {AVAILABLE_SUBJECTS.map(sub => (
-                               <button
-                                 key={sub}
-                                 type="button"
-                                 onClick={() => toggleSubject(sub)}
-                                 className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                   profileForm.subjects.includes(sub)
-                                   ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
-                                   : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
-                                 }`}
-                               >
-                                 {sub}
-                               </button>
-                             ))}
-                          </div>
+                        <div className="space-y-6">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Authorized Subjects</label>
+                           {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
+                             <div key={category} className="space-y-3 pl-4">
+                               <div className="flex items-center gap-2">
+                                 <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
+                               </div>
+                               <div className="flex flex-wrap gap-2">
+                                 {subjects.map(sub => (
+                                   <button
+                                     key={sub}
+                                     type="button"
+                                     onClick={() => toggleSubject(sub)}
+                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                       profileForm.subjects.includes(sub)
+                                       ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
+                                       : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                                     }`}
+                                   >
+                                     {sub}
+                                   </button>
+                                 ))}
+                               </div>
+                             </div>
+                           ))}
                         </div>
 
                         <div className="space-y-4">
