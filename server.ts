@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { createRouteHandler } from "uploadthing/express";
 import { uploadRouter } from "./src/lib/uploadRouter";
+import "dotenv/config";
 
 async function startServer() {
   const app = express();
@@ -34,6 +35,15 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Error handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Server Error:", err);
+    res.status(500).json({ 
+      error: "Internal Server Error",
+      message: err.message 
+    });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
