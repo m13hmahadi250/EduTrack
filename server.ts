@@ -19,20 +19,24 @@ async function startServer() {
   console.log("- App URL:", process.env.APP_URL);
   console.log("- Node Env:", process.env.NODE_ENV);
 
-  // Add the UploadThing route handler with request logging
+  // Add the UploadThing route handler
   app.use(
     "/api/uploadthing",
     (req, res, next) => {
-      console.log(`[UploadThing] ${req.method} ${req.originalUrl}`);
+      console.log(`[UploadThing Request] ${req.method} ${req.url}`);
       next();
     },
     createRouteHandler({
       router: uploadRouter,
       config: {
-        callbackUrl: process.env.APP_URL ? `${process.env.APP_URL.replace(/\/$/, "")}/api/uploadthing` : undefined,
-        isDev: process.env.NODE_ENV !== "production",
+        token: process.env.UPLOADTHING_TOKEN,
+        isDev: false,
       }
-    })
+    }),
+    (req, res) => {
+      console.warn(`[UploadThing Fallthrough] ${req.method} ${req.url}`);
+      res.status(404).json({ error: "UploadThing Action Not Found", url: req.url });
+    }
   );
 
   // Other middleware (placed after UploadThing to avoid body consumption issues)
