@@ -47,9 +47,20 @@ async function startServer() {
 
   // Cloudflare R2 Storage Route
   app.post("/api/storage/presign", async (req, res) => {
+    console.log(`[Storage] Received presign request:`, {
+      method: req.method,
+      url: req.url,
+      body: req.body,
+      headers: {
+        "content-type": req.headers["content-type"],
+        "user-agent": req.headers["user-agent"]
+      }
+    });
+
     try {
       const { fileName, fileType, folder } = req.body;
       if (!fileName || !fileType || !folder) {
+        console.warn("[Storage] Missing fields in request body");
         return res.status(400).json({ error: "Missing required fields: fileName, fileType, folder" });
       }
 
@@ -57,7 +68,9 @@ async function startServer() {
 
       const client = getS3Client();
       const bucket = process.env.R2_BUCKET_NAME;
-      if (!bucket) throw new Error("R2_BUCKET_NAME is not defined");
+      if (!bucket) {
+        throw new Error("R2_BUCKET_NAME environment variable is not defined");
+      }
 
       // Generate unique key
       const key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, "_")}`;
@@ -73,11 +86,15 @@ async function startServer() {
       const publicUrlBase = process.env.R2_PUBLIC_URL || `${process.env.R2_ENDPOINT}/${bucket}`;
       const publicUrl = `${publicUrlBase.replace(/\/$/, "")}/${key}`;
 
-      console.log(`[Storage] Generated upload URL for: ${key}`);
+      console.log(`[Storage] Success: Generated upload URL for ${key}`);
       res.json({ uploadUrl, publicUrl, key });
     } catch (error: any) {
-      console.error("Presign error:", error);
-      res.status(500).json({ error: "Failed to generate pre-signed URL", message: error.message });
+      console.error("[Storage] Presign error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate pre-signed URL", 
+        message: error.message,
+        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+      });
     }
   });
 

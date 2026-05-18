@@ -65,12 +65,22 @@ export default function FileUpload({
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to get upload URL');
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        throw new Error(`Invalid server response: ${responseText.substring(0, 100)}`);
       }
 
-      const { uploadUrl, publicUrl } = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || responseData.error || 'Failed to get upload URL');
+      }
+
+      const { uploadUrl, publicUrl } = responseData;
+      if (!uploadUrl || !publicUrl) {
+        throw new Error('Server did not return upload URLs');
+      }
 
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', uploadUrl, true);
