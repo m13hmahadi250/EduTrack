@@ -6,12 +6,18 @@ import { createServer as createViteServer } from "vite";
 import { createRouteHandler } from "uploadthing/express";
 import { uploadRouter } from "./src/lib/uploadRouter";
 
+const app = express();
+export { app }; // Export for Vercel serverless
+
 async function startServer() {
-  const app = express();
   const PORT = 3000;
 
   // Basic middleware
-  app.use(cors());
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-uploadthing-package", "x-uploadthing-version", "x-uploadthing-api-key"]
+  }));
 
   // Diagnostic log for environment variables
   console.log("UploadThing Configuration Check:");
@@ -19,31 +25,32 @@ async function startServer() {
   console.log("- App URL:", process.env.APP_URL);
   console.log("- Node Env:", process.env.NODE_ENV);
 
-  // Add the UploadThing route handler
+  // Simplified UploadThing Route Handler
   app.use(
     "/api/uploadthing",
-    (req, res, next) => {
-      console.log(`[UploadThing Request] ${req.method} ${req.url}`);
-      next();
-    },
     createRouteHandler({
       router: uploadRouter,
       config: {
+        // Explicitly disable dev mode in production to avoid tunnel issues
+        isDev: process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test",
+        // Pass token explicitly if needed
         token: process.env.UPLOADTHING_TOKEN,
-        isDev: false,
+        // Set callback URL if APP_URL is available
+        callbackUrl: process.env.APP_URL ? `${process.env.APP_URL.replace(/\/$/, "")}/api/uploadthing` : undefined,
       }
-    }),
-    (req, res) => {
-      console.warn(`[UploadThing Fallthrough] ${req.method} ${req.url}`);
-      res.status(404).json({ error: "UploadThing Action Not Found", url: req.url });
-    }
+    })
   );
 
   // Other middleware (placed after UploadThing to avoid body consumption issues)
   app.use(express.json());
 
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", env: process.env.NODE_ENV });
+    res.json({ 
+      status: "ok", 
+      env: process.env.NODE_ENV,
+      hasUploadThingToken: !!process.env.UPLOADTHING_TOKEN,
+      appUrl: process.env.APP_URL
+    });
   });
 
   // Ensure other /api/* routes return JSON 404s
