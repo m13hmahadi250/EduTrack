@@ -74,7 +74,8 @@ export default function FileUpload({
       }
 
       if (!response.ok) {
-        throw new Error(responseData.message || responseData.error || 'Failed to get upload URL');
+        const errorDetail = responseData.message || responseData.error || responseText || 'Unknown server error';
+        throw new Error(`Storage error (${response.status}): ${errorDetail}`);
       }
 
       const { uploadUrl, publicUrl } = responseData;
