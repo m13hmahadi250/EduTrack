@@ -2,105 +2,92 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import cors from "cors";
-import { put } from "@vercel/blob";
+import { createServer as createViteServer } from "vite";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const app = express();
-
-const PORT = 3000;
-
-// Basic middleware
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-// Log all API requests for diagnostics
-app.use("/api", (req, res, next) => {
-  console.log(`[API Request] ${req.method} ${req.url} (Original: ${req.originalUrl})`);
-  next();
-});
-
-// Vercel Blob Upload Route
-app.post("/api/upload", express.raw({ type: "*/*", limit: "16mb" }), async (req, res) => {
-  try {
-    const filename = req.query.filename as string;
-    if (!filename) {
-      return res.status(400).json({ error: "Filename is required" });
+// Lazy S3 client initialization
+let s3Client: S3Client | null = null;
+function getS3Client() {
+  if (!s3Client) {
+    const { R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT } = process.env;
+    if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_ENDPOINT) {
+      throw new Error("Missing Cloudflare R2 configuration in environment variables");
     }
-
-    const contentType = req.headers["content-type"] || "application/octet-stream";
-    
-    // Check if BLOB_READ_WRITE_TOKEN exists
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN is not configured" });
-    }
-
-    const blob = await put(filename, req.body, {
-      access: "public",
-      contentType,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      addRandomSuffix: true,
+    s3Client = new S3Client({
+      region: "auto",
+      endpoint: R2_ENDPOINT,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY,
+      },
     });
-
-    res.json(blob);
-  } catch (error: any) {
-    console.error("Blob Upload Error:", error);
-    
-    // Check for common configuration errors
-    if (error.message?.includes("Cannot use public access on a private store")) {
-      return res.status(403).json({ 
-        error: "Store Access Mismatch", 
-        message: "Your Vercel Blob store is configured as PRIVATE, but the app is requesting PUBLIC access for file sharing. Please go to Vercel Dashboard > Storage > Blob > Settings and change 'Access Level' to 'Public'."
-      });
-    }
-
-    if (error.message?.includes("This store does not exist")) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-      const prefix = token.substring(0, 15) + "...";
-      return res.status(410).json({
-        error: "Blob Store Not Found",
-        message: `The Vercel Blob store associated with your token (${prefix}) was not found or has been deleted. Please generate a NEW token in the Vercel Storage dashboard and update your environment variables.`
-      });
-    }
-
-    res.status(500).json({ error: "Upload failed", message: error.message });
   }
-});
+  return s3Client;
+}
 
-// JSON body parser for other routes
-app.use(express.json());
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
 
-app.get("/api/diagnostics", (req, res) => {
-  res.json({
-    env: process.env.NODE_ENV,
-    isVercel: !!process.env.VERCEL,
-    hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
-    tokenLength: process.env.BLOB_READ_WRITE_TOKEN ? process.env.BLOB_READ_WRITE_TOKEN.length : 0,
-    tokenPrefix: process.env.BLOB_READ_WRITE_TOKEN ? process.env.BLOB_READ_WRITE_TOKEN.substring(0, 15) + "..." : "none",
-    appUrl: process.env.APP_URL,
-    timestamp: new Date().toISOString()
+  // Basic middleware
+  app.use(cors());
+  app.use(express.json());
+
+  // Log configuration status
+  console.log("Storage Configuration Check:");
+  console.log("- R2_ENDPOINT:", process.env.R2_ENDPOINT ? process.env.R2_ENDPOINT : "MISSING");
+  console.log("- R2_BUCKET_NAME:", process.env.R2_BUCKET_NAME ? process.env.R2_BUCKET_NAME : "MISSING");
+  console.log("- R2_ACCESS_KEY_ID:", process.env.R2_ACCESS_KEY_ID ? "Set" : "MISSING");
+  console.log("- R2_PUBLIC_URL:", process.env.R2_PUBLIC_URL ? "Set" : "MISSING");
+
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", env: process.env.NODE_ENV });
   });
-});
 
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    env: process.env.NODE_ENV,
-    hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
-    appUrl: process.env.APP_URL,
-    isVercel: !!process.env.VERCEL
+  // Cloudflare R2 Storage Route
+  app.post("/api/storage/presign", async (req, res) => {
+    try {
+      const { fileName, fileType, folder } = req.body;
+      if (!fileName || !fileType || !folder) {
+        return res.status(400).json({ error: "Missing required fields: fileName, fileType, folder" });
+      }
+
+      console.log(`[Storage] Presigning: ${folder}/${fileName} (${fileType})`);
+
+      const client = getS3Client();
+      const bucket = process.env.R2_BUCKET_NAME;
+      if (!bucket) throw new Error("R2_BUCKET_NAME is not defined");
+
+      // Generate unique key
+      const key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, "_")}`;
+
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: fileType,
+      });
+
+      const uploadUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+      
+      const publicUrlBase = process.env.R2_PUBLIC_URL || `${process.env.R2_ENDPOINT}/${bucket}`;
+      const publicUrl = `${publicUrlBase.replace(/\/$/, "")}/${key}`;
+
+      console.log(`[Storage] Generated upload URL for: ${key}`);
+      res.json({ uploadUrl, publicUrl, key });
+    } catch (error: any) {
+      console.error("Presign error:", error);
+      res.status(500).json({ error: "Failed to generate pre-signed URL", message: error.message });
+    }
   });
-});
 
-// Ensure other /api/* routes return JSON 404s
-app.all("/api/*", (req, res) => {
-  res.status(404).json({ error: "API Route Not Found", path: req.path });
-});
+  // Ensure other /api/* routes return JSON 404s
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: "API Route Not Found", path: req.path });
+  });
 
-async function setupFrontend() {
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import("vite");
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -110,9 +97,7 @@ async function setupFrontend() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      // In Vercel, this might be handled by rewrites, but safe to keep
-      const indexPath = path.join(distPath, 'index.html');
-      res.sendFile(indexPath);
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
@@ -124,14 +109,10 @@ async function setupFrontend() {
       message: err.message 
     });
   });
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 }
 
-setupFrontend().then(() => {
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }
-});
-
-export { app };
+startServer();

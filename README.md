@@ -14,24 +14,9 @@ This application is built with React, Vite, Tailwind CSS, and Firebase. To publi
    - **Framework Preset**: Vercel should automatically detect **Vite**.
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-   - **Environment Variables**: Add all required environment variables:
+   - **Environment Variables**: Add any required environment variables:
      - `GEMINI_API_KEY`: Your Google Gemini API Key.
-     - `BLOB_READ_WRITE_TOKEN`: Your Vercel Blob token (Generated in Vercel Dashboard > Storage > Blob).
-     - `APP_URL`: `https://edutrackbd.vercel.app` (The URL where your app is hosted).
 4. **Deploy**: Click **"Deploy"**.
-
-## Troubleshooting
-
-### ⚠️ Vercel Blob Setup
-For Blob storage to work, you MUST:
-1. Go to your Vercel Project Dashboard.
-2. Click on the **"Storage"** tab.
-3. Select **"Blob"** and follow the steps to create a new Blob store.
-4. **CRITICAL**: Go to the **"Settings"** tab of your Blob store and ensure the **"Access Level"** is set to **"Public"**. (The app requires public URLs to display images and files in the dashboard).
-5. Once created, Vercel will automatically add the `BLOB_READ_WRITE_TOKEN` to your environment variables.
-
-### Build Warnings
-Warnings like `node-domexception` are usually safe to ignore during build.
 
 ## Firebase Configuration
 The application currently uses the configuration found in `firebase-applet-config.json`. 

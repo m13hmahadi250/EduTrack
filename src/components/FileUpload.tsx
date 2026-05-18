@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { auth } from '../lib/firebase';
 
 interface FileUploadProps {
   currentFileUrl?: string;
@@ -42,44 +43,67 @@ export default function FileUpload({
       return;
     }
 
+    if (!auth.currentUser) {
+      setError('You must be logged in to upload files');
+      return;
+    }
+
     setIsUploading(true);
     setError(null);
     setProgress(0);
 
     try {
-      // Vercel Blob upload via our server route
-      const response = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+      const folder = file.type.startsWith('image/') ? 'profiles' : 'documents';
+      
+      const response = await fetch('/api/storage/presign', {
         method: 'POST',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folder
+        })
       });
 
       if (!response.ok) {
-        let errorMessage = 'Upload failed';
-        try {
-          const errData = await response.json();
-          errorMessage = errData.message || errData.error || errorMessage;
-        } catch (e) {
-          // If response is not JSON, get the text instead
-          const text = await response.text();
-          errorMessage = text || `Server error (${response.status})`;
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to get upload URL');
       }
 
-      let blob;
-      try {
-        blob = await response.json();
-      } catch (e) {
-        throw new Error('Server returned invalid response');
-      }
-      onUpload(blob.url);
-      setIsUploading(false);
-      setProgress(100);
+      const { uploadUrl, publicUrl } = await response.json();
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl, true);
+      
+      // IMPORTANT: Content-Type must match what was signed in the backend
+      xhr.setRequestHeader('Content-Type', file.type);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setProgress((e.loaded / e.total) * 100);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 204) {
+          onUpload(publicUrl);
+          setIsUploading(false);
+          setProgress(0);
+        } else {
+          console.error("XHR Upload Failed:", xhr.status, xhr.statusText, xhr.responseText);
+          setError(`Upload failed with status ${xhr.status}. Make sure CORS is configured in Cloudflare R2.`);
+          setIsUploading(false);
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("XHR Network/CORS Error. This almost always means CORS is not configured on the R2 bucket.");
+        setError('CORS Error: Please ensure you have added a CORS policy to your R2 bucket settings in Cloudflare.');
+        setIsUploading(false);
+      };
+
+      xhr.send(file);
     } catch (err: any) {
-      console.error('Upload error:', err);
       setError(err.message || 'Upload failed. Please try again.');
       setIsUploading(false);
     }
