@@ -366,7 +366,7 @@ export default function AdminDashboard() {
                {pendingWithdrawals.map(req => {
                const tutor = users.find(u => u.id === req.tutorId);
                return (
-                 <div key={req.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col justify-between h-96 transition-all hover:shadow-xl group relative overflow-hidden">
+                 <div key={req.id} className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm flex flex-col justify-between min-h-[28rem] transition-all hover:shadow-xl group relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -z-0"></div>
                     <div className="relative z-10">
                        <div className="flex items-center justify-between mb-8">
@@ -375,46 +375,56 @@ export default function AdminDashboard() {
                                {tutor?.name?.charAt(0) || 'E'}
                              </div>
                              <div>
-                                <h4 className="text-xl font-black text-[#0B132B] uppercase italic leading-none mb-2">{tutor?.name || 'Expert'}</h4>
-                                <div className="flex flex-col gap-1">
-                                  <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-lg w-fit">bKash: {req.bKashNumber}</p>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                                    Requested: {new Date(req.timestamp).toLocaleString(undefined, { 
-                                      year: 'numeric', 
-                                      month: 'short', 
-                                      day: 'numeric', 
-                                      hour: '2-digit', 
-                                      minute: '2-digit' 
-                                    })}
-                                  </p>
-                                </div>
+                                <h4 className="text-xl font-black text-[#0B132B] uppercase italic leading-none mb-2 break-words max-w-[150px]">{tutor?.name || 'Expert'}</h4>
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-lg w-fit">
+                            {req.paymentMethod?.toUpperCase()} CHANNEL: {req.bKashNumber}
+                          </p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                            Requested: {new Date(req.timestamp).toLocaleString(undefined, { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
                              </div>
                           </div>
                           <div className="text-4xl font-black text-[#0B132B] italic">৳{req.amount}</div>
                        </div>
-                       <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-8 italic">
-                          <p className="text-[10px] font-medium text-slate-500 leading-relaxed uppercase">
-                            Tutor balance withdrawal request initiated via bKash gateway. Verify the expert's previous session completions before authorizing the payout stream.
-                          </p>
-                       </div>
-                    </div>
+                     <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-8 italic">
+                        <textarea 
+                          placeholder="ADD AUDIT NOTE (OPTIONAL)..."
+                          className="w-full bg-transparent text-[10px] font-bold uppercase tracking-widest border-none focus:outline-none placeholder:text-slate-300 resize-none min-h-[5rem] text-[#0B132B]"
+                          id={`note-${req.id}`}
+                        />
+                     </div>
+                  </div>
 
-                    <div className="flex gap-4 relative z-10">
-                       <button 
-                         onClick={() => approveWithdrawal(req.id)} 
-                         className="flex-1 py-5 bg-[#0D5BFF] text-white rounded-[1.5rem] font-black uppercase italic tracking-widest shadow-2xl shadow-blue-500/20 hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-3"
-                       >
-                         <CheckCircle className="w-5 h-5" />
-                         Approve Payout
-                       </button>
-                       <button 
-                         onClick={() => rejectWithdrawal(req.id)} 
-                         className="flex-1 py-5 bg-white border-2 border-slate-100 text-rose-500 rounded-[1.5rem] font-black uppercase italic tracking-widest hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center gap-3"
-                       >
-                         <XCircle className="w-5 h-5" />
-                         Reject
-                       </button>
-                    </div>
+                  <div className="flex flex-col sm:flex-row gap-4 relative z-10 mt-auto pt-6 border-t border-slate-50">
+                     <button 
+                       onClick={() => {
+                         const note = (document.getElementById(`note-${req.id}`) as HTMLTextAreaElement)?.value;
+                         approveWithdrawal(req.id, note || 'Transaction verified and approved.');
+                       }} 
+                       className="flex-1 py-5 bg-[#0D5BFF] text-white rounded-[1.5rem] font-black uppercase italic tracking-widest shadow-2xl shadow-blue-500/20 hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-3"
+                     >
+                       <CheckCircle className="w-5 h-5" />
+                       Approve Payout
+                     </button>
+                     <button 
+                       onClick={() => {
+                         const note = (document.getElementById(`note-${req.id}`) as HTMLTextAreaElement)?.value;
+                         rejectWithdrawal(req.id, note || 'The provided recipient details are invalid or inconsistent.');
+                       }} 
+                       className="flex-1 py-5 bg-white border-2 border-slate-100 text-rose-500 rounded-[1.5rem] font-black uppercase italic tracking-widest hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center gap-3"
+                     >
+                       <XCircle className="w-5 h-5" />
+                       Reject
+                     </button>
+                  </div>
                  </div>
                );
              })}

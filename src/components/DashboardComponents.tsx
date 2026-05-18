@@ -28,14 +28,14 @@ export const FilterGroup = memo(({ label, children }: { label: string, children:
 export const DashboardInput = memo(({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, type?: string }) => {
   return (
     <div className="space-y-1.5 flex-grow">
-      <label className="block text-[8px] font-black text-pink-200 uppercase tracking-[0.2em] ml-2">{label}</label>
+      <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         required
-        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-xs font-black uppercase text-white placeholder-pink-200 focus:outline-none focus:bg-white/20 transition-all"
+        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-[10px] font-black uppercase text-[#0B132B] placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"
       />
     </div>
   );

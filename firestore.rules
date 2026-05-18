@@ -67,7 +67,7 @@ service cloud.firestore {
       allow update: if (isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && 
                        incoming().role == existing().role && 
                        incoming().email == existing().email && 
-                       incoming().balance == existing().balance && 
+                       (incoming().balance == existing().balance || (incoming().role == 'tutor' && incoming().balance < existing().balance)) && 
                        incoming().isVerified == existing().isVerified
                     ) || (
                        isSignedIn() && 
@@ -153,12 +153,14 @@ service cloud.firestore {
     // --- Withdrawals Collection ---
     match /withdrawals/{withdrawalId} {
       function isValidWithdrawal(data) {
-        return data.keys().hasAll(['id', 'tutorId', 'amount', 'bKashNumber', 'status', 'timestamp']) &&
+        return data.keys().hasAll(['id', 'tutorId', 'amount', 'bKashNumber', 'status', 'timestamp', 'paymentMethod']) &&
                isValidId(data.tutorId) &&
                data.amount is number && data.amount > 0 &&
-               data.bKashNumber is string && data.bKashNumber.size() <= 20 &&
+               data.bKashNumber is string && data.bKashNumber.size() <= 64 &&
                data.status in ['pending', 'approved', 'rejected'] &&
-               data.timestamp is string;
+               data.timestamp is string &&
+               data.paymentMethod in ['bkash', 'nagad', 'bank'] &&
+               (data.get('adminNote', null) == null || data.adminNote is string);
       }
 
       allow list: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
@@ -171,6 +173,11 @@ service cloud.firestore {
       allow update: if isAdmin() && isValidWithdrawal(incoming());
 
       allow delete: if isAdmin();
+    }
+    
+    // Ledger for financial auditing
+    match /ledger/{ledgerId} {
+      allow read, write: if isAdmin();
     }
 
     // --- Notifications Collection ---

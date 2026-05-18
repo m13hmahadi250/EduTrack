@@ -102,8 +102,10 @@ export interface Withdrawal {
   tutorId: string;
   amount: number;
   bKashNumber: string;
+  paymentMethod: 'bkash' | 'nagad' | 'bank';
   status: 'pending' | 'approved' | 'rejected';
   timestamp: string;
+  adminNote?: string;
 }
 
 export interface Payment {
@@ -163,8 +165,8 @@ interface AppState {
   verifyTutor: (id: string, type: 'nid' | 'academic', status: 'approved' | 'rejected') => Promise<void>;
   approvePayment: (id: string) => Promise<void>;
   rejectPayment: (id: string) => Promise<void>;
-  approveWithdrawal: (id: string) => Promise<void>;
-  rejectWithdrawal: (id: string) => Promise<void>;
+  approveWithdrawal: (id: string, adminNote?: string) => Promise<void>;
+  rejectWithdrawal: (id: string, reason?: string) => Promise<void>;
   
   // Student actions
   submitPayment: (payment: Omit<Payment, 'id' | 'status' | 'date'>) => Promise<void>;
@@ -539,26 +541,54 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
-    approveWithdrawal: async (id) => {
+    approveWithdrawal: async (id, adminNote?: string) => {
       const withdrawal = get().withdrawals.find(w => w.id === id);
       if (!withdrawal) return;
       try {
-        await updateDoc(doc(db, 'withdrawals', id), { status: 'approved' });
-        await get().sendNotification(withdrawal.tutorId, 'Withdrawal Processed', `Your withdrawal of ৳${withdrawal.amount} has been approved and sent.`, 'success');
+        await updateDoc(doc(db, 'withdrawals', id), { 
+          status: 'approved',
+          adminNote: adminNote || 'Batch payment processed successfully.'
+        });
+
+        // Add to global ledger for auditing
+        const ledgerId = `ledger_${Date.now()}`;
+        await setDoc(doc(db, 'ledger', ledgerId), {
+          id: ledgerId,
+          type: 'withdrawal',
+          amount: withdrawal.amount,
+          referenceId: id,
+          description: `Payout to expert: ${withdrawal.tutorId} via ${withdrawal.paymentMethod?.toUpperCase()}`,
+          timestamp: new Date().toISOString()
+        });
+
+        await get().sendNotification(
+          withdrawal.tutorId, 
+          'Withdrawal Processed', 
+          `Your withdrawal of ৳${withdrawal.amount} has been approved and sent via ${withdrawal.paymentMethod?.toUpperCase() || 'bKash'}.`, 
+          'success'
+        );
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `withdrawals/${id}`);
       }
     },
 
-    rejectWithdrawal: async (id) => {
+    rejectWithdrawal: async (id, reason?: string) => {
       const withdrawal = get().withdrawals.find(w => w.id === id);
       if (!withdrawal) return;
       try {
-        await updateDoc(doc(db, 'withdrawals', id), { status: 'rejected' });
+        await updateDoc(doc(db, 'withdrawals', id), { 
+          status: 'rejected',
+          adminNote: reason || 'Information mismatch or insufficient verified sessions.'
+        });
         await updateDoc(doc(db, 'users', withdrawal.tutorId), {
           balance: increment(withdrawal.amount)
         });
-        await get().sendNotification(withdrawal.tutorId, 'Withdrawal Rejected', `Your withdrawal request of ৳${withdrawal.amount} was rejected. Funds returned to wallet.`, 'error');
+        await get().sendNotification(
+          withdrawal.tutorId, 
+          'Withdrawal Rejected', 
+          `Withdrawal of ৳${withdrawal.amount} was rejected. Reason: ${reason || 'Contact support'}. Funds returned to wallet.`, 
+          'error'
+        );
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `withdrawals/${id}`);
       }
@@ -662,8 +692,19 @@ export const useAppStore = create<AppState>((set, get) => {
 
     requestWithdrawal: async (withdrawalData) => {
       const id = `with_${Date.now()}`;
+      
+      // Real-world validations
+      if (withdrawalData.amount < 500) {
+        throw new Error('Minimum withdrawal amount is ৳500');
+      }
+
+      const tutor = get().currentUser;
+      if (!tutor || (tutor.balance || 0) < withdrawalData.amount) {
+        throw new Error('Insufficient balance for this request');
+      }
+
       try {
-        // DEDUCT from balance immediately
+        // DEDUCT from balance immediately to lock funds
         await updateDoc(doc(db, 'users', withdrawalData.tutorId), {
           balance: increment(-withdrawalData.amount)
         });
@@ -678,7 +719,7 @@ export const useAppStore = create<AppState>((set, get) => {
         // Notify Admin
         const admin = get().users.find(u => u.role === 'admin');
         if (admin) {
-          await get().sendNotification(admin.id, 'New Withdrawal Request', `An expert requested a payout of ৳${withdrawalData.amount}`, 'warning');
+          await get().sendNotification(admin.id, 'Financial: Payout Hook', `Expert ${tutor.name} requested ৳${withdrawalData.amount} via ${withdrawalData.paymentMethod.toUpperCase()}`, 'warning');
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `withdrawals/${id}`);
