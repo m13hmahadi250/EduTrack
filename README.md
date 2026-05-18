@@ -14,9 +14,21 @@ This application is built with React, Vite, Tailwind CSS, and Firebase. To publi
    - **Framework Preset**: Vercel should automatically detect **Vite**.
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-   - **Environment Variables**: Add any required environment variables:
+   - **Environment Variables**: Add all required environment variables:
      - `GEMINI_API_KEY`: Your Google Gemini API Key.
+     - `UPLOADTHING_TOKEN`: Your unified UploadThing token (from the UploadThing dashboard).
+     - `APP_URL`: `https://edutrackbd.vercel.app` (The URL where your app is hosted).
 4. **Deploy**: Click **"Deploy"**.
+
+## Troubleshooting
+
+### UploadThing Errors
+If you see "Failed to parse response from UploadThing server" or 404s on `/api/uploadthing`:
+- Ensure `UPLOADTHING_TOKEN` and `APP_URL` are set in the Vercel environment variables.
+- Double-check that your Vercel project is using Node.js 18 or 20 (Settings > General).
+
+### Build Warnings
+Warnings like `node-domexception` are usually safe to ignore during build.
 
 ## Firebase Configuration
 The application currently uses the configuration found in `firebase-applet-config.json`. 
