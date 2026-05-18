@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useUploadThing } from '../lib/uploadthing';
 
 interface FileUploadProps {
   currentFileUrl?: string;
@@ -23,23 +22,6 @@ export default function FileUpload({
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const { startUpload } = useUploadThing("fileUploader", {
-    onClientUploadComplete: (res) => {
-      if (res?.[0]) {
-        onUpload(res[0].url);
-        setIsUploading(false);
-        setProgress(0);
-      }
-    },
-    onUploadProgress: (p) => {
-      setProgress(p);
-    },
-    onUploadError: (err) => {
-      setError(err.message);
-      setIsUploading(false);
-    }
-  });
 
   const handleUpload = async (file: File) => {
     // Basic type check on client side
@@ -65,9 +47,27 @@ export default function FileUpload({
     setProgress(0);
 
     try {
-      await startUpload([file]);
-    } catch (err) {
-      setError('Upload failed. Please try again.');
+      // Vercel Blob upload via our server route
+      const response = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+        method: 'POST',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || 'Upload failed');
+      }
+
+      const blob = await response.json();
+      onUpload(blob.url);
+      setIsUploading(false);
+      setProgress(100);
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Upload failed. Please try again.');
       setIsUploading(false);
     }
   };

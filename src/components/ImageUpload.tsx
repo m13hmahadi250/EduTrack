@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useUploadThing } from '../lib/uploadthing';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -15,23 +14,6 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { startUpload } = useUploadThing("imageUploader", {
-    onClientUploadComplete: (res) => {
-      if (res?.[0]) {
-        onUpload(res[0].url);
-        setIsUploading(false);
-        setProgress(0);
-      }
-    },
-    onUploadProgress: (p) => {
-      setProgress(p);
-    },
-    onUploadError: (err) => {
-      setError(err.message);
-      setIsUploading(false);
-    },
-  });
-
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please provide an image file (PNG, JPG, etc)');
@@ -43,9 +25,27 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
     setProgress(0);
 
     try {
-      await startUpload([file]);
-    } catch (err) {
-      setError('Upload failed. Please try again.');
+      // Vercel Blob upload via our server route
+      const response = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+        method: 'POST',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || 'Upload failed');
+      }
+
+      const blob = await response.json();
+      onUpload(blob.url);
+      setIsUploading(false);
+      setProgress(100);
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Upload failed. Please try again.');
       setIsUploading(false);
     }
   };

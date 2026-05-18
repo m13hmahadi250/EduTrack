@@ -16,16 +16,19 @@ This application is built with React, Vite, Tailwind CSS, and Firebase. To publi
    - **Output Directory**: `dist`
    - **Environment Variables**: Add all required environment variables:
      - `GEMINI_API_KEY`: Your Google Gemini API Key.
-     - `UPLOADTHING_TOKEN`: Your unified UploadThing token (from the UploadThing dashboard).
+     - `BLOB_READ_WRITE_TOKEN`: Your Vercel Blob token (Generated in Vercel Dashboard > Storage > Blob).
      - `APP_URL`: `https://edutrackbd.vercel.app` (The URL where your app is hosted).
 4. **Deploy**: Click **"Deploy"**.
 
 ## Troubleshooting
 
-### UploadThing Errors
-If you see "Failed to parse response from UploadThing server" or 404s on `/api/uploadthing`:
-- Ensure `UPLOADTHING_TOKEN` and `APP_URL` are set in the Vercel environment variables.
-- Double-check that your Vercel project is using Node.js 18 or 20 (Settings > General).
+### ⚠️ Vercel Blob Setup
+For Blob storage to work, you MUST:
+1. Go to your Vercel Project Dashboard.
+2. Click on the **"Storage"** tab.
+3. Select **"Blob"** and follow the steps to create a new Blob store.
+4. **CRITICAL**: Go to the **"Settings"** tab of your Blob store and ensure the **"Access Level"** is set to **"Public"**. (The app requires public URLs to display images and files in the dashboard).
+5. Once created, Vercel will automatically add the `BLOB_READ_WRITE_TOKEN` to your environment variables.
 
 ### Build Warnings
 Warnings like `node-domexception` are usually safe to ignore during build.
