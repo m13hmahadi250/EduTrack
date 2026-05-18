@@ -46,11 +46,12 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
       try {
         responseData = responseText ? JSON.parse(responseText) : {};
       } catch (e) {
-        throw new Error(`Invalid server response: ${responseText.substring(0, 100)}`);
+        console.error("Failed to parse response:", responseText);
+        throw new Error(`Server returned non-JSON response (${response.status}): ${responseText.substring(0, 200)}`);
       }
 
       if (!response.ok) {
-        const errorDetail = responseData.message || responseData.error || responseText || 'Unknown server error';
+        const errorDetail = responseData.message || responseData.error || responseData.details || responseText || 'Unknown server error';
         throw new Error(`Storage error (${response.status}): ${errorDetail}`);
       }
 
