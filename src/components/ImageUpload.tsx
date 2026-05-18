@@ -35,11 +35,24 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Upload failed');
+        let errorMessage = 'Upload failed';
+        try {
+          const errData = await response.json();
+          errorMessage = errData.message || errData.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, get the text instead
+          const text = await response.text();
+          errorMessage = text || `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const blob = await response.json();
+      let blob;
+      try {
+        blob = await response.json();
+      } catch (e) {
+        throw new Error('Server returned invalid response');
+      }
       onUpload(blob.url);
       setIsUploading(false);
       setProgress(100);
