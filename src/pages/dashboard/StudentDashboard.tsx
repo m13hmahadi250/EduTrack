@@ -33,6 +33,7 @@ import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VE
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
 import { PaymentService, PaymentProvider } from '../../services/paymentService';
+import BKashGatewaySim from '../../components/BKashGatewaySim';
 
 const MapLoading = () => (
    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
@@ -262,6 +263,7 @@ export default function StudentDashboard() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProvider>('bkash');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isBKashModalOpen, setIsBKashModalOpen] = useState(false);
   
   // Booking state
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
@@ -352,7 +354,12 @@ export default function StudentDashboard() {
           finalTransactionId = response.transactionId;
           setTransactionId(finalTransactionId);
         } else {
-          alert(response.message || 'Payment failed. Please try again.');
+          useAppStore.getState().sendNotification(
+            currentUser.id,
+            'Payment Option Failed',
+            response.message || 'Payment processing failed. Please try again.',
+            'error'
+          );
           setIsProcessingPayment(false);
           return;
         }
@@ -378,7 +385,48 @@ export default function StudentDashboard() {
       }, 5000);
     } catch (error) {
       console.error('Payment Error:', error);
-      alert('A technical error occurred during the payment flow.');
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        'Payment Technical Error',
+        'A technical connection error occurred during checkout payment processing.',
+        'error'
+      );
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleBKashSuccess = async (trxId: string, wallet: string) => {
+    if (!amount || !selectedTutor || !currentUser) return;
+    setIsProcessingPayment(true);
+    try {
+      setBkashNumber(wallet);
+      setTransactionId(trxId);
+      setIsBKashModalOpen(false);
+
+      await submitPayment({
+        studentId: currentUser.id,
+        tutorId: selectedTutor.id,
+        amount: parseFloat(amount),
+        bKashNumber: wallet,
+        transactionId: trxId,
+      });
+
+      setPaymentSuccess(true);
+      setTimeout(() => {
+        setPaymentSuccess(false);
+        setBkashNumber('');
+        setAmount('');
+        setTransactionId('');
+      }, 5000);
+    } catch (error) {
+      console.error('Payment Error from BKash Modal:', error);
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        'Checkout Pipeline Error',
+        'A technical error occurred while appending transaction details.',
+        'error'
+      );
     } finally {
       setIsProcessingPayment(false);
     }
@@ -387,7 +435,12 @@ export default function StudentDashboard() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTutor || !currentUser || !bookingDate || !bookingSlot || bookingSubject.length === 0) {
-      alert("Please fill all booking requirements");
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        'Incomplete Session Criteria',
+        'Please define all required properties (date, slot, and subjects) first.',
+        'warning'
+      );
       return;
     }
 
@@ -410,7 +463,12 @@ export default function StudentDashboard() {
       }, 3000);
     } catch (error) {
       console.error(error);
-      alert("Booking failed. Please check availability.");
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        'Booking System Error',
+        'Your request failed to synchronize. Please check specified slot availability.',
+        'error'
+      );
     } finally {
       setIsBooking(false);
     }
@@ -1346,7 +1404,50 @@ export default function StudentDashboard() {
                               <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2">TRX ID: {transactionId}</p>
                            </div>
                         ) : (
-                          <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                          <div className="space-y-4">
+                            {selectedPaymentProvider === 'bkash' && (
+                              <div className="p-6 bg-white/10 rounded-3xl border border-white/20 flex flex-col items-center gap-3 text-center mb-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-[#FFF]">bKash Sandbox API Active</span>
+                                </div>
+                                <p className="text-[10px] text-white/90 font-medium uppercase tracking-widest leading-relaxed">
+                                  Select an amount, then click below to launch the secure bKash merchant simulator to test OTP & secure PIN callbacks automatically.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    let activeAmt = amount;
+                                    // Auto-populate with selected tutor's hourly rate if empty
+                                    if (!activeAmt && selectedTutor?.hourlyRate) {
+                                      activeAmt = selectedTutor.hourlyRate.toString();
+                                      setAmount(activeAmt);
+                                    }
+                                    
+                                    if (!activeAmt || parseFloat(activeAmt) <= 0) {
+                                      useAppStore.getState().sendNotification(
+                                        currentUser.id,
+                                        "Validation Required",
+                                        "Please enter a valid payment Amount (৳) first before launching the portal.",
+                                        "warning"
+                                      );
+                                      return;
+                                    }
+                                    setIsBKashModalOpen(true);
+                                  }}
+                                  className="w-full bg-white text-[#E51275] py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-center gap-2 group-hover:scale-[1.02] shadow-xl shadow-[#E51275]/10 animate-pulse font-sans"
+                                >
+                                  <Zap className="w-4 h-4 fill-current text-[#E51275]" />
+                                  LAUNCH SECURE BKASH PORTAL
+                                </button>
+                                <div className="w-full border-t border-white/10 my-1"></div>
+                                <span className="text-[8px] text-white/50 font-medium uppercase tracking-widest">
+                                  Or use manual logging channel instead
+                                </span>
+                              </div>
+                            )}
+
+                            <form onSubmit={handlePaymentSubmit} className="space-y-4">
                            <div className="space-y-4">
                              <DashboardInput 
                                label={`${selectedPaymentProvider.toUpperCase()} Number`} 
@@ -1393,6 +1494,7 @@ export default function StudentDashboard() {
                              Secure simulation active. No real funds will be deducted.
                            </p>
                           </form>
+                        </div>
                         )}
                       </div>
                     </>
@@ -1901,6 +2003,18 @@ export default function StudentDashboard() {
               onClose={() => setPendingRatingSession(null)}
             />
           </Suspense>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isBKashModalOpen && (
+          <BKashGatewaySim
+            isOpen={isBKashModalOpen}
+            onClose={() => setIsBKashModalOpen(false)}
+            amount={parseFloat(amount) || 0}
+            tutorName={selectedTutor?.name || 'Expert Tutor'}
+            onPaymentSuccess={handleBKashSuccess}
+          />
         )}
       </AnimatePresence>
     </div>
