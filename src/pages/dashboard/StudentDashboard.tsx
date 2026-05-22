@@ -525,7 +525,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar whitespace-nowrap">
+      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },
@@ -537,7 +537,7 @@ export default function StudentDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative whitespace-nowrap shrink-0 ${
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
               activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
@@ -745,8 +745,8 @@ export default function StudentDashboard() {
                         />
                       </Suspense>
                     ) : (
-                     <div className="w-full h-full flex flex-col items-center justify-center text-center opacity-30 p-8">
-                       <MapPin className="w-10 h-10 mb-4" />
+                     <div className="w-full h-full flex flex-col items-start md:items-center justify-center text-left md:text-center opacity-30 p-8">
+                       <MapPin className="w-10 h-10 mb-4 ml-0 mr-auto md:mx-auto" />
                        <p className="text-[8px] font-black uppercase tracking-widest leading-loose">No active transmission signals detected in your sector.</p>
                      </div>
                    )}
@@ -1074,8 +1074,8 @@ export default function StudentDashboard() {
                              </div>
                           </div>
 
-                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-1 sm:col-span-2 md:col-span-1">
+                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-2 md:col-span-1">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
                                <div className="space-y-3">
                                   <div className="flex items-center justify-between">
@@ -1182,8 +1182,8 @@ export default function StudentDashboard() {
                         <div className="h-px bg-slate-100 mb-8" />
 
                         {bookingSuccess ? (
-                          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="p-8 bg-emerald-50 rounded-[2.5rem] text-center border border-emerald-100">
-                            <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-4" />
+                          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="p-8 bg-emerald-50 rounded-[2.5rem] text-left md:text-center border border-emerald-100">
+                            <CheckCircle className="w-10 h-10 text-emerald-500 ml-0 mr-auto md:mx-auto mb-4" />
                             <h4 className="text-lg font-black text-emerald-900 uppercase italic">Binding Success</h4>
                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Check your session log for arrival</p>
                           </motion.div>
@@ -1260,16 +1260,16 @@ export default function StudentDashboard() {
 
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">2. Select Time Node</label>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                              <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
+                              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
                                   
                                   if (slots.length === 0) {
                                     return (
-                                      <div className="col-span-full py-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100">
-                                        <Clock className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                      <div className="col-span-full py-8 text-left px-6 md:text-center md:px-0 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100">
+                                        <Clock className="w-8 h-8 text-slate-200 ml-0 mr-auto md:mx-auto mb-2" />
                                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
                                           No temporal slots available for this cycle
                                         </p>
@@ -1311,7 +1311,7 @@ export default function StudentDashboard() {
                                         <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
                                         {category}
                                       </label>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div className="grid grid-cols-2 gap-2">
                                         {subjects.map(sub => {
                                           const isSelected = bookingSubject.includes(sub);
                                           return (
@@ -1325,7 +1325,7 @@ export default function StudentDashboard() {
                                                     : [...prev, sub]
                                                 );
                                               }}
-                                              className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                              className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
                                                 isSelected 
                                                 ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
                                                 : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
@@ -1398,15 +1398,15 @@ export default function StudentDashboard() {
                           </div>
                         </div>
                         {paymentSuccess ? (
-                           <div className="p-8 bg-white/10 rounded-[2rem] text-center border border-white/20 backdrop-blur-sm">
-                              <CheckCircle className="w-12 h-12 text-white mx-auto mb-4" />
+                           <div className="p-8 bg-white/10 rounded-[2rem] text-left md:text-center border border-white/20 backdrop-blur-sm">
+                              <CheckCircle className="w-12 h-12 text-white ml-0 mr-auto md:mx-auto mb-4" />
                               <h4 className="text-lg font-black uppercase italic">Transaction Confirmed</h4>
-                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2">TRX ID: {transactionId}</p>
+                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2 flex justify-start md:justify-center">TRX ID: {transactionId}</p>
                            </div>
                         ) : (
                           <div className="space-y-4">
                             {selectedPaymentProvider === 'bkash' && (
-                              <div className="p-6 bg-white/10 rounded-3xl border border-white/20 flex flex-col items-center gap-3 text-center mb-4">
+                              <div className="p-6 bg-white/10 rounded-3xl border border-white/20 flex flex-col items-start md:items-center gap-3 text-left md:text-center mb-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
                                   <span className="text-[9px] font-black uppercase tracking-widest text-[#FFF]">bKash Sandbox API Active</span>
@@ -1435,7 +1435,7 @@ export default function StudentDashboard() {
                                     }
                                     setIsBKashModalOpen(true);
                                   }}
-                                  className="w-full bg-white text-[#E51275] py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-center gap-2 group-hover:scale-[1.02] shadow-xl shadow-[#E51275]/10 animate-pulse font-sans"
+                                  className="w-full bg-white text-[#E51275] py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-start md:justify-center px-4 gap-2 group-hover:scale-[1.02] shadow-xl shadow-[#E51275]/10 animate-pulse font-sans"
                                 >
                                   <Zap className="w-4 h-4 fill-current text-[#E51275]" />
                                   LAUNCH SECURE BKASH PORTAL
@@ -1490,7 +1490,7 @@ export default function StudentDashboard() {
                              )}
                            </button>
                            
-                           <p className="text-[8px] font-medium text-white/50 text-center uppercase tracking-widest mt-4">
+                           <p className="text-[8px] font-medium text-white/50 text-left md:text-center uppercase tracking-widest mt-4">
                              Secure simulation active. No real funds will be deducted.
                            </p>
                           </form>
@@ -1499,8 +1499,8 @@ export default function StudentDashboard() {
                       </div>
                     </>
                   ) : (
-                    <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12">
-                       <LayoutDashboard className="w-12 h-12 text-slate-200 mb-6" />
+                    <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12">
+                       <LayoutDashboard className="w-12 h-12 text-slate-200 mb-6 ml-0 mr-auto md:mx-auto" />
                        <h3 className="text-xl font-black text-slate-300 uppercase italic">Select Profile</h3>
                     </div>
                   )}
@@ -1695,8 +1695,8 @@ export default function StudentDashboard() {
                         );
                       })}
                       {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').length === 0 && (
-                        <div className="py-20 text-center">
-                           <Calendar className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+                        <div className="py-20 text-left md:text-center">
+                           <Calendar className="w-12 h-12 text-slate-100 ml-0 mr-auto md:mx-auto mb-4" />
                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No active sessions requiring transit oversight</p>
                         </div>
                       )}
@@ -1738,8 +1738,8 @@ export default function StudentDashboard() {
 
                     if (contacts.length === 0) {
                       return (
-                        <div className="py-20 text-center opacity-20">
-                          <Users className="w-12 h-12 mx-auto mb-4" />
+                        <div className="py-20 text-left md:text-center opacity-20">
+                          <Users className="w-12 h-12 ml-0 mr-auto md:mx-auto mb-4" />
                           <p className="text-[10px] font-black uppercase tracking-widest">No active secure links established.</p>
                         </div>
                       );
@@ -1788,8 +1788,8 @@ export default function StudentDashboard() {
                    <ChatWindow recipientId={selectedRecipientId} />
                  </Suspense>
                ) : (
-                 <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
-                    <Send className="w-12 h-12 mb-6" />
+                 <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12 opacity-30">
+                    <Send className="w-12 h-12 mb-6 ml-0 mr-auto md:mx-auto" />
                     <h3 className="text-xl font-black uppercase italic">Initialize Comms</h3>
                     <p className="text-[10px] font-black uppercase tracking-widest mt-2">Select a certified contact from the uplink</p>
                  </div>
@@ -1982,7 +1982,7 @@ export default function StudentDashboard() {
                         </div>
                       ))}
                       {payments.length === 0 && (
-                        <div className="p-12 text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
+                        <div className="p-12 text-left md:text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
                           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No transaction records found</p>
                         </div>
                       )}

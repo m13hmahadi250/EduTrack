@@ -176,8 +176,8 @@ export default function AdminDashboard() {
            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Pending Clearances</p>
         </div>
 
-        <div className="lg:col-span-1 border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 text-center group hover:bg-slate-50 transition-all">
-           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto shadow-lg border border-slate-50 transition-transform group-hover:rotate-12">
+        <div className="lg:col-span-1 border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 text-left md:text-center group hover:bg-slate-50 transition-all">
+           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center ml-0 mr-auto md:mx-auto shadow-lg border border-slate-50 transition-transform group-hover:rotate-12">
               <Wallet className="w-6 h-6 text-[#0D5BFF]" />
            </div>
            <div>
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
 
                   <div className="grid grid-cols-2 gap-4 w-full md:w-fit">
                      <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Protocol Actions</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-left md:text-center">Protocol Actions</p>
                         <div className="flex items-center gap-3">
                           <button 
                             onClick={() => setSelectedTutor(tutor)}
@@ -330,8 +330,8 @@ export default function AdminDashboard() {
                      </div>
                    ))}
                    {pendingPayments.length === 0 && (
-                     <div className="py-20 text-center opacity-30">
-                        <Zap className="w-12 h-12 text-white mx-auto mb-6" />
+                     <div className="py-20 text-left md:text-center opacity-30">
+                        <Zap className="w-12 h-12 text-white ml-0 mr-auto md:mx-auto mb-6" />
                         <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">All inbound signals cleared</p>
                      </div>
                    )}
@@ -429,8 +429,8 @@ export default function AdminDashboard() {
                );
              })}
              {pendingWithdrawals.length === 0 && (
-               <div className="lg:col-span-2 py-40 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center opacity-30">
-                  <Wallet className="w-16 h-16 text-slate-300 mb-8" />
+               <div className="lg:col-span-2 py-40 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-8 opacity-30">
+                  <Wallet className="w-16 h-16 text-slate-300 mb-8 ml-0 mr-auto md:mx-auto" />
                   <h4 className="text-2xl font-black text-[#0B132B] uppercase italic">Queue Depleted</h4>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">No pending withdrawal hooks detected in sector</p>
                </div>
@@ -639,8 +639,8 @@ export default function AdminDashboard() {
                               {selectedTutor.documents.map((docUrl, idx) => (
                                 <div key={idx} className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50 relative group">
                                    {docUrl.toLowerCase().endsWith('.pdf') ? (
-                                     <div className="p-8 flex flex-col items-center justify-center text-center">
-                                        <FileText className="w-12 h-12 text-[#0D5BFF] mb-4" />
+                                     <div className="p-8 flex flex-col items-start md:items-center justify-center text-left md:text-center">
+                                        <FileText className="w-12 h-12 text-[#0D5BFF] mb-4 ml-0 mr-auto md:mx-auto" />
                                         <p className="text-[10px] font-black text-[#0B132B] uppercase">Academic Document {idx + 1}</p>
                                         <a href={docUrl} target="_blank" rel="noreferrer" className="mt-4 px-4 py-2 bg-[#0D5BFF] text-white text-[8px] font-black uppercase rounded-lg">Open PDF</a>
                                      </div>
@@ -654,9 +654,9 @@ export default function AdminDashboard() {
                       )}
 
                       {!selectedTutor.nidFrontImg && !selectedTutor.nidBackImg && (!selectedTutor.documents || selectedTutor.documents.length === 0) && (
-                        <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-8 min-h-[300px]">
+                        <div className="flex-1 flex items-start md:items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-left md:text-center p-8 min-h-[300px]">
                            <div>
-                              <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                              <Shield className="w-12 h-12 text-slate-200 ml-0 mr-auto md:mx-auto mb-4" />
                               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No documents uploaded by this expert yet</p>
                            </div>
                         </div>

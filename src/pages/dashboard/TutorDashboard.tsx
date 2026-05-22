@@ -433,7 +433,7 @@ export default function TutorDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar whitespace-nowrap">
+      <div className="flex space-x-8 border-b border-slate-100 pb-px">
         {[
           { id: "my_session", label: "My Session" },
           { id: "balance", label: "Balance" },
@@ -444,7 +444,7 @@ export default function TutorDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative whitespace-nowrap shrink-0 ${
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
               activeTab === tab.id
                 ? "text-[#0B132B]"
                 : "text-[#0B132B]/30 hover:text-[#0B132B]"
@@ -836,15 +836,15 @@ export default function TutorDashboard() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="p-12 bg-emerald-50 rounded-[2rem] text-center border-2 border-emerald-100 shadow-xl"
+                      className="p-12 bg-emerald-50 rounded-[2rem] text-left md:text-center border-2 border-emerald-100 shadow-xl"
                     >
-                      <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                         <CheckCircle className="w-10 h-10 text-emerald-500" />
                       </div>
                       <h4 className="text-xl font-black text-emerald-900 uppercase italic">
                         Payout Synchronized
                       </h4>
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2 px-10">
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2 px-0 md:px-10">
                         Our treasury has received your hook. Expect clearance
                         within 6-12 standard operational hours.
                       </p>
@@ -852,7 +852,7 @@ export default function TutorDashboard() {
                   ) : (
                     <form onSubmit={handleWithdrawRequest} className="space-y-6">
                       {withdrawalError && (
-                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">
+                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-left md:text-center">
                           {withdrawalError}
                         </div>
                       )}
@@ -1121,8 +1121,8 @@ export default function TutorDashboard() {
                         />
                       </Suspense>
                     ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-center p-12">
-                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                      <div className="absolute inset-0 flex flex-col items-start md:items-center justify-center bg-slate-900/95 text-left md:text-center p-12">
+                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                           <MapPin className="w-10 h-10 text-slate-700" />
                         </div>
                         <h4 className="text-white text-xl font-black uppercase italic mb-4">
@@ -1165,8 +1165,8 @@ export default function TutorDashboard() {
               </div>
 
               <div className="flex flex-col gap-12">
-                <div className="bg-slate-50 rounded-[4rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center p-20 text-center flex-1">
-                  <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center mb-8 shadow-xl">
+                <div className="bg-slate-50 rounded-[4rem] border-4 border-dashed border-slate-100 flex flex-col items-start md:items-center justify-center p-20 text-left md:text-center flex-1">
+                  <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-8 shadow-xl">
                     <Zap
                       className={`w-10 h-10 ${currentUser.isTrackingOn ? "text-amber-500 animate-pulse" : "text-slate-200"}`}
                     />
@@ -1265,8 +1265,8 @@ export default function TutorDashboard() {
 
                     if (contacts.length === 0) {
                       return (
-                        <div className="py-20 text-center opacity-20">
-                          <Users className="w-12 h-12 mx-auto mb-4" />
+                        <div className="py-20 text-left md:text-center opacity-20">
+                          <Users className="w-12 h-12 ml-0 mr-auto md:mx-auto mb-4" />
                           <p className="text-[10px] font-black uppercase tracking-widest">
                             No active secure links established.
                           </p>
@@ -1337,8 +1337,8 @@ export default function TutorDashboard() {
                     <ChatWindow recipientId={selectedRecipientId} />
                   </Suspense>
                 ) : (
-                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-center p-12 opacity-30">
-                    <Send className="w-12 h-12 mb-6" />
+                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12 opacity-30">
+                    <Send className="w-12 h-12 mb-6 ml-0 mr-auto md:mx-auto" />
                     <h3 className="text-xl font-black uppercase italic">
                       Initialize Comms
                     </h3>
@@ -1360,7 +1360,7 @@ export default function TutorDashboard() {
               className="grid lg:grid-cols-3 gap-12"
             >
               <div className="lg:col-span-1 space-y-8">
-                <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm flex flex-col items-center">
+                <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm flex flex-col items-start md:items-center">
                   <div className="mb-8">
                     <ImageUpload
                       currentImageUrl={currentUser.profileImage}
@@ -1369,10 +1369,10 @@ export default function TutorDashboard() {
                       }
                     />
                   </div>
-                  <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-center">
+                  <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-left md:text-center w-full">
                     {currentUser.name}
                   </h2>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 text-left md:text-center w-full">
                     {currentUser.university || "Expert Educator"}
                   </p>
 
@@ -1916,7 +1916,7 @@ export default function TutorDashboard() {
                         </h3>
                       </div>
 
-                      <div className="flex md:grid md:grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar-hide hide-scrollbar w-full">
+                      <div className="grid grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar">
                         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                           (day) => {
                             const dayName =
@@ -1939,7 +1939,7 @@ export default function TutorDashboard() {
                             return (
                               <div
                                 key={day}
-                                className="min-w-[100px] shrink-0 md:min-w-0 space-y-3"
+                                className="min-w-[100px] space-y-3"
                               >
                                 <div className="text-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
                                   <span className="text-[10px] font-black uppercase text-[#0B132B] italic">
@@ -2068,7 +2068,7 @@ export default function TutorDashboard() {
                         </div>
                       ))}
                       {tutorPayments.length === 0 && (
-                        <div className="p-12 text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
+                        <div className="p-12 text-left md:text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
                           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
                             No earning records synchronized
                           </p>
