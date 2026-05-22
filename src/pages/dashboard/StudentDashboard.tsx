@@ -1282,7 +1282,7 @@ export default function StudentDashboard() {
                                       key={slot}
                                       type="button"
                                       onClick={() => setBookingSlot(slot)}
-                                      className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                      className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
                                         bookingSlot === slot 
                                         ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
                                         : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'

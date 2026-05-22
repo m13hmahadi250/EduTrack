@@ -220,8 +220,8 @@ export default function AdminDashboard() {
           >
             <div className="grid lg:grid-cols-1 gap-8">
               {tutors.map(tutor => (
-                <div key={tutor.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 sm:gap-12 group transition-all hover:shadow-xl">
-                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
+                <div key={tutor.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-8 sm:gap-12 group transition-all hover:shadow-xl">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 text-left sm:text-left">
                      <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden">
                        {tutor.profileImage ? (
                          <img 
@@ -238,7 +238,7 @@ export default function AdminDashboard() {
                      <div>
                         <h4 className="text-lg sm:text-xl font-black text-[#0B132B] uppercase italic">{tutor.name}</h4>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">{tutor.university || 'Independent Expert'}</p>
-                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4 mt-4">
+                        <div className="flex flex-wrap justify-start gap-2 sm:gap-4 mt-4">
                            <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
                              tutor.nidStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                              tutor.nidStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' : 

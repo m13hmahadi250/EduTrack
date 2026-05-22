@@ -742,8 +742,8 @@ export default function TutorDashboard() {
                       );
                     })}
                     {activeSessions.length === 0 && (
-                      <div className="bg-white rounded-[3rem] p-16 flex flex-col items-center justify-center border border-slate-100 shadow-sm">
-                        <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6">
+                      <div className="bg-white rounded-[3rem] p-16 flex flex-col items-start md:items-center justify-center border border-slate-100 shadow-sm text-left md:text-center">
+                        <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                           <Calendar className="w-10 h-10 text-slate-200" />
                         </div>
                         <h4 className="text-xl font-black text-[#0B132B] uppercase italic mb-2">
