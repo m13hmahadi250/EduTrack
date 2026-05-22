@@ -433,7 +433,7 @@ export default function TutorDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px">
+      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar whitespace-nowrap">
         {[
           { id: "my_session", label: "My Session" },
           { id: "balance", label: "Balance" },
@@ -444,7 +444,7 @@ export default function TutorDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative whitespace-nowrap shrink-0 ${
               activeTab === tab.id
                 ? "text-[#0B132B]"
                 : "text-[#0B132B]/30 hover:text-[#0B132B]"
@@ -1916,7 +1916,7 @@ export default function TutorDashboard() {
                         </h3>
                       </div>
 
-                      <div className="grid grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar">
+                      <div className="flex md:grid md:grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar-hide hide-scrollbar w-full">
                         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                           (day) => {
                             const dayName =
@@ -1939,7 +1939,7 @@ export default function TutorDashboard() {
                             return (
                               <div
                                 key={day}
-                                className="min-w-[100px] space-y-3"
+                                className="min-w-[100px] shrink-0 md:min-w-0 space-y-3"
                               >
                                 <div className="text-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
                                   <span className="text-[10px] font-black uppercase text-[#0B132B] italic">

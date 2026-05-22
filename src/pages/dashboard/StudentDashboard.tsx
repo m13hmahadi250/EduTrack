@@ -525,7 +525,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
+      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar whitespace-nowrap">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },
@@ -537,7 +537,7 @@ export default function StudentDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative whitespace-nowrap shrink-0 ${
               activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
@@ -1074,8 +1074,8 @@ export default function StudentDashboard() {
                              </div>
                           </div>
 
-                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-2 md:col-span-1">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-1 sm:col-span-2 md:col-span-1">
                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
                                <div className="space-y-3">
                                   <div className="flex items-center justify-between">
@@ -1261,7 +1261,7 @@ export default function StudentDashboard() {
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">2. Select Time Node</label>
-                              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
@@ -1311,7 +1311,7 @@ export default function StudentDashboard() {
                                         <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
                                         {category}
                                       </label>
-                                      <div className="grid grid-cols-2 gap-2">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {subjects.map(sub => {
                                           const isSelected = bookingSubject.includes(sub);
                                           return (
