@@ -36,7 +36,16 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 
 function LayoutWrapper() {
   const isLoading = useAppStore(state => state.isLoading);
+  const theme = useAppStore(state => state.theme);
   const location = useLocation();
+
+  React.useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   if (isLoading) {
     return <LoadingScreen />;

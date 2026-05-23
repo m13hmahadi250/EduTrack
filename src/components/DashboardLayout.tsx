@@ -49,21 +49,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] flex-col lg:flex-row">
+    <div className="flex min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] flex-col lg:flex-row transition-colors duration-300">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
       </div>
 
       {/* Mobile Header */}
-      <div className="lg:hidden bg-white border-b border-slate-100 p-4 sticky top-0 z-50 flex items-center justify-between">
+      <div className="lg:hidden bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/60 p-4 sticky top-0 z-50 flex items-center justify-between transition-colors">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-[#0D5BFF] rounded-lg flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200 text-sm">
+          <div className="w-8 h-8 bg-[#0D5BFF] rounded-lg flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200 dark:shadow-none text-sm">
              E
           </div>
-          <span className="text-lg font-black font-heading text-[#0B132B]">EduTrack</span>
+          <span className="text-lg font-black font-heading text-[#0B132B] dark:text-white">EduTrack</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500">
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500 dark:text-slate-400">
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
@@ -72,13 +72,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsMobileMenuOpen(false)}>
           <div 
-            className="w-80 max-w-[85vw] h-full bg-white shadow-2xl transition-transform duration-300 transform translate-x-0 relative flex flex-col" 
+            className="w-80 max-w-[85vw] h-full bg-white dark:bg-[#111A2E] shadow-2xl transition-transform duration-300 transform translate-x-0 relative flex flex-col" 
             onClick={e => e.stopPropagation()}
           >
              <div className="absolute top-4 right-4 z-50">
                <button 
                  onClick={() => setIsMobileMenuOpen(false)}
-                 className="p-2 text-[#0B132B] hover:bg-slate-100 rounded-full transition-colors"
+                 className="p-2 text-[#0B132B] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                >
                  <X className="w-5 h-5" />
                </button>
@@ -96,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-3 px-6 z-50 flex justify-between items-center shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#111A2E] border-t border-slate-100 dark:border-slate-800 p-3 px-6 z-50 flex justify-between items-center shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)] transition-colors">
         {navItems.map((item) => (
           <button
             key={item.label}
@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               setIsMobileMenuOpen(false);
             }}
             className={`flex flex-col items-center gap-1 transition-all ${
-              isActive(item.path) ? 'text-[#0D5BFF]' : 'text-slate-400'
+              isActive(item.path) ? 'text-[#0D5BFF]' : 'text-slate-400 dark:text-slate-500'
             }`}
           >
             <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'stroke-[2.5px]' : 'stroke-2'}`} />

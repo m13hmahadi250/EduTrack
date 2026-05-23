@@ -21,7 +21,15 @@ import {
   ArrowLeft,
   Zap,
   FileText,
-  Trash2
+  Trash2,
+  BookOpen,
+  Binary,
+  Dna,
+  Languages,
+  Laptop,
+  Compass,
+  Atom,
+  GraduationCap
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -271,6 +279,24 @@ export default function StudentDashboard() {
   const [bookingSubject, setBookingSubject] = useState<string[]>([]);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+
+  // Custom interactive subject system states
+  const [activeSubjectTab, setActiveSubjectTab] = useState<'Bangla Version' | 'English Version' | 'Madrasha'>('Bangla Version');
+  const [subjectSearchTerm, setSubjectSearchTerm] = useState('');
+
+  // Helper mapping keywords to elegant visual icons representing academic areas
+  const getSubjectIcon = (subName: string) => {
+    const name = subName.toLowerCase();
+    if (name.includes('math')) return Binary;
+    if (name.includes('physic') || name.includes('chem') || name.includes('science')) return Atom;
+    if (name.includes('biol') || name.includes('dna')) return Dna;
+    if (name.includes('bangla') || name.includes('english') || name.includes('arabic')) return Languages;
+    if (name.includes('ict') || name.includes('computer')) return Laptop;
+    if (name.includes('quran') || name.includes('hadith') || name.includes('fiqh') || name.includes('stud') || name.includes('aqaid')) return BookOpen;
+    if (name.includes('account') || name.includes('financ') || name.includes('business') || name.includes('manage')) return GraduationCap;
+    if (name.includes('econom') || name.includes('history') || name.includes('geograph') || name.includes('social')) return Compass;
+    return BookOpen;
+  };
 
   // Helper to get next 30 days
   const availableDates = useMemo(() => Array.from({ length: 30 }, (_, i) => {
@@ -1224,7 +1250,7 @@ export default function StudentDashboard() {
                                  </div>
                                  <div 
                                    ref={dateScrollRef}
-                                   className="flex gap-3 overflow-x-auto pb-6 pt-2 hide-scrollbar snap-x cursor-grab active:cursor-grabbing px-4 scroll-smooth"
+                                   className="flex flex-col sm:flex-row gap-3 overflow-y-auto sm:overflow-x-auto max-h-[300px] sm:max-h-none pb-4 sm:pb-6 pt-2 hide-scrollbar snap-y sm:snap-x cursor-grab active:cursor-grabbing px-4 scroll-smooth"
                                  >
                                    {availableDates.map((date) => {
                                      const dayName = getDayName(date);
@@ -1240,7 +1266,7 @@ export default function StudentDashboard() {
                                            setBookingDate(date);
                                            setBookingSlot(''); // Reset slot when date changes
                                          }}
-                                         className={`flex-shrink-0 w-24 p-5 rounded-3xl border transition-all snap-start ${
+                                         className={`flex-shrink-0 w-full sm:w-24 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border transition-all snap-start flex sm:flex-col items-center sm:justify-center justify-between text-left sm:text-center ${
                                            isSelected 
                                            ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-200 -translate-y-1' 
                                            : hasSlots 
@@ -1248,12 +1274,14 @@ export default function StudentDashboard() {
                                              : 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed opacity-50'
                                          }`}
                                        >
-                                         <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
-                                           {dayName.substring(0, 3)}
-                                         </p>
-                                         <p className="text-xl font-black">
-                                           {new Date(date).getDate()}
-                                         </p>
+                                         <div className="flex sm:flex-col items-baseline sm:items-center gap-2 sm:gap-0 leading-none">
+                                           <p className={`text-[8px] font-black uppercase tracking-widest sm:mb-1 ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
+                                             {dayName.substring(0, 3)}
+                                           </p>
+                                           <p className="text-sm sm:text-xl font-black leading-none animate-fade-in">
+                                             {new Date(date).getDate()}
+                                           </p>
+                                         </div>
                                          {isToday && !isSelected && <p className="text-[7px] font-black text-[#0D5BFF] uppercase mt-1">Today</p>}
                                          {!hasSlots && <p className="text-[7px] font-black uppercase tracking-tighter mt-1">Full</p>}
                                        </button>
@@ -1266,7 +1294,7 @@ export default function StudentDashboard() {
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
-                              <div className="flex flex-wrap gap-2.5">
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
@@ -1287,7 +1315,7 @@ export default function StudentDashboard() {
                                       key={slot}
                                       type="button"
                                       onClick={() => setBookingSlot(slot)}
-                                      className={`py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center w-fit ${
+                                      className={`py-3.5 px-4 sm:py-1.5 sm:px-3 rounded-2xl sm:rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center w-full sm:w-auto ${
                                         bookingSlot === slot 
                                         ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
                                         : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
@@ -1304,20 +1332,133 @@ export default function StudentDashboard() {
                             <div className="space-y-6 pt-4">
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between px-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Define Intel Focus</label>
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Curriculum Selection</label>
                                   {bookingSubject.length > 0 && (
-                                    <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
+                                    <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} Focus Selected</span>
                                   )}
                                 </div>
-                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 hide-scrollbar py-2 border-l border-slate-50 pl-4">
-                                  {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
-                                    <div key={category} className="space-y-3">
-                                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                        {category}
-                                      </label>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {subjects.map(sub => {
+
+                                {/* Curricular Version Tabs Selection */}
+                                <div className="flex flex-col sm:flex-row gap-2 p-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                  {(['Bangla Version', 'English Version', 'Madrasha'] as const).map(tab => {
+                                    const isActive = activeSubjectTab === tab;
+                                    return (
+                                      <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setActiveSubjectTab(tab)}
+                                        className={`w-full sm:flex-1 py-3.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
+                                          isActive 
+                                            ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/10' 
+                                            : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
+                                        }`}
+                                      >
+                                        {tab.replace(' Version', '')}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Dynamic Intelligence Subject Filter and Quick Focus Toggles */}
+                                <div className="space-y-3 pt-1">
+                                  <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                    <input
+                                      type="text"
+                                      placeholder="Search subjects dynamically..."
+                                      value={subjectSearchTerm}
+                                      onChange={e => setSubjectSearchTerm(e.target.value)}
+                                      className="un-focused w-full bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-12 pr-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF]"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const stemSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Higher Math', 'General Science', 'Mathematics (EV)', 'Physics (EV)', 'Chemistry (EV)', 'Biology (EV)', 'Higher Math (EV)', 'General Science (EV)', 'Mathematics (Madrasha)'];
+                                        const hasStem = stemSubjects.some(s => bookingSubject.includes(s));
+                                        if (hasStem) {
+                                          setBookingSubject(prev => prev.filter(s => !stemSubjects.includes(s)));
+                                        } else {
+                                          setBookingSubject(prev => Array.from(new Set([...prev, ...stemSubjects])));
+                                        }
+                                      }}
+                                      className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                        bookingSubject.some(s => ['Physics', 'Chemistry', 'Mathematics', 'Biology'].some(stem => s.includes(stem)))
+                                        ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-rose-505 hover:text-rose-500'
+                                      }`}
+                                    >
+                                      🧬 SCIENCE
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const commerceSubjects = ['Accounting', 'Finance', 'Economics', 'Business Studies', 'Management', 'Accounting (EV)', 'Finance (EV)', 'Economics (EV)', 'Business Studies (EV)', 'Management (EV)'];
+                                        const hasCommerce = commerceSubjects.some(s => bookingSubject.includes(s));
+                                        if (hasCommerce) {
+                                          setBookingSubject(prev => prev.filter(s => !commerceSubjects.includes(s)));
+                                        } else {
+                                          setBookingSubject(prev => Array.from(new Set([...prev, ...commerceSubjects])));
+                                        }
+                                      }}
+                                      className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                        bookingSubject.some(s => ['Accounting', 'Finance', 'Business'].some(comm => s.includes(comm)))
+                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-emerald-500'
+                                      }`}
+                                    >
+                                      💼 BUSINESS STUDIES
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const humSubjects = ['Bangla', 'English', 'History', 'Geography', 'Social Science', 'Bangla (EV)', 'English (EV)', 'Social Science (Madrasha)', 'English (Madrasha)'];
+                                        const hasHum = humSubjects.some(s => bookingSubject.includes(s));
+                                        if (hasHum) {
+                                          setBookingSubject(prev => prev.filter(s => !humSubjects.includes(s)));
+                                        } else {
+                                          setBookingSubject(prev => Array.from(new Set([...prev, ...humSubjects])));
+                                        }
+                                      }}
+                                      className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                        bookingSubject.some(s => ['Bangla', 'English', 'History', 'Geography'].some(hum => s.includes(hum)))
+                                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-amber-500'
+                                      }`}
+                                    >
+                                      📚 Humanities
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBookingSubject([])}
+                                      className="w-full sm:w-auto sm:ml-auto py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all font-mono text-center"
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Subjects Interactive Dynamic Grid */}
+                                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border-l border-slate-100/50 dark:border-slate-800/50 pl-4">
+                                  {(() => {
+                                    const availableSubjects = SUBJECT_CATEGORIES[activeSubjectTab] || [];
+                                    const filteredList = availableSubjects.filter(sub => 
+                                      sub.toLowerCase().includes(subjectSearchTerm.toLowerCase())
+                                    );
+
+                                    if (filteredList.length === 0) {
+                                      return (
+                                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-150 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
+                                          <p className="text-[9px] font-black uppercase tracking-widest leading-loose">No matched curricular Focus</p>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {filteredList.map(sub => {
                                           const isSelected = bookingSubject.includes(sub);
                                           return (
                                             <button
@@ -1330,19 +1471,26 @@ export default function StudentDashboard() {
                                                     : [...prev, sub]
                                                 );
                                               }}
-                                              className={`py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-left md:text-center ${
+                                              className={`flex items-center justify-between p-3.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border text-left cursor-pointer group ${
                                                 isSelected 
-                                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
-                                                : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
+                                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-500/10' 
+                                                : 'bg-white dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/30'
                                               }`}
                                             >
-                                              {sub}
+                                              <span className="truncate pr-2">{sub.replace(' (EV)', '').replace(' (Madrasha)', '')}</span>
+                                              {isSelected ? (
+                                                <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center text-[#0D5BFF] text-[8px] font-black shrink-0">
+                                                  ✓
+                                                </div>
+                                              ) : (
+                                                <div className="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-700 shrink-0 group-hover:border-slate-300 dark:group-hover:border-slate-600 transition-colors" />
+                                              )}
                                             </button>
                                           );
                                         })}
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })()}
                                 </div>
                               </div>
 

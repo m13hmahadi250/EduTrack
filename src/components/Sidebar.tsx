@@ -12,7 +12,9 @@ import {
   LayoutDashboard,
   Search,
   MessageSquare,
-  Wallet
+  Wallet,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,7 +22,7 @@ interface SidebarProps {
 }
 
 const Sidebar = memo(({ onClose }: SidebarProps) => {
-  const { currentUser, messages, logout } = useAppStore();
+  const { currentUser, messages, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,18 +58,18 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="w-full lg:w-80 h-full lg:h-screen bg-white lg:border-r border-slate-100 flex flex-col p-6 lg:p-8 sticky top-0">
+    <div className="w-full lg:w-80 h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 sticky top-0 transition-colors duration-300">
       {/* Logo */}
-      <div className="hidden lg:flex items-center space-x-3 mb-16">
-        <div className="w-10 h-10 bg-[#0D5BFF] rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200">
+      <div className="hidden lg:flex items-center space-x-3 mb-12">
+        <div className="w-10 h-10 bg-[#0D5BFF] rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200 dark:shadow-none">
            E
         </div>
-        <span className="text-2xl font-black font-heading text-[#0B132B]">EduTrack</span>
+        <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors">EduTrack</span>
       </div>
 
       {/* Nav Section */}
       <div className="flex-grow">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 pl-4">
+        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-6 pl-4 transition-colors">
           Professional
         </p>
         <nav className="space-y-2">
@@ -80,11 +82,11 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
               }}
               className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
                 isActive(item.path) 
-                ? 'bg-[#0B132B] text-white shadow-xl shadow-slate-200' 
-                : 'text-slate-500 hover:bg-slate-50 hover:text-[#0B132B]'
+                ? 'bg-[#0B132B] dark:bg-[#0D5BFF] text-white shadow-xl shadow-slate-200 dark:shadow-none font-bold' 
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:text-[#0B132B] dark:hover:text-white'
               }`}
             >
-              <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-400 group-hover:text-[#0B132B]'}`} />
+              <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-[#0B132B] dark:group-hover:text-white transition-colors'}`} />
               <span className="text-sm font-black uppercase italic tracking-wider flex-1 text-left">{item.label}</span>
               {item.badge > 0 && (
                 <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-1 rounded-full animate-pulse">
@@ -96,23 +98,51 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         </nav>
       </div>
 
+      {/* Theme Mode Toggle Row */}
+      <div className="mb-6 p-1 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-center border border-slate-100/60 dark:border-slate-800 transition-colors duration-300">
+        <button
+          onClick={() => theme === 'dark' && toggleTheme()}
+          className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
+            theme === 'light'
+              ? 'bg-white text-[#0B132B] shadow-sm font-black'
+              : 'text-slate-400 hover:text-slate-200 font-medium'
+          }`}
+          title="Light Mode"
+        >
+          <Sun className="w-4 h-4" />
+          <span className="text-[10px] uppercase tracking-wider font-heading">Light</span>
+        </button>
+        <button
+          onClick={() => theme === 'light' && toggleTheme()}
+          className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
+            theme === 'dark'
+              ? 'bg-[#111A2E] text-white shadow-sm font-black'
+              : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white font-medium'
+          }`}
+          title="Dark Mode"
+        >
+          <Moon className="w-4 h-4" />
+          <span className="text-[10px] uppercase tracking-wider font-heading">Dark</span>
+        </button>
+      </div>
+
       {/* Profile Status Card - Only for tutors/admins */}
       {currentUser.role !== 'student' && (
         <div className={`mb-6 p-5 rounded-2xl border transition-all ${
           currentUser.isVerified 
-            ? 'bg-emerald-50 border-emerald-100' 
-            : 'bg-rose-50 border-rose-100'
+            ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30' 
+            : 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30'
         }`}>
           <div className="flex justify-between items-center mb-2">
             <span className={`text-[10px] font-black uppercase tracking-widest ${
-              currentUser.isVerified ? 'text-emerald-600' : 'text-rose-600'
+              currentUser.isVerified ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
             }`}>Profile Status</span>
             <Shield className={`w-4 h-4 ${
-              currentUser.isVerified ? 'text-emerald-500' : 'text-rose-500 animate-pulse'
+              currentUser.isVerified ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400 animate-pulse'
             }`} />
           </div>
-          <div className={`text-sm font-black uppercase italic ${
-            currentUser.isVerified ? 'text-emerald-900' : 'text-rose-900'
+          <div className={`text-xs font-black uppercase italic ${
+            currentUser.isVerified ? 'text-emerald-900 dark:text-emerald-200' : 'text-rose-900 dark:text-rose-200'
           }`}>
             {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}
           </div>
@@ -120,8 +150,8 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
       )}
 
       {/* User Info */}
-      <div className="flex items-center space-x-4 mb-4 p-4 bg-slate-50 rounded-3xl">
-        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black italic overflow-hidden">
+      <div className="flex items-center space-x-4 mb-4 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-transparent dark:border-slate-800/60 transition-colors">
+        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black italic overflow-hidden">
           {currentUser.profileImage ? (
             <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
@@ -129,8 +159,8 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           )}
         </div>
         <div>
-          <div className="text-xs font-black text-[#0B132B] truncate max-w-[140px] uppercase italic">{currentUser.name}</div>
-          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+          <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[140px] uppercase italic transition-colors">{currentUser.name}</div>
+          <div className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest transition-colors">
             {currentUser.role === 'tutor' ? 'Teacher Account' : currentUser.role === 'admin' ? 'Admin Account' : 'Student Account'}
           </div>
         </div>
@@ -141,7 +171,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           logout();
           onClose?.();
         }}
-        className="flex items-center space-x-3 text-rose-500 font-black uppercase text-[10px] tracking-widest hover:text-rose-600 pl-4 transition-colors"
+        className="flex items-center space-x-3 text-rose-500 font-black uppercase text-[10px] tracking-widest hover:text-rose-600 dark:hover:text-rose-400 pl-4 transition-colors"
       >
         <LogOut className="w-4 h-4" />
         <span>Logout</span>

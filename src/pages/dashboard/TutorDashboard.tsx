@@ -33,6 +33,14 @@ import {
   Check,
   Send,
   FileText,
+  Search,
+  BookOpen,
+  Binary,
+  Dna,
+  Languages,
+  Laptop,
+  Compass,
+  Atom,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -129,6 +137,24 @@ export default function TutorDashboard() {
     null,
   );
   const [showProfileNotice, setShowProfileNotice] = useState(true);
+
+  // Custom interactive subject system states for Tutors
+  const [tutorActiveSubjectTab, setTutorActiveSubjectTab] = useState<'Bangla Version' | 'English Version' | 'Madrasha'>('Bangla Version');
+  const [tutorSubjectSearchTerm, setTutorSubjectSearchTerm] = useState('');
+
+  // Helper mapping keywords to elegant visual icons representing academic areas
+  const getSubjectIcon = (subName: string) => {
+    const name = subName.toLowerCase();
+    if (name.includes('math')) return Binary;
+    if (name.includes('physic') || name.includes('chem') || name.includes('science')) return Atom;
+    if (name.includes('biol') || name.includes('dna')) return Dna;
+    if (name.includes('bangla') || name.includes('english') || name.includes('arabic')) return Languages;
+    if (name.includes('ict') || name.includes('computer')) return Laptop;
+    if (name.includes('quran') || name.includes('hadith') || name.includes('fiqh') || name.includes('stud') || name.includes('aqaid')) return BookOpen;
+    if (name.includes('account') || name.includes('financ') || name.includes('business') || name.includes('manage')) return GraduationCap;
+    if (name.includes('econom') || name.includes('history') || name.includes('geograph') || name.includes('social')) return Compass;
+    return BookOpen;
+  };
 
   const isProfileIncomplete =
     (!currentUser?.bio ||
@@ -1748,37 +1774,168 @@ export default function TutorDashboard() {
                         />
                       </div>
                       <div className="space-y-6">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                          Authorized Subjects
-                        </label>
-                        {Object.entries(SUBJECT_CATEGORIES).map(
-                          ([category, subjects]) => (
-                            <div key={category} className="space-y-3 pl-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                                  {category}
-                                </span>
+                        <div className="flex items-center justify-between px-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            Authorized Subjects Selection
+                          </label>
+                          {profileForm.subjects.length > 0 && (
+                            <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">
+                              {profileForm.subjects.length} Selected Focus Areas
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Curricular Version Tabs Selection */}
+                        <div className="flex flex-col sm:flex-row gap-2 p-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 mx-4">
+                          {(['Bangla Version', 'English Version', 'Madrasha'] as const).map(tab => {
+                            const isActive = tutorActiveSubjectTab === tab;
+                            return (
+                              <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setTutorActiveSubjectTab(tab)}
+                                className={`w-full sm:flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
+                                  isActive 
+                                    ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/10' 
+                                    : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
+                                }`}
+                              >
+                                {tab.replace(' Version', '')}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Dynamic Intelligence Subject Filter and Quick Focus Toggles */}
+                        <div className="space-y-3 pt-1 mx-4">
+                          <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                            <input
+                              type="text"
+                              placeholder="Search subjects dynamically..."
+                              value={tutorSubjectSearchTerm}
+                              onChange={e => setTutorSubjectSearchTerm(e.target.value)}
+                              className="w-full bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-12 pr-4 py-3 text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF]"
+                            />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const stemSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Higher Math', 'General Science', 'Mathematics (EV)', 'Physics (EV)', 'Chemistry (EV)', 'Biology (EV)', 'Higher Math (EV)', 'General Science (EV)', 'Mathematics (Madrasha)'];
+                                const allStemSelected = stemSubjects.every(s => profileForm.subjects.includes(s));
+                                setProfileForm(prev => ({
+                                  ...prev,
+                                  subjects: allStemSelected
+                                    ? prev.subjects.filter(s => !stemSubjects.includes(s))
+                                    : Array.from(new Set([...prev.subjects, ...stemSubjects]))
+                                }));
+                              }}
+                              className={`px-3 py-3 sm:py-1.5 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                profileForm.subjects.some(s => ['Physics', 'Chemistry', 'Mathematics', 'Biology'].some(stem => s.includes(stem)))
+                                ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-rose-500'
+                              }`}
+                            >
+                              🧬 SCIENCE
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const commerceSubjects = ['Accounting', 'Finance', 'Economics', 'Business Studies', 'Management', 'Accounting (EV)', 'Finance (EV)', 'Economics (EV)', 'Business Studies (EV)', 'Management (EV)'];
+                                const allCommerceSelected = commerceSubjects.every(s => profileForm.subjects.includes(s));
+                                setProfileForm(prev => ({
+                                  ...prev,
+                                  subjects: allCommerceSelected
+                                    ? prev.subjects.filter(s => !commerceSubjects.includes(s))
+                                    : Array.from(new Set([...prev.subjects, ...commerceSubjects]))
+                                }));
+                              }}
+                              className={`px-3 py-3 sm:py-1.5 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                profileForm.subjects.some(s => ['Accounting', 'Finance', 'Business'].some(comm => s.includes(comm)))
+                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-emerald-500'
+                              }`}
+                            >
+                              💼 BUSINESS STUDIES
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const humSubjects = ['Bangla', 'English', 'History', 'Geography', 'Social Science', 'Bangla (EV)', 'English (EV)', 'Social Science (Madrasha)', 'English (Madrasha)'];
+                                const allHumSelected = humSubjects.every(s => profileForm.subjects.includes(s));
+                                setProfileForm(prev => ({
+                                  ...prev,
+                                  subjects: allHumSelected
+                                    ? prev.subjects.filter(s => !humSubjects.includes(s))
+                                    : Array.from(new Set([...prev.subjects, ...humSubjects]))
+                                }));
+                              }}
+                              className={`px-3 py-3 sm:py-1.5 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
+                                profileForm.subjects.some(s => ['Bangla', 'English', 'History', 'Geography'].some(hum => s.includes(hum)))
+                                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-amber-500'
+                              }`}
+                            >
+                              📚 Humanities
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setProfileForm(prev => ({ ...prev, subjects: [] }))}
+                              className="w-full sm:w-auto sm:ml-auto py-3 sm:py-1.5 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all font-mono text-center"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Subjects Interactive Dynamic Grid */}
+                        <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border-l border-slate-100/50 dark:border-slate-800/50 pl-4 mx-4">
+                          {(() => {
+                            const availableSubjects = SUBJECT_CATEGORIES[tutorActiveSubjectTab as keyof typeof SUBJECT_CATEGORIES] || [];
+                            const filteredList = availableSubjects.filter(sub => 
+                              sub.toLowerCase().includes(tutorSubjectSearchTerm.toLowerCase())
+                            );
+
+                            if (filteredList.length === 0) {
+                              return (
+                                <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-150 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
+                                  <p className="text-[9px] font-black uppercase tracking-widest leading-loose">No matched curricular Focus</p>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {filteredList.map(sub => {
+                                  const isSelected = profileForm.subjects.includes(sub);
+                                  return (
+                                    <button
+                                      key={sub}
+                                      type="button"
+                                      onClick={() => toggleSubject(sub)}
+                                      className={`flex items-center justify-between p-3.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border text-left cursor-pointer group ${
+                                        isSelected 
+                                        ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-500/10' 
+                                        : 'bg-white dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/30'
+                                      }`}
+                                    >
+                                      <span className="truncate pr-2">{sub.replace(' (EV)', '').replace(' (Madrasha)', '')}</span>
+                                      {isSelected ? (
+                                        <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center text-[#0D5BFF] text-[8px] font-black shrink-0">
+                                          ✓
+                                        </div>
+                                      ) : (
+                                        <div className="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-700 shrink-0 group-hover:border-slate-300 dark:group-hover:border-slate-600 transition-colors" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {subjects.map((sub) => (
-                                  <button
-                                    key={sub}
-                                    type="button"
-                                    onClick={() => toggleSubject(sub)}
-                                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                      profileForm.subjects.includes(sub)
-                                        ? "bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100"
-                                        : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
-                                    }`}
-                                  >
-                                    {sub}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ),
-                        )}
+                            );
+                          })()}
+                        </div>
                       </div>
 
                       <div className="space-y-4">

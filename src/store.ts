@@ -190,6 +190,10 @@ interface AppState {
   // Typing
   setTyping: (targetId: string, isTyping: boolean) => Promise<void>;
   
+  // Theme state for entire dashboard
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+  
   // Internal sync
   setLoading: (loading: boolean) => void;
 }
@@ -279,6 +283,21 @@ export const useAppStore = create<AppState>((set, get) => {
     notifications: [],
     isLoading: true,
     typingStatus: {},
+    theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
+
+    toggleTheme: () => {
+      const currentTheme = get().theme;
+      const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('theme', nextTheme);
+        if (nextTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+      set({ theme: nextTheme });
+    },
 
     setLoading: (loading) => set({ isLoading: loading }),
 
