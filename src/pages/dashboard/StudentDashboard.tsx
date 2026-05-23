@@ -1266,14 +1266,14 @@ export default function StudentDashboard() {
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
-                              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                              <div className="flex flex-wrap gap-2.5">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
                                   
                                   if (slots.length === 0) {
                                     return (
-                                      <div className="col-span-full py-8 text-left px-6 md:text-center md:px-0 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100">
+                                      <div className="col-span-full py-8 text-left px-6 md:text-center md:px-0 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 w-full animate-fade-in">
                                         <Clock className="w-8 h-8 text-slate-200 ml-0 mr-auto md:mx-auto mb-2" />
                                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
                                           No temporal slots available for this cycle
@@ -1287,7 +1287,7 @@ export default function StudentDashboard() {
                                       key={slot}
                                       type="button"
                                       onClick={() => setBookingSlot(slot)}
-                                      className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
+                                      className={`py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center w-fit ${
                                         bookingSlot === slot 
                                         ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
                                         : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
@@ -1330,7 +1330,7 @@ export default function StudentDashboard() {
                                                     : [...prev, sub]
                                                 );
                                               }}
-                                              className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
+                                              className={`py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-left md:text-center ${
                                                 isSelected 
                                                 ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
                                                 : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
