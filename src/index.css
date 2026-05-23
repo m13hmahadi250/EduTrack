@@ -13,6 +13,11 @@
 }
 
 @layer base {
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-[#F8F9FA] text-[#0B132B] font-sans;
     -webkit-tap-highlight-color: transparent;

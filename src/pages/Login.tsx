@@ -81,9 +81,9 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100"
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-left md:text-center border border-slate-100"
             >
-              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                 <AlertCircle className="w-10 h-10 text-rose-500" />
               </div>
               <h3 className="text-xl font-bold text-[#0B132B] mb-3">Login Failed</h3>

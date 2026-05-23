@@ -109,8 +109,8 @@ export default function ChatWindow({ recipientId }: ChatWindowProps) {
         className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth"
       >
         {chatMessages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-            <ShieldAlert className="w-12 h-12 mb-4" />
+          <div className="h-full flex flex-col items-start md:items-center justify-center text-left md:text-center opacity-20">
+            <ShieldAlert className="w-12 h-12 mb-4 ml-0 mr-auto md:mx-auto" />
             <p className="text-[10px] font-black tracking-[0.2em] max-w-[200px]">
               No data packets transmitted yet. Initiate secure handshake.
             </p>

@@ -115,7 +115,7 @@ export default function Home() {
       {/* Trust & Safety Section - Visible Grid Style */}
       <section className="py-24 bg-white border-y border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
+          <div className="text-left md:text-center mb-20">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Safety First</h2>
             <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] uppercase italic">
               Security You Can <span className="text-[#0D5BFF]">Trust</span>
@@ -331,14 +331,14 @@ export default function Home() {
       {/* How it Works - Modern Step Layout */}
       <section className="py-24 bg-slate-50/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-end justify-between mb-16 gap-6">
-            <div className="max-w-xl">
+          <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between mb-16 gap-6">
+            <div className="max-w-xl text-left">
               <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">The Process</h2>
               <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.9]">
                 How EduTrack <span className="text-[#0D5BFF]">Works</span>
               </h3>
             </div>
-            <p className="text-slate-500 font-bold max-w-sm lg:text-right">
+            <p className="text-slate-500 font-bold max-w-sm text-left lg:text-right">
               A seamless journey from finding the right teacher to tracking progress in real-time.
             </p>
           </div>
@@ -374,16 +374,16 @@ export default function Home() {
       {/* Footer CTA */}
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-[#0B132B] rounded-[3rem] p-12 lg:p-20 text-center relative overflow-hidden">
+          <div className="bg-[#0B132B] rounded-[3rem] p-12 lg:p-20 text-left md:text-center relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
              <div className="relative z-10">
                <h2 className="text-[3rem] lg:text-[4.5rem] font-black font-heading text-white leading-none uppercase mb-8">
                  Ready to <span className="text-[#0D5BFF]">Start?</span>
                </h2>
-               <p className="text-slate-400 text-lg mb-12 max-w-xl mx-auto">
+               <p className="text-slate-400 text-lg mb-12 max-w-xl mx-0 md:mx-auto">
                  Join thousands of parents who have already upgraded their child's education with EduTrack.
                </p>
-               <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
+               <div className="flex flex-col sm:flex-row justify-start md:justify-center items-start md:items-center space-y-4 sm:space-y-0 sm:space-x-6">
                  <Link to="/signup" className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center">
                    Get Started Now
                  </Link>
@@ -460,7 +460,7 @@ const TrustCard = React.memo(({ icon, title, description }: { icon: React.ReactN
 
 const StatBlock = React.memo(({ value, label }: { value: string, label: string }) => {
   return (
-    <div className="p-8 border-r border-slate-100 last:border-0 flex flex-col justify-center items-center text-center">
+    <div className="p-8 border-b md:border-b-0 md:border-r border-slate-100 last:border-0 flex flex-col justify-center items-start md:items-center text-left md:text-center">
        <div className="text-4xl lg:text-5xl font-black font-heading text-[#0D5BFF] mb-2">{value}</div>
        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0B132B]">{label}</div>
     </div>
@@ -469,7 +469,7 @@ const StatBlock = React.memo(({ value, label }: { value: string, label: string }
 
 const Step = React.memo(({ number, title, desc }: { number: string, title: string, desc: string }) => {
   return (
-    <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left group">
+    <div className="relative z-10 flex flex-col items-start text-left group">
       <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center border-2 border-slate-100 shadow-sm mb-6 group-hover:border-[#0D5BFF] group-hover:shadow-xl transition-all duration-300">
         <span className="text-2xl font-black font-heading text-[#0B132B] italic">{number}</span>
       </div>

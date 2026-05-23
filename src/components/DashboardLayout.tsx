@@ -70,8 +70,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Drawer */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="w-64 h-full bg-white p-6" onClick={e => e.stopPropagation()}>
+        <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
+          <div className="w-72 sm:w-80 h-full overflow-hidden" onClick={e => e.stopPropagation()}>
              <Sidebar />
           </div>
         </div>

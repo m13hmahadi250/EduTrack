@@ -311,13 +311,13 @@ export default function AdminDashboard() {
 
                 <div className="space-y-4">
                    {pendingPayments.map(payment => (
-                     <div key={payment.id} className="bg-white/5 rounded-[2.5rem] p-8 flex items-center justify-between border border-white/5 hover:bg-white/[0.08] transition-all group">
-                        <div className="flex items-center gap-8">
-                           <div className="flex flex-col gap-2">
-                             <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20">
+                     <div key={payment.id} className="bg-white/5 rounded-[2.5rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border border-white/5 hover:bg-white/[0.08] transition-all group">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full min-w-0 flex-1">
+                           <div className="flex flex-col gap-2 min-w-0 flex-1">
+                             <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 break-all">
                                TRX: {payment.transactionId}
                              </div>
-                             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4">
+                             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-4 break-words">
                                Sender: {payment.bKashNumber}
                              </div>
                            </div>
@@ -585,13 +585,13 @@ export default function AdminDashboard() {
                             <div key={p.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 italic">
                                <div className="flex flex-col">
                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{new Date(p.date).toLocaleDateString()}</span>
-                                 <span className="text-[9px] font-bold text-[#0B132B]">{p.transactionId}</span>
+                                 <span className="text-[9px] font-bold text-[#0B132B] break-all">{p.transactionId}</span>
                                </div>
                                <span className={`text-[10px] font-black ${p.status === 'approved' ? 'text-emerald-600' : 'text-slate-300'}`}>+৳{p.amount}</span>
                             </div>
                           ))}
                           {payments.filter(p => p.tutorId === selectedTutor.id).length === 0 && (
-                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-4">No financial events synchronized</p>
+                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-left md:text-center py-4">No financial events synchronized</p>
                           )}
                         </div>
                       </div>

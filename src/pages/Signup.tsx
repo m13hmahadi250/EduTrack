@@ -181,7 +181,7 @@ export default function Signup() {
             Google Account
           </button>
          
-        <p className="mt-8 text-center text-xs text-slate-500 font-medium">
+        <p className="mt-8 text-left md:text-center text-xs text-slate-500 font-medium">
           Already registered? <button onClick={() => navigate('/login')} className="font-bold text-[#0D5BFF]">Sign in instead</button>
         </p>
 

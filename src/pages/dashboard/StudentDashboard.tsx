@@ -619,22 +619,22 @@ export default function StudentDashboard() {
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
                 <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full min-w-0 flex-1">
+                    <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md flex-shrink-0">
                       <Play className="w-8 h-8 text-white fill-white animate-pulse" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-100">Live Operation In Progress</span>
-                        <div className="flex h-2 w-2 relative">
+                    <div className="min-w-0 flex-1 w-full">
+                      <div className="flex flex-wrap items-center gap-3 mb-2 w-full">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-100 break-words">Live Operation In Progress</span>
+                        <div className="flex h-2 w-2 relative flex-shrink-0">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                         </div>
                       </div>
-                      <h3 className="text-3xl font-black uppercase italic leading-tight">
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-black uppercase italic leading-tight break-words">
                         Session with {users.find(u => u.id === activeSession.tutorId)?.name || 'Expert'}
                       </h3>
-                      <p className="text-[10px] font-bold text-rose-100 uppercase tracking-widest mt-2">
+                      <p className="text-[9px] sm:text-[10px] font-bold text-rose-100 uppercase tracking-widest mt-2 break-words">
                         Focus: {activeSession.subject} • Started at {activeSession.startTime ? new Date(activeSession.startTime).toLocaleTimeString() : 'Just now'}
                       </p>
                     </div>
@@ -1031,37 +1031,61 @@ export default function StudentDashboard() {
                           Back to Mentors
                         </button>
                         <div className="bg-white rounded-[3rem] p-6 lg:p-10 border border-slate-100 shadow-sm relative overflow-hidden">
-                          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-8">
-                             <div className="flex items-center space-x-6">
-                                {selectedTutor.profileImage ? (
-                                  <img src={selectedTutor.profileImage} alt={selectedTutor.name} className="w-20 h-20 rounded-[2rem] object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
-                                ) : (
-                                  <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] border border-slate-100">
-                                    {selectedTutor.name.charAt(0)}
-                                  </div>
-                                )}
-                                <div>
-                                  <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
-                                  <div className="flex items-center gap-3">
-                                    <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
-                                    {selectedTutor.rating && (
-                                      <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
-                                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                                        <span className="text-[10px] font-black text-amber-700">{selectedTutor.rating.toFixed(1)}</span>
-                                        <span className="text-[8px] font-bold text-amber-400 ml-1">({selectedTutor.totalRatings || 0} reviews)</span>
-                                      </div>
-                                    )}
+                          {/* Profile Header Block */}
+                          <div className="flex flex-col gap-6 mb-8 w-full">
+                            <div className="flex items-center gap-4 sm:gap-6 min-w-0 w-full">
+                              {selectedTutor.profileImage ? (
+                                <img 
+                                  src={selectedTutor.profileImage} 
+                                  alt={selectedTutor.name} 
+                                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] object-cover border border-slate-100 flex-shrink-0" 
+                                  referrerPolicy="no-referrer" 
+                                  loading="lazy" 
+                                />
+                              ) : (
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-2xl sm:text-3xl font-black italic text-[#0D5BFF] border border-slate-100 flex-shrink-0">
+                                  {selectedTutor.name.charAt(0)}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] uppercase italic leading-none mb-2">
+                                  {selectedTutor.name}
+                                </h3>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
+                                  <p className="text-[10px] sm:text-xs font-bold text-[#0D5BFF] uppercase tracking-widest">
+                                    {selectedTutor.university || 'Educational Expert'}
+                                  </p>
+                                  {(selectedTutor.rating !== undefined && selectedTutor.rating > 0) && (
+                                    <div className="flex items-center gap-1 bg-amber-50 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-amber-100 flex-shrink-0">
+                                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                      <span className="text-[9px] sm:text-[10px] font-black text-amber-700">{selectedTutor.rating.toFixed(1)}</span>
+                                      <span className="text-[7px] sm:text-[8px] font-bold text-amber-400 ml-0.5">({selectedTutor.totalRatings || 0} reviews)</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Standard Rate & Info Bar (Full-Width, Non-Squeezed Row) */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-[2rem] border border-slate-100/50">
+                              <div className="flex-1">
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Tuition Rate</p>
+                                <p className="text-xl sm:text-2xl font-black text-[#0B132B] italic">
+                                  ৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-[#0D5BFF] ml-1">/hr</span>
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 sm:text-right">
+                                <div className="flex flex-col justify-center sm:items-end">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Quadrant</p>
+                                  <div className="flex items-center gap-1.5 text-[#0B132B]">
+                                    <MapPin className="w-3.5 h-3.5 text-[#0D5BFF] flex-shrink-0" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">
+                                      {selectedTutor.district}, {selectedTutor.area}
+                                    </span>
                                   </div>
                                 </div>
-                             </div>
-                             <div className="lg:text-right p-4 bg-slate-50 lg:bg-transparent rounded-2xl">
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Rate</p>
-                                <p className="text-2xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/hr</span></p>
-                                <div className="mt-2 flex items-center justify-end gap-1 text-[#0D5BFF]">
-                                   <MapPin className="w-3 h-3" />
-                                   <span className="text-[8px] font-black uppercase tracking-widest">{selectedTutor.district}, {selectedTutor.area}</span>
-                                </div>
-                             </div>
+                              </div>
+                            </div>
                           </div>
 
                           <div className="mb-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
@@ -1401,7 +1425,7 @@ export default function StudentDashboard() {
                            <div className="p-8 bg-white/10 rounded-[2rem] text-left md:text-center border border-white/20 backdrop-blur-sm">
                               <CheckCircle className="w-12 h-12 text-white ml-0 mr-auto md:mx-auto mb-4" />
                               <h4 className="text-lg font-black uppercase italic">Transaction Confirmed</h4>
-                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2 flex justify-start md:justify-center">TRX ID: {transactionId}</p>
+                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2 flex justify-start md:justify-center break-all">TRX ID: {transactionId}</p>
                            </div>
                         ) : (
                           <div className="space-y-4">
@@ -1964,21 +1988,21 @@ export default function StudentDashboard() {
                     <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Payment Logic History</h3>
                     <div className="grid grid-cols-1 gap-4">
                       {payments.map(p => (
-                        <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">TRX: {p.transactionId}</span>
+                        <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-3 mb-1">
+                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic break-all">TRX: {p.transactionId}</span>
                               <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${
                                 p.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
                               }`}>
                                 {p.status}
                               </span>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest break-words">
                               {new Date(p.date).toLocaleString()} • Sent via {p.bKashNumber}
                             </p>
                           </div>
-                          <div className="text-2xl font-black text-[#0B132B] italic">৳{p.amount}</div>
+                          <div className="text-2xl font-black text-[#0B132B] italic flex-shrink-0">৳{p.amount}</div>
                         </div>
                       ))}
                       {payments.length === 0 && (

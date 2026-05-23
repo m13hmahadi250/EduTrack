@@ -588,21 +588,21 @@ export default function TutorDashboard() {
                   >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
                     <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full min-w-0 flex-1">
+                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md flex-shrink-0">
                           <Play className="w-8 h-8 text-white fill-white animate-pulse" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100">
+                        <div className="min-w-0 flex-1 w-full">
+                          <div className="flex flex-wrap items-center gap-3 mb-2 w-full">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100 break-words">
                               Live Session Active
                             </span>
-                            <div className="flex h-2 w-2 relative">
+                            <div className="flex h-2 w-2 relative flex-shrink-0">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                             </div>
                           </div>
-                          <h3 className="text-3xl font-black uppercase italic leading-tight">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black uppercase italic leading-tight break-words">
                             Teaching{" "}
                             {users.find(
                               (u) =>
@@ -611,7 +611,7 @@ export default function TutorDashboard() {
                                   ?.studentId,
                             )?.name || "Student"}
                           </h3>
-                          <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-2">
+                          <p className="text-[9px] sm:text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-2 break-words">
                             Subject:{" "}
                             {
                               sessions.find((s) => s.status === "active")
@@ -2039,9 +2039,9 @@ export default function TutorDashboard() {
                           key={p.id}
                           className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                         >
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-3 mb-1">
+                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic break-all">
                                 TRX: {p.transactionId}
                               </span>
                               <span
@@ -2056,13 +2056,13 @@ export default function TutorDashboard() {
                                 {p.status}
                               </span>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest break-words">
                               {new Date(p.date).toLocaleString()} • From{" "}
                               {users.find((u) => u.id === p.studentId)?.name ||
                                 "Student"}
                             </p>
                           </div>
-                          <div className="text-2xl font-black text-emerald-600 italic">
+                          <div className="text-2xl font-black text-emerald-600 italic flex-shrink-0">
                             +৳{p.amount}
                           </div>
                         </div>
