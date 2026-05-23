@@ -1244,7 +1244,7 @@ export default function TutorDashboard() {
                 <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">
                   Students
                 </h3>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                   {(() => {
                     // Logic: Students I have a session record with OR message history
                     const myStudentIdsFromSessions = sessions.map(

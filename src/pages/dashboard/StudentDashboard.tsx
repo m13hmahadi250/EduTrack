@@ -946,7 +946,7 @@ export default function StudentDashboard() {
                   </FilterGroup>
 
                   <FilterGroup label="Subject Specialization">
-                    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar hide-scrollbar py-2">
+                    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar py-2">
                       {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
                         <div key={category} className="space-y-2">
                           <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
@@ -1414,7 +1414,7 @@ export default function StudentDashboard() {
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
                                   )}
                                 </div>
-                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 hide-scrollbar py-2 border-l-0 md:border-l border-slate-50 pl-0 md:pl-4">
+                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border-l-0 md:border-l border-slate-50 pl-0 md:pl-4">
                                   {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
                                     <div key={category} className="space-y-3">
                                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -1838,7 +1838,7 @@ export default function StudentDashboard() {
           >
             <div className="lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Contacts</h3>
-               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
+               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                   {(() => {
                     // Logic: Tutors I have a session record with OR message history
                     const myTutorIdsFromSessions = mySessions.map(s => s.tutorId);
