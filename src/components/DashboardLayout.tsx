@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] flex-col lg:flex-row">
+    <div className="flex min-h-screen bg-[#F8F9FA] flex-col lg:flex-row max-w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
@@ -78,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Content Area */}
-      <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto pb-24 lg:pb-12">
+      <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto pb-24 lg:pb-12 max-w-full overflow-x-hidden">
         {children}
       </main>
 

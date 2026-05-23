@@ -557,7 +557,7 @@ export default function StudentDashboard() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden mb-12"
           >
-            <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white relative overflow-hidden group border border-white/10">
+            <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 text-white relative overflow-hidden group border border-white/10">
               <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
               
               <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
@@ -789,7 +789,7 @@ export default function StudentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Filters Sidebar */}
             <div className={`lg:col-span-1 space-y-6 ${windowWidth <= 1024 && !showFilters ? 'hidden' : 'block'}`}>
-              <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm relative">
+              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-100 shadow-sm relative">
                 {windowWidth <= 1024 && (
                    <button 
                      onClick={() => setShowFilters(false)}
@@ -1030,36 +1030,35 @@ export default function StudentDashboard() {
                           <ChevronLeft className="w-4 h-4 text-[#0D5BFF]" />
                           Back to Mentors
                         </button>
-                        <div className="bg-white rounded-[3rem] p-6 lg:p-10 border border-slate-100 shadow-sm relative overflow-hidden">
+                        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-4 sm:p-6 lg:p-10 border border-slate-100 shadow-sm relative overflow-hidden">
                           {/* Profile Header Block */}
-                          <div className="flex flex-col gap-6 mb-8 w-full">
-                            <div className="flex items-center gap-4 sm:gap-6 min-w-0 w-full">
+                          <div className="flex flex-col gap-6 mb-8 w-full text-left">
+                            <div className="flex flex-row items-center gap-3 sm:gap-6 min-w-0 w-full text-left">
                               {selectedTutor.profileImage ? (
                                 <img 
                                   src={selectedTutor.profileImage} 
                                   alt={selectedTutor.name} 
-                                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] object-cover border border-slate-100 flex-shrink-0" 
+                                  className="w-12 h-12 sm:w-20 sm:h-20 rounded-[1.2rem] sm:rounded-[2rem] object-cover border border-slate-100 flex-shrink-0 shadow-sm" 
                                   referrerPolicy="no-referrer" 
-                                  loading="lazy" 
-                                />
+                                  loading="lazy" />
                               ) : (
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-2xl sm:text-3xl font-black italic text-[#0D5BFF] border border-slate-100 flex-shrink-0">
+                                <div className="w-12 h-12 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.2rem] sm:rounded-[2rem] flex items-center justify-center text-xl sm:text-3xl font-black italic text-[#0D5BFF] border border-slate-100 flex-shrink-0 shadow-sm">
                                   {selectedTutor.name.charAt(0)}
                                 </div>
                               )}
-                              <div className="min-w-0 flex-1">
-                                <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] uppercase italic leading-none mb-2">
+                              <div className="min-w-0 flex-1 flex flex-col items-start w-full text-left">
+                                <h3 className="text-base sm:text-2xl font-black text-[#0B132B] uppercase italic leading-tight mb-1 sm:mb-2 break-words text-left w-full">
                                   {selectedTutor.name}
                                 </h3>
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
-                                  <p className="text-[10px] sm:text-xs font-bold text-[#0D5BFF] uppercase tracking-widest">
+                                <div className="flex flex-wrap items-center justify-start gap-1.5 sm:gap-3 w-full text-left">
+                                  <p className="text-[9px] sm:text-xs font-bold text-[#0D5BFF] uppercase tracking-widest break-words text-left">
                                     {selectedTutor.university || 'Educational Expert'}
                                   </p>
                                   {(selectedTutor.rating !== undefined && selectedTutor.rating > 0) && (
                                     <div className="flex items-center gap-1 bg-amber-50 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-amber-100 flex-shrink-0">
                                       <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                                       <span className="text-[9px] sm:text-[10px] font-black text-amber-700">{selectedTutor.rating.toFixed(1)}</span>
-                                      <span className="text-[7px] sm:text-[8px] font-bold text-amber-400 ml-0.5">({selectedTutor.totalRatings || 0} reviews)</span>
+                                      <span className="text-[7px] sm:text-[8px] font-bold text-[#D97706] ml-0.5">({selectedTutor.totalRatings || 0} reviews)</span>
                                     </div>
                                   )}
                                 </div>
@@ -1067,19 +1066,19 @@ export default function StudentDashboard() {
                             </div>
 
                             {/* Standard Rate & Info Bar (Full-Width, Non-Squeezed Row) */}
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-[2rem] border border-slate-100/50">
-                              <div className="flex-1">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100/50">
+                              <div className="flex-1 text-left">
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Standard Tuition Rate</p>
-                                <p className="text-xl sm:text-2xl font-black text-[#0B132B] italic">
+                                <p className="text-lg sm:text-2xl font-black text-[#0B132B] italic">
                                   ৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-[#0D5BFF] ml-1">/hr</span>
                                 </p>
                               </div>
-                              <div className="flex items-center gap-2 sm:text-right">
-                                <div className="flex flex-col justify-center sm:items-end">
+                              <div className="flex items-center gap-2 text-left sm:text-right">
+                                <div className="flex flex-col justify-center items-start sm:items-end text-left sm:text-right">
                                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Quadrant</p>
-                                  <div className="flex items-center gap-1.5 text-[#0B132B]">
+                                  <div className="flex items-center gap-1.5 text-[#0B132B] text-left">
                                     <MapPin className="w-3.5 h-3.5 text-[#0D5BFF] flex-shrink-0" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-left">
                                       {selectedTutor.district}, {selectedTutor.area}
                                     </span>
                                   </div>
@@ -1259,7 +1258,7 @@ export default function StudentDashboard() {
                                            setBookingDate(date);
                                            setBookingSlot(''); // Reset slot when date changes
                                          }}
-                                         className={`flex-shrink-0 w-24 p-5 rounded-3xl border transition-all snap-start ${
+                                         className={`flex-shrink-0 w-20 sm:w-24 p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border transition-all snap-start ${
                                            isSelected 
                                            ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-200 -translate-y-1' 
                                            : hasSlots 
@@ -1267,14 +1266,14 @@ export default function StudentDashboard() {
                                              : 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed opacity-50'
                                          }`}
                                        >
-                                         <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
+                                         <p className={`text-[8px] font-black uppercase tracking-widest mb-1 text-left ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
                                            {dayName.substring(0, 3)}
                                          </p>
-                                         <p className="text-xl font-black">
+                                         <p className="text-base sm:text-xl font-black text-left">
                                            {new Date(date).getDate()}
                                          </p>
-                                         {isToday && !isSelected && <p className="text-[7px] font-black text-[#0D5BFF] uppercase mt-1">Today</p>}
-                                         {!hasSlots && <p className="text-[7px] font-black uppercase tracking-tighter mt-1">Full</p>}
+                                         {isToday && !isSelected && <p className="text-[7px] font-black text-[#0D5BFF] uppercase mt-1 text-left">Today</p>}
+                                         {!hasSlots && <p className="text-[7px] font-black uppercase tracking-tighter mt-1 text-left">Full</p>}
                                        </button>
                                      );
                                    })}
@@ -1285,7 +1284,7 @@ export default function StudentDashboard() {
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
-                              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
                                   const slots = selectedTutor.availabilitySlots?.[dayName] || [];
@@ -1306,7 +1305,7 @@ export default function StudentDashboard() {
                                       key={slot}
                                       type="button"
                                       onClick={() => setBookingSlot(slot)}
-                                      className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
+                                      className={`py-2 px-3 rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-widest transition-all border text-left ${
                                         bookingSlot === slot 
                                         ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
                                         : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
@@ -1322,20 +1321,20 @@ export default function StudentDashboard() {
                             {/* Subject Selection & Submit */}
                             <div className="space-y-6 pt-4">
                               <div className="space-y-4">
-                                <div className="flex items-center justify-between px-2">
+                                <div className="flex items-center justify-between px-0 sm:px-2">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Define Intel Focus</label>
                                   {bookingSubject.length > 0 && (
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
                                   )}
                                 </div>
-                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 hide-scrollbar py-2 border-l border-slate-50 pl-4">
+                                <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 hide-scrollbar py-2 border-l-0 md:border-l border-slate-50 pl-0 md:pl-4">
                                   {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
                                     <div key={category} className="space-y-3">
                                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
                                         {category}
                                       </label>
-                                      <div className="grid grid-cols-2 gap-2">
+                                      <div className="flex flex-wrap gap-2">
                                         {subjects.map(sub => {
                                           const isSelected = bookingSubject.includes(sub);
                                           return (
@@ -1349,7 +1348,7 @@ export default function StudentDashboard() {
                                                     : [...prev, sub]
                                                 );
                                               }}
-                                              className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border text-left md:text-center ${
+                                              className={`py-1 px-2 sm:py-1.5 sm:px-2.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all border text-left ${
                                                 isSelected 
                                                 ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
                                                 : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
@@ -1372,14 +1371,14 @@ export default function StudentDashboard() {
                                     setSelectedRecipientId(selectedTutor.id);
                                     setActiveTab('messages');
                                   }}
-                                  className="py-5 bg-white border-2 border-slate-100 text-[#0B132B] rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+                                  className="py-3.5 sm:py-5 bg-white border-2 border-slate-100 text-[#0B132B] rounded-2xl sm:rounded-3xl text-[10px] sm:text-[11px] font-black uppercase italic tracking-wider hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
                                 >
-                                  <Send className="w-4 h-4" />
-                                  Message Expert
+                                  <Send className="w-4 h-4 flex-shrink-0" />
+                                  <span>Message Expert</span>
                                 </button>
                                 <button 
                                   disabled={isBooking || !bookingDate || !bookingSlot || bookingSubject.length === 0}
-                                  className="py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                                  className="py-3.5 sm:py-5 bg-[#0D5BFF] text-white rounded-2xl sm:rounded-3xl text-[10px] sm:text-[11px] font-black uppercase italic tracking-wider shadow-lg shadow-blue-200/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
                                 >
                                   {isBooking ? (
                                     <>
@@ -1399,11 +1398,11 @@ export default function StudentDashboard() {
                         )}
                       </div>
 
-                      <div className={`${selectedPaymentProvider === 'bkash' ? 'bg-[#E51275]' : selectedPaymentProvider === 'nagad' ? 'bg-[#F6921E]' : 'bg-[#002B49]'} rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden transition-colors duration-500`}>
-                        <div className="flex items-center justify-between mb-8">
+                      <div className={`${selectedPaymentProvider === 'bkash' ? 'bg-[#E51275]' : selectedPaymentProvider === 'nagad' ? 'bg-[#F6921E]' : 'bg-[#002B49]'} rounded-[1.5rem] sm:rounded-[3rem] p-4 sm:p-10 text-white shadow-2xl relative overflow-hidden transition-colors duration-500`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                           <div className="flex items-center space-x-4">
-                            <CreditCard className="w-6 h-6" />
-                            <h3 className="text-xl font-black uppercase italic">Secured Checkout</h3>
+                            <CreditCard className="w-6 h-6 flex-shrink-0" />
+                            <h3 className="text-base sm:text-xl font-black uppercase italic tracking-wide">Secured Checkout</h3>
                           </div>
                           <div className="flex gap-2">
                              {(['bkash', 'nagad'] as PaymentProvider[]).map(p => (
@@ -1422,20 +1421,20 @@ export default function StudentDashboard() {
                           </div>
                         </div>
                         {paymentSuccess ? (
-                           <div className="p-8 bg-white/10 rounded-[2rem] text-left md:text-center border border-white/20 backdrop-blur-sm">
-                              <CheckCircle className="w-12 h-12 text-white ml-0 mr-auto md:mx-auto mb-4" />
-                              <h4 className="text-lg font-black uppercase italic">Transaction Confirmed</h4>
-                              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2 flex justify-start md:justify-center break-all">TRX ID: {transactionId}</p>
+                           <div className="p-4 sm:p-8 bg-white/10 rounded-[1.5rem] text-left border border-white/20 backdrop-blur-sm">
+                              <CheckCircle className="w-10 h-10 text-white mb-4" />
+                              <h4 className="text-base sm:text-lg font-black uppercase italic text-left">Transaction Confirmed</h4>
+                              <p className="text-[9px] sm:text-[10px] font-bold text-white/70 uppercase tracking-widest mt-2 flex justify-start break-all text-left">TRX ID: {transactionId}</p>
                            </div>
                         ) : (
                           <div className="space-y-4">
                             {selectedPaymentProvider === 'bkash' && (
-                              <div className="p-6 bg-white/10 rounded-3xl border border-white/20 flex flex-col items-start md:items-center gap-3 text-left md:text-center mb-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-[#FFF]">bKash Sandbox API Active</span>
+                              <div className="p-4 bg-white/10 rounded-2xl border border-white/20 flex flex-col items-start gap-2.5 text-left mb-4">
+                                <div className="flex items-center gap-2 text-left">
+                                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></div>
+                                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-[#FFF] text-left">bKash Sandbox API Active</span>
                                 </div>
-                                <p className="text-[10px] text-white/90 font-medium uppercase tracking-widest leading-relaxed">
+                                <p className="text-[8px] sm:text-[10px] text-white/90 font-medium uppercase tracking-wider leading-relaxed text-left">
                                   Select an amount, then click below to launch the secure bKash merchant simulator to test OTP & secure PIN callbacks automatically.
                                 </p>
                                 <button
@@ -1459,19 +1458,19 @@ export default function StudentDashboard() {
                                     }
                                     setIsBKashModalOpen(true);
                                   }}
-                                  className="w-full bg-white text-[#E51275] py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-start md:justify-center px-4 gap-2 group-hover:scale-[1.02] shadow-xl shadow-[#E51275]/10 animate-pulse font-sans"
+                                  className="w-full bg-white text-[#E51275] py-3 sm:py-3.5 rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-center px-4 gap-2 shadow-lg shadow-[#E51275]/15 font-sans"
                                 >
-                                  <Zap className="w-4 h-4 fill-current text-[#E51275]" />
-                                  LAUNCH SECURE BKASH PORTAL
+                                  <Zap className="w-3.5 h-3.5 fill-current text-[#E51275] flex-shrink-0" />
+                                  <span className="break-words">LAUNCH SECURE BKASH PORTAL</span>
                                 </button>
                                 <div className="w-full border-t border-white/10 my-1"></div>
-                                <span className="text-[8px] text-white/50 font-medium uppercase tracking-widest">
+                                <span className="text-[8px] text-white/50 font-medium uppercase tracking-widest text-left block">
                                   Or use manual logging channel instead
                                 </span>
                               </div>
                             )}
 
-                            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                            <form onSubmit={handlePaymentSubmit} className="space-y-4 text-left">
                            <div className="space-y-4">
                              <DashboardInput 
                                label={`${selectedPaymentProvider.toUpperCase()} Number`} 
@@ -1479,7 +1478,7 @@ export default function StudentDashboard() {
                                onChange={setBkashNumber} 
                                placeholder="017..." 
                              />
-                             <div className="flex gap-4">
+                             <div className="flex flex-col sm:flex-row gap-4">
                                 <DashboardInput 
                                   label="Amount ৳" 
                                   value={amount} 
@@ -1498,7 +1497,7 @@ export default function StudentDashboard() {
                            
                            <button 
                              disabled={isProcessingPayment || !amount}
-                             className={`w-full py-5 rounded-2xl font-black uppercase italic tracking-widest transition-all scale-100 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${
+                             className={`w-full py-3.5 sm:py-5 rounded-xl sm:rounded-2xl font-black uppercase italic tracking-widest transition-all scale-100 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${
                                selectedPaymentProvider === 'bkash' ? 'bg-white text-[#E51275]' : 
                                selectedPaymentProvider === 'nagad' ? 'bg-white text-[#F6921E]' : 
                                'bg-[#00AAAD] text-white'
@@ -1508,13 +1507,13 @@ export default function StudentDashboard() {
                                <div className="w-5 h-5 border-3 border-current/30 border-t-current rounded-full animate-spin"></div>
                              ) : (
                                <>
-                                 <Zap className="w-5 h-5" />
-                                 Pay via {selectedPaymentProvider.toUpperCase()}
+                                 <Zap className="w-4 h-4 flex-shrink-0 animate-pulse" />
+                                 <span className="text-[9px] sm:text-[10px]">Pay via {selectedPaymentProvider.toUpperCase()}</span>
                                </>
                              )}
                            </button>
                            
-                           <p className="text-[8px] font-medium text-white/50 text-left md:text-center uppercase tracking-widest mt-4">
+                           <p className="text-[8px] font-medium text-white/50 text-left uppercase tracking-widest mt-4 block">
                              Secure simulation active. No real funds will be deducted.
                            </p>
                           </form>
@@ -1523,9 +1522,9 @@ export default function StudentDashboard() {
                       </div>
                     </>
                   ) : (
-                    <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12">
-                       <LayoutDashboard className="w-12 h-12 text-slate-200 mb-6 ml-0 mr-auto md:mx-auto" />
-                       <h3 className="text-xl font-black text-slate-300 uppercase italic">Select Profile</h3>
+                    <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[4rem] flex flex-col items-start justify-center text-left p-6 sm:p-12">
+                       <LayoutDashboard className="w-10 h-10 sm:w-12 sm:h-12 text-slate-200 mb-6" />
+                       <h3 className="text-base sm:text-xl font-black text-slate-300 uppercase italic">Select Profile</h3>
                     </div>
                   )}
                 </div>
@@ -1727,7 +1726,7 @@ export default function StudentDashboard() {
                    </div>
                 </div>
 
-                <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white flex items-center justify-between">
+                <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
                    <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
                          <ShieldCheck className="w-6 h-6 text-emerald-500" />
