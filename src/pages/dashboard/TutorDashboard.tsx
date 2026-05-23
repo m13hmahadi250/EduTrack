@@ -1773,22 +1773,22 @@ export default function TutorDashboard() {
                             if (filteredSubjects.length === 0) return null;
                             return (
                               <div key={category} className="space-y-3 pl-4">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 py-1">
                                   <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                  <span className="text-[10px] font-black text-[#8A99AD] uppercase tracking-widest">
                                     {category}
                                   </span>
                                 </div>
-                                <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
+                                <div className="flex flex-wrap gap-2">
                                   {filteredSubjects.map((sub) => (
                                     <button
                                       key={sub}
                                       type="button"
                                       onClick={() => toggleSubject(sub)}
-                                      className={`py-2 px-0.5 rounded-xl text-[7px] min-[375px]:text-[8px] sm:text-[9px] font-black uppercase tracking-wider transition-all border text-center flex items-center justify-center truncate ${
+                                      className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
                                         profileForm.subjects.includes(sub)
-                                          ? "bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100"
-                                          : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
+                                          ? "bg-[#EBF2FF] border-[#B9D5FF] text-[#0D5BFF] shadow-sm"
+                                          : "bg-[#F8FAFC]/90 border-transparent text-[#8A99AD] hover:bg-[#F1F5F9] hover:border-[#E2E8F0] hover:text-[#64748B]"
                                       }`}
                                     >
                                       {sub}
