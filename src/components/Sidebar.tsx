@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   BarChart3, 
   Calendar, 
@@ -16,7 +17,13 @@ import {
 } from 'lucide-react';
 
 const Sidebar = memo(() => {
-  const { currentUser, messages, logout } = useAppStore();
+  const { currentUser, messages, logout } = useAppStore(
+    useShallow((state) => ({
+      currentUser: state.currentUser,
+      messages: state.messages,
+      logout: state.logout
+    }))
+  );
   const navigate = useNavigate();
   const location = useLocation();
 

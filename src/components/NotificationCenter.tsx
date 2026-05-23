@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore, Notification } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import { Bell, X, Info, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function NotificationCenter() {
-  const { notifications, markAsRead } = useAppStore();
+  const { notifications, markAsRead } = useAppStore(
+    useShallow((state) => ({
+      notifications: state.notifications,
+      markAsRead: state.markAsRead
+    }))
+  );
   const [showLatest, setShowLatest] = useState<Notification | null>(null);
 
   // Show latest unread notification as a toast

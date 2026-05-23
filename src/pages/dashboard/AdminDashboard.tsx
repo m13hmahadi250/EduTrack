@@ -1,4 +1,5 @@
 import { useAppStore, User } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   CheckCircle, 
   XCircle, 
@@ -33,7 +34,19 @@ export default function AdminDashboard() {
     sendNotification,
     sendMessage,
     currentUser
-  } = useAppStore();
+  } = useAppStore(useShallow((state) => ({
+    users: state.users,
+    payments: state.payments,
+    verifyTutor: state.verifyTutor,
+    approvePayment: state.approvePayment,
+    rejectPayment: state.rejectPayment,
+    withdrawals: state.withdrawals,
+    approveWithdrawal: state.approveWithdrawal,
+    rejectWithdrawal: state.rejectWithdrawal,
+    sendNotification: state.sendNotification,
+    sendMessage: state.sendMessage,
+    currentUser: state.currentUser
+  })));
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'verifications' | 'payments' | 'withdrawals'>('verifications');

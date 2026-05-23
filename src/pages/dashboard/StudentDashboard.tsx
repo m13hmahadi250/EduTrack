@@ -141,7 +141,7 @@ export default function StudentDashboard() {
     else setActiveTab('overview');
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit') => {
+  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages') => {
     const pathMap = {
       overview: '/dashboard',
       find: '/dashboard/search',
@@ -151,6 +151,70 @@ export default function StudentDashboard() {
       messages: '/dashboard/messages'
     };
     navigate(pathMap[tab]);
+  };
+
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    
+    // Check if touch starts inside elements that should ignore swipe
+    let el = e.target as HTMLElement | null;
+    while (el) {
+      const tagName = el.tagName?.toLowerCase();
+      if (
+        tagName === 'input' || 
+        tagName === 'textarea' || 
+        tagName === 'select' || 
+        tagName === 'button' ||
+        tagName === 'canvas' ||
+        el.classList?.contains('leaflet-container') ||
+        el.classList?.contains('no-swipe') ||
+        el.getAttribute?.('role') === 'slider' ||
+        el.getAttribute?.('data-no-swipe') === 'true'
+      ) {
+        touchStartRef.current = null;
+        return;
+      }
+      el = el.parentElement;
+    }
+
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    // Filter to predominantly horizontal swipes:
+    // deltaX absolute > 75px, and deltaY absolute < 60px
+    if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 60) {
+      const tabs: ('overview' | 'find' | 'activity' | 'transit' | 'messages' | 'account')[] = [
+        'overview',
+        'find',
+        'activity',
+        'transit',
+        'messages',
+        'account'
+      ];
+      const currentIndex = tabs.indexOf(activeTab);
+      if (currentIndex !== -1) {
+        if (deltaX < 0) {
+          // Swiped left -> move right in tabs list (next tab)
+          if (currentIndex < tabs.length - 1) {
+            handleTabChange(tabs[currentIndex + 1]);
+          }
+        } else {
+          // Swiped right -> move left in tabs list (previous tab)
+          if (currentIndex > 0) {
+            handleTabChange(tabs[currentIndex - 1]);
+          }
+        }
+      }
+    }
   };
 
   // Background position tracking for student during transit
@@ -302,6 +366,21 @@ export default function StudentDashboard() {
     });
     return Array.from(sessionMap.values());
   }, [sessions, currentUser?.id]);
+
+  const sessionTutorsData = useMemo(() => {
+    const tutorIds = Array.from(new Set(mySessions.map(s => s.tutorId)));
+    return tutorIds
+      .map(id => users.find(u => u.id === id))
+      .filter((u): u is User => !!u);
+  }, [mySessions, users]);
+
+  const activeTutorsData = useMemo(() => {
+    const tutorIds = Array.from(new Set(mySessions.filter(s => s.status !== 'cancelled').map(s => s.tutorId)));
+    return tutorIds
+      .map(id => users.find(u => u.id === id))
+      .filter((u): u is User => !!u);
+  }, [mySessions, users]);
+
   const activeSession = useMemo(() => mySessions.find(s => s.status === 'active'), [mySessions]);
 
   const calculateETA = () => {
@@ -496,7 +575,7 @@ export default function StudentDashboard() {
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
@@ -605,8 +684,16 @@ export default function StudentDashboard() {
             className="space-y-12"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard label="Sessions" value={mySessions.length.toString()} />
-              <MetricCard label="Active Tutors" value={Array.from(new Set(mySessions.filter(s => s.status !== 'cancelled').map(s => s.tutorId))).length.toString()} />
+              <MetricCard 
+                label="Sessions" 
+                value={mySessions.length.toString()} 
+                avatars={sessionTutorsData.map(t => ({ name: t.name, image: t.profileImage }))}
+              />
+              <MetricCard 
+                label="Active Tutors" 
+                value={activeTutorsData.length.toString()} 
+                avatars={activeTutorsData.map(t => ({ name: t.name, image: t.profileImage }))}
+              />
               <MetricCard label="Total Spent" value={`৳${myPayments.filter(p => p.status === 'approved').reduce((acc, curr) => acc + curr.amount, 0)}`} />
               <MetricCard label="Learning Hours" value={mySessions.filter(s => s.status === 'completed').length.toString()} />
             </div>

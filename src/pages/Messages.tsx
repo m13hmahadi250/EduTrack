@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   Send, 
   MessageSquare, 
@@ -17,7 +18,16 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Messages() {
-  const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
+  const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore(
+    useShallow((state) => ({
+      currentUser: state.currentUser,
+      users: state.users,
+      messages: state.messages,
+      sendMessage: state.sendMessage,
+      markMessagesAsRead: state.markMessagesAsRead,
+      sessions: state.sessions
+    }))
+  );
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
