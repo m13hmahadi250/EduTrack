@@ -11,6 +11,7 @@ import { useAppStore, Session, Withdrawal } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import {
   Bell,
+  Search,
   MapPin,
   TrendingUp,
   Clock,
@@ -200,6 +201,7 @@ export default function TutorDashboard() {
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [profileSubjectSearch, setProfileSubjectSearch] = useState("");
   const [profileForm, setProfileForm] = useState({
     bio: currentUser?.bio || "",
     hourlyRate: currentUser?.hourlyRate || 0,
@@ -1748,37 +1750,64 @@ export default function TutorDashboard() {
                         />
                       </div>
                       <div className="space-y-6">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                          Authorized Subjects
-                        </label>
-                        {Object.entries(SUBJECT_CATEGORIES).map(
-                          ([category, subjects]) => (
-                            <div key={category} className="space-y-3 pl-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                                  {category}
-                                </span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                            Authorized Subjects
+                          </label>
+                          <div className="relative max-w-xs w-full mr-4">
+                            <input
+                              type="text"
+                              placeholder="SEARCH SUBJECTS..."
+                              value={profileSubjectSearch}
+                              onChange={(e) => setProfileSubjectSearch(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all"
+                            />
+                            <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border border-slate-50 rounded-2xl p-4 bg-white/50">
+                          {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => {
+                            const filteredSubjects = subjects.filter((sub) =>
+                              sub.toLowerCase().includes(profileSubjectSearch.toLowerCase())
+                            );
+                            if (filteredSubjects.length === 0) return null;
+                            return (
+                              <div key={category} className="space-y-3 pl-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                    {category}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {filteredSubjects.map((sub) => (
+                                    <button
+                                      key={sub}
+                                      type="button"
+                                      onClick={() => toggleSubject(sub)}
+                                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                        profileForm.subjects.includes(sub)
+                                          ? "bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100"
+                                          : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
+                                      }`}
+                                    >
+                                      {sub}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {subjects.map((sub) => (
-                                  <button
-                                    key={sub}
-                                    type="button"
-                                    onClick={() => toggleSubject(sub)}
-                                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                      profileForm.subjects.includes(sub)
-                                        ? "bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100"
-                                        : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
-                                    }`}
-                                  >
-                                    {sub}
-                                  </button>
-                                ))}
-                              </div>
+                            );
+                          })}
+                          {Object.values(SUBJECT_CATEGORIES).every((subjects) =>
+                            !subjects.some((sub) =>
+                              sub.toLowerCase().includes(profileSubjectSearch.toLowerCase())
+                            )
+                          ) && (
+                            <div className="text-center py-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                              No matching subjects
                             </div>
-                          ),
-                        )}
+                          )}
+                        </div>
                       </div>
 
                       <div className="space-y-4">

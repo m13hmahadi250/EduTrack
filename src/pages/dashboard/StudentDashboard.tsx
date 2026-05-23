@@ -70,6 +70,7 @@ export default function StudentDashboard() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
   const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
   const [filterVersion, setFilterVersion] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterArea, setFilterArea] = useState('');
@@ -183,6 +184,7 @@ export default function StudentDashboard() {
   }, [activeTab, currentUser?.id]);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [profileSubjectSearch, setProfileSubjectSearch] = useState('');
   const [accountForm, setAccountForm] = useState({
     name: currentUser?.name || '',
     phone: currentUser?.phone || '',
@@ -269,6 +271,7 @@ export default function StudentDashboard() {
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookingSlot, setBookingSlot] = useState('');
   const [bookingSubject, setBookingSubject] = useState<string[]>([]);
+  const [bookingSubjectSearch, setBookingSubjectSearch] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
 
@@ -882,39 +885,62 @@ export default function StudentDashboard() {
                   </FilterGroup>
 
                   <FilterGroup label="Subject Specialization">
+                    <div className="mb-3 relative">
+                      <input
+                        type="text"
+                        placeholder="SEARCH SUBJECTS..."
+                        value={subjectFilterSearch}
+                        onChange={e => setSubjectFilterSearch(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
+                      />
+                      <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-300" />
+                    </div>
                     <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar py-2">
-                      {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
-                        <div key={category} className="space-y-2">
-                          <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            <div className="w-1 h-1 bg-[#0D5BFF] rounded-full" />
-                            {category}
-                          </label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {subjects.map(sub => {
-                              const isSelected = filterSubjects.includes(sub);
-                              return (
-                                <button
-                                  key={sub}
-                                  onClick={() => {
-                                    setFilterSubjects(prev => 
+                      {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => {
+                        const filteredSubjects = subjects.filter(sub => 
+                          sub.toLowerCase().includes(subjectFilterSearch.toLowerCase())
+                        );
+                        if (filteredSubjects.length === 0) return null;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                              <div className="w-1 h-1 bg-[#0D5BFF] rounded-full" />
+                              {category}
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {filteredSubjects.map(sub => {
+                                const isSelected = filterSubjects.includes(sub);
+                                return (
+                                  <button
+                                    key={sub}
+                                    onClick={() => {
+                                      setFilterSubjects(prev => 
+                                        isSelected 
+                                          ? prev.filter(s => s !== sub) 
+                                          : [...prev, sub]
+                                      );
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
                                       isSelected 
-                                        ? prev.filter(s => s !== sub) 
-                                        : [...prev, sub]
-                                    );
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
-                                    isSelected 
-                                    ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
-                                    : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
-                                  }`}
-                                >
-                                  {sub}
-                                </button>
-                              );
-                            })}
+                                      ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
+                                      : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                                    }`}
+                                  >
+                                    {sub}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
+                        );
+                      })}
+                      {Object.values(SUBJECT_CATEGORIES).every(subjects => 
+                        !subjects.some(sub => sub.toLowerCase().includes(subjectFilterSearch.toLowerCase()))
+                      ) && (
+                        <div className="text-center py-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                          No matching subjects
                         </div>
-                      ))}
+                      )}
                     </div>
                   </FilterGroup>
 
@@ -940,6 +966,7 @@ export default function StudentDashboard() {
                     onClick={() => {
                       setSearchTerm('');
                       setFilterSubjects([]);
+                      setSubjectFilterSearch('');
                       setFilterClass('');
                       setFilterArea('');
                       setFilterRating(0);
@@ -1350,40 +1377,63 @@ export default function StudentDashboard() {
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} SELECTED</span>
                                   )}
                                 </div>
+                                <div className="mb-2 relative">
+                                  <input
+                                    type="text"
+                                    placeholder="SEARCH SUBJECT..."
+                                    value={bookingSubjectSearch}
+                                    onChange={e => setBookingSubjectSearch(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all"
+                                  />
+                                  <Search className="absolute right-3 top-2 w-3 h-3 text-slate-300 pointer-events-none" />
+                                </div>
                                 <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border-l-0 md:border-l border-slate-50 pl-0 md:pl-4">
-                                  {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
-                                    <div key={category} className="space-y-3">
-                                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                        {category}
-                                      </label>
-                                      <div className="flex flex-wrap gap-2">
-                                        {subjects.map(sub => {
-                                          const isSelected = bookingSubject.includes(sub);
-                                          return (
-                                            <button
-                                              key={sub}
-                                              type="button"
-                                              onClick={() => {
-                                                setBookingSubject(prev => 
+                                  {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => {
+                                    const filteredSubjects = subjects.filter(sub => 
+                                      sub.toLowerCase().includes(bookingSubjectSearch.toLowerCase())
+                                    );
+                                    if (filteredSubjects.length === 0) return null;
+                                    return (
+                                      <div key={category} className="space-y-3">
+                                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                          {category}
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                          {filteredSubjects.map(sub => {
+                                            const isSelected = bookingSubject.includes(sub);
+                                            return (
+                                              <button
+                                                key={sub}
+                                                type="button"
+                                                onClick={() => {
+                                                  setBookingSubject(prev => 
+                                                    isSelected 
+                                                      ? prev.filter(s => s !== sub) 
+                                                      : [...prev, sub]
+                                                  );
+                                                }}
+                                                className={`py-1 px-2 sm:py-1.5 sm:px-2.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all border text-left ${
                                                   isSelected 
-                                                    ? prev.filter(s => s !== sub) 
-                                                    : [...prev, sub]
-                                                );
-                                              }}
-                                              className={`py-1 px-2 sm:py-1.5 sm:px-2.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all border text-left ${
-                                                isSelected 
-                                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
-                                                : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
-                                              }`}
-                                            >
-                                              {sub}
-                                            </button>
-                                          );
-                                        })}
+                                                  ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
+                                                  : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
+                                                }`}
+                                              >
+                                                {sub}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
                                       </div>
+                                    );
+                                  })}
+                                  {Object.values(SUBJECT_CATEGORIES).every(subjects => 
+                                    !subjects.some(sub => sub.toLowerCase().includes(bookingSubjectSearch.toLowerCase()))
+                                  ) && (
+                                    <div className="text-center py-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                      No focus topics match query
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
                               </div>
 
@@ -1926,31 +1976,58 @@ export default function StudentDashboard() {
                        </select>
                     </div>
                     <div className="md:col-span-2 space-y-6">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
-                       {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
-                         <div key={category} className="space-y-3 pl-4">
-                           <div className="flex items-center gap-2">
-                             <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
-                           </div>
-                           <div className="flex flex-wrap gap-2">
-                             {subjects.map(sub => (
-                               <button
-                                 key={sub}
-                                 type="button"
-                                 onClick={() => toggleSubject(sub)}
-                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                   accountForm.subjects.includes(sub)
-                                   ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
-                                   : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
-                                 }`}
-                               >
-                                 {sub}
-                               </button>
-                             ))}
-                           </div>
+                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
+                         <div className="relative max-w-xs w-full">
+                           <input
+                             type="text"
+                             placeholder="SEARCH INTERESTS..."
+                             value={profileSubjectSearch}
+                             onChange={e => setProfileSubjectSearch(e.target.value)}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all"
+                           />
+                           <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                          </div>
-                       ))}
+                       </div>
+                       <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border border-slate-50 rounded-2xl p-4 bg-white/50">
+                         {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => {
+                           const filteredSubjects = subjects.filter(sub => 
+                             sub.toLowerCase().includes(profileSubjectSearch.toLowerCase())
+                           );
+                           if (filteredSubjects.length === 0) return null;
+                           return (
+                             <div key={category} className="space-y-3 pl-4">
+                               <div className="flex items-center gap-2">
+                                 <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
+                               </div>
+                               <div className="flex flex-wrap gap-2">
+                                 {filteredSubjects.map(sub => (
+                                   <button
+                                     key={sub}
+                                     type="button"
+                                     onClick={() => toggleSubject(sub)}
+                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                       accountForm.subjects.includes(sub)
+                                       ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
+                                       : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                                     }`}
+                                   >
+                                     {sub}
+                                   </button>
+                                 ))}
+                               </div>
+                             </div>
+                           );
+                         })}
+                         {Object.values(SUBJECT_CATEGORIES).every(subjects => 
+                           !subjects.some(sub => sub.toLowerCase().includes(profileSubjectSearch.toLowerCase()))
+                         ) && (
+                           <div className="text-center py-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                             No matching interests
+                           </div>
+                         )}
+                       </div>
                     </div>
                     <button 
                       disabled={isUpdating}
