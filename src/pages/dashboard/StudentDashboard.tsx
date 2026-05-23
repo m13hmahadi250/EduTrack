@@ -153,70 +153,6 @@ export default function StudentDashboard() {
     navigate(pathMap[tab]);
   };
 
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    
-    // Check if touch starts inside elements that should ignore swipe
-    let el = e.target as HTMLElement | null;
-    while (el) {
-      const tagName = el.tagName?.toLowerCase();
-      if (
-        tagName === 'input' || 
-        tagName === 'textarea' || 
-        tagName === 'select' || 
-        tagName === 'button' ||
-        tagName === 'canvas' ||
-        el.classList?.contains('leaflet-container') ||
-        el.classList?.contains('no-swipe') ||
-        el.getAttribute?.('role') === 'slider' ||
-        el.getAttribute?.('data-no-swipe') === 'true'
-      ) {
-        touchStartRef.current = null;
-        return;
-      }
-      el = el.parentElement;
-    }
-
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-    touchStartRef.current = null;
-
-    // Filter to predominantly horizontal swipes:
-    // deltaX absolute > 75px, and deltaY absolute < 60px
-    if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 60) {
-      const tabs: ('overview' | 'find' | 'activity' | 'transit' | 'messages' | 'account')[] = [
-        'overview',
-        'find',
-        'activity',
-        'transit',
-        'messages',
-        'account'
-      ];
-      const currentIndex = tabs.indexOf(activeTab);
-      if (currentIndex !== -1) {
-        if (deltaX < 0) {
-          // Swiped left -> move right in tabs list (next tab)
-          if (currentIndex < tabs.length - 1) {
-            handleTabChange(tabs[currentIndex + 1]);
-          }
-        } else {
-          // Swiped right -> move left in tabs list (previous tab)
-          if (currentIndex > 0) {
-            handleTabChange(tabs[currentIndex - 1]);
-          }
-        }
-      }
-    }
-  };
-
   // Background position tracking for student during transit
   useEffect(() => {
     let currentWatchId: number | null = null;
@@ -575,7 +511,7 @@ export default function StudentDashboard() {
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-12" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="space-y-12">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
