@@ -153,80 +153,6 @@ export default function StudentDashboard() {
     navigate(pathMap[tab]);
   };
 
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { 
-      x: touch.clientX, 
-      y: touch.clientY,
-      time: Date.now()
-    };
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    
-    // Check if touch starts or ends inside elements that are scrollable or explicitly marked as no-swipe.
-    // This allows menus/lists to scroll horizontally without firing tab changes.
-    let el = e.target as HTMLElement | null;
-    while (el) {
-      const tagName = el.tagName?.toLowerCase();
-      // Safely access element className and styles
-      const classNameStr = typeof el.className === 'string' ? el.className : '';
-      const isScrollableX = classNameStr.includes('overflow-x-auto') || classNameStr.includes('overflow-x-scroll');
-      
-      if (
-        tagName === 'input' || 
-        tagName === 'textarea' || 
-        tagName === 'select' || 
-        tagName === 'canvas' ||
-        isScrollableX ||
-        classNameStr.includes('leaflet-container') ||
-        classNameStr.includes('no-swipe') ||
-        el.getAttribute?.('data-no-swipe') === 'true' ||
-        el.getAttribute?.('role') === 'slider'
-      ) {
-        touchStartRef.current = null;
-        return;
-      }
-      el = el.parentElement;
-    }
-
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-    const deltaTime = Date.now() - touchStartRef.current.time;
-    touchStartRef.current = null;
-
-    // Filter to predominantly horizontal swipes:
-    // deltaX absolute > 60px, deltaY absolute < 50px, duration < 500ms
-    if (Math.abs(deltaX) > 60 && Math.abs(deltaY) < 50 && deltaTime < 500) {
-      const tabs: ('overview' | 'find' | 'activity' | 'transit' | 'messages' | 'account')[] = [
-        'overview',
-        'find',
-        'activity',
-        'transit',
-        'messages',
-        'account'
-      ];
-      const currentIndex = tabs.indexOf(activeTab);
-      if (currentIndex !== -1) {
-        if (deltaX < 0) {
-          // Swiped left -> move right in tabs (next tab)
-          if (currentIndex < tabs.length - 1) {
-            handleTabChange(tabs[currentIndex + 1]);
-          }
-        } else {
-          // Swiped right -> move left in tabs (previous tab)
-          if (currentIndex > 0) {
-            handleTabChange(tabs[currentIndex - 1]);
-          }
-        }
-      }
-    }
-  };
-
   // Background position tracking for student during transit
   useEffect(() => {
     let currentWatchId: number | null = null;
@@ -585,7 +511,7 @@ export default function StudentDashboard() {
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-12" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="space-y-12">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
