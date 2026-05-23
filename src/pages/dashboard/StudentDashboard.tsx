@@ -907,7 +907,7 @@ export default function StudentDashboard() {
                               <div className="w-1 h-1 bg-[#0D5BFF] rounded-full" />
                               {category}
                             </label>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:gap-1.5">
                               {filteredSubjects.map(sub => {
                                 const isSelected = filterSubjects.includes(sub);
                                 return (
@@ -920,7 +920,7 @@ export default function StudentDashboard() {
                                           : [...prev, sub]
                                       );
                                     }}
-                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
+                                    className={`py-1.5 px-0.5 rounded-lg text-[7px] min-[375px]:text-[8px] font-black uppercase tracking-wider transition-all border text-center flex items-center justify-center truncate ${
                                       isSelected 
                                       ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md' 
                                       : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
@@ -1399,7 +1399,7 @@ export default function StudentDashboard() {
                                           <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
                                           {category}
                                         </label>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
                                           {filteredSubjects.map(sub => {
                                             const isSelected = bookingSubject.includes(sub);
                                             return (
@@ -1413,7 +1413,7 @@ export default function StudentDashboard() {
                                                       : [...prev, sub]
                                                   );
                                                 }}
-                                                className={`py-1 px-2 sm:py-1.5 sm:px-2.5 rounded-md text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all border text-left ${
+                                                className={`py-1.5 px-0.5 sm:py-1.5 sm:px-2.5 rounded-md text-[7px] min-[375px]:text-[8px] sm:text-[9px] font-black uppercase tracking-wider transition-all border text-center flex items-center justify-center truncate ${
                                                   isSelected 
                                                   ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100' 
                                                   : 'bg-slate-50 border-slate-50 text-slate-400 hover:bg-slate-100 hover:border-slate-200'
@@ -2001,13 +2001,13 @@ export default function StudentDashboard() {
                                  <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
                                </div>
-                               <div className="flex flex-wrap gap-2">
+                               <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
                                  {filteredSubjects.map(sub => (
                                    <button
                                      key={sub}
                                      type="button"
                                      onClick={() => toggleSubject(sub)}
-                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                     className={`py-2 px-0.5 rounded-xl text-[7px] min-[375px]:text-[8px] sm:text-[9px] font-black uppercase tracking-wider transition-all border text-center flex items-center justify-center truncate ${
                                        accountForm.subjects.includes(sub)
                                        ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
                                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
