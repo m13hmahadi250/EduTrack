@@ -17,10 +17,79 @@ import { motion } from 'motion/react';
 import heroImage from '../assets/images/regenerated_image_1778584226799.png';
 
 export default function Home() {
-  const users = useAppStore(state => state.users);
+  const [realTutors, setRealTutors] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    let active = true;
+    const fetchTutors = async () => {
+      try {
+        const { getDocs, collection, query, where } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
+        const querySnapshot = await getDocs(q);
+        if (active) {
+          const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setRealTutors(fetched);
+        }
+      } catch (error) {
+        console.error("Error fetching tutors:", error);
+      }
+    };
+    fetchTutors();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const featuredTutors = React.useMemo(() => {
-    return users.filter(u => u.role === 'tutor' && u.isVerified).slice(0, 3);
-  }, [users]);
+    const verified = realTutors.filter(u => u.isVerified);
+    const unverified = realTutors.filter(u => !u.isVerified);
+    const merged = [...verified, ...unverified];
+    
+    const fallbackList = [
+      {
+        id: 'mock-sarah',
+        name: "Sarah Rahman",
+        university: "University of Dhaka",
+        subjects: ["Physics & Math"],
+        rating: 4.9,
+        profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400"
+      },
+      {
+        id: 'mock-adnan',
+        name: "Adnan Sami",
+        university: "BUET",
+        subjects: ["Computer Science"],
+        rating: 5.0,
+        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
+      },
+      {
+        id: 'mock-nadia',
+        name: "Nadia Islam",
+        university: "NSU",
+        subjects: ["English Literature"],
+        rating: 4.8,
+        profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400"
+      },
+      {
+        id: 'mock-sajid',
+        name: "Sajid Hasan",
+        university: "IUT",
+        subjects: ["Chemistry & Math"],
+        rating: 4.9,
+        profileImage: undefined
+      }
+    ];
+
+    const result = [...merged];
+    for (const fallback of fallbackList) {
+      if (result.length >= 4) break;
+      if (!result.some(r => r.name.toLowerCase() === fallback.name.toLowerCase())) {
+        result.push(fallback);
+      }
+    }
+    return result.slice(0, 4);
+  }, [realTutors]);
 
   return (
     <div className="bg-[#F8F9FA] text-[#0B132B] font-sans selection:bg-[#0D5BFF] selection:text-white">
@@ -289,41 +358,17 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {featuredTutors.length > 0 ? featuredTutors.map(tutor => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {featuredTutors.map(tutor => (
               <TutorPreviewCard 
                 key={tutor.id}
                 name={tutor.name} 
-                uni={tutor.university || 'Expert Educator'} 
-                subj={tutor.subjects?.[0] || 'Academic Mentor'} 
+                uni={tutor.university || tutor.uni || 'Expert Educator'} 
+                subj={tutor.subjects?.[0] || tutor.subj || 'Academic Mentor'} 
                 rating={tutor.rating || 5.0} 
-                img={tutor.profileImage || `https://i.pravatar.cc/400?u=${tutor.id}`}
+                img={tutor.profileImage || tutor.img}
               />
-            )) : (
-              <>
-                <TutorPreviewCard 
-                  name="Sarah Rahman" 
-                  uni="University of Dhaka" 
-                  subj="Physics & Math" 
-                  rating={4.9} 
-                  img="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400"
-                />
-                 <TutorPreviewCard 
-                  name="Adnan Sami" 
-                  uni="BUET" 
-                  subj="Computer Science" 
-                  rating={5.0} 
-                  img="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
-                />
-                 <TutorPreviewCard 
-                  name="Nadia Islam" 
-                  uni="NSU" 
-                  subj="English Literature" 
-                  rating={4.8} 
-                  img="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400"
-                />
-              </>
-            )}
+            ))}
           </div>
         </div>
       </section>
@@ -481,11 +526,20 @@ const Step = React.memo(({ number, title, desc }: { number: string, title: strin
   );
 });
 
-const TutorPreviewCard = React.memo(({ name, uni, subj, rating, img }: { name: string, uni: string, subj: string, rating: number, img: string }) => {
+const TutorPreviewCard = React.memo(({ name, uni, subj, rating, img }: { name: string, uni: string, subj: string, rating: number, img?: string }) => {
   return (
     <div className="bg-[#F8F9FA] rounded-[2.5rem] p-4 border border-slate-100 hover:border-[#0D5BFF]/30 hover:shadow-2xl transition-all duration-500 group">
       <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
-        <img src={img} alt={name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
+        {img ? (
+          <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[24px] scale-110 group-hover:blur-[12px] transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
+            <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">
+              {name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+            </div>
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#0D5BFF]">Certified Mentorship</p>
+          </div>
+        )}
         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
           <span className="text-[10px] font-black text-[#0B132B]">{rating}</span>
