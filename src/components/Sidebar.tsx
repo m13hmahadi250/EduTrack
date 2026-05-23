@@ -1,7 +1,6 @@
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { useShallow } from 'zustand/react/shallow';
 import { 
   BarChart3, 
   Calendar, 
@@ -16,14 +15,12 @@ import {
   Wallet
 } from 'lucide-react';
 
-const Sidebar = memo(() => {
-  const { currentUser, messages, logout } = useAppStore(
-    useShallow((state) => ({
-      currentUser: state.currentUser,
-      messages: state.messages,
-      logout: state.logout
-    }))
-  );
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+const Sidebar = memo(({ onClose }: SidebarProps) => {
+  const { currentUser, messages, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,7 +74,10 @@ const Sidebar = memo(() => {
           {navItems.map((item: any) => (
             <button
               key={item.id}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                navigate(item.path);
+                onClose?.();
+              }}
               className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
                 isActive(item.path) 
                 ? 'bg-[#0B132B] text-white shadow-xl shadow-slate-200' 
@@ -137,7 +137,10 @@ const Sidebar = memo(() => {
       </div>
 
       <button 
-        onClick={logout}
+        onClick={() => {
+          logout();
+          onClose?.();
+        }}
         className="flex items-center space-x-3 text-rose-500 font-black uppercase text-[10px] tracking-widest hover:text-rose-600 pl-4 transition-colors"
       >
         <LogOut className="w-4 h-4" />

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const currentUser = useAppStore(state => state.currentUser);
+  const { currentUser } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] flex-col lg:flex-row max-w-full overflow-x-hidden">
+    <div className="flex min-h-screen bg-[#F8F9FA] flex-col lg:flex-row">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
@@ -70,15 +70,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Drawer */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="w-72 sm:w-80 h-full overflow-hidden" onClick={e => e.stopPropagation()}>
-             <Sidebar />
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsMobileMenuOpen(false)}>
+          <div 
+            className="w-80 max-w-[85vw] h-full bg-white shadow-2xl transition-transform duration-300 transform translate-x-0 relative flex flex-col" 
+            onClick={e => e.stopPropagation()}
+          >
+             <div className="absolute top-4 right-4 z-50">
+               <button 
+                 onClick={() => setIsMobileMenuOpen(false)}
+                 className="p-2 text-[#0B132B] hover:bg-slate-100 rounded-full transition-colors"
+               >
+                 <X className="w-5 h-5" />
+               </button>
+             </div>
+             <div className="flex-1 overflow-y-auto pt-8">
+               <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
+             </div>
           </div>
         </div>
       )}
 
       {/* Content Area */}
-      <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto pb-24 lg:pb-12 max-w-full overflow-x-hidden">
+      <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto pb-24 lg:pb-12">
         {children}
       </main>
 

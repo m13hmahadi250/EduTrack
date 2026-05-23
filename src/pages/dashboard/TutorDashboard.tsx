@@ -11,7 +11,6 @@ import { useAppStore, Session, Withdrawal } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import {
   Bell,
-  Search,
   MapPin,
   TrendingUp,
   Clock,
@@ -201,7 +200,6 @@ export default function TutorDashboard() {
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [profileSubjectSearch, setProfileSubjectSearch] = useState("");
   const [profileForm, setProfileForm] = useState({
     bio: currentUser?.bio || "",
     hourlyRate: currentUser?.hourlyRate || 0,
@@ -590,21 +588,21 @@ export default function TutorDashboard() {
                   >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
                     <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full min-w-0 flex-1">
-                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md flex-shrink-0">
+                      <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
                           <Play className="w-8 h-8 text-white fill-white animate-pulse" />
                         </div>
-                        <div className="min-w-0 flex-1 w-full">
-                          <div className="flex flex-wrap items-center gap-3 mb-2 w-full">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100 break-words">
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100">
                               Live Session Active
                             </span>
-                            <div className="flex h-2 w-2 relative flex-shrink-0">
+                            <div className="flex h-2 w-2 relative">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                             </div>
                           </div>
-                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black uppercase italic leading-tight break-words">
+                          <h3 className="text-3xl font-black uppercase italic leading-tight">
                             Teaching{" "}
                             {users.find(
                               (u) =>
@@ -613,7 +611,7 @@ export default function TutorDashboard() {
                                   ?.studentId,
                             )?.name || "Student"}
                           </h3>
-                          <p className="text-[9px] sm:text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-2 break-words">
+                          <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-2">
                             Subject:{" "}
                             {
                               sessions.find((s) => s.status === "active")
@@ -1246,7 +1244,7 @@ export default function TutorDashboard() {
                 <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">
                   Students
                 </h3>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
                     // Logic: Students I have a session record with OR message history
                     const myStudentIdsFromSessions = sessions.map(
@@ -1750,64 +1748,37 @@ export default function TutorDashboard() {
                         />
                       </div>
                       <div className="space-y-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                            Authorized Subjects
-                          </label>
-                          <div className="relative max-w-xs w-full mr-4">
-                            <input
-                              type="text"
-                              placeholder="SEARCH SUBJECTS..."
-                              value={profileSubjectSearch}
-                              onChange={(e) => setProfileSubjectSearch(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all"
-                            />
-                            <Search className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                          </div>
-                        </div>
-                        <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border border-slate-50 rounded-2xl p-4 bg-white/50">
-                          {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => {
-                            const filteredSubjects = subjects.filter((sub) =>
-                              sub.toLowerCase().includes(profileSubjectSearch.toLowerCase())
-                            );
-                            if (filteredSubjects.length === 0) return null;
-                            return (
-                              <div key={category} className="space-y-3 pl-4">
-                                <div className="flex items-center gap-2 py-1">
-                                  <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                                  <span className="text-[10px] font-black text-[#8A99AD] uppercase tracking-widest">
-                                    {category}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {filteredSubjects.map((sub) => (
-                                    <button
-                                      key={sub}
-                                      type="button"
-                                      onClick={() => toggleSubject(sub)}
-                                      className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                                        profileForm.subjects.includes(sub)
-                                          ? "bg-[#EBF2FF] border-[#B9D5FF] text-[#0D5BFF] shadow-sm"
-                                          : "bg-[#F8FAFC]/90 border-transparent text-[#8A99AD] hover:bg-[#F1F5F9] hover:border-[#E2E8F0] hover:text-[#64748B]"
-                                      }`}
-                                    >
-                                      {sub}
-                                    </button>
-                                  ))}
-                                </div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                          Authorized Subjects
+                        </label>
+                        {Object.entries(SUBJECT_CATEGORIES).map(
+                          ([category, subjects]) => (
+                            <div key={category} className="space-y-3 pl-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                  {category}
+                                </span>
                               </div>
-                            );
-                          })}
-                          {Object.values(SUBJECT_CATEGORIES).every((subjects) =>
-                            !subjects.some((sub) =>
-                              sub.toLowerCase().includes(profileSubjectSearch.toLowerCase())
-                            )
-                          ) && (
-                            <div className="text-center py-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                              No matching subjects
+                              <div className="flex flex-wrap gap-2">
+                                {subjects.map((sub) => (
+                                  <button
+                                    key={sub}
+                                    type="button"
+                                    onClick={() => toggleSubject(sub)}
+                                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                      profileForm.subjects.includes(sub)
+                                        ? "bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100"
+                                        : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
+                                    }`}
+                                  >
+                                    {sub}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          ),
+                        )}
                       </div>
 
                       <div className="space-y-4">
@@ -2068,9 +2039,9 @@ export default function TutorDashboard() {
                           key={p.id}
                           className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic break-all">
+                          <div>
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">
                                 TRX: {p.transactionId}
                               </span>
                               <span
@@ -2085,13 +2056,13 @@ export default function TutorDashboard() {
                                 {p.status}
                               </span>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest break-words">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                               {new Date(p.date).toLocaleString()} • From{" "}
                               {users.find((u) => u.id === p.studentId)?.name ||
                                 "Student"}
                             </p>
                           </div>
-                          <div className="text-2xl font-black text-emerald-600 italic flex-shrink-0">
+                          <div className="text-2xl font-black text-emerald-600 italic">
                             +৳{p.amount}
                           </div>
                         </div>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
-import { useShallow } from 'zustand/react/shallow';
 import { 
   Send, 
   MessageSquare, 
@@ -12,22 +11,12 @@ import {
   User as UserIcon,
   ShieldCheck,
   ShieldAlert,
-  Zap,
-  ArrowLeft
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Messages() {
-  const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore(
-    useShallow((state) => ({
-      currentUser: state.currentUser,
-      users: state.users,
-      messages: state.messages,
-      sendMessage: state.sendMessage,
-      markMessagesAsRead: state.markMessagesAsRead,
-      sessions: state.sessions
-    }))
-  );
+  const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,7 +80,7 @@ export default function Messages() {
       <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm h-full flex overflow-hidden">
         
         {/* Sidebar / List */}
-        <div className={`w-full lg:w-[380px] border-r border-slate-50 flex flex-col bg-slate-50/20 ${selectedUserId ? 'hidden lg:flex' : 'flex'}`}>
+        <div className="w-full lg:w-[380px] border-r border-slate-50 flex flex-col bg-slate-50/20">
           <div className="p-10 pb-6">
             <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-6 tracking-tight flex items-center gap-3">
               Comm Hub <Zap className="w-6 h-6 text-[#0D5BFF]" />
@@ -179,19 +168,12 @@ export default function Messages() {
         </div>
 
         {/* Chat Interface */}
-        <div className={`flex-1 flex flex-col bg-white overflow-hidden relative ${selectedUserId ? 'flex' : 'hidden lg:flex'}`}>
+        <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
           {selectedUser ? (
             <>
               {/* Active User Header */}
-              <div className="px-6 md:px-10 py-6 md:py-8 border-b border-slate-100 flex items-center justify-between bg-white relative z-10 shadow-sm">
-                <div className="flex items-center space-x-3 md:space-x-6">
-                  {/* Back button for mobile */}
-                  <button 
-                    onClick={() => setSelectedUserId(null)}
-                    className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-[#0B132B] transition-colors"
-                  >
-                    <ArrowLeft className="w-6 h-6" />
-                  </button>
+              <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-white relative z-10 shadow-sm">
+                <div className="flex items-center space-x-6">
                   <div className="w-16 h-16 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-2xl font-black italic text-slate-300 border border-slate-100 overflow-hidden">
                     {selectedUser.profileImage ? (
                       <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />

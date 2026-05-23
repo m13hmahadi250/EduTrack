@@ -814,8 +814,30 @@ export const useAppStore = create<AppState>((set, get) => {
 function setupListeners(uid: string, role: Role, set: any, get: any) {
   cleanupListeners();
 
-  // Listen to ALL users for tutor searching and admin management
-  const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+  // 1. Listen to OWN user document for real-time profile updates (balance, verification, etc.)
+  const unsubSelf = onSnapshot(doc(db, 'users', uid), (snapshot) => {
+    if (snapshot.exists()) {
+      set({ currentUser: snapshot.data() as User });
+    }
+  }, (error) => {
+    handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+  });
+  activeUnsubscribes.push(unsubSelf);
+
+  // 2. Listen to other users based on the role to speed up loading and reduce bandwidth/PII exposure
+  let usersQuery;
+  if (role === 'student') {
+    // Students only need to discover tutors
+    usersQuery = query(collection(db, 'users'), where('role', '==', 'tutor'));
+  } else if (role === 'tutor') {
+    // Tutors only need to see students (for sessions/messaging/billing)
+    usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+  } else {
+    // Admins manage everyone
+    usersQuery = collection(db, 'users');
+  }
+
+  const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
     const users = snapshot.docs.map(doc => {
       const data = doc.data() as User;
       if (data.role === 'admin') {
@@ -823,11 +845,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       }
       return data;
     });
-    const updatedCurrentUser = users.find(u => u.id === uid);
-    set({ 
-      users, 
-      currentUser: updatedCurrentUser || get().currentUser 
-    });
+    set({ users });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'users');
   });
