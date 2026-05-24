@@ -14,7 +14,8 @@ import {
   MessageSquare,
   Wallet,
   Sun,
-  Moon
+  Moon,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,6 +38,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
   const navItems = [
     ...(isTutor ? [
       { id: 'my_session', label: 'My Session', icon: Calendar, path: '/dashboard' },
+      { id: 'find_students', label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
       { id: 'balance', label: 'Balance', icon: CreditCard, path: '/dashboard/balance' },
       { id: 'transit_mode', label: 'Transit Mode', icon: Map, path: '/dashboard/transit' },
       { id: 'pro_profile', label: 'Pro Profile', icon: User, path: '/dashboard/profile' },
@@ -68,7 +70,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
       </div>
 
       {/* Nav Section */}
-      <div className="flex-grow">
+      <div className="mb-6">
         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-6 pl-4 transition-colors">
           Professional
         </p>
@@ -149,33 +151,35 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         </div>
       )}
 
-      {/* User Info */}
-      <div className="flex items-center space-x-4 mb-4 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-transparent dark:border-slate-800/60 transition-colors">
-        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black italic overflow-hidden">
-          {currentUser.profileImage ? (
-            <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          ) : (
-            currentUser.name.charAt(0)
-          )}
-        </div>
-        <div>
-          <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[140px] uppercase italic transition-colors">{currentUser.name}</div>
-          <div className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest transition-colors">
-            {currentUser.role === 'tutor' ? 'Teacher Account' : currentUser.role === 'admin' ? 'Admin Account' : 'Student Account'}
+      {/* User Info & Logout Card */}
+      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100/60 dark:border-slate-800/60 transition-colors duration-300">
+        <div className="flex items-center space-x-3 truncate">
+          <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-950/40 rounded-2xl flex-shrink-0 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black italic overflow-hidden">
+            {currentUser.profileImage ? (
+              <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              currentUser.name.charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="truncate">
+            <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[130px] uppercase italic transition-colors leading-normal">{currentUser.name}</div>
+            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest transition-colors leading-none mt-0.5">
+              {currentUser.role === 'tutor' ? 'Teacher' : currentUser.role === 'admin' ? 'Admin' : 'Student'}
+            </div>
           </div>
         </div>
+        
+        <button 
+          onClick={() => {
+            logout();
+            onClose?.();
+          }}
+          className="p-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 hover:text-rose-600 dark:hover:text-rose-400 rounded-2xl border border-rose-100/50 dark:border-rose-900/30 transition-all duration-300 group flex-shrink-0"
+          title="Logout"
+        >
+          <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+        </button>
       </div>
-
-      <button 
-        onClick={() => {
-          logout();
-          onClose?.();
-        }}
-        className="flex items-center space-x-3 text-rose-500 font-black uppercase text-[10px] tracking-widest hover:text-rose-600 dark:hover:text-rose-400 pl-4 transition-colors"
-      >
-        <LogOut className="w-4 h-4" />
-        <span>Logout</span>
-      </button>
     </div>
   );
 });

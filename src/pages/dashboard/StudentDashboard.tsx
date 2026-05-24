@@ -576,49 +576,114 @@ export default function StudentDashboard() {
       </div>
 
       <AnimatePresence mode="wait">
-        {isProfileIncomplete && showProfileNotice && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden mb-12"
-          >
-            <div className="bg-[#0B132B] rounded-[3rem] p-10 text-white relative overflow-hidden group border border-white/10">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
-              
-              <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-[#0D5BFF] rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                      <Bell className="w-5 h-5 text-white animate-pulse" />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0D5BFF]">System Alert</span>
-                  </div>
-                  <h3 className="text-3xl font-black uppercase italic leading-tight mb-3">Optimize Your Learning Experience</h3>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-widest leading-relaxed">Your profile is currently missing key identification data. Please complete your address and institution details to synchronize with expert tutors in your sector.</p>
-                </div>
+        {isProfileIncomplete && showProfileNotice && (() => {
+          const completedCount = [!!currentUser?.studentClass, !!currentUser?.school, !!currentUser?.address].filter(Boolean).length;
+          const progressPercent = Math.round((completedCount / 3) * 100);
+          return (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-12"
+            >
+              <div className="bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1C2C5E] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden group border border-blue-500/20 shadow-2xl shadow-blue-950/20">
+                {/* Decorative gradients */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-tr from-[#0D5BFF]/30 to-purple-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-2xl" />
                 
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={() => setActiveTab('account')}
-                    className="px-8 py-5 bg-[#0D5BFF] text-white rounded-[2rem] text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-blue-500/20"
-                  >
-                    Complete Profile
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setShowProfileNotice(false);
-                      useAppStore.getState().updateUser(currentUser.id, { hasDismissedProfileNotice: true });
-                    }}
-                    className="p-5 bg-white/5 text-slate-400 rounded-[2rem] hover:bg-white/10 hover:text-white transition-all border border-white/5"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+                <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-8 md:gap-10">
+                  <div className="max-w-3xl space-y-6">
+                    {/* Category Header */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="px-3.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-full flex items-center space-x-2">
+                        <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-ping"></span>
+                        <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full absolute"></span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] pl-2">Onboarding Roadmap</span>
+                      </div>
+                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-white/5 px-3 py-1 rounded-full">
+                        Step {completedCount} of 3 Complete
+                      </div>
+                    </div>
+
+                    {/* Heading & description */}
+                    <div>
+                      <h3 className="text-3xl sm:text-4xl font-black uppercase italic leading-[1.1] mb-3 tracking-tight">
+                        Setup Your Profile <br className="hidden sm:inline" />
+                        & Find Elite Instructors
+                      </h3>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-relaxed max-w-xl">
+                        Complete your academic portfolio to unlock smart geolocation routing, expert auto-matching, and instant classroom validation.
+                      </p>
+                    </div>
+
+                    {/* Checklists */}
+                    <div className="grid sm:grid-cols-3 gap-4 pt-2">
+                      {[
+                        { label: 'Academic Class', checked: !!currentUser?.studentClass, value: currentUser?.studentClass || 'Not Specified' },
+                        { label: 'School / College', checked: !!currentUser?.school, value: currentUser?.school || 'Not Specified' },
+                        { label: 'Delivery Address', checked: !!currentUser?.address, value: currentUser?.address || 'Not Specified' },
+                      ].map((step, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`p-4 rounded-2xl border transition-all duration-300 ${
+                            step.checked 
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-950/20' 
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:border-blue-500/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">{step.label}</span>
+                            <span className={`w-2 h-2 rounded-full ${step.checked ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
+                          </div>
+                          <p className={`text-xs font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-300 font-medium'}`}>
+                            {step.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Operational Controls & Progress */}
+                  <div className="flex flex-col sm:flex-row xl:flex-col items-center gap-6 xl:w-72 justify-between flex-shrink-0 self-stretch xl:self-auto bg-white/[0.02] border border-white/5 p-6 rounded-3xl backdrop-blur-md">
+                    <div className="w-full text-center sm:text-left xl:text-center space-y-2">
+                      <div className="flex items-center justify-between xl:justify-center xl:space-x-4 mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#0D5BFF]">Portfolio Progress</span>
+                        <span className="text-sm font-black font-mono text-[#0D5BFF]">{progressPercent}%</span>
+                      </div>
+                      <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-[2px]">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progressPercent}%` }}
+                          transition={{ duration: 1, ease: 'easeOut' }}
+                          className="h-full bg-gradient-to-r from-[#0D5BFF] to-blue-400 rounded-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full">
+                      <button 
+                        onClick={() => setActiveTab('account')}
+                        className="flex-1 py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-center"
+                      >
+                        Complete Now
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setShowProfileNotice(false);
+                          useAppStore.getState().updateUser(currentUser.id, { hasDismissedProfileNotice: true });
+                        }}
+                        className="p-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-2xl transition-all border border-white/5 flex items-center justify-center"
+                        title="Skip onboarding"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
@@ -1034,7 +1099,7 @@ export default function StudentDashboard() {
                               </div>
                             </div>
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                              {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/hr` : 'N/A'}
+                              {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/month` : 'N/A'} • {tutor.daysPerWeek || 3} Days/Wk
                             </p>
                           </div>
                         </div>
@@ -1083,8 +1148,12 @@ export default function StudentDashboard() {
 
                                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-slate-100/80">
                                     <div>
-                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Standard Rate</p>
-                                      <p className="text-xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/hr</span></p>
+                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Tutor Fee</p>
+                                      <p className="text-xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/month</span></p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Teaching Schedule</p>
+                                      <p className="text-xl font-black text-[#0D5BFF] italic">{selectedTutor.daysPerWeek || 3}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1"> Days/Week</span></p>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[#0D5BFF] bg-blue-50/50 px-3.5 py-1.5 rounded-xl border border-blue-100/50">
                                        <MapPin className="w-3.5 h-3.5" />
@@ -1332,7 +1401,7 @@ export default function StudentDashboard() {
                             <div className="space-y-6 pt-4">
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between px-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Curriculum Selection</label>
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Curriculum Selection {selectedTutor ? "— Tutor's Subjects Only" : ""}</label>
                                   {bookingSubject.length > 0 && (
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} Focus Selected</span>
                                   )}
@@ -1376,18 +1445,20 @@ export default function StudentDashboard() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const stemSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Higher Math', 'General Science', 'Mathematics (EV)', 'Physics (EV)', 'Chemistry (EV)', 'Biology (EV)', 'Higher Math (EV)', 'General Science (EV)', 'Mathematics (Madrasha)'];
-                                        const hasStem = stemSubjects.some(s => bookingSubject.includes(s));
+                                        const stemSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Higher Math', 'General Science', 'Mathematics (EV)', 'Physics (EV)', 'Chemistry (EV)', 'Biology (EV)', 'Higher Math (EV)', 'General Science (EV)', 'Mathematics (Madrasha)'].filter(s => 
+                                          selectedTutor?.subjects ? selectedTutor.subjects.includes(s) : true
+                                        );
+                                        const hasStem = stemSubjects.length > 0 && stemSubjects.some(s => bookingSubject.includes(s));
                                         if (hasStem) {
                                           setBookingSubject(prev => prev.filter(s => !stemSubjects.includes(s)));
-                                        } else {
+                                        } else if (stemSubjects.length > 0) {
                                           setBookingSubject(prev => Array.from(new Set([...prev, ...stemSubjects])));
                                         }
                                       }}
                                       className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
                                         bookingSubject.some(s => ['Physics', 'Chemistry', 'Mathematics', 'Biology'].some(stem => s.includes(stem)))
                                         ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-rose-505 hover:text-rose-500'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-rose-500'
                                       }`}
                                     >
                                       🧬 SCIENCE
@@ -1395,11 +1466,13 @@ export default function StudentDashboard() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const commerceSubjects = ['Accounting', 'Finance', 'Economics', 'Business Studies', 'Management', 'Accounting (EV)', 'Finance (EV)', 'Economics (EV)', 'Business Studies (EV)', 'Management (EV)'];
-                                        const hasCommerce = commerceSubjects.some(s => bookingSubject.includes(s));
+                                        const commerceSubjects = ['Accounting', 'Finance', 'Economics', 'Business Studies', 'Management', 'Accounting (EV)', 'Finance (EV)', 'Economics (EV)', 'Business Studies (EV)', 'Management (EV)'].filter(s => 
+                                          selectedTutor?.subjects ? selectedTutor.subjects.includes(s) : true
+                                        );
+                                        const hasCommerce = commerceSubjects.length > 0 && commerceSubjects.some(s => bookingSubject.includes(s));
                                         if (hasCommerce) {
                                           setBookingSubject(prev => prev.filter(s => !commerceSubjects.includes(s)));
-                                        } else {
+                                        } else if (commerceSubjects.length > 0) {
                                           setBookingSubject(prev => Array.from(new Set([...prev, ...commerceSubjects])));
                                         }
                                       }}
@@ -1414,11 +1487,13 @@ export default function StudentDashboard() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const humSubjects = ['Bangla', 'English', 'History', 'Geography', 'Social Science', 'Bangla (EV)', 'English (EV)', 'Social Science (Madrasha)', 'English (Madrasha)'];
-                                        const hasHum = humSubjects.some(s => bookingSubject.includes(s));
+                                        const humSubjects = ['Bangla', 'English', 'History', 'Geography', 'Social Science', 'Bangla (EV)', 'English (EV)', 'Social Science (Madrasha)', 'English (Madrasha)'].filter(s => 
+                                          selectedTutor?.subjects ? selectedTutor.subjects.includes(s) : true
+                                        );
+                                        const hasHum = humSubjects.length > 0 && humSubjects.some(s => bookingSubject.includes(s));
                                         if (hasHum) {
                                           setBookingSubject(prev => prev.filter(s => !humSubjects.includes(s)));
-                                        } else {
+                                        } else if (humSubjects.length > 0) {
                                           setBookingSubject(prev => Array.from(new Set([...prev, ...humSubjects])));
                                         }
                                       }}
@@ -1443,7 +1518,9 @@ export default function StudentDashboard() {
                                 {/* Subjects Interactive Dynamic Grid */}
                                 <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar py-2 border-l border-slate-100/50 dark:border-slate-800/50 pl-4">
                                   {(() => {
-                                    const availableSubjects = SUBJECT_CATEGORIES[activeSubjectTab] || [];
+                                    const availableSubjects = (SUBJECT_CATEGORIES[activeSubjectTab] || []).filter(sub => 
+                                      selectedTutor?.subjects ? selectedTutor.subjects.includes(sub) : true
+                                    );
                                     const filteredList = availableSubjects.filter(sub => 
                                       sub.toLowerCase().includes(subjectSearchTerm.toLowerCase())
                                     );
@@ -1451,7 +1528,9 @@ export default function StudentDashboard() {
                                     if (filteredList.length === 0) {
                                       return (
                                         <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-150 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
-                                          <p className="text-[9px] font-black uppercase tracking-widest leading-loose">No matched curricular Focus</p>
+                                          <p className="text-[9px] font-black uppercase tracking-widest leading-loose">
+                                            {selectedTutor ? "No matched tutor-expert subjects" : "No matched curricular Focus"}
+                                          </p>
                                         </div>
                                       );
                                     }
@@ -1980,14 +2059,14 @@ export default function StudentDashboard() {
                   }}
                   className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                 >
-                   {isEditingAccount ? 'Lock Changes in System' : 'Modify ID'}
+                   {isEditingAccount ? 'Confirm Changes' : 'Modify ID'}
                 </button>
              </div>
 
               {isEditingAccount ? (
                 <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Gaurdian Name</label>
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Guardian Name</label>
                        <input 
                          value={accountForm.name}
                          onChange={e => setAccountForm({...accountForm, name: e.target.value})}
@@ -2068,7 +2147,7 @@ export default function StudentDashboard() {
                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                            Synchronizing...
                          </>
-                       ) : 'Lock Changes in System'}
+                       ) : 'Confirm Changes'}
                     </button>
                 </form>
               ) : (

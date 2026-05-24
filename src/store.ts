@@ -78,6 +78,7 @@ export interface User {
   bio?: string;
   experience?: string;
   hourlyRate?: number;
+  daysPerWeek?: number;
   availabilitySlots?: { [key: string]: string[] }; 
   hasDismissedProfileNotice?: boolean;
 }

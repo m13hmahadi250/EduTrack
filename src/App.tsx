@@ -54,7 +54,7 @@ function LayoutWrapper() {
   const isAuthPage = location.pathname.startsWith('/dashboard') || location.pathname === '/messages';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#0B132B] flex flex-col font-sans relative">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-[#F8F9FA] flex flex-col font-sans relative transition-colors duration-300">
       <DeadlineNotifier />
       {!isAuthPage && <PromotionalBanner />}
       {!isAuthPage && <Navbar />}

@@ -59,7 +59,7 @@ service cloud.firestore {
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || resource.data.role == 'tutor';
 
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
                     (incoming().role != 'admin' || request.auth.token.email == 'admin@gmail.com');

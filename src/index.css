@@ -72,87 +72,173 @@
  * EduTrack Dark Mode Variables & Class Overrides (Tailwind v4)
  * ------------------------------------------------------------- */
 .dark body {
-  background-color: #0B132B !important;
-  color: #F8F9FA !important;
+  background-color: #0b132b !important;
+  color: #f8f9fa !important;
 }
 
 /* Background overrides */
 .dark .bg-white {
-  background-color: #111A2E !important;
+  background-color: #111a2e !important;
 }
 .dark .bg-slate-50 {
-  background-color: #1A243D !important;
+  background-color: #1a243d !important;
 }
 .dark .bg-slate-100 {
-  background-color: #24314E !important;
+  background-color: #24314e !important;
 }
 .dark [class*="bg-[#F8F9FA]"] {
-  background-color: #0B132B !important;
+  background-color: #0b132b !important;
 }
 .dark .bg-\[\#F8F9FA\] {
-  background-color: #0B132B !important;
+  background-color: #0b132b !important;
+}
+.dark .bg-\[\#F3F4F6\] {
+  background-color: #1a243d !important;
+}
+.dark [class*="bg-[#F3F4F6]"] {
+  background-color: #1a243d !important;
+}
+
+/* Opaque and semi-transparent backgrounds */
+.dark .bg-slate-50\/50, .dark [class*="bg-slate-50/50"] {
+  background-color: rgba(30, 41, 59, 0.45) !important;
+}
+.dark .bg-slate-50\/20, .dark [class*="bg-slate-50/20"] {
+  background-color: rgba(30, 41, 59, 0.25) !important;
+}
+.dark .bg-slate-50\/10, .dark [class*="bg-slate-50/10"] {
+  background-color: rgba(30, 41, 59, 0.15) !important;
+}
+.dark .bg-blue-50\/50, .dark [class*="bg-blue-50/50"] {
+  background-color: rgba(13, 91, 255, 0.12) !important;
+}
+.dark .bg-emerald-50\/50, .dark [class*="bg-emerald-50/50"] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+.dark .bg-rose-50\/50, .dark [class*="bg-rose-50/50"] {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+}
+
+/* Semantic background overrides to prevent white-outs under dark mode */
+.dark .bg-emerald-50, .dark [class*="bg-emerald-50"] {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+.dark .bg-rose-50, .dark [class*="bg-rose-50"] {
+  background-color: rgba(244, 63, 94, 0.1) !important;
+}
+.dark .bg-amber-50, .dark [class*="bg-amber-50"] {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+.dark .bg-blue-50, .dark [class*="bg-blue-50"] {
+  background-color: rgba(13, 91, 255, 0.1) !important;
+}
+
+/* Tab toggle button states in login/register forms */
+.dark .bg-[#F3F4F6] {
+  background-color: #1a243d !important;
+}
+
+/* White bg/border opacities */
+.dark .bg-white\/90 {
+  background-color: rgba(17, 26, 46, 0.9) !important;
+}
+.dark .bg-white\/80 {
+  background-color: rgba(17, 26, 46, 0.8) !important;
+}
+.dark .bg-white\/70 {
+  background-color: rgba(17, 26, 46, 0.7) !important;
 }
 
 /* Hover effects */
 .dark .hover\:bg-slate-50:hover {
-  background-color: #1A243D !important;
+  background-color: #1a243d !important;
 }
 .dark .hover\:bg-slate-100:hover {
-  background-color: #24314E !important;
+  background-color: #24314e !important;
+}
+.dark .hover\:bg-rose-50:hover {
+  background-color: rgba(244, 63, 94, 0.15) !important;
 }
 
 /* Text color overrides with extreme dual-safety targeting */
 .dark .text-\[\#0B132B\] {
-  color: #F8F9FA !important;
+  color: #f8f9fa !important;
 }
 .dark .text-\[\#0B132B\]\/30 {
-  color: rgba(248, 249, 250, 0.4) !important;
+  color: rgba(248, 249, 250, 0.45) !important;
 }
 .dark .text-\[\#0B132B\]\/70 {
-  color: rgba(248, 249, 250, 0.75) !important;
+  color: rgba(248, 249, 250, 0.8) !important;
 }
 
 .dark [class*="text-[#0B132B]"] {
-  color: #F8F9FA !important;
+  color: #f8f9fa !important;
 }
 .dark [class*="text-[#0B132B]/30"] {
   color: rgba(248, 249, 250, 0.45) !important;
 }
 .dark [class*="text-[#0B132B]/70"] {
-  color: rgba(248, 249, 250, 0.75) !important;
+  color: rgba(248, 249, 250, 0.8) !important;
+}
+
+/* Semantic warning / status text overrides under dark mode to ensure clear visibility */
+.dark .text-emerald-700,
+.dark .text-emerald-800,
+.dark [class*="text-emerald-700"],
+.dark [class*="text-emerald-800"] {
+  color: #34d399 !important; /* emerald-400 */
+}
+.dark .text-rose-700,
+.dark .text-rose-800,
+.dark [class*="text-rose-700"],
+.dark [class*="text-rose-800"] {
+  color: #f87171 !important; /* rose-400 */
+}
+.dark .text-amber-700,
+.dark .text-amber-850,
+.dark .text-amber-800,
+.dark [class*="text-amber-700"],
+.dark [class*="text-amber-800"] {
+  color: #fbbf24 !important; /* amber-400 */
+}
+.dark .text-blue-700,
+.dark .text-blue-800,
+.dark [class*="text-blue-700"],
+.dark [class*="text-blue-800"] {
+  color: #60a5fa !important; /* blue-400 */
 }
 
 /* Hardcoded grey-to-white dark-mode translations */
 .dark [class*="text-[#374151]"] {
-  color: #F1F5F9 !important;
+  color: #f1f5f9 !important;
 }
 .dark [class*="text-[#4B5563]"] {
-  color: #E2E8F0 !important;
+  color: #e2e8f0 !important;
 }
 .dark [class*="text-[#1F2937]"] {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 .dark [class*="text-[#6B7280]"] {
-  color: #CBD5E1 !important;
+  color: #cbd5e1 !important;
 }
 
 .dark .text-slate-900 {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 .dark .text-slate-800 {
-  color: #F8F9FA !important;
+  color: #f8f9fa !important;
 }
 .dark .text-slate-700 {
-  color: #F1F5F9 !important;
+  color: #f1f5f9 !important;
 }
 .dark .text-slate-600 {
-  color: #CBD5E1 !important;
+  color: #cbd5e1 !important;
 }
 .dark .text-slate-500 {
-  color: #94A3B8 !important;
+  color: #94a3b8 !important;
 }
 .dark .text-slate-400 {
-  color: #94A3B8 !important;
+  color: #94a3b8 !important;
 }
 
 /* Border overrides */
@@ -160,42 +246,42 @@
 .dark .border-slate-100,
 .dark .border-slate-200,
 .dark .border-slate-300 {
-  border-color: #1E293B !important;
+  border-color: #1e293b !important;
 }
 .dark [class*="border-[#E5E7EB]"] {
-  border-color: #24334C !important;
+  border-color: #24334c !important;
 }
 
 /* Inputs, Textareas, and Selects */
 .dark input, 
 .dark select, 
 .dark textarea {
-  background-color: #1A243D !important;
-  color: #F8F9FA !important;
-  border-color: #24334C !important;
+  background-color: #1a243d !important;
+  color: #f8f9fa !important;
+  border-color: #24334c !important;
 }
 .dark input[class*="bg-[#F8F9FA]"],
 .dark textarea[class*="bg-[#F8F9FA]"],
 .dark select[class*="bg-[#F8F9FA]"] {
-  background-color: #1A243D !important;
+  background-color: #1a243d !important;
 }
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #64748B !important;
+  color: #64748b !important;
 }
 .dark input:focus, 
 .dark select:focus, 
 .dark textarea:focus {
-  border-color: #0D5BFF !important;
+  border-color: #0d5bff !important;
 }
 
 /* Map Popup Overrides */
 .dark .leaflet-popup-content-wrapper {
-  background-color: #111A2E !important;
-  color: #F8F9FA !important;
+  background-color: #111a2e !important;
+  color: #f8f9fa !important;
 }
 .dark .leaflet-popup-tip {
-  background-color: #111A2E !important;
+  background-color: #111a2e !important;
 }
 
 /* Glasscard Overrides */
@@ -206,10 +292,10 @@
 
 /* Dark Mode Scrollbars */
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #24334C !important;
+  background-color: #24334c !important;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #2E405E !important;
+  background-color: #2e405e !important;
 }
 
 /* Interactive custom card adjustments */
