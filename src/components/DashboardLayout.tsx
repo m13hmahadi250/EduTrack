@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import { Logo } from './Logo';
 import { 
   BarChart3, 
   Calendar, 
@@ -58,9 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile Header */}
       <div className="lg:hidden bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/60 p-4 sticky top-0 z-50 flex items-center justify-between transition-colors">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-[#0D5BFF] rounded-lg flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200 dark:shadow-none text-sm">
-             E
-          </div>
+          <Logo className="w-8 h-8 shadow-lg shadow-blue-200 dark:shadow-none" />
           <span className="text-lg font-black font-heading text-[#0B132B] dark:text-white">EduTrack</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500 dark:text-slate-400">

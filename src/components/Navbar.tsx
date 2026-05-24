@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User as UserIcon, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../store';
+import { Logo } from './Logo';
 
 const Navbar = memo(() => {
   const currentUser = useAppStore(state => state.currentUser);
@@ -19,9 +20,7 @@ const Navbar = memo(() => {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-[#0D5BFF] rounded-lg flex items-center justify-center -skew-x-6">
-                <span className="text-white font-heading font-black text-2xl skew-x-6">E</span>
-              </div>
+              <Logo className="w-10 h-10" />
               <span className="text-2xl font-black font-heading text-[#0B132B] tracking-tight">EduTrack</span>
             </Link>
           </div>

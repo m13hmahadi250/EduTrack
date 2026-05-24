@@ -14,7 +14,7 @@ import {
   Award
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import heroImage from '../assets/images/regenerated_image_1778584226799.png';
+import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>([]);

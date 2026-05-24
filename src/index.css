@@ -134,7 +134,7 @@
 }
 
 /* Tab toggle button states in login/register forms */
-.dark .bg-[#F3F4F6] {
+.dark .bg-\[\#F3F4F6\] {
   background-color: #1a243d !important;
 }
 

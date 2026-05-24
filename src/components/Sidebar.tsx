@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import { Logo } from './Logo';
 import { 
   BarChart3, 
   Calendar, 
@@ -63,17 +64,12 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
     <div className="w-full lg:w-80 h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 sticky top-0 transition-colors duration-300">
       {/* Logo */}
       <div className="hidden lg:flex items-center space-x-3 mb-12">
-        <div className="w-10 h-10 bg-[#0D5BFF] rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-blue-200 dark:shadow-none">
-           E
-        </div>
+        <Logo className="w-10 h-10 shadow-lg shadow-blue-200 dark:shadow-none" />
         <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors">EduTrack</span>
       </div>
 
       {/* Nav Section */}
       <div className="mb-6">
-        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-6 pl-4 transition-colors">
-          Professional
-        </p>
         <nav className="space-y-2">
           {navItems.map((item: any) => (
             <button
