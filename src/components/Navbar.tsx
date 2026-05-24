@@ -1,12 +1,11 @@
 import React, { memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, User as UserIcon, MessageSquare } from 'lucide-react';
+import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 
 const Navbar = memo(() => {
-  const currentUser = useAppStore(state => state.currentUser);
-  const logout = useAppStore(state => state.logout);
+  const { currentUser, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -15,41 +14,53 @@ const Navbar = memo(() => {
   };
 
   return (
-    <nav className="z-50 bg-transparent py-4">
+    <nav className="z-50 bg-transparent py-4 text-slate-800 dark:text-slate-100 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
               <Logo className="w-10 h-10" />
-              <span className="text-2xl font-black font-heading text-[#0B132B] tracking-tight">EduTrack</span>
+              <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors">EduTrack</span>
             </Link>
           </div>
           <div className="flex items-center space-x-8">
             {!currentUser && (
-               <div className="hidden md:flex space-x-8 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+               <div className="hidden md:flex space-x-8 text-[11px] font-bold uppercase tracking-wider text-[#6B7280] dark:text-slate-400">
                  <Link to="/" className="text-[#0D5BFF] border-b-2 border-[#0D5BFF] pb-1">Find Tutors</Link>
-                 <Link to="/" className="hover:text-[#0B132B] transition-colors pb-1">How it works</Link>
-                 <Link to="/" className="hover:text-[#0B132B] transition-colors pb-1">Safety</Link>
+                 <Link to="/" className="hover:text-[#0B132B] dark:hover:text-white transition-colors pb-1">How it works</Link>
+                 <Link to="/" className="hover:text-[#0B132B] dark:hover:text-white transition-colors pb-1">Safety</Link>
                </div>
             )}
             
             {currentUser ? (
               <div className="flex items-center space-x-4">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 mr-1 rounded-full bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all duration-300"
+                  aria-label="Toggle Theme"
+                  title="Toggle Theme"
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="h-4 w-4 text-yellow-500" />
+                  ) : (
+                    <Moon className="h-4 w-4 text-indigo-600" />
+                  )}
+                </button>
                 <Link to="/messages" className="text-slate-500 hover:text-[#0D5BFF] transition-colors">
                   <MessageSquare className="h-5 w-5" />
                 </Link>
-                <Link to="/dashboard" className="text-[#0B132B] hover:text-[#0D5BFF] font-bold text-sm transition-colors uppercase">Dashboard</Link>
-                <div className="flex items-center space-x-2 text-sm text-slate-600 border-l border-slate-200 pl-4 ml-2">
-                  <div className="p-0.5 rounded-full border border-slate-100 overflow-hidden">
+                <Link to="/dashboard" className="text-[#0B132B] dark:text-white hover:text-[#0D5BFF] font-bold text-sm transition-colors uppercase">Dashboard</Link>
+                <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-4 ml-2">
+                  <div className="p-0.5 rounded-full border border-slate-100 dark:border-slate-800 overflow-hidden">
                     {currentUser.profileImage ? (
                       <img src={currentUser.profileImage} alt={currentUser.name} className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="bg-slate-100 p-1.5 rounded-full">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full">
                         <UserIcon className="h-4 w-4" />
                       </div>
                     )}
                   </div>
-                  <span className="font-bold text-[#0B132B] hidden sm:block">{currentUser.name}</span>
+                  <span className="font-bold text-[#0B132B] dark:text-white hidden sm:block">{currentUser.name}</span>
                 </div>
                 <button
                   onClick={handleLogout}
@@ -61,9 +72,22 @@ const Navbar = memo(() => {
               </div>
             ) : (
               <div className="flex items-center space-x-4">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 mr-1 rounded-full bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all duration-300"
+                  aria-label="Toggle Theme"
+                  title="Toggle Theme"
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="h-4 w-4 text-yellow-500" />
+                  ) : (
+                    <Moon className="h-4 w-4 text-indigo-600" />
+                  )}
+                </button>
                 <Link
+                  id="sign-in-button"
                   to="/login"
-                  className="bg-[#0B132B] text-white px-6 py-2.5 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-slate-800 transition-colors shadow-md"
+                  className="bg-[#0B132B] dark:bg-[#0D5BFF] text-white dark:text-white px-6 py-2.5 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-slate-800 dark:hover:bg-blue-600 transition-colors shadow-md"
                 >
                   Sign In
                 </Link>
