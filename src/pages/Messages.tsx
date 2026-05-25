@@ -116,13 +116,20 @@ export default function Messages() {
                     : 'bg-transparent text-[#0B132B] hover:bg-white hover:shadow-lg'
                   }`}
                 >
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm flex-shrink-0 overflow-hidden ${
-                    selectedUserId === partner.id ? 'bg-white/20' : 'bg-slate-100 text-slate-300'
-                  }`}>
-                    {partner.profileImage ? (
-                      <img src={partner.profileImage} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      partner.name.charAt(0)
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm overflow-hidden ${
+                      selectedUserId === partner.id ? 'bg-white/20' : 'bg-slate-100 text-slate-300'
+                    }`}>
+                      {partner.profileImage ? (
+                        <img src={partner.profileImage} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        partner.name.charAt(0)
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[9px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0B132B] animate-bounce shadow-md">
+                        {unreadCount}
+                      </span>
                     )}
                   </div>
                   <div className="text-left flex-1 min-w-0">
@@ -151,11 +158,6 @@ export default function Messages() {
                           </>
                         ) : `CONNECT WITH ${partner.role.toUpperCase()}`}
                       </p>
-                      {unreadCount > 0 && selectedUserId !== partner.id && (
-                        <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse flex-shrink-0">
-                          {unreadCount}
-                        </span>
-                      )}
                     </div>
                   </div>
                   {selectedUserId === partner.id && (

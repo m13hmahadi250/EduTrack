@@ -32,7 +32,15 @@ import {
   GraduationCap,
   Download,
   MapPinOff,
-  AlertCircle
+  AlertCircle,
+  X,
+  MessageSquare,
+  Award,
+  Shield,
+  ShieldAlert,
+  Check,
+  DollarSign,
+  Activity
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -95,6 +103,8 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages'>('overview');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
+  const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
 
   const handleDownloadPDF = () => {
     if (!currentUser || myPayments.length === 0) return;
@@ -702,6 +712,7 @@ export default function StudentDashboard() {
         tutorId: selectedTutor.id,
         subject: bookingSubject.join(', '),
         scheduledTime,
+        status: 'requested_by_student'
       });
 
       setBookingSuccess(true);
@@ -975,6 +986,84 @@ export default function StudentDashboard() {
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {/* Tuition Pipeline Section */}
+            {mySessions.some(s => s.status === 'proposed_by_tutor' || s.status === 'requested_by_student') && (
+              <div id="student-tuition-pipeline" className="bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden space-y-6">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full -mr-40 -mt-40 blur-3xl" />
+                
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#0D5BFF] animate-ping" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Tuition Pipeline</span>
+                    </div>
+                    <h3 className="text-xl font-black uppercase italic">Pending Offers & Requests</h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-3 py-1.5 rounded-xl border border-white/5">
+                    {mySessions.filter(s => s.status === 'proposed_by_tutor' || s.status === 'requested_by_student').length} Pending
+                  </span>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {mySessions.filter(s => s.status === 'proposed_by_tutor' || s.status === 'requested_by_student').map(sess => {
+                    const isProposal = sess.status === 'proposed_by_tutor';
+                    const party = users.find(u => u.id === sess.tutorId);
+                    
+                    return (
+                      <div 
+                        key={sess.id} 
+                        className="bg-white/5 rounded-2xl p-6 border border-white/10 flex flex-col justify-between hover:bg-white/10 transition-colors"
+                      >
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
+                              isProposal ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-300'
+                            }`}>
+                              {isProposal ? 'Offer Received' : 'Request Pending'}
+                            </span>
+                            <span className="text-[9px] font-black text-slate-400">
+                              {new Date(sess.scheduledTime).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center font-black italic text-lg text-blue-400">
+                              {party?.name?.charAt(0) || 'T'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm font-black italic uppercase text-white truncate">{party?.name}</h4>
+                              <p className="text-[10px] text-slate-400 truncate">{party?.university || 'Expert Tutor'}</p>
+                            </div>
+                          </div>
+
+                          <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject / Focus</div>
+                            <div className="text-xs font-black italic text-[#0D5BFF]">{sess.subject}</div>
+                            <div className="text-[10px] text-slate-350 font-medium mt-1.5 leading-relaxed">
+                              Time Slot: <span className="font-extrabold text-white">{new Date(sess.scheduledTime).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-5">
+                          <button
+                            id={`view-proposed-tutor-btn-${sess.id}`}
+                            onClick={() => {
+                              setViewingProfileUser(party || null);
+                              setViewingProfileSession(sess);
+                            }}
+                            className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[9px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                          >
+                            View Credentials & Profile
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             <div className="grid lg:grid-cols-3 gap-8">
@@ -1274,13 +1363,19 @@ export default function StudentDashboard() {
                         </div>
                       ))
                     ) : (
-                      filteredTutors.map(tutor => (
+                      filteredTutors.map((tutor, index) => (
                         <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ 
+                            duration: 0.35,
+                            ease: [0.16, 1, 0.3, 1],
+                            delay: Math.min(index * 0.04, 0.24)
+                          }}
                           key={tutor.id} 
+                          id={`tutor-card-${tutor.id}`}
                           onClick={() => setSelectedTutor(tutor)}
-                          className={`p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                          className={`tutor-card p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
                             selectedTutor?.id === tutor.id 
                             ? 'border-[#0D5BFF] bg-blue-50/30' 
                             : 'border-slate-100 bg-white hover:border-slate-200'
@@ -2237,10 +2332,17 @@ export default function StudentDashboard() {
                             : 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-200'
                           }`}
                         >
-                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
-                             selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
-                           }`}>
-                             {contact.name.charAt(0)}
+                           <div className="relative shrink-0">
+                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                               selectedRecipientId === contact.id ? 'bg-white/20 border-white/10' : 'bg-slate-50 border-slate-100'
+                             }`}>
+                               {contact.name.charAt(0)}
+                             </div>
+                             {unreadCount > 0 && (
+                               <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                                 {unreadCount}
+                               </span>
+                             )}
                            </div>
                            <div className="flex-1 min-w-0">
                               <h4 className="text-sm font-black italic truncate">{contact.name}</h4>
@@ -2250,11 +2352,6 @@ export default function StudentDashboard() {
                                 {contact.university}
                               </p>
                            </div>
-                           {unreadCount > 0 && selectedRecipientId !== contact.id && (
-                             <div className="bg-[#E51275] text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg shadow-rose-100 animate-bounce">
-                               {unreadCount}
-                             </div>
-                           )}
                         </button>
                       );
                     });
@@ -2552,6 +2649,156 @@ export default function StudentDashboard() {
                     Retry Connection
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {viewingProfileUser && viewingProfileSession && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+            >
+              <div className="bg-gradient-to-r from-indigo-900 to-indigo-950 p-8 sm:p-10 text-white relative">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <button
+                  onClick={() => {
+                    setViewingProfileUser(null);
+                    setViewingProfileSession(null);
+                  }}
+                  className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                  Tutor Profile & Credentials
+                </span>
+                <div className="mt-6 flex items-center gap-6">
+                  <div className="w-20 h-20 bg-white/10 rounded-[1.5rem] border border-white/10 flex items-center justify-center text-3xl font-black italic text-indigo-200">
+                    {viewingProfileUser.name?.charAt(0) || 'T'}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-black uppercase italic leading-none">{viewingProfileUser.name}</h3>
+                    <p className="text-xs text-slate-300 font-medium mt-2">{viewingProfileUser.university || 'Verified Academic Institution'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Shield className={`w-6 h-6 ${viewingProfileUser.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                      <div>
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">NID Status</div>
+                        <div className="text-xs font-black uppercase text-[#0B132B] dark:text-white mt-0.5">
+                          {viewingProfileUser.nidStatus === 'approved' ? 'Verified Citizen' : 'Pending Verification'}
+                        </div>
+                      </div>
+                    </div>
+                    {viewingProfileUser.nidStatus === 'approved' && <Check className="w-5 h-5 text-emerald-500 bg-emerald-50 rounded-full p-1" />}
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Award className={`w-6 h-6 ${viewingProfileUser.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                      <div>
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Academic Status</div>
+                        <div className="text-xs font-black uppercase text-[#0B132B] dark:text-white mt-0.5">
+                          {viewingProfileUser.academicStatus === 'approved' ? 'Verified Credentials' : 'Documents Pending'}
+                        </div>
+                      </div>
+                    </div>
+                    {viewingProfileUser.academicStatus === 'approved' && <Check className="w-5 h-5 text-emerald-500 bg-emerald-50 rounded-full p-1" />}
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Experience Range</span>
+                    <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.experience || 'Experienced Professional Educator'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hourly Value</span>
+                    <p className="text-xs font-black text-[#0D5BFF]">৳{viewingProfileUser.hourlyRate || 'Consult'}/hour</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Professional Bio</span>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-medium font-sans">
+                    {viewingProfileUser.bio || "Academic expert dedicated to elevating student capabilities and instilling key study discipline."}
+                  </p>
+                </div>
+
+                <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
+                  <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Proposed Tuition Details</span>
+                  <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
+                    <div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Core Subject</span>
+                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Proposed Schedule Slot</span>
+                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 sm:p-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950">
+                {viewingProfileSession.status === 'proposed_by_tutor' ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                        setViewingProfileUser(null);
+                        setViewingProfileSession(null);
+                      }}
+                      className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
+                    >
+                      Accept Tuition Proposal
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                        setViewingProfileUser(null);
+                        setViewingProfileSession(null);
+                      }}
+                      className="w-full sm:w-auto px-6 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                    >
+                      Decline Offer
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    Awaiting response from {viewingProfileUser.name}
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setSelectedRecipientId(viewingProfileUser.id);
+                    setActiveTab('messages');
+                    setViewingProfileUser(null);
+                    setViewingProfileSession(null);
+                  }}
+                  className="w-full sm:w-auto px-6 py-4 bg-slate-200 hover:bg-slate-350 text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Message
+                </button>
               </div>
             </motion.div>
           </motion.div>

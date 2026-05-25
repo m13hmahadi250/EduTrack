@@ -132,7 +132,7 @@ service cloud.firestore {
         return data.keys().hasAll(['id', 'studentId', 'tutorId', 'subject', 'status', 'scheduledTime']) &&
                isValidId(data.studentId) && isValidId(data.tutorId) &&
                data.subject is string && data.subject.size() <= 200 &&
-               data.status in ['scheduled', 'active', 'completed', 'cancelled'] &&
+               data.status in ['scheduled', 'active', 'completed', 'cancelled', 'proposed_by_tutor', 'requested_by_student', 'rejected'] &&
                data.scheduledTime is string;
       }
 
@@ -140,8 +140,8 @@ service cloud.firestore {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
 
       allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming()) && 
-                    incoming().studentId == request.auth.uid &&
-                    incoming().status == 'scheduled';
+                    (incoming().studentId == request.auth.uid || incoming().tutorId == request.auth.uid) &&
+                    incoming().status in ['scheduled', 'proposed_by_tutor', 'requested_by_student'];
 
       allow update: if isAdmin() || (
         isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid) && isValidSession(incoming())

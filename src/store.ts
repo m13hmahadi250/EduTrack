@@ -88,7 +88,7 @@ export interface Session {
   studentId: string;
   tutorId: string;
   subject: string;
-  status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'active' | 'completed' | 'cancelled' | 'proposed_by_tutor' | 'requested_by_student' | 'rejected';
   startTime?: string;
   endTime?: string;
   scheduledTime: string;
@@ -171,7 +171,9 @@ interface AppState {
   
   // Student actions
   submitPayment: (payment: Omit<Payment, 'id' | 'status' | 'date'>) => Promise<void>;
-  bookSession: (session: Omit<Session, 'id' | 'status'>) => Promise<void>;
+  bookSession: (session: Omit<Session, 'id'> & { status?: Session['status'] }) => Promise<void>;
+  acceptSession: (sessionId: string) => Promise<void>;
+  rejectSession: (sessionId: string) => Promise<void>;
   
   // Tutor actions
   startSession: (sessionId: string) => Promise<void>;
@@ -640,11 +642,41 @@ export const useAppStore = create<AppState>((set, get) => {
         await setDoc(doc(db, 'sessions', id), {
           ...sessionData,
           id,
-          status: 'scheduled'
+          status: sessionData.status || 'scheduled'
         });
-        await get().sendNotification(sessionData.tutorId, 'New Booking Request', 'A student has scheduled a new session with you.', 'info');
+        const recipientId = sessionData.status === 'proposed_by_tutor' ? sessionData.studentId : sessionData.tutorId;
+        const noteMsg = sessionData.status === 'proposed_by_tutor' 
+          ? 'A tutor has sent you a tuition proposal.' 
+          : 'A student has scheduled or requested a new tuition session with you.';
+        await get().sendNotification(recipientId, 'New Booking Request', noteMsg, 'info');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `sessions/${id}`);
+      }
+    },
+
+    acceptSession: async (id) => {
+      try {
+        await updateDoc(doc(db, 'sessions', id), { status: 'scheduled' });
+        const s = get().sessions.find(x => x.id === id);
+        if (s) {
+          await get().sendNotification(s.studentId, 'Tuition Accepted', 'The tuition session has been accepted and scheduled.', 'success');
+          await get().sendNotification(s.tutorId, 'Tuition Accepted', 'The tuition session has been accepted and scheduled.', 'success');
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
+      }
+    },
+
+    rejectSession: async (id) => {
+      try {
+        await updateDoc(doc(db, 'sessions', id), { status: 'rejected' });
+        const s = get().sessions.find(x => x.id === id);
+        if (s) {
+          await get().sendNotification(s.studentId, 'Tuition Proposal Declined', 'The tuition session was declined.', 'error');
+          await get().sendNotification(s.tutorId, 'Tuition Proposal Declined', 'The tuition session was declined.', 'error');
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
       }
     },
 

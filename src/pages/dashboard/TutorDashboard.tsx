@@ -41,6 +41,11 @@ import {
   Laptop,
   Compass,
   Atom,
+  X,
+  MessageSquare,
+  Award,
+  Shield,
+  ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -55,6 +60,7 @@ import {
 const MapTracker = lazy(() => import("../../components/MapTracker"));
 const ImageUpload = lazy(() => import("../../components/ImageUpload"));
 const FileUpload = lazy(() => import("../../components/FileUpload"));
+import DemandHeatmap from "../../components/DemandHeatmap";
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -155,6 +161,8 @@ export default function TutorDashboard() {
   const [proposalNotes, setProposalNotes] = useState("");
   const [isSendingProposal, setIsSendingProposal] = useState(false);
   const [proposalSuccess, setProposalSuccess] = useState(false);
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
+  const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
 
   // Helper mapping keywords to elegant visual icons representing academic areas
   const getSubjectIcon = (subName: string) => {
@@ -697,13 +705,91 @@ export default function TutorDashboard() {
                   </motion.div>
                 )}
 
+                {/* Tuition Pipeline Tracker */}
+                {activeSessions.some(s => s.status === 'requested_by_student' || s.status === 'proposed_by_tutor') && (
+                  <div id="tutor-tuition-pipeline" className="bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden space-y-6">
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full -mr-40 -mt-40 blur-3xl" />
+                    
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#0D5BFF] animate-ping" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Tuition Pipeline</span>
+                        </div>
+                        <h3 className="text-xl font-black uppercase italic">Pending Offers & Requests</h3>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-3 py-1.5 rounded-xl border border-white/5">
+                        {activeSessions.filter(s => s.status === 'requested_by_student' || s.status === 'proposed_by_tutor').length} Pending
+                      </span>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {activeSessions.filter(s => s.status === 'requested_by_student' || s.status === 'proposed_by_tutor').map(sess => {
+                        const isProposal = sess.status === 'proposed_by_tutor';
+                        const student = users.find(u => u.id === sess.studentId);
+                        
+                        return (
+                          <div 
+                            key={sess.id} 
+                            className="bg-white/5 rounded-2xl p-6 border border-white/10 flex flex-col justify-between hover:bg-white/10 transition-colors"
+                          >
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
+                                  !isProposal ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-300'
+                                }`}>
+                                  {!isProposal ? 'Incoming Request' : 'Proposal Sent'}
+                                </span>
+                                <span className="text-[9px] font-black text-slate-400">
+                                  {new Date(sess.scheduledTime).toLocaleDateString()}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center font-black italic text-lg text-indigo-300">
+                                  {student?.name?.charAt(0) || 'S'}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="text-sm font-black italic uppercase text-white truncate">{student?.name || 'Academic Student'}</h4>
+                                  <p className="text-[10px] text-slate-400 truncate">{student?.university || student?.studentClass ? `Class ${student.studentClass}` : 'Verified Student'}</p>
+                                </div>
+                              </div>
+
+                              <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject / Focus</div>
+                                <div className="text-xs font-black italic text-[#0D5BFF]">{sess.subject}</div>
+                                <div className="text-[10px] text-slate-350 font-medium mt-1.5 leading-relaxed">
+                                  Time Slot: <span className="font-extrabold text-white">{new Date(sess.scheduledTime).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-5">
+                              <button
+                                id={`view-student-pro-btn-${sess.id}`}
+                                onClick={() => {
+                                  setViewingProfileUser(student || null);
+                                  setViewingProfileSession(sess);
+                                }}
+                                className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[9px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                              >
+                                View Profile & Credentials
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
                       Live Schedule
                     </h3>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      {activeSessions.length} Pending Actions
+                      {activeSessions.filter(sess => sess.status === "scheduled" || sess.status === "active").length} Confirmed Action{activeSessions.filter(sess => sess.status === "scheduled" || sess.status === "active").length !== 1 ? 's' : ''}
                     </span>
                   </div>
 
@@ -1351,14 +1437,21 @@ export default function TutorDashboard() {
                               : "bg-white border-slate-100 text-[#0B132B] hover:border-slate-200"
                           }`}
                         >
-                          <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
-                              selectedRecipientId === contact.id
-                                ? "bg-white/20 border-white/10"
-                                : "bg-slate-50 border-slate-100"
-                            }`}
-                          >
-                            {contact.name.charAt(0)}
+                          <div className="relative shrink-0">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic border ${
+                                selectedRecipientId === contact.id
+                                  ? "bg-white/20 border-white/10"
+                                  : "bg-slate-50 border-slate-100"
+                              }`}
+                            >
+                              {contact.name.charAt(0)}
+                            </div>
+                            {unreadCount > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                                {unreadCount}
+                              </span>
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-black italic truncate">
@@ -1374,12 +1467,6 @@ export default function TutorDashboard() {
                               {contact.university || contact.email}
                             </p>
                           </div>
-                          {unreadCount > 0 &&
-                            selectedRecipientId !== contact.id && (
-                              <div className="bg-[#E51275] text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg shadow-rose-100 animate-bounce">
-                                {unreadCount}
-                              </div>
-                            )}
                         </button>
                       );
                     });
@@ -2204,10 +2291,15 @@ export default function TutorDashboard() {
               </div>
 
               <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 space-y-8">
                   <AvailabilityCalendar
                     slots={currentUser.availabilitySlots || {}}
                     onChange={(slots) => updateAvailabilitySlots(slots)}
+                  />
+                  <DemandHeatmap
+                    slots={currentUser.availabilitySlots || {}}
+                    onChange={(slots) => updateAvailabilitySlots(slots)}
+                    sessions={sessions}
                   />
                 </div>
                 <div className="space-y-8">
@@ -2580,7 +2672,7 @@ export default function TutorDashboard() {
                             await useAppStore.getState().bookSession({
                               studentId: selectedStudentForProposal.id,
                               tutorId: currentUser.id,
-                              subject: proposalSubject,
+                              subject: proposalSubject, status: "proposed_by_tutor",
                               scheduledTime
                             });
 
@@ -2741,6 +2833,141 @@ export default function TutorDashboard() {
             </motion.div>
           )}
         </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {viewingProfileUser && viewingProfileSession && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+            >
+              <div className="bg-gradient-to-r from-[#0C1B33] to-[#0B132B] p-8 sm:p-10 text-white relative">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <button
+                  onClick={() => {
+                    setViewingProfileUser(null);
+                    setViewingProfileSession(null);
+                  }}
+                  className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20 font-sans font-sans">
+                  Student Profile & Academic details
+                </span>
+                <div className="mt-6 flex items-center gap-6">
+                  <div className="w-20 h-20 bg-white/10 rounded-[1.5rem] border border-white/10 flex items-center justify-center text-3xl font-black italic text-sky-200">
+                    {viewingProfileUser.name?.charAt(0) || 'S'}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-black uppercase italic leading-none">{viewingProfileUser.name}</h3>
+                    <p className="text-xs text-slate-300 font-medium mt-2">
+                      {viewingProfileUser.university || viewingProfileUser.studentClass ? `Class ${viewingProfileUser.studentClass} • ${viewingProfileUser.university || 'Verified School'}` : 'Academic Student'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Academic Level</span>
+                    <p className="text-xs font-bold text-[#0B132B] dark:text-white">Class {viewingProfileUser.studentClass || 'Not Specified'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Contact Information</span>
+                    <p className="text-xs font-black text-[#0D5BFF]">{viewingProfileUser.phone || 'Email Primary'}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student Address / Area</span>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-medium font-sans">
+                    {viewingProfileUser.address || "Area location not provided. Direct coordinates synced on scheduled engagement starts."}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Enrolled / Desired Subjects</span>
+                  <div className="flex flex-wrap gap-2">
+                    {(viewingProfileUser.subjects || ['General Academic Science']).map((sub, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-lg text-[10px] font-extrabold uppercase text-[#0B132B] dark:text-white">
+                        {sub}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
+                  <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Requested Tuition Session</span>
+                  <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
+                    <div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans mr-2">Topic / Subject</span>
+                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Requested Schedule Slot</span>
+                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 sm:p-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950">
+                {viewingProfileSession.status === 'requested_by_student' ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                        setViewingProfileUser(null);
+                        setViewingProfileSession(null);
+                      }}
+                      className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
+                    >
+                      Accept Tuition Request
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                        setViewingProfileUser(null);
+                        setViewingProfileSession(null);
+                      }}
+                      className="w-full sm:w-auto px-6 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                    >
+                      Reject Request
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    Awaiting response from {viewingProfileUser.name}
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setSelectedRecipientId(viewingProfileUser.id);
+                    setActiveTab("messages");
+                    setViewingProfileUser(null);
+                    setViewingProfileSession(null);
+                  }}
+                  className="w-full sm:w-auto px-6 py-4 bg-slate-200 hover:bg-slate-350 text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer font-sans"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Message
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
