@@ -1121,6 +1121,18 @@ export default function TutorDashboard() {
                     </button>
                   </div>
 
+                  <div className="flex items-start gap-4 p-5 bg-blue-50/45 dark:bg-blue-950/10 rounded-3xl border border-blue-100/40 dark:border-blue-900/10 transition-all mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center shrink-0">
+                      <Compass className="w-4 h-4 text-[#0D5BFF]" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Navigation Hint</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-normal">
+                        By clicking must-see marker icons of tutors or students, you can view them on Google Maps via their popups.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
                     {currentUser.isTrackingOn ? (
                       <Suspense fallback={<MapLoading />}>

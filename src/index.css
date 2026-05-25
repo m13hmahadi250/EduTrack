@@ -68,6 +68,21 @@
   @apply !bg-white;
 }
 
+/* Custom Animated Polyline Flow */
+@keyframes leafletPolylineFlow {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animated-polyline {
+  stroke-dasharray: 8, 12;
+  animation: leafletPolylineFlow 1.2s linear infinite !important;
+}
+
 /* -------------------------------------------------------------
  * EduTrack Dark Mode Variables & Class Overrides (Tailwind v4)
  * ------------------------------------------------------------- */

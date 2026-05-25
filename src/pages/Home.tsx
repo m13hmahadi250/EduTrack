@@ -542,7 +542,7 @@ const TutorPreviewCard = React.memo(({ name, uni, subj, rating, img }: { name: s
         )}
         <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-          <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{rating}</span>
+          <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{Number(rating || 0).toFixed(1)}</span>
         </div>
       </div>
       <div className="px-2 pb-4">

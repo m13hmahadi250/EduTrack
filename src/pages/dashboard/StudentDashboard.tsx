@@ -29,7 +29,10 @@ import {
   Laptop,
   Compass,
   Atom,
-  GraduationCap
+  GraduationCap,
+  Download,
+  MapPinOff,
+  AlertCircle
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -42,6 +45,7 @@ import { MetricCard, FilterGroup, DashboardInput } from '../../components/Dashbo
 import { Skeleton } from '../../components/Skeleton';
 import { PaymentService, PaymentProvider } from '../../services/paymentService';
 import BKashGatewaySim from '../../components/BKashGatewaySim';
+import { jsPDF } from 'jspdf';
 
 const MapLoading = () => (
    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
@@ -84,11 +88,191 @@ export default function StudentDashboard() {
   const [filterRating, setFilterRating] = useState(0);
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
+  const [showLocationDeniedModal, setShowLocationDeniedModal] = useState(false);
+  const [locationErrorMessage, setLocationErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages'>('overview');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
+
+  const handleDownloadPDF = () => {
+    if (!currentUser || myPayments.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Header Colors
+    const primaryColor = [11, 19, 43]; // #0B132B
+    const accentColor = [13, 91, 255]; // #0D5BFF
+    const darkGray = [55, 65, 81]; // #374151
+    const lightGray = [156, 163, 175]; // #9CA3AF
+    
+    // Draw Top Accent Ribbon
+    doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.rect(0, 0, 210, 6, 'F');
+
+    // Title / Brand
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('EduTrack Bangladesh', 14, 22);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+    doc.text('The Secure Home Tutoring & Financial Tracking Platform', 14, 27);
+
+    // Invoice/Report Title (Right aligned)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.text('PAYMENT STATEMENT REPORT', 196, 22, { align: 'right' });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 196, 27, { align: 'right' });
+
+    // Divider Line
+    doc.setDrawColor(229, 231, 235);
+    doc.line(14, 34, 196, 34);
+
+    // Student & Summary Info Blocks
+    // Student Box (left)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('STUDENT INFORMATION', 14, 43);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text(`Name: ${currentUser.name}`, 14, 49);
+    doc.text(`Email: ${currentUser.email}`, 14, 54);
+    doc.text(`Status: Verified Account`, 14, 59);
+
+    // Summary Box (right)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('ACCOUNT TRANSACTION SUMMARY', 115, 43);
+
+    const approvedPayments = myPayments.filter(p => p.status === 'approved');
+    const pendingPayments = myPayments.filter(p => p.status === 'pending');
+    const totalSpent = approvedPayments.reduce((acc, curr) => acc + curr.amount, 0);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text(`Total Approved Spend: BDT ${totalSpent} ৳`, 115, 49);
+    doc.text(`Pending Transactions: ${pendingPayments.length}`, 115, 54);
+    doc.text(`Total Transaction Records: ${myPayments.length}`, 115, 59);
+
+    // Decorative line under info
+    doc.setDrawColor(229, 231, 235);
+    doc.line(14, 66, 196, 66);
+
+    // Table Headers
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(14, 72, 182, 8, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SL', 18, 77.5);
+    doc.text('Date / Time', 28, 77.5);
+    doc.text('Transaction ID', 58, 77.5);
+    doc.text('Tutor Specialist', 98, 77.5);
+    doc.text('Channel Num / Method', 133, 77.5);
+    doc.text('Amount', 178, 77.5, { align: 'right' });
+    doc.text('Status', 194, 77.5, { align: 'right' });
+
+    let y = 80;
+    
+    myPayments.forEach((p, index) => {
+      // Manage overflow
+      if (y > 270) {
+        doc.addPage();
+        // Top Ribbon
+        doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.rect(0, 0, 210, 6, 'F');
+        
+        // Re-header for page
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('EduTrack Bangladesh - Continuation Report', 14, 15);
+        doc.setDrawColor(229, 231, 235);
+        doc.line(14, 18, 196, 18);
+        y = 25;
+      }
+
+      const tutorName = users.find(u => u.id === p.tutorId)?.name || 'EduTrack Tutor';
+      const orderDate = p.date ? new Date(p.date).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+      // Background row striping
+      if (index % 2 === 1) {
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.rect(14, y, 182, 8, 'F');
+      }
+      
+      // Bottom border line for each row
+      doc.setDrawColor(241, 245, 249); // slate-100
+      doc.line(14, y + 8, 196, y + 8);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      
+      doc.text(String(index + 1), 18, y + 5);
+      doc.text(orderDate, 28, y + 5);
+      doc.text(p.transactionId, 58, y + 5);
+      
+      // Handle potential long tutor name truncation
+      const truncatedTutorName = tutorName.length > 20 ? tutorName.substring(0, 18) + '..' : tutorName;
+      doc.text(truncatedTutorName, 98, y + 5);
+      
+      doc.text(p.bKashNumber || 'Bkash Gateway', 133, y + 5);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${p.amount} BDT`, 178, y + 5, { align: 'right' });
+
+      // Status text style
+      if (p.status === 'approved') {
+        doc.setTextColor(16, 185, 129); // emerald-500
+      } else if (p.status === 'pending') {
+        doc.setTextColor(245, 158, 11); // amber-500
+      } else {
+        doc.setTextColor(239, 68, 68); // red-500
+      }
+      doc.text(p.status.toUpperCase(), 194, y + 5, { align: 'right' });
+
+      y += 8;
+    });
+
+    // Check bottom space for signature footer
+    if (y > 250) {
+      doc.addPage();
+      y = 30;
+    }
+
+    // Official Stamp / Signature Space
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+    doc.text('This document is electronically generated from EduTrack Bangladesh.', 14, y + 15);
+    doc.text('All transaction values are verified against bkash / nagad gateway integrations securely.', 14, y + 19);
+
+    // Right-side Authorized Signature placeholder
+    doc.setDrawColor(148, 163, 184); // slate-400
+    doc.line(145, y + 25, 195, y + 25);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('System Verified Audit Office', 170, y + 30, { align: 'center' });
+
+    doc.save(`EduTrack_Payment_Report_${currentUser.name.replace(/\\s+/g, '_')}.pdf`);
+  };
 
   const isProfileIncomplete = (!currentUser?.address || !currentUser?.school || !currentUser?.studentClass) && !currentUser?.hasDismissedProfileNotice;
 
@@ -122,21 +306,60 @@ export default function StudentDashboard() {
     }
   }, [sessions, currentUser?.id]);
 
-  const refreshLocationManual = () => {
-    if ('geolocation' in navigator) {
-      setIsRefreshingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
-          setIsRefreshingLocation(false);
-        },
-        (err) => {
-          console.error(err);
-          setIsRefreshingLocation(false);
-        },
-        { enableHighAccuracy: true }
-      );
+  const refreshLocationManual = async () => {
+    if (!('geolocation' in navigator)) {
+      setLocationErrorMessage("Geolocation services are not supported by this browser. Please use a modern browser like Chrome, Edge, or Firefox to track your transit.");
+      setShowLocationDeniedModal(true);
+      return;
     }
+
+    // Try to check user permission state beforehand to provide immediate descriptive state
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (permissionStatus.state === 'denied') {
+          setLocationErrorMessage("Browser geolocation permission has been blocked or denied. To enable real-time transit tracking, please open your browser's site settings (click the lock icon in the address bar next to the URL) and allow location permissions for this application.");
+          setShowLocationDeniedModal(true);
+          return;
+        }
+      } catch (e) {
+        console.warn("Permissions query lookup bypassed:", e);
+      }
+    }
+
+    setIsRefreshingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
+        setIsRefreshingLocation(false);
+        useAppStore.getState().sendNotification(
+          currentUser!.id,
+          "Location Synchronized",
+          "Your current transit position has been successfully synchronized on the tracking radar.",
+          "success"
+        );
+      },
+      (err) => {
+        console.error("Geolocation tracking error:", err);
+        setIsRefreshingLocation(false);
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            setLocationErrorMessage("Browser geolocation permission has been denied. To enable real-time tracking, please click the lock/settings icon in the browser address bar and switch the 'Location' permission to 'Allow'.");
+            break;
+          case err.POSITION_UNAVAILABLE:
+            setLocationErrorMessage("Your device was unable to retrieve a pinpointed physical location coordinate. Please verify that your cellular network, WiFi, or device GPS services are enabled.");
+            break;
+          case err.TIMEOUT:
+            setLocationErrorMessage("The request to retrieve device geolocation timed out. Please try sending the synchronization signal again.");
+            break;
+          default:
+            setLocationErrorMessage(err.message || "An unexpected error occurred during physical geolocation retrieval.");
+            break;
+        }
+        setShowLocationDeniedModal(true);
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
   };
 
   useEffect(() => {
@@ -1792,7 +2015,19 @@ export default function StudentDashboard() {
                 </section>
 
                 <section className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm h-fit">
-                   <h4 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Financial Stream</h4>
+                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                       <h4 className="text-xl font-black text-[#0B132B] uppercase italic">Financial Stream</h4>
+                       {myPayments.length > 0 && (
+                         <button
+                           onClick={handleDownloadPDF}
+                           className="inline-flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#0D5BFF] hover:text-white bg-blue-50 hover:bg-[#0D5BFF] dark:bg-blue-950/20 dark:hover:bg-[#0D5BFF] border border-blue-100 dark:border-blue-900/50 rounded-2xl transition-all shadow-sm active:scale-95 cursor-pointer leading-tight h-10 shrink-0"
+                           title="Export Transaction Records as PDF Report"
+                         >
+                           <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                           Download PDF
+                         </button>
+                       )}
+                    </div>
                    <div className="space-y-4">
                       {myPayments.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100">
@@ -1835,14 +2070,26 @@ export default function StudentDashboard() {
                    <button 
                      onClick={refreshLocationManual}
                      disabled={isRefreshingLocation}
-                     className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-[#0D5BFF] transition-all disabled:opacity-50"
-                     title="Refresh My Location"
+                     className="inline-flex items-center gap-2 px-5 py-3.5 bg-[#0D5BFF] hover:bg-blue-600 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 leading-none shrink-0"
+                     title="Request browser permission and refresh real-time coordinates"
                    >
-                      <Zap className={`w-4 h-4 ${isRefreshingLocation ? 'animate-spin' : ''}`} />
+                      <MapPin className={`w-3.5 h-3.5 ${isRefreshingLocation ? 'animate-bounce' : ''}`} />
+                       Get Real-time Location
                    </button>
                 </div>
 
                 <div className="space-y-8 flex-1">
+                   <div className="flex items-start gap-4 p-5 bg-blue-50/45 dark:bg-blue-950/10 rounded-3xl border border-blue-100/40 dark:border-blue-900/10 transition-all">
+                     <div className="w-8 h-8 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center shrink-0">
+                       <Compass className="w-4 h-4 text-[#0D5BFF]" />
+                     </div>
+                     <div className="space-y-1">
+                       <p className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Navigation Hint</p>
+                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-normal">
+                         By clicking must-see marker icons of tutors or students, you can view them on Google Maps via their popups.
+                       </p>
+                     </div>
+                   </div>
                    <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative">
                       <Suspense fallback={<MapLoading />}>
                         <MapTracker 
@@ -2247,6 +2494,67 @@ export default function StudentDashboard() {
             tutorName={selectedTutor?.name || 'Expert Tutor'}
             onPaymentSuccess={handleBKashSuccess}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLocationDeniedModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-md w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-rose-500/10 to-transparent rounded-full -mr-16 -mt-16 pointer-events-none" />
+              
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/30 text-rose-500">
+                  <MapPinOff className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic animate-bounce">Location Sync Warning</h4>
+                  <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1">Permission required for transit</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold leading-relaxed uppercase tracking-wide">
+                  {locationErrorMessage}
+                </p>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-950/30 rounded-2xl border border-slate-100 dark:border-slate-900/50 flex gap-3 text-slate-500">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-[#0D5BFF]" />
+                  <p className="text-[9px] font-black uppercase tracking-widest leading-loose">
+                     EduTrack transit tracking requires occasional physical location updates to calculate precise tutor routes for safety.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={() => setShowLocationDeniedModal(false)}
+                    className="flex-1 py-4 bg-[#0B132B] hover:bg-slate-800 text-white dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer"
+                  >
+                    Understood
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowLocationDeniedModal(false);
+                      refreshLocationManual();
+                    }}
+                    className="py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer italic"
+                  >
+                    Retry Connection
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
