@@ -62,6 +62,31 @@ const MapLoading = () => (
    </div>
 );
 
+const getTutorLocation = (tutorId: string, tutorLocation?: { lat: number; lng: number }, studentLoc?: [number, number]): [number, number] | null => {
+  if (tutorLocation?.lat && tutorLocation?.lng) {
+    return [tutorLocation.lat, tutorLocation.lng];
+  }
+  if (studentLoc) {
+    const charSum = tutorId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const latOffset = ((charSum % 70) - 35) / 1000;
+    const lngOffset = (((charSum * 13) % 70) - 35) / 1000;
+    return [studentLoc[0] + latOffset, studentLoc[1] + lngOffset];
+  }
+  return null;
+};
+
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 export default function StudentDashboard() {
   const { 
     currentUser, 
@@ -105,6 +130,10 @@ export default function StudentDashboard() {
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+  const [nearbyRadius, setNearbyRadius] = useState<number>(5); // Default 5 km
+  const [transitMode, setTransitMode] = useState<'tracking' | 'radar'>('radar'); // Default to radar so they see nearby instantly!
+  const [mapSubjectQuery, setMapSubjectQuery] = useState('');
+  const [mapMinRating, setMapMinRating] = useState<number>(0);
 
   const handleDownloadPDF = () => {
     if (!currentUser || myPayments.length === 0) return;
@@ -1117,14 +1146,13 @@ export default function StudentDashboard() {
                     );
                   })}
                 </div>
-              </div>
-              <div className="space-y-6">
+                           <div className="space-y-6">
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Expert Radius</h3>
                  <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
-                    {mySessions.some(s => (s.status === 'active' || s.status === 'scheduled') && users.find(u => u.id === s.tutorId)?.location) ? (
+                    {currentUser?.location ? (
                       <Suspense fallback={<MapLoading />}>
                         <MapTracker 
-                          studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                          studentLocation={[currentUser.location.lat, currentUser.location.lng]}
                           studentName="Me"
                           tutors={(() => {
                             const uniqueTutors = new Map();
@@ -1132,10 +1160,27 @@ export default function StudentDashboard() {
                               .filter(s => s.status === 'active' || s.status === 'scheduled')
                               .forEach(s => {
                                 const tutor = users.find(u => u.id === s.tutorId);
-                                if (tutor?.location && !uniqueTutors.has(tutor.id)) {
+                                if (tutor) {
+                                  const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                  if (coords && !uniqueTutors.has(tutor.id)) {
+                                    uniqueTutors.set(tutor.id, {
+                                      id: tutor.id,
+                                      location: coords,
+                                      name: tutor.name,
+                                      image: tutor.profileImage,
+                                      isOnline: tutor.isTrackingOn
+                                    });
+                                  }
+                                }
+                              });
+                            users
+                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .forEach(tutor => {
+                                const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
                                   uniqueTutors.set(tutor.id, {
                                     id: tutor.id,
-                                    location: [tutor.location.lat, tutor.location.lng] as [number, number],
+                                    location: coords,
                                     name: tutor.name,
                                     image: tutor.profileImage,
                                     isOnline: tutor.isTrackingOn
@@ -1148,13 +1193,23 @@ export default function StudentDashboard() {
                         />
                       </Suspense>
                     ) : (
-                     <div className="w-full h-full flex flex-col items-start md:items-center justify-center text-left md:text-center opacity-30 p-8">
-                       <MapPin className="w-10 h-10 mb-4 ml-0 mr-auto md:mx-auto" />
-                       <p className="text-[8px] font-black uppercase tracking-widest leading-loose">No active transmission signals detected in your sector.</p>
+                     <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
+                       <MapPin className="w-8 h-8 mb-3 text-[#0D5BFF] animate-pulse" />
+                       <h4 className="text-xs font-black uppercase tracking-widest leading-none">Active Radar Offline</h4>
+                       <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 px-4 leading-normal">
+                         Activate physical coordinates to map verified mentors in your viewport.
+                       </p>
+                       <button 
+                         onClick={refreshLocationManual}
+                         disabled={isRefreshingLocation}
+                         className="mt-4 px-4 py-2.5 bg-[#0D5BFF] hover:bg-blue-600 disabled:opacity-50 text-white rounded-xl text-[8px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 leading-none shrink-0"
+                       >
+                         {isRefreshingLocation ? 'Scanning Sector...' : 'Enable Real-time Radar'}
+                       </button>
                      </div>
-                   )}
+                    )}
                 </div>
-              </div>
+              </div>  </div>
             </div>
           </motion.div>
         )}
@@ -2185,34 +2240,209 @@ export default function StudentDashboard() {
                        </p>
                      </div>
                    </div>
-                   <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative">
-                      <Suspense fallback={<MapLoading />}>
-                        <MapTracker 
-                          studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
-                          studentName="Me (Guardian)"
-                          studentImage={currentUser.profileImage}
-                          tutors={(() => {
-                            const uniqueTutors = new Map();
-                            mySessions
-                              .filter(s => s.status === 'active' || s.status === 'scheduled')
-                              .forEach(s => {
-                                const tutor = users.find(u => u.id === s.tutorId);
-                                if (tutor?.location && !uniqueTutors.has(tutor.id)) {
-                                  uniqueTutors.set(tutor.id, {
-                                    id: tutor.id,
-                                    location: [tutor.location.lat, tutor.location.lng] as [number, number],
-                                    name: tutor.name,
-                                    image: tutor.profileImage,
-                                    isOnline: tutor.isTrackingOn
-                                  });
+                    {currentUser?.location && (
+                      <div className="space-y-3 p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all animate-fade-in mb-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-1.5">
+                            <span className="animate-pulse">🛰️</span> Active Map Query filters
+                          </span>
+                          {(() => {
+                            let totalDetected = 0;
+                            users
+                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .forEach(t => {
+                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                if (coords) {
+                                  const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
+                                  if (dist <= nearbyRadius) {
+                                    totalDetected++;
+                                  }
                                 }
                               });
-                            return Array.from(uniqueTutors.values());
+
+                            const totalMatched = users
+                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .filter(u => {
+                                if (mapSubjectQuery) {
+                                  const uSub = u.subjects || [];
+                                  if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                    return false;
+                                  }
+                                }
+                                if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map(t => {
+                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                if (!coords) return null;
+                                const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
+                                if (dist > nearbyRadius) return null;
+                                return t;
+                              })
+                              .filter(t => t !== null).length;
+
+                            return (
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                Matching: <span className="text-[#0D5BFF] italic font-bold">{totalMatched}</span> / {totalDetected} Sector Tutors
+                              </span>
+                            );
                           })()}
-                          eta={eta}
-                        />
-                      </Suspense>
-                   </div>
+                        </div>
+
+                        <div className="grid sm:grid-cols-12 gap-3">
+                          <div className="sm:col-span-7 relative">
+                            <Compass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input 
+                              type="text"
+                              placeholder="Search subjects (e.g. Physics, Chemistry, Math)..."
+                              value={mapSubjectQuery}
+                              onChange={(e) => setMapSubjectQuery(e.target.value)}
+                              className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-850 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-5 flex gap-2">
+                            <select
+                              value={mapMinRating || ''}
+                              onChange={(e) => setMapMinRating(Number(e.target.value) || 0)}
+                              className="flex-1 px-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-850 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] cursor-pointer"
+                            >
+                              <option value={0}>All Ratings</option>
+                              <option value={4.0}>⭐ 4.0+ Stars</option>
+                              <option value={4.5}>⭐ 4.5+ Stars</option>
+                              <option value={4.8}>⭐ 4.8+ Stars</option>
+                              <option value={5.0}>⭐ 5.0 Stars</option>
+                            </select>
+
+                            {(mapSubjectQuery || mapMinRating > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMapSubjectQuery('');
+                                  setMapMinRating(0);
+                                }}
+                                className="px-3.5 py-2.5 text-[9px] bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 leading-none shrink-0"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!currentUser?.location ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
+                        <MapPin className="w-12 h-12 mb-4 text-[#0D5BFF] animate-bounce" />
+                        <h4 className="text-lg font-black uppercase tracking-widest">Active Radar Offline</h4>
+                        <p className="text-xs text-slate-300 uppercase tracking-wider mt-2 px-6 leading-relaxed bg-white/5 py-3 rounded-2xl border border-white/5">
+                          EduTrack requires your coordinates to scan your sector for nearby academic mentors.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 mt-6 w-full max-w-xs justify-center mx-auto">
+                          <button 
+                            onClick={refreshLocationManual}
+                            disabled={isRefreshingLocation}
+                            className="w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
+                          >
+                            <Compass className={`w-4 h-4 ${isRefreshingLocation ? 'animate-spin' : ''}`} />
+                            GPS Scan
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              await updateLocation(currentUser!.id, 23.7508, 90.3935);
+                              useAppStore.getState().sendNotification(
+                                currentUser!.id,
+                                "Dhaka Center Simulated",
+                                "Simulated location near student's Dhaka portal.",
+                                "success"
+                              );
+                            }}
+                            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 text-center"
+                          >
+                            Demo Sandbox Scan
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative animate-fade-in">
+                        <Suspense fallback={<MapLoading />}>
+                          <MapTracker 
+                            studentLocation={[currentUser.location.lat, currentUser.location.lng]}
+                            studentName="Me"
+                            studentImage={currentUser.profileImage}
+                            tutors={(() => {
+                              if (transitMode === 'tracking') {
+                                const uniqueTutors = new Map();
+                                mySessions
+                                  .filter(s => s.status === 'active' || s.status === 'scheduled')
+                                  .forEach(s => {
+                                    const tutor = users.find(u => u.id === s.tutorId);
+                                    if (tutor) {
+                                      // Apply search filters
+                                      if (mapSubjectQuery) {
+                                        const tSub = tutor.subjects || [];
+                                        if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                          return;
+                                        }
+                                      }
+                                      if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
+                                        return;
+                                      }
+
+                                      const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                      if (coords && !uniqueTutors.has(tutor.id)) {
+                                        uniqueTutors.set(tutor.id, {
+                                          id: tutor.id,
+                                          location: coords,
+                                          name: tutor.name,
+                                          image: tutor.profileImage,
+                                          isOnline: tutor.isTrackingOn,
+                                          subjects: tutor.subjects,
+                                          rating: tutor.rating
+                                        });
+                                      }
+                                    }
+                                  });
+                                return Array.from(uniqueTutors.values());
+                              } else {
+                                return users
+                                  .filter(u => u.role === 'tutor' && u.isVerified)
+                                  .filter(u => {
+                                    if (mapSubjectQuery) {
+                                      const uSub = u.subjects || [];
+                                      if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                        return false;
+                                      }
+                                    }
+                                    if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
+                                      return false;
+                                    }
+                                    return true;
+                                  })
+                                  .map(t => {
+                                    const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                    if (!coords) return null;
+                                    const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
+                                    if (dist > nearbyRadius) return null;
+                                    return {
+                                      id: t.id,
+                                      location: coords,
+                                      name: t.name,
+                                      image: t.profileImage,
+                                      isOnline: t.isTrackingOn,
+                                      subjects: t.subjects,
+                                      rating: t.rating
+                                    };
+                                  })
+                                  .filter((t): t is NonNullable<typeof t> => t !== null);
+                              }
+                            })()}
+                            eta={transitMode === 'tracking' ? eta : undefined}
+                          />
+                        </Suspense>
+                      </div>
+                    )}
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
@@ -2237,13 +2467,13 @@ export default function StudentDashboard() {
              </div>
 
              <div className="flex flex-col gap-12">
-                <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
+                <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-12 border border-slate-100 shadow-sm">
                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Active Session Feed</h3>
                    <div className="space-y-6">
                       {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(sess => {
                         const tutor = users.find(u => u.id === sess.tutorId);
                         return (
-                          <div key={sess.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                          <div key={sess.id} className="p-4 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100">
                              <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-4">
                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-lg font-black italic text-[#0D5BFF]">
@@ -2298,9 +2528,9 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="grid lg:grid-cols-3 gap-8 h-[700px]"
+            className="grid lg:grid-cols-3 gap-8 h-auto lg:h-[700px]"
           >
-            <div className="lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+            <div className={`lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col ${selectedRecipientId ? 'hidden lg:flex' : 'flex'}`}>
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Contacts</h3>
                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
@@ -2358,10 +2588,10 @@ export default function StudentDashboard() {
                   })()}
                </div>
             </div>
-            <div className="lg:col-span-2">
+            <div className={`lg:col-span-2 ${selectedRecipientId ? 'block' : 'hidden lg:block'}`}>
                {selectedRecipientId ? (
                  <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
-                   <ChatWindow recipientId={selectedRecipientId} />
+                   <ChatWindow recipientId={selectedRecipientId} onBack={() => setSelectedRecipientId(null)} />
                  </Suspense>
                ) : (
                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12 opacity-30">
@@ -2380,10 +2610,10 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm max-w-4xl"
+            className="bg-white rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-10 md:p-16 border border-slate-100 shadow-sm max-w-4xl"
           >
-             <div className="flex items-center justify-between mb-16">
-                <div className="flex items-center gap-8">
+             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">
+                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
                    <ImageUpload 
                      currentImageUrl={currentUser.profileImage} 
                      onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
@@ -2632,21 +2862,36 @@ export default function StudentDashboard() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
                     onClick={() => setShowLocationDeniedModal(false)}
-                    className="flex-1 py-4 bg-[#0B132B] hover:bg-slate-800 text-white dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer"
+                    className="w-full sm:flex-1 py-4 bg-[#0B132B] hover:bg-slate-800 text-white dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
                   >
-                    Understood
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowLocationDeniedModal(false);
+                      await updateLocation(currentUser!.id, 23.7508, 90.3935);
+                      useAppStore.getState().sendNotification(
+                        currentUser!.id,
+                        "Dhaka Center Simulated",
+                        "Location simulated successfully inside the sandbox environment.",
+                        "success"
+                      );
+                    }}
+                    className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
+                  >
+                    Simulate Demo Loc
                   </button>
                   <button
                     onClick={() => {
                       setShowLocationDeniedModal(false);
                       refreshLocationManual();
                     }}
-                    className="py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer italic"
+                    className="w-full sm:w-auto py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer italic text-center"
                   >
-                    Retry Connection
+                    Retry GPS
                   </button>
                 </div>
               </div>

@@ -104,7 +104,7 @@ export default function BKashGatewaySim({
           type: 'info',
           method: 'SYSTEM',
           url: 'bKash Gateway Intializing...',
-          payload: 'TutorLink bKash Sandbox integration environment online.'
+          payload: 'EduTrack bKash Sandbox integration environment online.'
         }
       ]);
 
@@ -112,7 +112,7 @@ export default function BKashGatewaySim({
         addLog('outgoing', 'POST', 'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/token/grant', {
           app_key: 'sandbox_u_87fksdf89y213',
           app_secret: 'sandbox_s_902hjashda89hf912hnasq',
-          username: 'TutorLink_Sandbox_Merchant',
+          username: 'EduTrack_Sandbox_Merchant',
           password: '••••••••••••••••'
         });
 
@@ -127,7 +127,7 @@ export default function BKashGatewaySim({
           
           addLog('outgoing', 'POST', 'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/create', {
             mode: '0011',
-            payerReference: 'TutorLink_Student',
+            payerReference: 'EduTrack_Student',
             callbackURL: window.location.origin,
             amount: amount,
             currency: 'BDT',
@@ -138,8 +138,8 @@ export default function BKashGatewaySim({
           addLog('incoming', 'SYSTEM', 'PAYMENT_CREATED_200_OK', {
             paymentID: `BK${Math.floor(1000000 + Math.random() * 9000000)}`,
             createTime: new Date().toISOString(),
-            orgLogo: 'https://cdn.sandbox.bka.sh/logos/tutorlink.png',
-            orgName: 'TutorLink Merchant Sandbox',
+            orgLogo: 'https://cdn.sandbox.bka.sh/logos/edutrack.png',
+            orgName: 'EduTrack Merchant Sandbox',
             transactionStatus: 'Initiated',
             amount: amount.toString(),
             currency: 'BDT',
@@ -177,7 +177,7 @@ export default function BKashGatewaySim({
       addLog('incoming', 'SYSTEM', 'OTP_SENT_VIA_SMS_GATEWAY_SIMULATOR', {
         status: 'Success',
         sid: `sms_sid_${Math.random().toString(36).substring(7).toUpperCase()}`,
-        simulatedSMS: `Your TutorLink payment verification code is ${mockOtp}. Do not share this OTP with anyone.`,
+        simulatedSMS: `Your EduTrack payment verification code is ${mockOtp}. Do not share this OTP with anyone.`,
         note: 'This is the Sandbox Simulation SMS portal. See field simulatedSMS for testing.'
       });
 
@@ -243,7 +243,7 @@ export default function BKashGatewaySim({
       });
 
       addLog('success', 'SYSTEM', 'PERSISTENCE_COMPLETE', {
-        action: 'Write checkout data to TutorLink backend database',
+        action: 'Write checkout data to EduTrack backend database',
         status: 'Ok',
         trxId: simulatedTrx,
         sender: walletNumber
@@ -300,7 +300,7 @@ export default function BKashGatewaySim({
             <div className="mt-4 flex flex-col gap-0.5 border-t border-white/10 pt-4">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-white/80 font-bold uppercase tracking-wider">Merchant</span>
-                <span className="text-[10px] text-white font-black uppercase tracking-wider">TUTORLINK MERCH_SANDBOX</span>
+                <span className="text-[10px] text-white font-black uppercase tracking-wider">EDUTRACK MERCH_SANDBOX</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-white/80 font-bold uppercase tracking-wider">Invoice Ref</span>

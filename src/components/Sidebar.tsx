@@ -61,7 +61,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="w-full lg:w-80 h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 sticky top-0 transition-colors duration-300">
+    <div className="w-full lg:w-80 h-auto min-h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 lg:sticky lg:top-0 transition-colors duration-300">
       {/* Logo */}
       <div className="hidden lg:flex items-center space-x-3 mb-12">
         <Logo className="w-10 h-10 shadow-lg shadow-blue-200 dark:shadow-none" />

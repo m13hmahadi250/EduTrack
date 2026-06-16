@@ -1,9 +1,10 @@
-import { useEffect, useMemo, memo } from 'react';
+import { useEffect, useMemo, memo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAppStore } from '../store';
 import { ZoomIn, ZoomOut, Focus, Navigation, ExternalLink } from 'lucide-react';
+import MarkerClusterGroup from './MarkerClusterGroup';
 
 // Fix typical leaflet marker icon issue in React
 // @ts-ignore
@@ -26,6 +27,8 @@ interface UserMarker {
   name: string;
   image?: string;
   isOnline?: boolean;
+  subjects?: string[];
+  rating?: number;
 }
 
 interface MapTrackerProps {
@@ -209,6 +212,40 @@ const MapTracker = memo(({
 }: MapTrackerProps) => {
   const { theme } = useAppStore();
 
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+
+  const selectedTutorObj = useMemo(() => {
+    if (!selectedTutorId) return null;
+    if (tutors) {
+      return tutors.find(t => t.id === selectedTutorId) || null;
+    }
+    if (tutorLocation && selectedTutorId === 'legacy_tutor') {
+      return {
+        id: 'legacy_tutor',
+        location: tutorLocation,
+        name: tutorName || 'Tutor',
+        image: tutorImage,
+      };
+    }
+    return null;
+  }, [selectedTutorId, tutors, tutorLocation, tutorName, tutorImage]);
+
+  const calculatedDistanceStr = useMemo(() => {
+    if (!studentLocation || !selectedTutorObj) return null;
+    try {
+      const p1 = L.latLng(studentLocation[0], studentLocation[1]);
+      const p2 = L.latLng(selectedTutorObj.location[0], selectedTutorObj.location[1]);
+      const distanceInMeters = p1.distanceTo(p2);
+      if (distanceInMeters < 1000) {
+        return `${Math.round(distanceInMeters)} meters`;
+      } else {
+        return `${(distanceInMeters / 1000).toFixed(2)} km`;
+      }
+    } catch (err) {
+      return null;
+    }
+  }, [studentLocation, selectedTutorObj]);
+
   const center = useMemo<[number, number]>(() => {
     if (tutors && tutors.length > 0) return tutors[0].location;
     if (students && students.length > 0) return students[0].location;
@@ -268,6 +305,19 @@ const MapTracker = memo(({
           />
         ))}
 
+        {/* Animated Dashed Connection Path for Selected Tutor for Distance measurement */}
+        {studentLocation && selectedTutorObj && (
+          <Polyline 
+            positions={[studentLocation, selectedTutorObj.location]} 
+            pathOptions={{ 
+              color: '#FC155D', 
+              weight: 4.5, 
+              opacity: 0.95,
+              className: 'animated-dashed-distance-path'
+            }} 
+          />
+        )}
+
         {/* Legacy/Contextual single tutor */}
         {!tutors && tutorLocation && (
           <Marker position={tutorLocation} icon={createCustomMarker('rose-500', tutorName || 'T', tutorImage, true)}>
@@ -290,11 +340,26 @@ const MapTracker = memo(({
                   href={`https://www.google.com/maps/search/?api=1&query=${tutorLocation[0]},${tutorLocation[1]}`}
                   target="_blank" 
                   rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-550 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
+                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-555 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
                 >
                   <ExternalLink className="w-3 h-3" />
                   Google Maps
                 </a>
+                {studentLocation && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSelectedTutorId(selectedTutorId === 'legacy_tutor' ? null : 'legacy_tutor');
+                    }}
+                    className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer border ${
+                      selectedTutorId === 'legacy_tutor'
+                        ? 'bg-[#0D5BFF] hover:bg-blue-600 text-white border-transparent'
+                        : 'bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 border-indigo-100 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white'
+                    }`}
+                  >
+                    {selectedTutorId === 'legacy_tutor' ? '📍 Active Connection' : '📏 Measure Distance'}
+                  </button>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -323,33 +388,66 @@ const MapTracker = memo(({
         )}
 
         {/* Multiple tutors */}
-        {tutors?.map(tutor => (
-          <Marker 
-            key={tutor.id} 
-            position={tutor.location} 
-            icon={createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)}
-          >
-            <Popup>
-              <div className="p-2 min-w-[120px]">
-                <div className="text-[10px] font-black uppercase italic text-rose-500 mb-1">
-                  {tutor.name} (Expert)
-                </div>
-                <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
-                  Status: {tutor.isOnline ? 'Broadcasting' : 'Offline'}
-                </div>
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${tutor.location[0]},${tutor.location[1]}`}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-555 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Google Maps
-                </a>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {tutors && tutors.length > 0 && (
+          <MarkerClusterGroup>
+            {tutors.map(tutor => (
+              <Marker 
+                key={tutor.id} 
+                position={tutor.location} 
+                icon={createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)}
+              >
+                <Popup>
+                  <div className="p-2.5 min-w-[140px]">
+                    <div className="text-[10px] font-black uppercase italic text-rose-500 mb-0.5">
+                      {tutor.name} (Expert)
+                    </div>
+                    {tutor.rating !== undefined && (
+                      <div className="text-[9.5px] font-black text-amber-500 uppercase tracking-wider mb-1">
+                        ⭐ {tutor.rating > 0 ? tutor.rating.toFixed(1) : 'New'}
+                      </div>
+                    )}
+                    {tutor.subjects && tutor.subjects.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2 max-w-[150px]">
+                        {tutor.subjects.slice(0, 3).map((sub, idx) => (
+                          <span key={idx} className="bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-[7px] font-extrabold uppercase px-1 py-0.5 rounded border border-rose-100/30">
+                            {sub}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
+                       Status: {tutor.isOnline ? 'Broadcasting' : 'Offline'}
+                    </div>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${tutor.location[0]},${tutor.location[1]}`}
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-555 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Google Maps
+                    </a>
+                    {studentLocation && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSelectedTutorId(selectedTutorId === tutor.id ? null : tutor.id);
+                        }}
+                        className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer border ${
+                          selectedTutorId === tutor.id
+                            ? 'bg-[#0D5BFF] hover:bg-blue-600 text-white border-transparent'
+                            : 'bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 border-indigo-100 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white'
+                        }`}
+                      >
+                        {selectedTutorId === tutor.id ? '📍 Active Connection' : '📏 Measure Distance'}
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MarkerClusterGroup>
+        )}
 
         {/* Multiple students */}
         {students?.map(student => (
@@ -389,6 +487,51 @@ const MapTracker = memo(({
           students={students} 
         />
       </MapContainer>
+
+      {/* Distance Ruler Floating HUD Overlay */}
+      {studentLocation && selectedTutorObj && (
+        <div className="absolute top-4 right-4 z-[1000] max-w-[200px] sm:max-w-64 p-3 sm:p-3.5 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-all animate-fade-in">
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] italic mb-2">
+            <span>📏</span>
+            DISTANCE RULER
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {selectedTutorObj.image ? (
+                <img src={selectedTutorObj.image} referrerPolicy="no-referrer" className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center font-black text-xs">
+                  {selectedTutorObj.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col min-w-0 text-left">
+                <div className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                  {selectedTutorObj.name}
+                </div>
+                {selectedTutorObj.rating !== undefined && (
+                  <div className="text-[7.5px] font-black text-amber-500 uppercase tracking-wider mt-0.5">
+                    ⭐ {selectedTutorObj.rating > 0 ? selectedTutorObj.rating.toFixed(1) : 'New'}
+                  </div>
+                )}
+                <div className="text-[8px] font-black text-[#FC155D] uppercase tracking-wide leading-none mt-0.5 animate-pulse">
+                  {calculatedDistanceStr || 'Calculating...'}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedTutorId(null)}
+                className="flex-1 py-1 px-2 text-[8px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-350 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-705 rounded-lg transition-colors cursor-pointer text-center border border-slate-200/40 dark:border-transparent"
+              >
+                Clear Path
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

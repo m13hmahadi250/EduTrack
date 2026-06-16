@@ -46,6 +46,7 @@ import {
   Award,
   Shield,
   ShieldAlert,
+  LogOut,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -109,6 +110,7 @@ export default function TutorDashboard() {
     users,
     messages,
     payments,
+    logout,
   } = useAppStore(
     useShallow((state) => ({
       currentUser: state.currentUser,
@@ -125,6 +127,7 @@ export default function TutorDashboard() {
       users: state.users,
       messages: state.messages,
       payments: state.payments,
+      logout: state.logout,
     })),
   );
 
@@ -480,8 +483,17 @@ export default function TutorDashboard() {
           <button
             onClick={() => handleTabChange("pro_profile")}
             className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all"
+            title="Settings"
           >
             <Settings className="w-5 h-5" />
+          </button>
+          
+          <button
+            onClick={() => logout()}
+            className="lg:hidden w-12 h-12 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-900/30 text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 border border-rose-100 dark:border-rose-900/30 rounded-2xl flex items-center justify-center transition-all shadow-sm"
+            title="Log Out"
+          >
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -875,7 +887,7 @@ export default function TutorDashboard() {
                       );
                     })}
                     {activeSessions.length === 0 && (
-                      <div className="bg-white rounded-[3rem] p-16 flex flex-col items-start md:items-center justify-center border border-slate-100 shadow-sm text-left md:text-center">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-start md:items-center justify-center border border-slate-100 shadow-sm text-left md:text-center">
                         <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                           <Calendar className="w-10 h-10 text-slate-200" />
                         </div>
@@ -910,7 +922,7 @@ export default function TutorDashboard() {
               className="grid lg:grid-cols-2 gap-12"
             >
               <div className="space-y-8">
-                <div className="bg-[#0B132B] rounded-[4rem] p-12 text-white relative overflow-hidden shadow-2xl">
+                <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 text-white relative overflow-hidden shadow-2xl">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/10 blur-[100px]"></div>
                   <div className="flex items-center space-x-4 mb-12 relative z-10">
                     <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">
@@ -960,7 +972,7 @@ export default function TutorDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm">
+                <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
                   <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 flex items-center gap-3">
                     <Zap className="w-5 h-5 text-amber-500" /> WITHDRAWAL
                   </h3>
@@ -969,7 +981,7 @@ export default function TutorDashboard() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="p-12 bg-emerald-50 rounded-[2rem] text-left md:text-center border-2 border-emerald-100 shadow-xl"
+                      className="p-6 sm:p-12 bg-emerald-50 rounded-[1.5rem] sm:rounded-[2rem] text-left md:text-center border-2 border-emerald-100 shadow-xl"
                     >
                       <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                         <CheckCircle className="w-10 h-10 text-emerald-500" />
@@ -1043,7 +1055,7 @@ export default function TutorDashboard() {
                 </div>
               </div>
 
-              <section className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+              <section className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
                 <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">
                   Financial History
                 </h3>
@@ -1144,7 +1156,7 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, scale: 0.98 }}
               className="grid lg:grid-cols-2 gap-12"
             >
-              <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
+              <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
                 <div
                   className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-20 ${currentUser.isTrackingOn ? "bg-emerald-500" : "bg-slate-500"}`}
                 ></div>
@@ -1310,7 +1322,7 @@ export default function TutorDashboard() {
               </div>
 
               <div className="flex flex-col gap-12">
-                <div className="bg-slate-50 rounded-[4rem] border-4 border-dashed border-slate-100 flex flex-col items-start md:items-center justify-center p-20 text-left md:text-center flex-1">
+                <div className="bg-slate-50 rounded-[2rem] sm:rounded-[4rem] border-4 border-dashed border-slate-100 flex flex-col items-start md:items-center justify-center p-6 sm:p-12 lg:p-20 text-left md:text-center flex-1">
                   <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-8 shadow-xl">
                     <Zap
                       className={`w-10 h-10 ${currentUser.isTrackingOn ? "text-amber-500 animate-pulse" : "text-slate-200"}`}
@@ -1383,9 +1395,9 @@ export default function TutorDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="grid lg:grid-cols-3 gap-8 h-[700px]"
+              className="grid lg:grid-cols-3 gap-8 h-auto lg:h-[700px]"
             >
-              <div className="lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+              <div className={`lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col ${selectedRecipientId ? 'hidden lg:flex' : 'flex'}`}>
                 <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">
                   Students
                 </h3>
@@ -1473,17 +1485,17 @@ export default function TutorDashboard() {
                   })()}
                 </div>
               </div>
-              <div className="lg:col-span-2">
+              <div className={`lg:col-span-2 ${selectedRecipientId ? 'block' : 'hidden lg:block'}`}>
                 {selectedRecipientId ? (
                   <Suspense
                     fallback={
                       <div className="h-[400px] bg-slate-50 animate-pulse rounded-3xl" />
                     }
                   >
-                    <ChatWindow recipientId={selectedRecipientId} />
+                    <ChatWindow recipientId={selectedRecipientId} onBack={() => setSelectedRecipientId(null)} />
                   </Suspense>
                 ) : (
-                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12 opacity-30">
+                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-6 sm:p-12 opacity-30">
                     <Send className="w-12 h-12 mb-6 ml-0 mr-auto md:mx-auto" />
                     <h3 className="text-xl font-black uppercase italic">
                       Initialize Comms
@@ -1506,7 +1518,7 @@ export default function TutorDashboard() {
               className="grid lg:grid-cols-3 gap-12"
             >
               <div className="lg:col-span-1 space-y-8">
-                <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm flex flex-col items-start md:items-center">
+                <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm flex flex-col items-start md:items-center">
                   <div className="mb-8">
                     <ImageUpload
                       currentImageUrl={currentUser.profileImage}
@@ -2149,7 +2161,7 @@ export default function TutorDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm">
+                    <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 lg:p-16 border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-4 mb-8">
                         <Briefcase className="w-6 h-6 text-[#0D5BFF]" />
                         <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
@@ -2163,7 +2175,7 @@ export default function TutorDashboard() {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-8">
-                      <div className="bg-white rounded-[3.5rem] p-12 border border-slate-100 shadow-sm">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-4 mb-6">
                           <GraduationCap className="w-5 h-5 text-emerald-500" />
                           <h3 className="text-sm font-black text-[#0B132B] uppercase italic">
@@ -2181,7 +2193,7 @@ export default function TutorDashboard() {
                           ))}
                         </div>
                       </div>
-                      <div className="bg-white rounded-[3.5rem] p-12 border border-slate-100 shadow-sm">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-4 mb-6">
                           <Clock className="w-5 h-5 text-amber-500" />
                           <h3 className="text-sm font-black text-[#0B132B] uppercase italic">
@@ -2197,7 +2209,7 @@ export default function TutorDashboard() {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-[4rem] p-12 lg:p-16 border border-slate-100 shadow-sm">
+                    <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 lg:p-16 border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-4 mb-10">
                         <Calendar className="w-6 h-6 text-[#0D5BFF]" />
                         <h3 className="text-xl font-black text-[#0B132B] uppercase italic">

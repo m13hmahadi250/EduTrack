@@ -250,7 +250,7 @@ export default function Home() {
               className="lg:w-1/2 relative"
             >
               <div className="absolute inset-0 bg-rose-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-[#0B132B] p-12 rounded-[4rem] shadow-2xl border-2 border-white/10 overflow-hidden transform rotate-2">
+              <div className="relative bg-[#0B132B] p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] shadow-2xl border-2 border-white/10 overflow-hidden transform rotate-2">
                  {/* Mock Tracking UI */}
                  <div className="space-y-6">
                     <div className="flex items-center space-x-4 bg-white/5 p-4 rounded-3xl border border-white/10">
@@ -304,7 +304,7 @@ export default function Home() {
               className="lg:w-1/2 relative"
             >
               <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-white dark:bg-[#1E293B] p-12 rounded-[4rem] shadow-2xl border border-slate-100 dark:border-slate-800/85 transform -rotate-2 transition-colors">
+              <div className="relative bg-white dark:bg-[#1E293B] p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] shadow-2xl border border-slate-100 dark:border-slate-800/85 transform -rotate-2 transition-colors">
                  <div className="flex items-center space-x-6 mb-8 pb-8 border-b border-slate-100 dark:border-slate-800/60">
                     <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
                        <Users className="w-10 h-10 text-slate-300 dark:text-slate-600" />
