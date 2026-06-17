@@ -229,7 +229,7 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#0D5BFF]" />
-            EduTrack Officials |{" "}
+            Welcome,{" "}
             <span className="font-black text-[#0D5BFF] italic">
               {currentUser.name}
             </span>

@@ -793,7 +793,7 @@ export default function StudentDashboard() {
             Student Panel
           </h1>
           <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
-            Central Operations for <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
+            Welcome, <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
           </p>
         </div>
         <div className="flex items-center space-x-4">

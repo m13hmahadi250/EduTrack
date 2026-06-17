@@ -466,7 +466,7 @@ export default function TutorDashboard() {
             Tutor Panel
           </h1>
           <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
-            System Status for{" "}
+            Welcome,{" "}
             <span className="font-black text-[#0D5BFF] italic">
               {currentUser.name}
             </span>

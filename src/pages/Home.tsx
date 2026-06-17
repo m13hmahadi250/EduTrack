@@ -491,10 +491,25 @@ export default function Home() {
           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
             © {new Date().getFullYear()} EduTrack. All rights reserved.
           </p>
-          <div className="flex items-center gap-2">
-            <span className="text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase italic">Designed & Built by</span>
-            <span className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase italic">Mohammed Mahadi Hossain</span>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ type: "spring", stiffness: 100, delay: 0.2 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            className="flex items-center gap-2.5 group cursor-pointer bg-slate-50/50 dark:bg-[#1E293B]/40 px-4 py-2 rounded-2xl border border-slate-100/50 dark:border-slate-800/50 hover:border-[#0D5BFF]/30 hover:bg-white dark:hover:bg-[#1E293B]/60 hover:shadow-xl hover:shadow-[#0D5BFF]/5 transition-all duration-300"
+          >
+            <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-300">
+              Designed & Built by
+            </span>
+            <div className="relative">
+              <span className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase italic tracking-wider group-hover:text-[#0D5BFF] transition-colors duration-300">
+                Mohammed Mahadi Hossain
+              </span>
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-[#0D5BFF] to-[#1EA5FC] group-hover:w-full transition-all duration-300 rounded-full" />
+            </div>
+
+          </motion.div>
         </div>
       </footer>
     </div>
