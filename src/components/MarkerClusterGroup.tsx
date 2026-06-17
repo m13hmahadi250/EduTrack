@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useRef, ReactNode } from 'react';
 import { useLeafletContext, LeafletContext } from '@react-leaflet/core';
 import L from 'leaflet';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
@@ -7,40 +7,48 @@ import 'leaflet.markercluster';
 
 interface MarkerClusterGroupProps {
   children?: ReactNode;
-  showCoverageOnHover?: boolean;
-  spiderfyOnMaxZoom?: boolean;
-  chunkedLoading?: boolean;
-  maxClusterRadius?: number;
-  disableClusteringAtZoom?: number;
-  animate?: boolean;
 }
 
-export default function MarkerClusterGroup({ children, ...options }: MarkerClusterGroupProps) {
+export default function MarkerClusterGroup({ children }: MarkerClusterGroupProps) {
   const context = useLeafletContext();
-  const [clusterGroup, setClusterGroup] = useState<L.MarkerClusterGroup | null>(null);
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
 
-  useEffect(() => {
+  if (!clusterGroupRef.current) {
     // @ts-ignore
-    const group = L.markerClusterGroup({
+    clusterGroupRef.current = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
       chunkedLoading: true,
       maxClusterRadius: 45,
-      ...options,
     });
+  }
 
-    const parentContainer = context.layerContainer || context.map;
-    parentContainer.addLayer(group);
-    setClusterGroup(group);
+  const clusterGroup = clusterGroupRef.current;
+
+  useEffect(() => {
+    const parentContainer = (context.layerContainer || context.map) as any;
+    
+    if (parentContainer && typeof parentContainer.addLayer === 'function') {
+      parentContainer.addLayer(clusterGroup);
+    }
 
     return () => {
-      parentContainer.removeLayer(group);
+      if (clusterGroup) {
+        clusterGroup.clearLayers();
+      }
+      if (parentContainer) {
+        if (typeof parentContainer.hasLayer === 'function' && parentContainer.hasLayer(clusterGroup)) {
+          parentContainer.removeLayer(clusterGroup);
+        } else if (typeof parentContainer.removeLayer === 'function') {
+          try {
+            parentContainer.removeLayer(clusterGroup);
+          } catch (e) {
+            // Safe fallback if already dropped during parent destruction
+          }
+        }
+      }
     };
-  }, [context.layerContainer, context.map, JSON.stringify(options)]);
-
-  if (!clusterGroup) {
-    return null;
-  }
+  }, [context.layerContainer, context.map, clusterGroup]);
 
   const newContext = {
     ...context,

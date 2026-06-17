@@ -390,7 +390,7 @@ const MapTracker = memo(({
         {/* Multiple tutors */}
         {tutors && tutors.length > 0 && (
           <MarkerClusterGroup>
-            {tutors.map(tutor => (
+            {tutors.filter(t => t && t.location && Array.isArray(t.location) && t.location.length === 2 && typeof t.location[0] === 'number' && typeof t.location[1] === 'number').map(tutor => (
               <Marker 
                 key={tutor.id} 
                 position={tutor.location} 
@@ -450,7 +450,7 @@ const MapTracker = memo(({
         )}
 
         {/* Multiple students */}
-        {students?.map(student => (
+        {students?.filter(s => s && s.location && Array.isArray(s.location) && s.location.length === 2 && typeof s.location[0] === 'number' && typeof s.location[1] === 'number').map(student => (
           <Marker 
             key={student.id} 
             position={student.location} 
