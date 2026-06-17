@@ -4,6 +4,7 @@ import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
+import { motion } from 'motion/react';
 import { 
   BarChart3, 
   Calendar, 
@@ -20,9 +21,10 @@ import {
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useAppStore();
+  const { currentUser, theme } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (!currentUser) return null;
@@ -60,7 +62,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="lg:hidden bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/60 p-4 sticky top-0 z-50 flex items-center justify-between transition-colors">
         <div className="flex items-center space-x-3">
           <Logo className="w-8 h-8 shadow-lg shadow-blue-200 dark:shadow-none" />
-          <span className="text-lg font-black font-heading text-[#0B132B] dark:text-white">EduTrack</span>
+          <span 
+            className="text-lg font-black font-heading text-[#0B132B] dark:text-white flex cursor-default select-none"
+          >
+            {"EduTrack".split("").map((char, index) => (
+              <span
+                key={index}
+                className="inline-block origin-bottom animate-logo-letter"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {char}
+              </span>
+            ))}
+          </span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500 dark:text-slate-400">
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

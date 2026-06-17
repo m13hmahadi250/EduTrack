@@ -12,6 +12,38 @@
     to { transform: translateX(-50%); }
   }
   --animate-marquee: marquee 80s linear infinite;
+
+  @keyframes logo-light {
+    0%, 100% {
+      transform: translateY(0);
+      color: #0B132B;
+    }
+    50% {
+      transform: translateY(-4px);
+      color: #0D5BFF;
+    }
+  }
+
+  @keyframes logo-dark {
+    0%, 100% {
+      transform: translateY(0);
+      color: #ffffff;
+    }
+    50% {
+      transform: translateY(-4px);
+      color: #0D5BFF;
+    }
+  }
+
+  @keyframes logo-float {
+    0%, 100% {
+      transform: translateY(0) scale(1) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-3px) scale(1.03) rotate(2deg);
+    }
+  }
+  --animate-logo-float: logo-float 3s ease-in-out infinite;
 }
 
 @layer base {
@@ -35,6 +67,15 @@
 
   .glass-card {
     @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  .animate-logo-letter {
+    animation: logo-light 1.8s ease-in-out infinite;
+    will-change: transform, color;
+  }
+
+  .dark .animate-logo-letter, :where(.dark) .animate-logo-letter {
+    animation: logo-dark 1.8s ease-in-out infinite;
   }
 }
 

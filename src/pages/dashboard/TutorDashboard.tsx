@@ -24,8 +24,8 @@ import {
   CheckCircle,
   Play,
   Square,
+  ChevronLeft,
   ChevronRight,
-  Settings,
   Briefcase,
   GraduationCap,
   Plus,
@@ -46,7 +46,6 @@ import {
   Award,
   Shield,
   ShieldAlert,
-  LogOut,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -132,6 +131,17 @@ export default function TutorDashboard() {
   );
 
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = 150;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
@@ -479,53 +489,60 @@ export default function TutorDashboard() {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => handleTabChange("pro_profile")}
-            className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-          
-          <button
-            onClick={() => logout()}
-            className="lg:hidden w-12 h-12 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-900/30 text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 border border-rose-100 dark:border-rose-900/30 rounded-2xl flex items-center justify-center transition-all shadow-sm"
-            title="Log Out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px">
-        {[
-          { id: "my_session", label: "My Session" },
-          { id: "find_students", label: "Find Students" },
-          { id: "balance", label: "Balance" },
-          { id: "transit_mode", label: "Transit Mode" },
-          { id: "messages", label: "Messages" },
-          { id: "pro_profile", label: "Pro Profile" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
-              activeTab === tab.id
-                ? "text-[#0B132B]"
-                : "text-[#0B132B]/30 hover:text-[#0B132B]"
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="tabUnderline"
-                className="absolute bottom-0 left-0 right-0 h-1 bg-[#0D5BFF]"
-              />
-            )}
-          </button>
-        ))}
+      <div className="relative border-b border-slate-100 pb-px">
+        {/* Mobile Left Scroll Button */}
+        <button
+          onClick={() => scrollTabs("left")}
+          className="lg:hidden absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 dark:bg-[#111A2E]/95 border border-slate-100 dark:border-slate-800/80 shadow-md flex items-center justify-center text-slate-500 hover:text-[#0B132B] dark:hover:text-white transition-all focus:outline-none"
+          aria-label="Scroll Tabs Left"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Scrollable Tabs Wrapper */}
+        <div 
+          ref={tabsRef}
+          className="overflow-x-auto whitespace-nowrap scroll-smooth flex space-x-8 px-9 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
+          {[
+            { id: "my_session", label: "My Session" },
+            { id: "find_students", label: "Find Students" },
+            { id: "balance", label: "Balance" },
+            { id: "transit_mode", label: "Transit Mode" },
+            { id: "messages", label: "Messages" },
+            { id: "pro_profile", label: "Pro Profile" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id as any)}
+              className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative inline-block ${
+                activeTab === tab.id
+                  ? "text-[#0B132B]"
+                  : "text-[#0B132B]/30 hover:text-[#0B132B]"
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.id && (
+                <motion.div
+                  layoutId="tabUnderline"
+                  className="absolute bottom-0 left-0 right-0 h-1 bg-[#0D5BFF]"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile Right Scroll Button */}
+        <button
+          onClick={() => scrollTabs("right")}
+          className="lg:hidden absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 dark:bg-[#111A2E]/95 border border-slate-100 dark:border-slate-800/80 shadow-md flex items-center justify-center text-slate-500 hover:text-[#0B132B] dark:hover:text-white transition-all focus:outline-none"
+          aria-label="Scroll Tabs Right"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       <AnimatePresence mode="wait">

@@ -879,11 +879,11 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   // 2. Listen to other users based on the role to speed up loading and reduce bandwidth/PII exposure
   let usersQuery;
   if (role === 'student') {
-    // Students only need to discover tutors
-    usersQuery = query(collection(db, 'users'), where('role', '==', 'tutor'));
+    // Students only need to discover tutors and admins
+    usersQuery = query(collection(db, 'users'), where('role', 'in', ['tutor', 'admin']));
   } else if (role === 'tutor') {
-    // Tutors only need to see students (for sessions/messaging/billing)
-    usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+    // Tutors only need to see students and admins (for sessions/messaging/billing)
+    usersQuery = query(collection(db, 'users'), where('role', 'in', ['student', 'admin']));
   } else {
     // Admins manage everyone
     usersQuery = collection(db, 'users');

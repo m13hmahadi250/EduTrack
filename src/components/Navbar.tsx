@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
+import { motion } from 'motion/react';
 
 const Navbar = memo(() => {
   const { currentUser, logout, theme, toggleTheme } = useAppStore();
@@ -20,7 +21,19 @@ const Navbar = memo(() => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
               <Logo className="w-10 h-10" />
-              <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors">EduTrack</span>
+              <span 
+                className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors flex cursor-default select-none"
+              >
+                {"EduTrack".split("").map((char, index) => (
+                  <span
+                    key={index}
+                    className="inline-block origin-bottom animate-logo-letter"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </span>
             </Link>
           </div>
           <div className="flex items-center space-x-8">

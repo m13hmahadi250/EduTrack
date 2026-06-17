@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
+import { motion } from 'motion/react';
 import { 
   BarChart3, 
   Calendar, 
@@ -65,7 +66,19 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
       {/* Logo */}
       <div className="hidden lg:flex items-center space-x-3 mb-12">
         <Logo className="w-10 h-10 shadow-lg shadow-blue-200 dark:shadow-none" />
-        <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors">EduTrack</span>
+        <span 
+          className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors flex cursor-default select-none"
+        >
+          {"EduTrack".split("").map((char, index) => (
+            <span
+              key={index}
+              className="inline-block origin-bottom animate-logo-letter"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              {char}
+            </span>
+          ))}
+        </span>
       </div>
 
       {/* Nav Section */}

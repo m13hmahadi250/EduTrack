@@ -121,8 +121,8 @@ export default function Home() {
                 <span className="block text-[#0B132B] dark:text-white -mt-2">At Home</span>
               </h1>
               
-              <p className="text-xl text-[#4B5563] dark:text-slate-300 mb-10 leading-relaxed font-bold max-w-lg">
-                The most secure home tutoring platform. <span className="text-[#0B132B] dark:text-white">Real-time GPS tracking</span>, <span className="text-[#0B132B] dark:text-white">NID verified teachers</span>, and seamless payments for your child's future.
+              <p className="text-lg sm:text-xl text-[#1f1b1b] dark:text-slate-300 mb-10 leading-relaxed font-sans font-bold tracking-wide max-w-lg">
+                The most secure home tutoring platform in Bangladesh. Featuring <span className="text-[#0D5BFF] dark:text-blue-400 font-semibold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">real-time GPS tracking</span>, <span className="text-[#0D5BFF] dark:text-blue-400 font-semibold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">NID-verified educators</span>, and seamless payments for your child's success.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
@@ -390,27 +390,39 @@ export default function Home() {
 
           <div className="grid md:grid-cols-4 gap-8 relative">
             {/* Connection Line (Hidden on Mobile) */}
-            <div className="hidden md:block absolute top-[40px] left-[10%] right-[10%] h-[2px] bg-slate-200 dark:bg-slate-850 z-0"></div>
+            <div className="hidden md:block absolute top-[40px] left-[10%] right-[10%] h-[2px] bg-slate-200 dark:bg-slate-800/80 z-0 overflow-hidden">
+              <motion.div 
+                initial={{ scaleX: 0, originX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1.5, ease: "easeInOut", delay: 0.1 }}
+                className="w-full h-full bg-gradient-to-r from-slate-200 via-[#0D5BFF] to-slate-200 dark:from-slate-800 dark:via-[#0D5BFF] dark:to-slate-800"
+              />
+            </div>
             
             <Step 
               number="01" 
               title="Search" 
               desc="Browse verified tutors nearby using our advanced filters for subject and location." 
+              index={0}
             />
             <Step 
               number="02" 
               title="Connect" 
               desc="Message tutors directly to discuss schedules, requirements, and trial classes." 
+              index={1}
             />
             <Step 
               number="03" 
               title="Track" 
               desc="Monitor live GPS location of the tutor during their transit to your home." 
+              index={2}
             />
             <Step 
               number="04" 
               title="Pay" 
               desc="Securely pay via bKash through our automated billing system after each session." 
+              index={3}
             />
           </div>
         </div>
@@ -505,24 +517,42 @@ const TrustCard = React.memo(({ icon, title, description }: { icon: React.ReactN
 
 const StatBlock = React.memo(({ value, label }: { value: string, label: string }) => {
   return (
-    <div className="p-8 border-r border-slate-100 dark:border-slate-800 last:border-0 flex flex-col justify-center items-center text-center">
-       <div className="text-4xl lg:text-5xl font-black font-heading text-[#0D5BFF] mb-2">{value}</div>
-       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0B132B] dark:text-white">{label}</div>
+    <div className="p-8 border-r border-white/10 last:border-0 flex flex-col justify-center items-center text-center">
+       <div className="text-4xl lg:text-5xl font-black font-heading text-blue-500 mb-2">{value}</div>
+       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">{label}</div>
     </div>
   );
 });
 
-const Step = React.memo(({ number, title, desc }: { number: string, title: string, desc: string }) => {
+const Step = React.memo(({ number, title, desc, index }: { number: string, title: string, desc: string, index: number }) => {
   return (
-    <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left group">
-      <div className="w-20 h-20 bg-white dark:bg-[#1E293B] rounded-2xl flex items-center justify-center border-2 border-slate-100 dark:border-slate-850 shadow-sm mb-6 group-hover:border-[#0D5BFF] group-hover:shadow-xl transition-all duration-300">
-        <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white italic">{number}</span>
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 70, 
+        damping: 15,
+        delay: index * 0.15 
+      }}
+      className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left group cursor-default"
+    >
+      <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+        {/* Animated glowing backplate */}
+        <div className="absolute inset-0 bg-[#0D5BFF]/10 dark:bg-[#0D5BFF]/20 rounded-2xl scale-75 opacity-0 group-hover:scale-110 group-hover:opacity-100 blur-xl transition-all duration-300 z-0" />
+        
+        {/* Step Indicator container */}
+        <div className="relative z-10 w-20 h-20 bg-white dark:bg-[#1E293B] rounded-2xl flex items-center justify-center border-2 border-slate-100 dark:border-slate-800 shadow-sm group-hover:border-[#0D5BFF] group-hover:shadow-2xl group-hover:shadow-[#0D5BFF]/10 group-hover:-translate-y-1 transition-all duration-300">
+          <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white italic group-hover:text-[#0D5BFF] transition-colors">{number}</span>
+        </div>
       </div>
-      <h4 className="text-xl font-black text-[#0B132B] dark:text-white mb-2 uppercase italic">{title}</h4>
+      
+      <h4 className="text-xl font-black text-[#0B132B] dark:text-white mb-2 uppercase italic group-hover:text-[#0D5BFF] transition-colors duration-300">{title}</h4>
       <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
         {desc}
       </p>
-    </div>
+    </motion.div>
   );
 });
 

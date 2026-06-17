@@ -75,6 +75,32 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
     setContent('');
   };
 
+  const quickReplies = useMemo(() => {
+    if (currentUser?.role === 'tutor') {
+      return [
+        "Yes, I can tutor this subject.",
+        "My availability is flexible. What times work for you?",
+        "What is your budget per hour?",
+        "Sure, let's schedule a session!"
+      ];
+    }
+    return [
+      "What is your availability?",
+      "Can you tutor this subject?",
+      "Are you free for a session today?",
+      "What are your hourly rates?"
+    ];
+  }, [currentUser?.role]);
+
+  const handleQuickReply = async (reply: string) => {
+    if (!currentUser) return;
+    await sendMessage({
+      senderId: currentUser.id,
+      receiverId: recipientId,
+      content: reply
+    });
+  };
+
   if (!recipient) return null;
 
   return (
@@ -183,7 +209,24 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} className="p-3 sm:p-6 bg-slate-50/50 border-t border-slate-100">
+      <form onSubmit={handleSend} className="p-3 sm:p-6 bg-slate-50/50 border-t border-slate-100 flex flex-col gap-3">
+        {/* Quick Replies section */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[8px] font-black uppercase tracking-widest text-[#0B132B]/40">Suggested Quick Replies</span>
+          <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none scroll-smooth">
+            {quickReplies.map((replyText, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleQuickReply(replyText)}
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white hover:bg-[#0B132B] text-[9px] font-black uppercase italic tracking-wider text-[#0B132B]/80 hover:text-white border border-slate-100 hover:border-[#0B132B] rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+              >
+                {replyText}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="relative">
           <input 
             value={content}

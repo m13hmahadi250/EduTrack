@@ -8,9 +8,9 @@ export const Logo: React.FC<LogoProps> = ({ className = "w-10 h-10" }) => {
   return (
     <svg
       viewBox="0 0 100 100"
-      className={`${className} rounded-xl bg-[#1EA5FC] p-1.5`}
+      className={`${className} rounded-xl bg-gradient-to-tr from-[#0D5BFF] to-[#1EA5FC] dark:from-[#111A2E] dark:to-[#0D5BFF] p-1.5 transition-all duration-300 animate-logo-float shadow-md shadow-blue-500/15 dark:shadow-[#0D5BFF]/10 border border-blue-400/20 dark:border-blue-500/30 will-change-transform`}
       fill="none"
-      stroke="black"
+      stroke="white"
       strokeWidth="6"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -24,7 +24,7 @@ export const Logo: React.FC<LogoProps> = ({ className = "w-10 h-10" }) => {
       
       {/* Tassel */}
       <path d="M76,33.5 v14" strokeWidth="5" />
-      <polygon points="73,47.5 79,47.5 76,57" fill="black" stroke="none" />
+      <polygon points="73,47.5 79,47.5 76,57" fill="white" stroke="none" />
 
       {/* Books Stack */}
       {/* Book 1 (Top) */}
