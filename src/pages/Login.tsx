@@ -36,28 +36,36 @@ export default function Login() {
         }
         navigate('/dashboard');
         } catch (err: any) {
-        console.error("Login error:", err);
-        let msg = 'Invalid email or password';
-        const errStr = String(err);
-        
-        // Handle specific Firebase Auth error codes
-        if (err.code === 'auth/wrong-password') {
-          msg = 'Incorrect password. Please try again.';
-        } else if (err.code === 'auth/user-not-found') {
-          msg = 'No account found with this email.';
-        } else if (err.code === 'auth/invalid-email') {
-          msg = 'The email address is badly formatted.';
-        } else if (err.code === 'auth/invalid-credential' || errStr.includes('invalid-credential')) {
-          msg = 'Wrong email or password. Please try again.';
-          setShowInvalidCredPopup(true);
-        } else if (err.code === 'auth/too-many-requests') {
-          msg = 'Too many failed login attempts. Please try again later.';
-        } else if (err.message) {
-          msg = err.message;
-        }
+          console.error("Login error:", err);
+          let msg = 'Wrong email or password. Please try again.';
+          const errStr = String(err).toLowerCase();
+          const code = (err.code || '').toLowerCase();
+          const message = (err.message || '').toLowerCase();
+          
+          if (code === 'auth/wrong-password' || message.includes('wrong-password') || errStr.includes('wrong-password') || errStr.includes('wrong_password')) {
+            msg = 'Incorrect password. Please try again.';
+          } else if (code === 'auth/user-not-found' || message.includes('user-not-found') || errStr.includes('user-not-found') || errStr.includes('user_not_found')) {
+            msg = 'No account found with this email.';
+          } else if (code === 'auth/invalid-email' || message.includes('invalid-email') || errStr.includes('invalid-email') || errStr.includes('invalid_email')) {
+            msg = 'The email address is badly formatted.';
+          } else if (code === 'auth/too-many-requests' || message.includes('too-many-requests') || errStr.includes('too-many-requests')) {
+            msg = 'Too many failed login attempts. Please try again later.';
+          } else if (
+            code === 'auth/invalid-credential' || 
+            message.includes('invalid-credential') || 
+            errStr.includes('invalid-credential') ||
+            errStr.includes('invalid_credential') ||
+            code === 'auth/user-disabled' ||
+            message.includes('user-disabled')
+          ) {
+            msg = 'Wrong email or password. Please try again.';
+          } else if (err.message) {
+            msg = err.message;
+          }
 
-        setError(msg);
-      } finally {
+          setError(msg);
+          setShowInvalidCredPopup(true);
+        } finally {
         setLoading(false);
       }
     } else {
@@ -101,7 +109,11 @@ export default function Login() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 p-8 relative">
+      <motion.div 
+        animate={error ? { x: [-8, 8, -6, 6, -4, 4, 0] } : {}}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-[440px] bg-white rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 p-8 relative"
+      >
         <button className="absolute top-8 right-8 text-slate-400 hover:text-slate-600" onClick={() => navigate('/')}>
           <X className="w-5 h-5" />
         </button>
@@ -137,7 +149,7 @@ export default function Login() {
                  exit={{ opacity: 0, y: -10 }}
                  className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 shadow-sm"
                >
-                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                 <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
                  <span>{error}</span>
                </motion.div>
              )}
@@ -148,9 +160,14 @@ export default function Login() {
                 type="email"
                 required
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  if (error) setError('');
+                }}
                 placeholder="name@provider.com"
-                className="w-full px-4 py-3.5 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all"
+                className={`w-full px-4 py-3.5 bg-[#F8F9FA] border rounded-xl text-sm font-bold placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all ${
+                  error ? 'border-rose-300 text-rose-900 focus:ring-rose-500 bg-rose-50/10' : 'border-[#E5E7EB] text-[#0B132B]'
+                }`}
              />
            </div>
            <div>
@@ -159,9 +176,14 @@ export default function Login() {
                 type="password"
                 required
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => {
+                  setPassword(e.target.value);
+                  if (error) setError('');
+                }}
                 placeholder="••••••••"
-                className="w-full px-4 py-3.5 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all"
+                className={`w-full px-4 py-3.5 bg-[#F8F9FA] border rounded-xl text-sm font-bold placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all ${
+                  error ? 'border-rose-300 text-rose-900 focus:ring-rose-500 bg-rose-50/10' : 'border-[#E5E7EB] text-[#0B132B]'
+                }`}
              />
            </div>
 
@@ -215,7 +237,7 @@ export default function Login() {
 
 
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,8 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
+import LogoutConfirmationModal from './LogoutConfirmationModal';
 import { 
   BarChart3, 
   Calendar, 
@@ -26,6 +27,7 @@ interface SidebarProps {
 
 const Sidebar = memo(({ onClose }: SidebarProps) => {
   const { currentUser, messages, logout, theme, toggleTheme } = useAppStore();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -179,16 +181,23 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         </div>
         
         <button 
-          onClick={() => {
-            logout();
-            onClose?.();
-          }}
+          onClick={() => setShowLogoutModal(true)}
           className="p-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 hover:text-rose-600 dark:hover:text-rose-400 rounded-2xl border border-rose-100/50 dark:border-rose-900/30 transition-all duration-300 group flex-shrink-0"
           title="Logout"
         >
           <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
         </button>
       </div>
+
+      <LogoutConfirmationModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          logout();
+          setShowLogoutModal(false);
+          onClose?.();
+        }}
+      />
     </div>
   );
 });

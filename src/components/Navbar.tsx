@@ -1,16 +1,23 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
+import LogoutConfirmationModal from './LogoutConfirmationModal';
 
 const Navbar = memo(() => {
   const { currentUser, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = () => {
     logout();
+    setShowLogoutModal(false);
     navigate('/');
   };
 
@@ -76,7 +83,7 @@ const Navbar = memo(() => {
                   <span className="font-bold text-[#0B132B] dark:text-white hidden sm:block">{currentUser.name}</span>
                 </div>
                 <button
-                  onClick={handleLogout}
+                  onClick={handleLogoutClick}
                   className="ml-2 p-2 text-slate-400 hover:text-red-500 rounded-md transition-colors"
                   title="Logout"
                 >
@@ -109,6 +116,11 @@ const Navbar = memo(() => {
           </div>
         </div>
       </div>
+      <LogoutConfirmationModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </nav>
   );
 });
