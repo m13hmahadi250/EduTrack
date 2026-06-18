@@ -337,16 +337,27 @@ export default function TutorDashboard() {
   // Geolocation tracking logic
   useEffect(() => {
     let currentWatchId: number | null = null;
+    let lastLat = 0;
+    let lastLng = 0;
+    let lastUpdateTime = 0;
 
     if (currentUser?.isTrackingOn) {
       if ("geolocation" in navigator) {
         currentWatchId = navigator.geolocation.watchPosition(
           (position) => {
-            updateLocation(
-              currentUser.id,
-              position.coords.latitude,
-              position.coords.longitude,
-            );
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const now = Date.now();
+
+            const distanceChanged = Math.abs(lat - lastLat) > 0.00015 || Math.abs(lng - lastLng) > 0.00015;
+            const timePassed = now - lastUpdateTime > 24000; // 24 seconds to balance real-time tracking with Firestore safety
+
+            if (lastUpdateTime === 0 || distanceChanged || timePassed) {
+              lastLat = lat;
+              lastLng = lng;
+              lastUpdateTime = now;
+              updateLocation(currentUser.id, lat, lng);
+            }
           },
           (error) => {
             console.error("Error watching position", error);

@@ -45,13 +45,13 @@ interface MapTrackerProps {
 
 const createCustomMarker = (color: string, name: string, image?: string, isOnline?: boolean) => {
   const isRose = color === 'rose-500';
-  const themeBgColor = isRose ? '#FFF1F2' : '#EFF6FF'; // rose-50 / blue-50
+  const themeBgColor = isRose ? '#FFF1F2' : '#EFF6FF'; // rose-50 / blue-55
   const themeTextColor = isRose ? '#E11D48' : '#3B82F6'; // rose-600 / blue-600
   const themeBorderColor = isRose ? '#FC155D' : '#0D5BFF';
   const themeDotColor = isRose ? '#FC155D' : '#0D5BFF';
 
   const content = image 
-    ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover;" referrerpolicy="no-referrer" />`
+    ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover;" referrerPolicy="no-referrer" />`
     : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 950; font-style: italic; color: ${themeTextColor}; background-color: ${themeBgColor};">
         ${name.charAt(0).toUpperCase()}
       </div>`;
@@ -87,6 +87,19 @@ const createCustomMarker = (color: string, name: string, image?: string, isOnlin
     iconAnchor: [16, 42],
     popupAnchor: [0, -42]
   });
+};
+
+// Extremely high-efficiency in-memory marker cache to prevent DOM style recalcs and page stutters
+const markerIconCache = new Map<string, L.DivIcon>();
+
+const getCustomMarkerCached = (color: string, name: string, image?: string, isOnline?: boolean) => {
+  const key = `${color}_${name}_${image || ''}_${isOnline !== false ? 'on' : 'off'}`;
+  if (markerIconCache.has(key)) {
+    return markerIconCache.get(key)!;
+  }
+  const icon = createCustomMarker(color, name, image, isOnline);
+  markerIconCache.set(key, icon);
+  return icon;
 };
 
 function MapRecenter({ lat, lng }: { lat: number; lng: number }) {
@@ -144,13 +157,18 @@ function CustomMapHUD({
     map.setView(center, 14);
   };
 
+  const studentLat = studentLocation?.[0];
+  const studentLng = studentLocation?.[1];
+  const tutorLat = tutorLocation?.[0];
+  const tutorLng = tutorLocation?.[1];
+
   // Trigger auto-fitbounds on load and count change
   useEffect(() => {
     const timer = setTimeout(() => {
       fitAllBounds();
     }, 600);
     return () => clearTimeout(timer);
-  }, [studentLocation, tutorLocation, tutors?.length, students?.length]);
+  }, [studentLat, studentLng, tutorLat, tutorLng, tutors?.length, students?.length]);
 
   return (
     <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1.5 p-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-colors">
@@ -199,7 +217,7 @@ function CustomMapHUD({
   );
 }
 
-const MapTracker = memo(({ 
+const MapTrackerComponent = ({ 
   tutorLocation, 
   studentLocation, 
   tutorName, 
@@ -278,7 +296,7 @@ const MapTracker = memo(({
         )}
 
         {/* Connection Polylines for multiple student markers relative to single tutorLocation */}
-        {tutorLocation && students && students.map(student => (
+        {tutorLocation && students && students.length <= 5 && students.map(student => (
           <Polyline 
             key={`line-${student.id}`}
             positions={[tutorLocation, student.location]} 
@@ -292,7 +310,7 @@ const MapTracker = memo(({
         ))}
 
         {/* Connection Polylines for multiple tutor markers relative to single studentLocation */}
-        {studentLocation && tutors && tutors.map(tutor => (
+        {studentLocation && tutors && tutors.length <= 5 && tutors.map(tutor => (
           <Polyline 
             key={`line-${tutor.id}`}
             positions={[studentLocation, tutor.location]} 
@@ -320,7 +338,7 @@ const MapTracker = memo(({
 
         {/* Legacy/Contextual single tutor */}
         {!tutors && tutorLocation && (
-          <Marker position={tutorLocation} icon={createCustomMarker('rose-500', tutorName || 'T', tutorImage, true)}>
+          <Marker position={tutorLocation} icon={getCustomMarkerCached('rose-500', tutorName || 'T', tutorImage, true)}>
             <Popup>
               <div className="p-2 min-w-[120px]">
                 <div className="text-[10px] font-black uppercase italic text-rose-500 mb-1">
@@ -367,7 +385,7 @@ const MapTracker = memo(({
 
         {/* Legacy/Contextual single student */}
         {!students && studentLocation && (
-          <Marker position={studentLocation} icon={createCustomMarker('blue-500', studentName || 'S', studentImage, true)}>
+          <Marker position={studentLocation} icon={getCustomMarkerCached('blue-500', studentName || 'S', studentImage, true)}>
             <Popup>
               <div className="p-2 min-w-[120px]">
                 <div className="text-[10px] font-black uppercase italic text-blue-500 mb-2">
@@ -394,7 +412,7 @@ const MapTracker = memo(({
               <Marker 
                 key={tutor.id} 
                 position={tutor.location} 
-                icon={createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)}
+                icon={getCustomMarkerCached('rose-500', tutor.name, tutor.image, tutor.isOnline)}
               >
                 <Popup>
                   <div className="p-2.5 min-w-[140px]">
@@ -454,7 +472,7 @@ const MapTracker = memo(({
           <Marker 
             key={student.id} 
             position={student.location} 
-            icon={createCustomMarker('blue-500', student.name, student.image, student.isOnline)}
+            icon={getCustomMarkerCached('blue-500', student.name, student.image, student.isOnline)}
           >
             <Popup>
               <div className="p-2 min-w-[120px]">
@@ -534,6 +552,46 @@ const MapTracker = memo(({
       )}
     </div>
   );
+};
+
+const isSameLocation = (loc1?: [number, number], loc2?: [number, number]) => {
+  if (!loc1 && !loc2) return true;
+  if (!loc1 || !loc2) return false;
+  return loc1[0] === loc2[0] && loc1[1] === loc2[1];
+};
+
+const MapTracker = memo(MapTrackerComponent, (prev, next) => {
+  if (!isSameLocation(prev.tutorLocation, next.tutorLocation)) return false;
+  if (!isSameLocation(prev.studentLocation, next.studentLocation)) return false;
+  if (prev.tutorName !== next.tutorName) return false;
+  if (prev.studentName !== next.studentName) return false;
+  if (prev.tutorImage !== next.tutorImage) return false;
+  if (prev.studentImage !== next.studentImage) return false;
+  if (prev.eta?.distance !== next.eta?.distance || prev.eta?.minutes !== next.eta?.minutes) return false;
+  
+  if ((prev.tutors?.length || 0) !== (next.tutors?.length || 0)) return false;
+  if (prev.tutors && next.tutors) {
+    for (let i = 0; i < prev.tutors.length; i++) {
+      const t1 = prev.tutors[i];
+      const t2 = next.tutors[i];
+      if (t1.id !== t2.id || !isSameLocation(t1.location, t2.location) || t1.isOnline !== t2.isOnline) {
+        return false;
+      }
+    }
+  }
+
+  if ((prev.students?.length || 0) !== (next.students?.length || 0)) return false;
+  if (prev.students && next.students) {
+    for (let i = 0; i < prev.students.length; i++) {
+      const s1 = prev.students[i];
+      const s2 = next.students[i];
+      if (s1.id !== s2.id || !isSameLocation(s1.location, s2.location) || s1.isOnline !== s2.isOnline) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 });
 
 export default MapTracker;

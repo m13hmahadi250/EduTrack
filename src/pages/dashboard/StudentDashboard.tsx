@@ -426,12 +426,27 @@ export default function StudentDashboard() {
   // Background position tracking for student during transit
   useEffect(() => {
     let currentWatchId: number | null = null;
+    let lastLat = 0;
+    let lastLng = 0;
+    let lastUpdateTime = 0;
     
     if (activeTab === 'transit' && currentUser?.id) {
       if ('geolocation' in navigator) {
         currentWatchId = navigator.geolocation.watchPosition(
           (position) => {
-            updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const now = Date.now();
+
+            const distanceChanged = Math.abs(lat - lastLat) > 0.00015 || Math.abs(lng - lastLng) > 0.00015;
+            const timePassed = now - lastUpdateTime > 24000; // 24 seconds to balance with Firestore update limits
+
+            if (lastUpdateTime === 0 || distanceChanged || timePassed) {
+              lastLat = lat;
+              lastLng = lng;
+              lastUpdateTime = now;
+              updateLocation(currentUser.id, lat, lng);
+            }
           },
           (error) => {
             console.error("Error watching student position", error);
@@ -450,7 +465,7 @@ export default function StudentDashboard() {
         navigator.geolocation.clearWatch(currentWatchId);
       }
     };
-  }, [activeTab, currentUser?.id]);
+  }, [activeTab, currentUser?.id, updateLocation]);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [accountForm, setAccountForm] = useState({
@@ -625,6 +640,136 @@ export default function StudentDashboard() {
   };
 
   const eta = useMemo(() => calculateETA(), [currentUser?.location, mySessions, users]);
+
+  const expertRadiusTutors = useMemo(() => {
+    if (!currentUser?.location) return [];
+    const uniqueTutors = new Map();
+    mySessions
+      .filter(s => s.status === 'active' || s.status === 'scheduled')
+      .forEach(s => {
+        const tutor = users.find(u => u.id === s.tutorId);
+        if (tutor) {
+          const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location.lat, currentUser.location.lng]);
+          if (coords && !uniqueTutors.has(tutor.id)) {
+            uniqueTutors.set(tutor.id, {
+              id: tutor.id,
+              location: coords,
+              name: tutor.name,
+              image: tutor.profileImage,
+              isOnline: tutor.isTrackingOn
+            });
+          }
+        }
+      });
+    users
+      .filter(u => u.role === 'tutor' && u.isVerified)
+      .forEach(tutor => {
+        const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location.lat, currentUser.location.lng]);
+        if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
+          uniqueTutors.set(tutor.id, {
+            id: tutor.id,
+            location: coords,
+            name: tutor.name,
+            image: tutor.profileImage,
+            isOnline: tutor.isTrackingOn
+          });
+        }
+      });
+    return Array.from(uniqueTutors.values());
+  }, [currentUser?.location?.lat, currentUser?.location?.lng, mySessions, users]);
+
+  const globalTutorRadiusTutors = useMemo(() => {
+    return filteredTutors
+      .filter(t => t.location)
+      .map(t => ({
+        id: t.id,
+        location: [t.location!.lat, t.location!.lng] as [number, number],
+        name: t.name,
+        image: t.profileImage,
+        isOnline: t.isTrackingOn
+      }));
+  }, [filteredTutors]);
+
+  const transitTutors = useMemo(() => {
+    if (!currentUser?.location) return [];
+    const studentLat = currentUser.location.lat;
+    const studentLng = currentUser.location.lng;
+
+    if (transitMode === 'tracking') {
+      const uniqueTutors = new Map();
+      mySessions
+        .filter(s => s.status === 'active' || s.status === 'scheduled')
+        .forEach(s => {
+          const tutor = users.find(u => u.id === s.tutorId);
+          if (tutor) {
+            // Apply search filters
+            if (mapSubjectQuery) {
+              const tSub = tutor.subjects || [];
+              if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                return;
+              }
+            }
+            if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
+              return;
+            }
+
+            const coords = getTutorLocation(tutor.id, tutor.location, [studentLat, studentLng]);
+            if (coords && !uniqueTutors.has(tutor.id)) {
+              uniqueTutors.set(tutor.id, {
+                id: tutor.id,
+                location: coords,
+                name: tutor.name,
+                image: tutor.profileImage,
+                isOnline: tutor.isTrackingOn,
+                subjects: tutor.subjects,
+                rating: tutor.rating
+              });
+            }
+          }
+        });
+      return Array.from(uniqueTutors.values());
+    } else {
+      return users
+        .filter(u => u.role === 'tutor' && u.isVerified)
+        .filter(u => {
+          if (mapSubjectQuery) {
+            const uSub = u.subjects || [];
+            if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+              return false;
+            }
+          }
+          if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
+            return false;
+          }
+          return true;
+        })
+        .map(t => {
+          const coords = getTutorLocation(t.id, t.location, [studentLat, studentLng]);
+          if (!coords) return null;
+          const dist = getDistance(studentLat, studentLng, coords[0], coords[1]);
+          if (dist > nearbyRadius) return null;
+          return {
+            id: t.id,
+            location: coords,
+            name: t.name,
+            image: t.profileImage,
+            isOnline: t.isTrackingOn,
+            subjects: t.subjects,
+            rating: t.rating
+          };
+        })
+        .filter(Boolean) as any[];
+    }
+  }, [
+    currentUser?.location?.lat,
+    currentUser?.location?.lng,
+    transitMode,
+    mySessions,
+    users,
+    mapSubjectQuery,
+    mapMinRating,
+    nearbyRadius,
+  ]);
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1154,41 +1299,7 @@ export default function StudentDashboard() {
                         <MapTracker 
                           studentLocation={[currentUser.location.lat, currentUser.location.lng]}
                           studentName="Me"
-                          tutors={(() => {
-                            const uniqueTutors = new Map();
-                            mySessions
-                              .filter(s => s.status === 'active' || s.status === 'scheduled')
-                              .forEach(s => {
-                                const tutor = users.find(u => u.id === s.tutorId);
-                                if (tutor) {
-                                  const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
-                                  if (coords && !uniqueTutors.has(tutor.id)) {
-                                    uniqueTutors.set(tutor.id, {
-                                      id: tutor.id,
-                                      location: coords,
-                                      name: tutor.name,
-                                      image: tutor.profileImage,
-                                      isOnline: tutor.isTrackingOn
-                                    });
-                                  }
-                                }
-                              });
-                            users
-                              .filter(u => u.role === 'tutor' && u.isVerified)
-                              .forEach(tutor => {
-                                const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
-                                if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
-                                  uniqueTutors.set(tutor.id, {
-                                    id: tutor.id,
-                                    location: coords,
-                                    name: tutor.name,
-                                    image: tutor.profileImage,
-                                    isOnline: tutor.isTrackingOn
-                                  });
-                                }
-                              });
-                            return Array.from(uniqueTutors.values());
-                          })()}
+                          tutors={expertRadiusTutors}
                           eta={eta}
                         />
                       </Suspense>
@@ -1231,7 +1342,7 @@ export default function StudentDashboard() {
                  <MapTracker 
                    studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
                    studentName="Me"
-                   tutors={filteredTutors
+                   tutors={globalTutorRadiusTutors} /*{filteredTutors
                      .filter(t => t.location)
                      .map(t => ({
                        id: t.id,
@@ -1239,7 +1350,7 @@ export default function StudentDashboard() {
                        name: t.name,
                        image: t.profileImage,
                        isOnline: t.isTrackingOn
-                     }))}
+                     }))}*/
                  />
                </Suspense>
             </div>
@@ -2371,7 +2482,7 @@ export default function StudentDashboard() {
                             studentLocation={[currentUser.location.lat, currentUser.location.lng]}
                             studentName="Me"
                             studentImage={currentUser.profileImage}
-                            tutors={(() => {
+                            tutors={transitTutors} /*{(() => {
                               if (transitMode === 'tracking') {
                                 const uniqueTutors = new Map();
                                 mySessions
@@ -2437,7 +2548,7 @@ export default function StudentDashboard() {
                                   })
                                   .filter((t): t is NonNullable<typeof t> => t !== null);
                               }
-                            })()}
+                            })()}*/
                             eta={transitMode === 'tracking' ? eta : undefined}
                           />
                         </Suspense>
