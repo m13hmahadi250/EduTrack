@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Signup() {
@@ -191,18 +191,35 @@ export default function Signup() {
 }
 
 function Input({ label, type = "text", name, required, onChange, placeholder }: { label: string, type?: string, name: string, required?: boolean, onChange: any, placeholder?: string }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPasswordType = type === 'password';
+  const currentType = isPasswordType && showPassword ? 'text' : type;
+
   return (
     <div>
       <label className="block text-[10px] font-black font-heading uppercase text-[#9CA3AF] tracking-wider mb-2">{label}</label>
-      <div className="mt-1">
+      <div className="mt-1 relative">
         <input
-          type={type}
+          type={currentType}
           name={name}
           required={required}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all"
+          className={`w-full bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all ${
+            isPasswordType ? 'pl-4 pr-12 py-3' : 'px-4 py-3'
+          }`}
         />
+        {isPasswordType && (
+          <button
+            type="button"
+            id={`toggle-${name}-visibility`}
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-all"
+            title={showPassword ? "Hide Password" : "Show Password"}
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        )}
       </div>
     </div>
   );

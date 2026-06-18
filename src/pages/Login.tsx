@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Login() {
@@ -10,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showInvalidCredPopup, setShowInvalidCredPopup] = useState(false);
   
   const login = useAppStore(state => state.login);
@@ -25,32 +26,55 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLogin) {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setError('Email address is required.');
+        return;
+      }
+
+      const isDemo = ['student', 'tutor', 'admin'].includes(trimmedEmail.toLowerCase());
+      if (!isDemo && !trimmedEmail.includes('@')) {
+        setError('Please enter a valid email address.');
+        return;
+      }
+
+      if (!password) {
+        setError('Password is required.');
+        return;
+      }
+
       setLoading(true);
       setError('');
       try {
         // Simple demo logic: if email is 'student', 'tutor', or 'admin', use loginAsDemo
-        if (['student', 'tutor', 'admin'].includes(email.toLowerCase())) {
-          await useAppStore.getState().loginAsDemo(email.toLowerCase() as any);
+        if (isDemo) {
+          await useAppStore.getState().loginAsDemo(trimmedEmail.toLowerCase() as any);
         } else {
-          await login(email, password);
+          await login(trimmedEmail, password);
         }
         navigate('/dashboard');
-        } catch (err: any) {
+      } catch (err: any) {
         console.error("Login error:", err);
-        let msg = 'Invalid email or password';
-        const errStr = String(err);
+        let msg = 'Wrong email or password. Please try again.';
+        const errStr = String(err).toLowerCase();
+        const errCode = (err?.code || '').toLowerCase();
         
-        // Handle specific Firebase Auth error codes
-        if (err.code === 'auth/wrong-password') {
-          msg = 'Incorrect password. Please try again.';
-        } else if (err.code === 'auth/user-not-found') {
-          msg = 'No account found with this email.';
-        } else if (err.code === 'auth/invalid-email') {
-          msg = 'The email address is badly formatted.';
-        } else if (err.code === 'auth/invalid-credential' || errStr.includes('invalid-credential')) {
-          msg = 'Wrong email or password. Please try again.';
+        // Handle specific Firebase Auth error codes and similar text matches
+        if (
+          errCode === 'auth/wrong-password' || 
+          errStr.includes('wrong-password') || 
+          errStr.includes('incorrect-password') ||
+          errCode === 'auth/user-not-found' || 
+          errStr.includes('user-not-found') ||
+          errCode === 'auth/invalid-credential' || 
+          errStr.includes('invalid-credential') || 
+          errStr.includes('invalid_credential')
+        ) {
+          msg = 'Wrong email or password. Please check your credentials and try again.';
           setShowInvalidCredPopup(true);
-        } else if (err.code === 'auth/too-many-requests') {
+        } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
+          msg = 'The email address is badly formatted.';
+        } else if (errCode === 'auth/too-many-requests' || errStr.includes('too-many-requests')) {
           msg = 'Too many failed login attempts. Please try again later.';
         } else if (err.message) {
           msg = err.message;
@@ -73,7 +97,7 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowInvalidCredPopup(false)}
           >
             <motion.div 
@@ -81,20 +105,21 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100"
+              className="bg-white dark:bg-[#0F172A] rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100 dark:border-slate-800"
             >
-              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertCircle className="w-10 h-10 text-rose-500" />
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-rose-500 animate-pulse" />
               </div>
-              <h3 className="text-xl font-bold text-[#0B132B] mb-3">Login Failed</h3>
-              <p className="text-slate-500 text-sm leading-relaxed mb-8">
-                The email or password you entered is incorrect. Please check your credentials and try again.
+              <h3 className="text-xl font-bold text-[#0B132B] dark:text-white mb-2">Login Failed</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                Wrong email or password. Please check your credentials and try again.
               </p>
               <button 
+                type="button"
                 onClick={() => setShowInvalidCredPopup(false)}
-                className="w-full py-4 bg-[#0D5BFF] text-white rounded-2xl text-sm font-black uppercase tracking-wider hover:bg-blue-700 active:scale-[0.98] transition-all shadow-[0_8px_16px_rgba(13,91,255,0.2)]"
+                className="w-full py-3.5 bg-[#0D5BFF] text-white rounded-xl text-sm font-black uppercase tracking-wider hover:bg-blue-700 active:scale-[0.98] transition-all shadow-[0_8px_16px_rgba(13,91,255,0.2)]"
               >
-                Got it
+                Okay, Try Again
               </button>
             </motion.div>
           </motion.div>
@@ -128,7 +153,7 @@ export default function Login() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
            <AnimatePresence>
              {error && (
                <motion.div 
@@ -148,21 +173,46 @@ export default function Login() {
                 type="email"
                 required
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  setError('');
+                }}
                 placeholder="name@provider.com"
-                className="w-full px-4 py-3.5 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all"
+                className={`w-full px-4 py-3.5 bg-[#F8F9FA] border rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 transition-all ${
+                  error 
+                    ? 'border-rose-300 focus:ring-rose-500 focus:border-transparent bg-rose-50/20' 
+                    : 'border-[#E5E7EB] focus:ring-[#0D5BFF] focus:border-transparent'
+                }`}
              />
            </div>
            <div>
              <label className="block text-[10px] font-black font-heading uppercase text-[#9CA3AF] tracking-wider mb-2">Password</label>
-             <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3.5 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent transition-all"
-             />
+             <div className="relative">
+               <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={e => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="••••••••"
+                  className={`w-full pl-4 pr-12 py-3.5 bg-[#F8F9FA] border rounded-xl text-sm font-bold text-[#0B132B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 transition-all ${
+                    error 
+                      ? 'border-rose-300 focus:ring-rose-500 focus:border-transparent bg-rose-50/20' 
+                      : 'border-[#E5E7EB] focus:ring-[#0D5BFF] focus:border-transparent'
+                  }`}
+               />
+               <button
+                 type="button"
+                 id="toggle-login-password-visibility"
+                 onClick={() => setShowPassword(!showPassword)}
+                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+                 title={showPassword ? "Hide Password" : "Show Password"}
+               >
+                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+               </button>
+             </div>
            </div>
 
              <button
@@ -213,8 +263,7 @@ export default function Login() {
                Google Account
              </button>
 
-
-        </form>
+         </form>
       </div>
     </div>
   );

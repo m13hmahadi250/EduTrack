@@ -36,7 +36,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 }
 
 function LayoutWrapper() {
-  const isLoading = useAppStore(state => state.isLoading);
+  const isInitialized = useAppStore(state => state.isInitialized);
   const theme = useAppStore(state => state.theme);
   const location = useLocation();
 
@@ -48,7 +48,7 @@ function LayoutWrapper() {
     }
   }, [theme]);
 
-  if (isLoading) {
+  if (!isInitialized) {
     return <LoadingScreen />;
   }
 

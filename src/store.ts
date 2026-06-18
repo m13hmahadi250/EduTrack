@@ -149,6 +149,7 @@ interface AppState {
   messages: Message[];
   notifications: Notification[];
   isLoading: boolean;
+  isInitialized: boolean;
   typingStatus: { [userId: string]: string | null };
   
   // Actions
@@ -235,6 +236,11 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  // Non-blocking background observers should not crash the page or run unhandled rejections
+  if (operationType === OperationType.LIST || (operationType === OperationType.GET && path?.startsWith('users/'))) {
+    return;
+  }
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -268,11 +274,11 @@ export const useAppStore = create<AppState>((set, get) => {
         set({ currentUser: null });
         cleanupListeners();
       } finally {
-        set({ isLoading: false });
+        set({ isLoading: false, isInitialized: true });
       }
     } else {
       cleanupListeners();
-      set({ currentUser: null, users: [], payments: [], messages: [], isLoading: false });
+      set({ currentUser: null, users: [], payments: [], messages: [], isLoading: false, isInitialized: true });
     }
   });
 
@@ -285,6 +291,7 @@ export const useAppStore = create<AppState>((set, get) => {
     messages: [],
     notifications: [],
     isLoading: true,
+    isInitialized: false,
     typingStatus: {},
     theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
 

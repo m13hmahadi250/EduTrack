@@ -15,7 +15,19 @@ async function setupVite() {
     // Only serve static files if we are NOT on Vercel
     // Vercel handles static file serving automatically from the 'dist' directory
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: (res, filePath) => {
+        // Hashed static files (JS, CSS, images) can be cached forever.
+        // index.html and config files should NOT be cached.
+        if (filePath.match(/\.(html|json)$/)) {
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
