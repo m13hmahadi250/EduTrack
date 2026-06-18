@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { 
   ShieldCheck, 
@@ -18,6 +18,19 @@ import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>([]);
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (location.hash) {
+      const element = document.getElementById(location.hash.substring(1));
+      if (element) {
+        const timer = setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [location]);
 
   React.useEffect(() => {
     let active = true;
@@ -182,7 +195,7 @@ export default function Home() {
       </section>
 
       {/* Trust & Safety Section - Visible Grid Style */}
-      <section className="py-24 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+      <section id="safety" className="py-24 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Safety First</h2>
@@ -344,7 +357,7 @@ export default function Home() {
       </section>
 
       {/* Featured Tutors - Bento Grid Style */}
-      <section className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
+      <section id="find-tutors" className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
@@ -374,7 +387,7 @@ export default function Home() {
       </section>
 
       {/* How it Works - Modern Step Layout */}
-      <section className="py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300">
+      <section id="how-it-works" className="py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-end justify-between mb-16 gap-6">
             <div className="max-w-xl">

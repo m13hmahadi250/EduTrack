@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Signup() {
@@ -23,6 +23,9 @@ export default function Signup() {
     setError('');
     try {
       const password = formData.password;
+      if (password && password.length < 8) {
+        throw new Error('Password is too short. Please use at least 8 characters.');
+      }
       const data = { ...formData };
       delete data.password;
       
@@ -33,16 +36,35 @@ export default function Signup() {
       let msg = 'Registration failed. Please try again.';
       const errStr = String(err);
       
-      if (err.code === 'auth/email-already-in-use') {
+      let errMsg = err.message || errStr;
+      let errCode = err.code;
+
+      if (errMsg && errMsg.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(errMsg);
+          if (parsed && parsed.error) {
+            errMsg = parsed.error;
+            if (parsed.error.includes('auth/weak-password')) {
+              errCode = 'auth/weak-password';
+            } else if (parsed.error.includes('auth/email-already-in-use')) {
+              errCode = 'auth/email-already-in-use';
+            } else if (parsed.error.includes('auth/invalid-email')) {
+              errCode = 'auth/invalid-email';
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (errCode === 'auth/email-already-in-use' || errMsg.includes('auth/email-already-in-use')) {
         msg = 'This email is already registered. Please sign in instead.';
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (errCode === 'auth/invalid-email' || errMsg.includes('auth/invalid-email')) {
         msg = 'The email address is badly formatted.';
-      } else if (err.code === 'auth/weak-password') {
-        msg = 'The password is too weak. Please use at least 6 characters.';
-      } else if (err.code === 'auth/invalid-credential' || errStr.includes('invalid-credential')) {
+      } else if (errCode === 'auth/weak-password' || errMsg.includes('auth/weak-password')) {
+        msg = 'Password is too short. Please use at least 8 characters.';
+      } else if (errCode === 'auth/invalid-credential' || errMsg.includes('auth/invalid-credential')) {
         msg = 'Registration Error. Please check your information and try again.';
-      } else if (err.message) {
-        msg = err.message;
+      } else {
+        msg = errMsg;
       }
 
       setError(msg);
@@ -63,20 +85,50 @@ export default function Signup() {
         </h2>
 
         {/* Toggle */}
-        <div className="flex bg-[#F3F4F6] rounded-2xl p-1.5 mb-8">
-          <button
-            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${role === 'student' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        <motion.div 
+          animate={{
+            borderColor: role === 'student' ? 'rgba(13, 91, 255, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+            boxShadow: role === 'student' 
+              ? '0 10px 25px -5px rgba(13, 91, 255, 0.1), 0 8px 10px -6px rgba(13, 91, 255, 0.08)' 
+              : '0 10px 25px -5px rgba(245, 158, 11, 0.1), 0 8px 10px -6px rgba(245, 158, 11, 0.08)',
+          }}
+          transition={{ duration: 0.3 }}
+          className="flex bg-slate-50 rounded-2xl p-1.5 mb-8 relative border-2 border-slate-200/60"
+        >
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 ${role === 'student' ? 'text-[#0B132B]' : 'text-slate-500 hover:text-[#0B132B]'}`}
             onClick={() => setRole('student')}
           >
-            Student
-          </button>
+            {role === 'student' && (
+              <motion.div
+                layoutId="active-role-bg"
+                className="absolute inset-0 bg-white rounded-xl shadow-md"
+                transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                style={{ zIndex: -1 }}
+              />
+            )}
+            <GraduationCap className={`w-4 h-4 transition-transform duration-300 ${role === 'student' ? 'text-[#0D5BFF] scale-110' : 'text-slate-400'}`} />
+            <span>Student</span>
+          </motion.button>
           <button
-             className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${role === 'tutor' ? 'bg-white text-[#0B132B] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            type="button"
+            className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 ${role === 'tutor' ? 'text-[#0B132B]' : 'text-slate-500 hover:text-[#0B132B]'}`}
             onClick={() => setRole('tutor')}
           >
-            Tutor
+            {role === 'tutor' && (
+              <motion.div
+                layoutId="active-role-bg"
+                className="absolute inset-0 bg-white rounded-xl shadow-md"
+                transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                style={{ zIndex: -1 }}
+              />
+            )}
+            <BookOpen className={`w-4 h-4 transition-transform duration-300 ${role === 'tutor' ? 'text-amber-500 scale-110' : 'text-slate-400'}`} />
+            <span>Tutor</span>
           </button>
-        </div>
+        </motion.div>
 
         <form className="space-y-6" onSubmit={handleSignup}>
           <AnimatePresence>
@@ -99,7 +151,7 @@ export default function Signup() {
             <Input label="Email Address" type="email" name="email" required onChange={handleInputChange} />
             <Input label="Phone Number" type="tel" name="phone" required onChange={handleInputChange} />
             <div className="sm:col-span-2">
-              <Input label="Password" type="password" name="password" required onChange={handleInputChange} />
+              <Input label="Password" type="password" name="password" required onChange={handleInputChange} placeholder="At least 8 characters" />
             </div>
             <div className="sm:col-span-2">
               <Input label="Address" name="address" required onChange={handleInputChange} placeholder="Full address" />

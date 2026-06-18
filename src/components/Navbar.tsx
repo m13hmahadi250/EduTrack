@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
@@ -8,10 +8,21 @@ import { motion } from 'motion/react';
 const Navbar = memo(() => {
   const { currentUser, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const isHome = location.pathname === '/';
+  const currentHash = location.hash;
+  const isActive = (hash: string) => {
+    if (!isHome) return false;
+    if (hash === '#find-tutors') {
+      return currentHash === '#find-tutors' || currentHash === '';
+    }
+    return currentHash === hash;
   };
 
   return (
@@ -39,9 +50,24 @@ const Navbar = memo(() => {
           <div className="flex items-center space-x-8">
             {!currentUser && (
                <div className="hidden md:flex space-x-8 text-[11px] font-bold uppercase tracking-wider text-[#6B7280] dark:text-slate-400">
-                 <Link to="/" className="text-[#0D5BFF] border-b-2 border-[#0D5BFF] pb-1">Find Tutors</Link>
-                 <Link to="/" className="hover:text-[#0B132B] dark:hover:text-white transition-colors pb-1">How it works</Link>
-                 <Link to="/" className="hover:text-[#0B132B] dark:hover:text-white transition-colors pb-1">Safety</Link>
+                 <Link 
+                   to="/#find-tutors" 
+                   className={`${isActive('#find-tutors') ? 'text-[#0D5BFF] border-b-2 border-[#0D5BFF]' : 'hover:text-[#0B132B] dark:hover:text-white hover:border-b-2 hover:border-[#0D5BFF]/35'} pb-1 transition-all`}
+                 >
+                   Find Tutors
+                 </Link>
+                 <Link 
+                   to="/#how-it-works" 
+                   className={`${isActive('#how-it-works') ? 'text-[#0D5BFF] border-b-2 border-[#0D5BFF]' : 'hover:text-[#0B132B] dark:hover:text-white hover:border-b-2 hover:border-[#0D5BFF]/35'} pb-1 transition-all`}
+                 >
+                   How it works
+                 </Link>
+                 <Link 
+                   to="/#safety" 
+                   className={`${isActive('#safety') ? 'text-[#0D5BFF] border-b-2 border-[#0D5BFF]' : 'hover:text-[#0B132B] dark:hover:text-white hover:border-b-2 hover:border-[#0D5BFF]/35'} pb-1 transition-all`}
+                 >
+                   Safety
+                 </Link>
                </div>
             )}
             

@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, AlertCircle } from 'lucide-react';
+import { Camera, Upload, AlertCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
   onUpload: (url: string) => void;
+  onDelete?: () => void;
 }
 
-export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadProps) {
+export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col items-center gap-2">
       <div 
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -148,8 +149,21 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
               className="w-full h-full object-cover rounded-[2.2rem]"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2.2rem]">
-               <Camera className="w-6 h-6 text-white" />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 rounded-[2.2rem]">
+               <Camera className="w-5 h-5 text-white hover:scale-110 transition-transform" />
+               {onDelete && (
+                 <button
+                   type="button"
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     onDelete();
+                   }}
+                   className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110"
+                   title="Delete Photo"
+                 >
+                   <Trash2 className="w-4 h-4" />
+                 </button>
+               )}
             </div>
           </>
         ) : (
@@ -172,6 +186,20 @@ export default function ImageUpload({ currentImageUrl, onUpload }: ImageUploadPr
           </div>
         )}
       </div>
+
+      {currentImageUrl && onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 active:scale-95 transition-all mt-1 cursor-pointer bg-transparent border-0 p-1"
+        >
+          <Trash2 className="w-3 h-3" />
+          Remove Photo
+        </button>
+      )}
 
       <AnimatePresence>
         {error && (

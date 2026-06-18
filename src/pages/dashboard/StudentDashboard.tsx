@@ -637,7 +637,7 @@ export default function StudentDashboard() {
       let finalTransactionId = transactionId;
       
       if (!finalTransactionId) {
-        const response = await PaymentService.initiatePayment(selectedPaymentProvider, parseFloat(amount));
+        const response = await PaymentService.initiatePayment(selectedPaymentProvider, parseFloat(String(amount).replace(/,/g, '')));
         if (response.success && response.transactionId) {
           finalTransactionId = response.transactionId;
           setTransactionId(finalTransactionId);
@@ -659,7 +659,7 @@ export default function StudentDashboard() {
       submitPayment({
         studentId: currentUser.id,
         tutorId: selectedTutor.id,
-        amount: parseFloat(amount),
+        amount: parseFloat(String(amount).replace(/,/g, '')),
         bKashNumber: bKashNumber || `${selectedPaymentProvider.toUpperCase()}-Gateway`,
         transactionId: finalTransactionId,
       });
@@ -695,7 +695,7 @@ export default function StudentDashboard() {
       await submitPayment({
         studentId: currentUser.id,
         tutorId: selectedTutor.id,
-        amount: parseFloat(amount),
+        amount: parseFloat(String(amount).replace(/,/g, '')),
         bKashNumber: wallet,
         transactionId: trxId,
       });
@@ -2025,11 +2025,11 @@ export default function StudentDashboard() {
                                     let activeAmt = amount;
                                     // Auto-populate with selected tutor's hourly rate if empty
                                     if (!activeAmt && selectedTutor?.hourlyRate) {
-                                      activeAmt = selectedTutor.hourlyRate.toString();
+                                      activeAmt = selectedTutor.hourlyRate.toLocaleString('en-US');
                                       setAmount(activeAmt);
                                     }
                                     
-                                    if (!activeAmt || parseFloat(activeAmt) <= 0) {
+                                    if (!activeAmt || parseFloat(String(activeAmt).replace(/,/g, '')) <= 0) {
                                       useAppStore.getState().sendNotification(
                                         currentUser.id,
                                         "Validation Required",
@@ -2064,9 +2064,13 @@ export default function StudentDashboard() {
                                 <DashboardInput 
                                   label="Amount ৳" 
                                   value={amount} 
-                                  onChange={setAmount} 
-                                  placeholder="1000" 
-                                  type="number" 
+                                  onChange={(v) => {
+                                     const clean = v.replace(/[^0-9]/g, "");
+                                     const formatted = clean ? Number(clean).toLocaleString('en-US') : "";
+                                     setAmount(formatted);
+                                   }} 
+                                  placeholder="e.g. 10,000 or 5,000" 
+                                  type="text" 
                                 />
                                 <DashboardInput 
                                   label="Transaction ID" 
@@ -2617,6 +2621,7 @@ export default function StudentDashboard() {
                    <ImageUpload 
                      currentImageUrl={currentUser.profileImage} 
                      onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
+                     onDelete={() => useAppStore.getState().updateUser(currentUser.id, { profileImage: "" })}
                    />
                    <div>
                       <h3 className="text-3xl font-black text-[#0B132B] uppercase italic">Account Sector</h3>
@@ -2633,7 +2638,7 @@ export default function StudentDashboard() {
                   }}
                   className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
                 >
-                   {isEditingAccount ? 'Confirm Changes' : 'Modify ID'}
+                   {isEditingAccount ? 'Confirm Changes' : 'Update Profile'}
                 </button>
              </div>
 
@@ -2817,7 +2822,7 @@ export default function StudentDashboard() {
           <BKashGatewaySim
             isOpen={isBKashModalOpen}
             onClose={() => setIsBKashModalOpen(false)}
-            amount={parseFloat(amount) || 0}
+            amount={parseFloat(String(amount).replace(/,/g, '')) || 0}
             tutorName={selectedTutor?.name || 'Expert Tutor'}
             onPaymentSuccess={handleBKashSuccess}
           />

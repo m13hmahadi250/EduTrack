@@ -266,8 +266,8 @@ export default function TutorDashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [profileForm, setProfileForm] = useState({
     bio: currentUser?.bio || "",
-    hourlyRate: currentUser?.hourlyRate || 0,
-    daysPerWeek: currentUser?.daysPerWeek || 3,
+    hourlyRate: currentUser?.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
+    daysPerWeek: currentUser?.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
     experience: currentUser?.experience || "",
     subjects: currentUser?.subjects || [],
     classes: currentUser?.classes || [],
@@ -288,8 +288,8 @@ export default function TutorDashboard() {
     if (!isEditingProfile && currentUser) {
       setProfileForm({
         bio: currentUser.bio || "",
-        hourlyRate: currentUser.hourlyRate || 0,
-        daysPerWeek: currentUser.daysPerWeek || 3,
+        hourlyRate: currentUser.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
+        daysPerWeek: currentUser.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
         experience: currentUser.experience || "",
         subjects: currentUser.subjects || [],
         classes: currentUser.classes || [],
@@ -384,8 +384,8 @@ export default function TutorDashboard() {
     try {
       await updateUser(currentUser.id, {
         ...profileForm,
-        hourlyRate: Number(profileForm.hourlyRate),
-        daysPerWeek: Number(profileForm.daysPerWeek),
+        hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
+        daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
       });
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
@@ -399,10 +399,11 @@ export default function TutorDashboard() {
 
   const handleWithdrawRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanWithdrawAmount = Number(String(withdrawAmount).replace(/,/g, ''));
     if (
       !withdrawAmount ||
       !bkashNumber ||
-      Number(withdrawAmount) > (currentUser?.balance || 0)
+      cleanWithdrawAmount > (currentUser?.balance || 0)
     )
       return;
 
@@ -410,7 +411,7 @@ export default function TutorDashboard() {
     try {
       await requestWithdrawal({
         tutorId: currentUser!.id,
-        amount: Number(withdrawAmount),
+        amount: cleanWithdrawAmount,
         bKashNumber: bkashNumber,
         paymentMethod: paymentMethod,
       });
@@ -1023,9 +1024,13 @@ export default function TutorDashboard() {
                         <DashboardInput
                           label="Withdrawal Volume (৳)"
                           value={withdrawAmount}
-                          onChange={setWithdrawAmount}
+                          onChange={(v) => {
+                            const clean = v.replace(/[^0-9]/g, "");
+                            const formatted = clean ? Number(clean).toLocaleString('en-US') : "";
+                            setWithdrawAmount(formatted);
+                          }}
                           placeholder="Min 500"
-                          type="number"
+                          type="text"
                         />
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-[#0B132B] uppercase tracking-widest italic ml-1">
@@ -1061,7 +1066,7 @@ export default function TutorDashboard() {
                         disabled={
                           !withdrawAmount ||
                           !bkashNumber ||
-                          Number(withdrawAmount) > (currentUser.balance || 0)
+                          Number(String(withdrawAmount).replace(/,/g, '')) > (currentUser.balance || 0)
                         }
                         className="w-full bg-[#0D5BFF] text-white py-6 rounded-[2.5rem] font-black uppercase italic tracking-widest shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
                       >
@@ -1542,6 +1547,9 @@ export default function TutorDashboard() {
                       onUpload={(url) =>
                         updateUser(currentUser.id, { profileImage: url })
                       }
+                      onDelete={() =>
+                        updateUser(currentUser.id, { profileImage: "" })
+                      }
                     />
                   </div>
                   <h2 className="text-3xl font-black text-[#0B132B] uppercase italic mb-2 text-left md:text-center w-full">
@@ -1905,24 +1913,28 @@ export default function TutorDashboard() {
                         <ProfileField
                           label="Monthly Tutor Fee (৳)"
                           value={profileForm.hourlyRate}
-                          onChange={(v) =>
+                          placeholder="e.g. 10,000 or 5,000"
+                          onChange={(v) => {
+                            const clean = v.replace(/[^0-9]/g, "");
+                            const formatted = clean ? Number(clean).toLocaleString('en-US') : "";
                             setProfileForm({
                               ...profileForm,
-                              hourlyRate: Number(v),
-                            })
-                          }
-                          type="number"
+                              hourlyRate: formatted,
+                            });
+                          }}
+                          type="text"
                         />
                         <ProfileField
                           label="Days Taught per Week"
                           value={profileForm.daysPerWeek}
-                          onChange={(v) =>
+                          onChange={(v) => {
+                            const clean = v.replace(/[^0-9]/g, "");
                             setProfileForm({
                               ...profileForm,
-                              daysPerWeek: Number(v),
-                            })
-                          }
-                          type="number"
+                              daysPerWeek: clean,
+                            });
+                          }}
+                          type="text"
                           placeholder="e.g. 3"
                         />
                         <ProfileField
