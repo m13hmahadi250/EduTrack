@@ -54,24 +54,6 @@ export default function Messages() {
     );
 
     return hasSession || hasHistory;
-  }).sort((a, b) => {
-    const aMessages = messages.filter(m => 
-      (m.senderId === currentUser.id && m.receiverId === a.id) || 
-      (m.receiverId === currentUser.id && m.senderId === a.id)
-    );
-    const bMessages = messages.filter(m => 
-      (m.senderId === currentUser.id && m.receiverId === b.id) || 
-      (m.receiverId === currentUser.id && m.senderId === b.id)
-    );
-
-    const aLast = aMessages.length > 0 
-      ? Math.max(...aMessages.map(m => new Date(m.timestamp).getTime())) 
-      : 0;
-    const bLast = bMessages.length > 0 
-      ? Math.max(...bMessages.map(m => new Date(m.timestamp).getTime())) 
-      : 0;
-
-    return bLast - aLast;
   });
   const filteredPartners = chatPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 

@@ -305,14 +305,17 @@ export const useAppStore = create<AppState>((set, get) => {
     setLoading: (loading) => set({ isLoading: loading }),
 
     login: async (email, password) => {
+      set({ isLoading: true });
       try {
         await signInWithEmailAndPassword(auth, email, password);
       } catch (error) {
+        set({ isLoading: false });
         throw error;
       }
     },
 
     loginWithGoogle: async (requestedRole) => {
+      set({ isLoading: true });
       try {
         const provider = new GoogleAuthProvider();
         const result = await signInWithPopup(auth, provider);
@@ -341,11 +344,13 @@ export const useAppStore = create<AppState>((set, get) => {
           set({ currentUser: userDoc.data() as User });
         }
       } catch (error) {
+        set({ isLoading: false });
         throw error;
       }
     },
 
     loginAsDemo: async (role: Role) => {
+      set({ isLoading: true });
       const demoAccounts = {
         student: { email: 'student@gmail.com', password: 'password123' },
         tutor: { email: 'teacher@gmail.com', password: 'password123' },
@@ -366,6 +371,7 @@ export const useAppStore = create<AppState>((set, get) => {
               phone: '01700000000'
             }, password);
           } catch (signupErr) {
+            set({ isLoading: false });
             throw signupErr;
           }
         } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
@@ -377,12 +383,14 @@ export const useAppStore = create<AppState>((set, get) => {
               phone: '01700000000'
             }, password);
           } catch (signupError: any) {
+            set({ isLoading: false });
             if (signupError.message?.includes('auth/email-already-in-use') || signupError.code === 'auth/email-already-in-use') {
               throw new Error(`Demo account ${email} exists with a different password. Please use the standard login or contact support.`);
             }
             throw signupError;
           }
         } else {
+          set({ isLoading: false });
           throw error;
         }
       }
@@ -394,6 +402,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     signup: async (userData, password) => {
+      set({ isLoading: true });
       try {
         // Create auth user
         const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
@@ -419,6 +428,7 @@ export const useAppStore = create<AppState>((set, get) => {
         await setDoc(doc(db, 'users', uid), newUser);
         set({ currentUser: newUser });
       } catch (error) {
+        set({ isLoading: false });
         if (error instanceof Error && !error.message.includes('users/')) {
           handleFirestoreError(error, OperationType.WRITE, `users`);
         } else {
