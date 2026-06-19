@@ -28,6 +28,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'tutor' | 'admin'>('all');
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'unverified' | 'pending'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
+  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'other' | 'none'>('all');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [balanceInput, setBalanceInput] = useState<string>('');
@@ -101,9 +102,19 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         matchesStatus = !!user.isBlocked;
       }
 
-      return matchesSearch && matchesRole && matchesVerification && matchesStatus;
+      // Gender filter
+      let matchesGender = true;
+      if (genderFilter !== 'all') {
+        if (genderFilter === 'none') {
+          matchesGender = !user.gender;
+        } else {
+          matchesGender = user.gender?.toLowerCase() === genderFilter;
+        }
+      }
+
+      return matchesSearch && matchesRole && matchesVerification && matchesStatus && matchesGender;
     });
-  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter]);
+  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter]);
 
   // Block or Unblock user
   const handleToggleBlock = (user: User) => {
@@ -317,6 +328,21 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               <option value="blocked">Blocked / Suspended</option>
             </select>
           </div>
+
+          {/* Gender filter */}
+          <div>
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value as any)}
+              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
+            >
+              <option value="all">All Genders</option>
+              <option value="male">Male Only</option>
+              <option value="female">Female Only</option>
+              <option value="other">Other Only</option>
+              <option value="none">Not Specified</option>
+            </select>
+          </div>
         </div>
 
       </div>
@@ -336,6 +362,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               <tr className="border-b border-slate-50 dark:border-slate-800/40">
                 <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">User Identity</th>
                 <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Security Scope/Role</th>
+                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Gender</th>
                 <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Verification Ledger</th>
                 <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Wallet balance</th>
                 <th className="px-6 py-4 text-right text-[9px] font-black tracking-widest text-slate-400">Protocol Actions</th>
@@ -412,6 +439,30 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             🎓 {user.university}
                           </span>
                         )}
+                      </div>
+                    </td>
+
+                    {/* Gender Selection & Management */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <select
+                          value={user.gender || ''}
+                          onChange={(e) => {
+                            const newGender = e.target.value;
+                            setUpdatingUserId(user.id);
+                            updateUser(user.id, { gender: newGender })
+                              .then(() => showToast(`Gender changed to ${newGender || "Not Specified"}`))
+                              .catch(() => showToast("Failed to update gender", "error"))
+                              .finally(() => setUpdatingUserId(null));
+                          }}
+                          disabled={updatingUserId === user.id}
+                          className="px-2.5 py-2 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase border border-slate-100 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                        >
+                          <option value="">SPECIFY</option>
+                          <option value="Male">MALE</option>
+                          <option value="Female">FEMALE</option>
+                          <option value="Other">OTHER</option>
+                        </select>
                       </div>
                     </td>
 
@@ -569,7 +620,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
 
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
+                  <td colSpan={6} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
                     No corresponding user profiles found in database constraints.
                   </td>
                 </tr>

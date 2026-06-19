@@ -448,15 +448,6 @@ export default function Login() {
             )}
           </button>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100 dark:border-slate-800/80"></div>
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest leading-none">
-              <span className="px-4 bg-white dark:bg-[#111A2E] text-slate-400 dark:text-slate-500">Or continue with</span>
-            </div>
-          </div>
-
           <button
             type="button"
             onClick={async () => {
@@ -471,6 +462,12 @@ export default function Login() {
                 const errStr = String(err).toLowerCase();
                 const errCode = (err?.code || '').toLowerCase();
                 if (
+                  errCode === 'auth/popup-closed-by-user' ||
+                  errStr.includes('popup-closed-by-user') ||
+                  errStr.includes('popup closed by user')
+                ) {
+                  msg = 'GOOGLE DIRECT LOGIN CLOSED BY USER';
+                } else if (
                   errCode === 'auth/user-disabled' ||
                   errStr.includes('user-disabled') ||
                   errStr.includes('user_disabled')
@@ -485,7 +482,7 @@ export default function Login() {
               }
             }}
             disabled={loading}
-            className="w-full py-3.5 bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 text-[#374151] dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+            className="w-full mt-4 py-3.5 bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-100/10 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M23.766 12.2764C23.766 11.4607 23.6999 10.6406 23.5588 9.83807H12.24V14.4591H18.7217C18.4528 15.9494 17.5885 17.2678 16.323 18.1056V21.1039H20.19C22.4608 19.0139 23.766 15.9274 23.766 12.2764Z" fill="#4285F4"/>
@@ -493,7 +490,7 @@ export default function Login() {
               <path d="M5.50255 14.3003C5.25755 13.5857 5.1225 12.8258 5.1225 12C5.1225 11.1742 5.25755 10.4143 5.50255 9.69973V6.60889H1.5166C0.68625 8.26127 0.21375 10.084 0.21375 12C0.21375 13.916 0.68625 15.7387 1.5166 17.3912L5.50255 14.3003Z" fill="#FBBC05"/>
               <path d="M12.24 4.74801C14.0074 4.74801 15.5951 5.35651 16.8419 6.54867L20.2695 3.12111C18.1969 1.18501 15.4744 0 12.24 0C7.7029 0 3.55371 2.55655 1.5166 6.60889L5.50705 9.69973C6.45946 6.86015 9.11388 4.74801 12.24 4.74801Z" fill="#EA4335"/>
             </svg>
-            Google Account
+            LOGIN WITH GOOGLE
           </button>
         </form>
 

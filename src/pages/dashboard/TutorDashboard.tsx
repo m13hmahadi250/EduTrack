@@ -46,6 +46,8 @@ import {
   Award,
   Shield,
   ShieldAlert,
+  Mars,
+  Venus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -167,6 +169,7 @@ export default function TutorDashboard() {
   const [filterStudentClass, setFilterStudentClass] = useState('');
   const [filterStudentSubject, setFilterStudentSubject] = useState('');
   const [filterStudentAddress, setFilterStudentAddress] = useState('');
+  const [filterStudentGender, setFilterStudentGender] = useState('');
 
   const filteredStudents = useMemo(() => {
     return users.filter(user => {
@@ -189,10 +192,13 @@ export default function TutorDashboard() {
         (user.address && user.address.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
         (user.area && user.area.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
         (user.district && user.district.toLowerCase().includes(filterStudentAddress.toLowerCase()));
+
+      const matchesGender = !filterStudentGender ||
+        (user.gender && user.gender.toLowerCase() === filterStudentGender.toLowerCase());
         
-      return matchesSearch && matchesClass && matchesSubject && matchesAddress;
+      return matchesSearch && matchesClass && matchesSubject && matchesAddress && matchesGender;
     });
-  }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress]);
+  }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress, filterStudentGender]);
   const [selectedStudentForProposal, setSelectedStudentForProposal] = useState<User | null>(null);
   const [proposalDate, setProposalDate] = useState(new Date().toISOString().split("T")[0]);
   const [proposalSlot, setProposalSlot] = useState("04:00 PM");
@@ -307,6 +313,7 @@ export default function TutorDashboard() {
     nidFrontImg: currentUser?.nidFrontImg || "",
     nidBackImg: currentUser?.nidBackImg || "",
     documents: currentUser?.documents || [],
+    gender: currentUser?.gender || "",
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -329,6 +336,7 @@ export default function TutorDashboard() {
         nidFrontImg: currentUser.nidFrontImg || "",
         nidBackImg: currentUser.nidBackImg || "",
         documents: currentUser.documents || [],
+        gender: currentUser.gender || "",
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -538,7 +546,7 @@ export default function TutorDashboard() {
             { id: "my_session", label: "My Session" },
             { id: "find_students", label: "Find Students" },
             { id: "balance", label: "Balance" },
-            { id: "transit_mode", label: "Transit Mode" },
+            { id: "transit_mode", label: "Location Track" },
             { id: "messages", label: "Messages" },
             { id: "pro_profile", label: "Pro Profile" },
           ].map((tab) => (
@@ -752,7 +760,7 @@ export default function TutorDashboard() {
                         <button
                           onClick={() => handleTabChange("transit_mode")}
                           className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all border border-white/10"
-                          title="Transit Mode"
+                          title="Location Track"
                         >
                           <MapPin className="w-5 h-5" />
                         </button>
@@ -1585,24 +1593,32 @@ export default function TutorDashboard() {
                     {currentUser.university || "Expert Educator"}
                   </p>
 
-                  <div className="w-full space-y-3 mb-8">
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        NID
-                      </span>
-                      <span className="text-[10px] font-black text-[#0B132B]">
-                        {currentUser.nidNumber || "Pending Submission"}
-                      </span>
+                    <div className="w-full space-y-3 mb-8">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          NID
+                        </span>
+                        <span className="text-[10px] font-black text-[#0B132B]">
+                          {currentUser.nidNumber || "Pending Submission"}
+                        </span>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          DOB
+                        </span>
+                        <span className="text-[10px] font-black text-[#0B132B]">
+                          {currentUser.birthDate || "Pending Submission"}
+                        </span>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          Gender
+                        </span>
+                        <span className="text-[10px] font-black text-[#0D5BFF] uppercase">
+                          {currentUser.gender || "Pending Submission"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                        DOB
-                      </span>
-                      <span className="text-[10px] font-black text-[#0B132B]">
-                        {currentUser.birthDate || "Pending Submission"}
-                      </span>
-                    </div>
-                  </div>
 
                   {(currentUser.district || currentUser.area) && (
                     <div className="flex items-center gap-2 mb-8 bg-blue-50/50 px-4 py-2 rounded-full border border-blue-50">
@@ -1722,7 +1738,7 @@ export default function TutorDashboard() {
                     )}
 
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <ProfileField
                           label="National ID (NID)"
                           value={profileForm.nidNumber}
@@ -1739,6 +1755,23 @@ export default function TutorDashboard() {
                           }
                           type="date"
                         />
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                            Gender
+                          </label>
+                          <select
+                            value={profileForm.gender || ""}
+                            onChange={(e) =>
+                              setProfileForm({ ...profileForm, gender: e.target.value })
+                            }
+                            className="w-full bg-slate-50 border border-slate-100 rounded-full py-5 px-10 text-xs font-black uppercase italic text-[#0B132B] focus:outline-none focus:border-[#0D5BFF]"
+                          >
+                            <option value="">SELECT GENDER</option>
+                            <option value="Male">MALE</option>
+                            <option value="Female">FEMALE</option>
+                            <option value="Other">OTHER</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2497,13 +2530,14 @@ export default function TutorDashboard() {
                       <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider">
                         Search Filters
                       </h4>
-                      {(studentSearchTerm || filterStudentClass || filterStudentSubject || filterStudentAddress) && (
+                      {(studentSearchTerm || filterStudentClass || filterStudentSubject || filterStudentAddress || filterStudentGender) && (
                         <button
                           onClick={() => {
                             setStudentSearchTerm("");
                             setFilterStudentClass("");
                             setFilterStudentSubject("");
                             setFilterStudentAddress("");
+                            setFilterStudentGender("");
                           }}
                           className="text-[9px] font-black text-rose-500 uppercase tracking-widest"
                         >
@@ -2575,6 +2609,22 @@ export default function TutorDashboard() {
                         />
                       </div>
                     </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                        Student Gender
+                      </label>
+                      <select
+                        value={filterStudentGender}
+                        onChange={e => setFilterStudentGender(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
+                      >
+                        <option value="">ANY GENDER</option>
+                        <option value="Male">MALE</option>
+                        <option value="Female">FEMALE</option>
+                        <option value="Other">OTHER</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -2611,8 +2661,10 @@ export default function TutorDashboard() {
                                   {student.name.charAt(0)}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate">
-                                    {student.name}
+                                  <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
+                                    <span className="truncate">{student.name}</span>
+                                    {student.gender === 'Male' && <Mars className="w-4 h-4 text-sky-500 font-bold shrink-0" title="Male" />}
+                                    {student.gender === 'Female' && <Venus className="w-4 h-4 text-rose-500 font-bold shrink-0" title="Female" />}
                                   </h4>
                                   <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
                                     {student.school || "Autonomous Learner"}

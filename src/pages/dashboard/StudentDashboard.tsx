@@ -40,7 +40,9 @@ import {
   ShieldAlert,
   Check,
   DollarSign,
-  Activity
+  Activity,
+  Mars,
+  Venus
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -119,6 +121,7 @@ export default function StudentDashboard() {
   const [filterClass, setFilterClass] = useState('');
   const [filterArea, setFilterArea] = useState('');
   const [filterRating, setFilterRating] = useState(0);
+  const [filterGender, setFilterGender] = useState('');
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const [showLocationDeniedModal, setShowLocationDeniedModal] = useState(false);
@@ -462,7 +465,8 @@ export default function StudentDashboard() {
     address: currentUser?.address || '',
     nidFrontImg: currentUser?.nidFrontImg || '',
     nidBackImg: currentUser?.nidBackImg || '',
-    documents: currentUser?.documents || []
+    documents: currentUser?.documents || [],
+    gender: currentUser?.gender || ''
   });
 
   // Sync form state when currentUser changes or editing is toggled
@@ -477,7 +481,8 @@ export default function StudentDashboard() {
         address: currentUser.address || '',
         nidFrontImg: currentUser.nidFrontImg || '',
         nidBackImg: currentUser.nidBackImg || '',
-        documents: currentUser.documents || []
+        documents: currentUser.documents || [],
+        gender: currentUser.gender || ''
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -521,11 +526,12 @@ export default function StudentDashboard() {
                            user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
                            user.area?.toLowerCase().includes(filterArea.toLowerCase());
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
+      const matchesGender = !filterGender || (user.gender && user.gender.toLowerCase() === filterGender.toLowerCase());
 
-      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating;
+      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating && matchesGender;
     }).forEach(u => unique.set(u.id, u));
     return Array.from(unique.values()) as User[];
-  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterRating]);
+  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterRating, filterGender]);
 
   const [bKashNumber, setBkashNumber] = useState('');
   const [amount, setAmount] = useState('');
@@ -776,7 +782,8 @@ export default function StudentDashboard() {
       address: accountForm.address,
       nidFrontImg: accountForm.nidFrontImg,
       nidBackImg: accountForm.nidBackImg,
-      documents: accountForm.documents
+      documents: accountForm.documents,
+      gender: accountForm.gender
     });
     setIsEditingAccount(false);
     setIsUpdating(false);
@@ -1373,6 +1380,24 @@ export default function StudentDashboard() {
                     </div>
                   </FilterGroup>
 
+                  <FilterGroup label="Tutor Gender">
+                    <div className="flex flex-wrap gap-2">
+                      {['', 'Male', 'Female'].map((g) => (
+                        <button
+                          key={g}
+                          onClick={() => setFilterGender(g)}
+                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
+                            filterGender === g
+                              ? 'bg-[#0B132B] border-[#0B132B] text-white shadow-md'
+                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                          }`}
+                        >
+                          {g || 'ANY GENDER'}
+                        </button>
+                      ))}
+                    </div>
+                  </FilterGroup>
+
                   <button 
                     onClick={() => {
                       setSearchTerm('');
@@ -1380,6 +1405,7 @@ export default function StudentDashboard() {
                       setFilterClass('');
                       setFilterArea('');
                       setFilterRating(0);
+                      setFilterGender('');
                     }}
                     className="w-full py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
                   >
@@ -1448,9 +1474,11 @@ export default function StudentDashboard() {
                           )}
                           <div className="flex-1">
                             <div className="flex justify-between items-center">
-                              <h3 className="text-sm font-black text-[#0B132B] flex items-center uppercase italic group-hover:text-[#0D5BFF] transition-colors">
-                                {tutor.name}
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 ml-2" />
+                              <h3 className="text-sm font-black text-[#0B132B] flex items-center gap-1.5 uppercase italic group-hover:text-[#0D5BFF] transition-colors">
+                                <span className="truncate">{tutor.name}</span>
+                                {tutor.gender === 'Male' && <Mars className="w-3.5 h-3.5 text-sky-500 font-bold shrink-0" title="Male" />}
+                                {tutor.gender === 'Female' && <Venus className="w-3.5 h-3.5 text-rose-500 font-bold shrink-0" title="Female" />}
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                               </h3>
                               <div className="flex items-center gap-1.5">
                                 {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
@@ -2521,7 +2549,7 @@ export default function StudentDashboard() {
                          <ShieldCheck className="w-6 h-6 text-emerald-500" />
                       </div>
                       <div>
-                         <p className="text-[10px] font-black uppercase italic">Safe Transit Mode</p>
+                         <p className="text-[10px] font-black uppercase italic">Safe Location Track</p>
                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">Encrypted End-to-End</p>
                       </div>
                    </div>
@@ -2667,6 +2695,19 @@ export default function StudentDashboard() {
                        />
                     </div>
                     <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Gender Selection</label>
+                       <select 
+                         value={accountForm.gender}
+                         onChange={e => setAccountForm({...accountForm, gender: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       >
+                         <option value="">SELECT GENDER</option>
+                         <option value="Male">MALE</option>
+                         <option value="Female">FEMALE</option>
+                         <option value="Other">OTHER</option>
+                       </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
                        <input 
                          value={accountForm.address}
@@ -2750,6 +2791,10 @@ export default function StudentDashboard() {
                        <div>
                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Address</p>
                           <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.address || 'NOT SET'}</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender</p>
+                          <p className="text-xl font-black text-[#0D5BFF] uppercase italic">{currentUser.gender || 'NOT SET'}</p>
                        </div>
                     </div>
                     <div className="space-y-8 border-l border-slate-50 pl-12">

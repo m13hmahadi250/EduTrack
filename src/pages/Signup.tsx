@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Signup() {
@@ -19,7 +19,7 @@ export default function Signup() {
     const errs: Record<string, string> = {};
 
     // Common fields
-    const commonFields = ['name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area'];
+    const commonFields = ['name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender'];
     commonFields.forEach(field => {
       if (!formData[field] || !formData[field].trim()) {
         errs[field] = 'This field is required';
@@ -99,7 +99,7 @@ export default function Signup() {
       setErrors(validationErrors);
       const allTouched: Record<string, boolean> = {};
       const fieldsToCheck = [
-        'name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area',
+        'name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender',
         ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
       ];
       fieldsToCheck.forEach(f => {
@@ -228,7 +228,7 @@ export default function Signup() {
               />
             )}
             <BookOpen className={`w-4 h-4 transition-transform duration-300 ${role === 'tutor' ? 'text-amber-500 scale-110' : 'text-slate-400'}`} />
-            <span>Academic Tutor</span>
+            <span>Tutor / Teacher</span>
           </button>
         </motion.div>
 
@@ -264,7 +264,7 @@ export default function Signup() {
                   error={touched.name ? errors.name : undefined}
                   value={formData.name || ''}
                   accentColor={accentColor}
-                  placeholder="e.g. Mahadi Hasan"
+                  placeholder="e.g. Lionel Ronaldo"
                 />
               </div>
               <Input 
@@ -292,6 +292,43 @@ export default function Signup() {
                 accentColor={accentColor}
                 placeholder="e.g. 01712345678"
               />
+              <div className="sm:col-span-2 space-y-1.5 w-full">
+                <div className="flex justify-between items-center px-0.5">
+                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                    Gender <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {touched.gender && errors.gender && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                      {errors.gender}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <select
+                    name="gender"
+                    required
+                    value={formData.gender || ''}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                      touched.gender && errors.gender
+                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
+                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                    }`}
+                    style={{
+                      ['--tw-ring-color' as any]: touched.gender && errors.gender ? 'rgb(239, 68, 68)' : accentColor
+                    }}
+                  >
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500">Select Gender</option>
+                    <option value="Male" className="text-[#0B132B]">Male</option>
+                    <option value="Female" className="text-[#0B132B]">Female</option>
+                    <option value="Other" className="text-[#0B132B]">Other / Prefer not to say</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4 transition-transform duration-200 group-focus-within:rotate-180" />
+                  </div>
+                </div>
+              </div>
               <div className="sm:col-span-2">
                 <Input 
                   label="Password" 
@@ -515,10 +552,29 @@ export default function Signup() {
         <button
           type="button"
           onClick={async () => {
-            setLoading(true);
             setError('');
+            const validationErrors = validateForm();
+            if (Object.keys(validationErrors).length > 0) {
+              setErrors(validationErrors);
+              const allTouched: Record<string, boolean> = {};
+              const fieldsToCheck = [
+                'name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender',
+                ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
+              ];
+              fieldsToCheck.forEach(f => {
+                allTouched[f] = true;
+              });
+              setTouched(allTouched);
+              setError('Please fill out all required fields with valid information first before signing up with Google.');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+
+            setLoading(true);
             try {
-              await useAppStore.getState().loginWithGoogle(role);
+              const data = { ...formData };
+              delete data.password;
+              await useAppStore.getState().loginWithGoogle(role, data);
               navigate('/dashboard');
             } catch (err: any) {
               console.error("Google Auth error:", err);
@@ -526,6 +582,12 @@ export default function Signup() {
               const errStr = String(err).toLowerCase();
               const errCode = (err?.code || '').toLowerCase();
               if (
+                errCode === 'auth/popup-closed-by-user' ||
+                errStr.includes('popup-closed-by-user') ||
+                errStr.includes('popup closed by user')
+              ) {
+                msg = 'GOOGLE DIRECT LOGIN CLOSED BY USER';
+              } else if (
                 errCode === 'auth/user-disabled' ||
                 errStr.includes('user-disabled') ||
                 errStr.includes('user_disabled')
@@ -548,7 +610,7 @@ export default function Signup() {
             <path d="M5.50255 14.3003C5.25755 13.5857 5.1225 12.8258 5.1225 12C5.1225 11.1742 5.25755 10.4143 5.50255 9.69973V6.60889H1.5166C0.68625 8.26127 0.21375 10.084 0.21375 12C0.21375 13.916 0.68625 15.7387 1.5166 17.3912L5.50255 14.3003Z" fill="#FBBC05"/>
             <path d="M12.24 4.74801C14.0074 4.74801 15.5951 5.35651 16.8419 6.54867L20.2695 3.12111C18.1969 1.18501 15.4744 0 12.24 0C7.7029 0 3.55371 2.55655 1.5166 6.60889L5.50705 9.69973C6.45946 6.86015 9.11388 4.74801 12.24 4.74801Z" fill="#EA4335"/>
           </svg>
-          Google Account
+          CREATE WITH GOOGLE
         </button>
          
         <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">

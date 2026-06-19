@@ -328,30 +328,6 @@ export default function AdminAnalytics({ users, payments, withdrawals, sessions 
 
       </div>
 
-      {/* Platform Health Matrix */}
-      <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800/60">
-        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#0B132B] dark:text-white italic mb-4">
-          Telemetry & Command Health
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
-          <div className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-150/40 dark:border-slate-800/80">
-            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">LATENCY GATEWAY</div>
-            <div className="text-sm font-black italic text-[#0D5BFF] mt-1">12ms (OPTIMAL)</div>
-          </div>
-          <div className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-150/40 dark:border-slate-800/80">
-            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">FIRESTORE SYNC</div>
-            <div className="text-sm font-black italic text-emerald-500 mt-1">REAL-TIME ACTIVE</div>
-          </div>
-          <div className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-150/40 dark:border-slate-800/80">
-            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">AVG TUTOR RATING</div>
-            <div className="text-sm font-black italic text-amber-500 mt-1">⭐ {stats.averageRating} / 5.0</div>
-          </div>
-          <div className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-150/40 dark:border-slate-800/80">
-            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">PLATFORM LEVEL</div>
-            <div className="text-sm font-black italic text-purple-500 mt-1">SECURE TRIPLE-LEDGER</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

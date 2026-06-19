@@ -83,6 +83,7 @@ export interface User {
   availabilitySlots?: { [key: string]: string[] }; 
   hasDismissedProfileNotice?: boolean;
   isBlocked?: boolean;
+  gender?: 'Male' | 'Female' | 'Other' | string;
 }
 
 export interface Session {
@@ -156,7 +157,7 @@ interface AppState {
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (requestedRole?: Role) => Promise<void>;
+  loginWithGoogle: (requestedRole?: Role, additionalUserData?: Partial<User>) => Promise<void>;
   loginAsDemo: (role: Role) => Promise<void>;
   logout: () => Promise<void>;
   signup: (userData: Partial<User>, password: string) => Promise<void>;
@@ -360,7 +361,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
-    loginWithGoogle: async (requestedRole) => {
+    loginWithGoogle: async (requestedRole, additionalUserData) => {
       set({ isLoading: true });
       try {
         const provider = new GoogleAuthProvider();
@@ -384,7 +385,8 @@ export const useAppStore = create<AppState>((set, get) => {
             isVerified: isMainAdmin ? true : false,
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
-            profileImage: user.photoURL || undefined
+            profileImage: user.photoURL || undefined,
+            ...additionalUserData
           };
           await setDoc(doc(db, 'users', user.uid), newUser);
           set({ currentUser: newUser });
