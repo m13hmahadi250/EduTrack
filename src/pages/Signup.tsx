@@ -523,7 +523,15 @@ export default function Signup() {
             } catch (err: any) {
               console.error("Google Auth error:", err);
               let msg = err.message || 'Google Auth failed';
-              if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
+              const errStr = String(err).toLowerCase();
+              const errCode = (err?.code || '').toLowerCase();
+              if (
+                errCode === 'auth/user-disabled' ||
+                errStr.includes('user-disabled') ||
+                errStr.includes('user_disabled')
+              ) {
+                msg = 'YOUR ACCOUNT IS TEMPORARILY RESTRICTED DUE TO SOME REASON';
+              } else if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
                 msg = 'Google Auth Error (invalid-credential). Ensure your Vercel URL is added to "Authorized Domains" in Firebase Console > Authentication > Settings.';
               }
               setError(msg);
