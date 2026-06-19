@@ -1692,6 +1692,58 @@ export default function StudentDashboard() {
                               </p>
                            </div>
 
+                           <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Academic Background</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/60 p-6 rounded-[2rem] border border-slate-50/80 font-sans">
+                                 <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0 animate-fade-in">
+                                       <GraduationCap className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">University</span>
+                                       <p className="text-xs font-black text-[#0B132B] mt-1">{selectedTutor.university || 'Educational Expert'}</p>
+                                    </div>
+                                 </div>
+
+                                 <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+                                       <BookOpen className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Course / Department</span>
+                                       <p className="text-xs font-black text-[#0B132B] mt-1">{selectedTutor.course || 'Advising Specialist'}</p>
+                                    </div>
+                                 </div>
+
+                                 <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-blue-50 text-[#0D5BFF] rounded-xl flex items-center justify-center shrink-0">
+                                       <Award className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Academic Term</span>
+                                       <p className="text-xs font-black text-[#0B132B] mt-1">
+                                          {selectedTutor.semester || selectedTutor.year 
+                                             ? [selectedTutor.year ? `${selectedTutor.year} Year` : null, selectedTutor.semester ? `${selectedTutor.semester} Semester` : null].filter(Boolean).join(', ')
+                                             : 'Full Program Completed'}
+                                       </p>
+                                    </div>
+                                 </div>
+
+                                 <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                                       <ShieldCheck className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Academic Integrity</span>
+                                       <p className="text-xs font-black text-[#0B132B] mt-1 flex items-center gap-1">
+                                          <span className={`w-1.5 h-1.5 rounded-full ${selectedTutor.academicStatus === 'approved' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                                          {selectedTutor.academicStatus === 'approved' ? 'Officially Verified Portal' : 'Verification Under Audit'}
+                                       </p>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+
                            <div className="space-y-3">
                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Targeted Tiers (Classes)</p>
                               <div className="flex flex-wrap gap-2">
