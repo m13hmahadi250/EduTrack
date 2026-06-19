@@ -48,6 +48,8 @@ import {
   ShieldAlert,
   Mars,
   Venus,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -208,6 +210,25 @@ export default function TutorDashboard() {
   const [proposalSuccess, setProposalSuccess] = useState(false);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+
+  const getMaskedPhone = (phone?: string) => {
+    if (!phone) return 'Hidden for Privacy';
+    const trimmed = phone.trim();
+    if (trimmed.length <= 4) return 'Hidden for Privacy';
+    return `${trimmed.slice(0, 4)}••••${trimmed.slice(-3)}`;
+  };
+
+  const getMaskedEmail = (email?: string) => {
+    if (!email) return 'N/A';
+    const parts = email.split('@');
+    if (parts.length !== 2) return 'Hidden for Privacy';
+    const name = parts[0];
+    const domain = parts[1];
+    const maskedName = name.length > 2 
+      ? `${name.slice(0, 2)}••••`
+      : '••••';
+    return `${maskedName}@${domain}`;
+  };
 
   // Helper mapping keywords to elegant visual icons representing academic areas
   const getSubjectIcon = (subName: string) => {
@@ -1532,7 +1553,7 @@ export default function TutorDashboard() {
                                   : "text-slate-400"
                               }`}
                             >
-                              {contact.university || contact.email}
+                              {contact.university || (contact.userType === "student" ? "Active Student" : getMaskedEmail(contact.email))}
                             </p>
                           </div>
                         </button>
@@ -2718,10 +2739,19 @@ export default function TutorDashboard() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {
+                                  setViewingProfileUser(student);
+                                  setViewingProfileSession(null);
+                                }}
+                                className="px-4 py-4 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-emerald-150/10 dark:border-emerald-800/20 cursor-pointer"
+                              >
+                                Profile
+                              </button>
+                              <button
+                                onClick={() => {
                                   setSelectedRecipientId(student.id);
                                   setActiveTab("messages");
                                 }}
-                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 text-[#0B132B] dark:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-slate-100 dark:border-slate-800"
+                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 text-[#0B132B] dark:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                               >
                                 Message
                               </button>
@@ -2732,7 +2762,7 @@ export default function TutorDashboard() {
                                   setProposalDate(new Date().toISOString().split("T")[0]);
                                   setProposalNotes("");
                                 }}
-                                className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-blue-100 dark:shadow-none"
+                                className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-blue-100 dark:shadow-none cursor-pointer"
                               >
                                 Offer Tuition
                               </button>
@@ -2933,7 +2963,7 @@ export default function TutorDashboard() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {viewingProfileUser && viewingProfileSession && (
+        {viewingProfileUser && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -2975,28 +3005,100 @@ export default function TutorDashboard() {
               </div>
 
               <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Academic Level</span>
-                    <p className="text-xs font-bold text-[#0B132B] dark:text-white">Class {viewingProfileUser.studentClass || 'Not Specified'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Contact Information</span>
-                    <p className="text-xs font-black text-[#0D5BFF]">{viewingProfileUser.phone || 'Email Primary'}</p>
+                {/* Academics Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Academic Parameters</h4>
+                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Institute / School</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.school || 'Autonomous Learner'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Class Level</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">Class {viewingProfileUser.studentClass || 'Not Specified'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Subject Category / Group</span>
+                      <p className="text-xs font-bold text-[#0DAA5F] uppercase">{viewingProfileUser.group || 'General Science / Arts'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Gender Identity</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.gender || 'Not Specified'}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student Address / Area</span>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-medium font-sans">
-                    {viewingProfileUser.address || "Area location not provided. Direct coordinates synced on scheduled engagement starts."}
-                  </p>
+                {/* Location Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Address & Geography</h4>
+                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">District</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.district || 'Not Specified'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Thana / Sub-district</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.thana || 'Not Specified'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Area / Neighborhood</span>
+                      <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.area || 'Not Specified'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Coordinates Synced</span>
+                      <p className="text-xs font-black text-emerald-500 flex items-center gap-1.5 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                        {viewingProfileUser.location ? 'Mapped / Sync Active' : 'Approximate Area Zone'}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2 space-y-1 pt-2 border-t border-slate-150/40 dark:border-slate-800/40">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Complete Inbound Address</span>
+                      <p className="text-xs font-medium text-slate-700 dark:text-slate-350 leading-relaxed font-sans mt-0.5">
+                        {viewingProfileUser.address || "Area location not provided. Coordinate tracking serves proximity checks."}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Enrolled / Desired Subjects</span>
+                {/* Core Contact info */}
+                <div>
+                  <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Contact Channels</h4>
+                  <div className="bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] rounded-xl flex items-center justify-center">
+                          <Phone className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans font-sans">Phone Contact</span>
+                          <p className="text-xs font-black text-[#0B132B] dark:text-white mt-0.5">{getMaskedPhone(viewingProfileUser.phone)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-purple-50 dark:bg-purple-950/40 text-purple-500 rounded-xl flex items-center justify-center">
+                          <Mail className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest font-sans font-sans font-sans">Primary Email</span>
+                          <p className="text-xs font-bold text-[#0B132B] dark:text-white mt-0.5 truncate max-w-[170px]">{getMaskedEmail(viewingProfileUser.email)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-slate-150/40 dark:border-slate-800/40 flex items-start gap-2.5">
+                      <span className="text-xs text-amber-500 shrink-0 mt-0.5">🔐</span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal font-sans">
+                        <strong>Privacy Encrypted:</strong> Direct channels are masked to protect student and tutor security. Please use the built-in <strong>Inbox Message</strong>, <strong>Chat Panel</strong>, or official tuition request pipeline to organize the classes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enrolled Subjects */}
+                <div className="space-y-2 font-sans">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Enrolled / Desired Subjects</span>
                   <div className="flex flex-wrap gap-2">
-                    {(viewingProfileUser.subjects || ['General Academic Science']).map((sub, idx) => (
+                    {(viewingProfileUser.subjects || ['General Syllabus Support']).map((sub, idx) => (
                       <span key={idx} className="px-3 py-1 bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-lg text-[10px] font-extrabold uppercase text-[#0B132B] dark:text-white">
                         {sub}
                       </span>
@@ -3004,49 +3106,80 @@ export default function TutorDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
-                  <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Requested Tuition Session</span>
-                  <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
-                    <div>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans mr-2">Topic / Subject</span>
-                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Requested Schedule Slot</span>
-                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                {viewingProfileSession && (
+                  <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
+                    <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Requested Tuition Session</span>
+                    <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
+                      <div>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans mr-2">Topic / Subject</span>
+                        <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Requested Schedule Slot</span>
+                        <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="p-8 sm:p-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950">
-                {viewingProfileSession.status === 'requested_by_student' ? (
+                {viewingProfileSession ? (
+                  viewingProfileSession.status === 'requested_by_student' ? (
+                    <>
+                      <button
+                        onClick={async () => {
+                          await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                          setViewingProfileUser(null);
+                          setViewingProfileSession(null);
+                        }}
+                        className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
+                      >
+                        Accept Tuition Request
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                          setViewingProfileUser(null);
+                          setViewingProfileSession(null);
+                        }}
+                        className="w-full sm:w-auto px-6 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                      >
+                        Reject Request
+                      </button>
+                    </>
+                  ) : (
+                    <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      Awaiting response from {viewingProfileUser.name}
+                    </div>
+                  )
+                ) : (
                   <>
                     <button
-                      onClick={async () => {
-                        await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                      onClick={() => {
+                        setSelectedRecipientId(viewingProfileUser.id);
+                        setActiveTab("messages");
                         setViewingProfileUser(null);
                         setViewingProfileSession(null);
                       }}
-                      className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
+                      className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
                     >
-                      Accept Tuition Request
+                      Inbox Message
                     </button>
                     <button
-                      onClick={async () => {
-                        await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                      onClick={() => {
+                        setSelectedStudentForProposal(viewingProfileUser);
+                        setProposalSubject(viewingProfileUser.subjects?.[0] || "Mathematics");
+                        setProposalDate(new Date().toISOString().split("T")[0]);
+                        setProposalNotes("");
                         setViewingProfileUser(null);
                         setViewingProfileSession(null);
                       }}
-                      className="w-full sm:w-auto px-6 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                      className="w-full sm:flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
                     >
-                      Reject Request
+                      Offer Custom Tuition
                     </button>
                   </>
-                ) : (
-                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    Awaiting response from {viewingProfileUser.name}
-                  </div>
                 )}
                 
                 <button
@@ -3059,7 +3192,7 @@ export default function TutorDashboard() {
                   className="w-full sm:w-auto px-6 py-4 bg-slate-200 hover:bg-slate-350 text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer font-sans"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Message
+                  Chat Panel
                 </button>
               </div>
             </motion.div>

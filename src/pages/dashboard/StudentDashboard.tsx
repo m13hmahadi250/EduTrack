@@ -13,6 +13,8 @@ import {
   Clock,
   LayoutDashboard,
   Star,
+  Phone,
+  Mail,
   Users,
   Calendar,
   Play,
@@ -133,6 +135,25 @@ export default function StudentDashboard() {
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+
+  const getMaskedPhone = (phone?: string) => {
+    if (!phone) return 'Hidden for Privacy';
+    const trimmed = phone.trim();
+    if (trimmed.length <= 4) return 'Hidden for Privacy';
+    return `${trimmed.slice(0, 4)}••••${trimmed.slice(-3)}`;
+  };
+
+  const getMaskedEmail = (email?: string) => {
+    if (!email) return 'N/A';
+    const parts = email.split('@');
+    if (parts.length !== 2) return 'Hidden for Privacy';
+    const name = parts[0];
+    const domain = parts[1];
+    const maskedName = name.length > 2 
+      ? `${name.slice(0, 2)}••••`
+      : '••••';
+    return `${maskedName}@${domain}`;
+  };
   const [nearbyRadius, setNearbyRadius] = useState<number>(5); // Default 5 km
   const [transitMode, setTransitMode] = useState<'tracking' | 'radar'>('radar'); // Default to radar so they see nearby instantly!
   const [mapSubjectQuery, setMapSubjectQuery] = useState('');
@@ -1678,6 +1699,40 @@ export default function StudentDashboard() {
                                    <span key={cls} className="px-4 py-1.5 bg-slate-100 text-[#0B132B] text-[8px] font-black uppercase tracking-widest rounded-full border border-slate-200">{cls}</span>
                                  ))}
                                  {(selectedTutor.classes || []).length === 0 && <span className="text-[8px] font-bold text-slate-300 ml-4">GENERAL ACADEMIC SUPPORT</span>}
+                              </div>
+                           </div>
+
+                           {/* Masked Contact Details for Security */}
+                           <div className="space-y-3">
+                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Channels</p>
+                             <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 space-y-4">
+                               <div className="grid sm:grid-cols-2 gap-4">
+                                 <div className="flex items-center gap-3">
+                                   <div className="w-9 h-9 bg-blue-50 text-[#0D5BFF] rounded-xl flex items-center justify-center">
+                                     <Phone className="w-4 h-4" />
+                                   </div>
+                                   <div>
+                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Phone Contact</span>
+                                     <p className="text-xs font-black text-[#0B132B] mt-0.5">{getMaskedPhone(selectedTutor.phone)}</p>
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center gap-3">
+                                   <div className="w-9 h-9 bg-purple-50 text-purple-500 rounded-xl flex items-center justify-center">
+                                     <Mail className="w-4 h-4" />
+                                   </div>
+                                   <div>
+                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Primary Email</span>
+                                     <p className="text-xs font-bold text-[#0B132B] mt-0.5 truncate max-w-[170px]">{getMaskedEmail(selectedTutor.email)}</p>
+                                   </div>
+                                 </div>
+                               </div>
+
+                               <div className="pt-3 border-t border-slate-200/50 flex items-start gap-2.5">
+                                 <span className="text-xs text-amber-500 shrink-0 mt-0.5">🔐</span>
+                                 <p className="text-[10px] text-slate-500 leading-normal">
+                                   <strong>Privacy Encrypted:</strong> Direct channels are masked to protect student and tutor security. Please use the built-in <strong>Inbox Message</strong>, <strong>Chat Panel</strong>, or official tuition booking pipeline to coordinate schedules.
+                                 </p>
+                                </div>
                               </div>
                            </div>
                         </div>
