@@ -19,9 +19,10 @@ interface AdminUserDirectoryProps {
   users: User[];
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   currentUser: User;
+  onMessageUser?: (userId: string) => void;
 }
 
-export default function AdminUserDirectory({ users, updateUser, currentUser }: AdminUserDirectoryProps) {
+export default function AdminUserDirectory({ users, updateUser, currentUser, onMessageUser }: AdminUserDirectoryProps) {
   const deleteUser = useAppStore(state => state.deleteUser);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'tutor' | 'admin'>('all');
@@ -482,6 +483,18 @@ export default function AdminUserDirectory({ users, updateUser, currentUser }: A
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
                         
+                        {/* Send Message */}
+                        {user.id !== currentUser.id && onMessageUser ? (
+                          <button
+                            onClick={() => onMessageUser(user.id)}
+                            className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-blue-50 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-blue-100/20"
+                            title="Direct Message User"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Message</span>
+                          </button>
+                        ) : null}
+
                         {/* Suspension Toggle */}
                         {user.id !== currentUser.id ? (
                           <button

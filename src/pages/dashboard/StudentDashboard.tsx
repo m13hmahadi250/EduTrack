@@ -653,7 +653,7 @@ export default function StudentDashboard() {
         }
       } else {
         // Just a small delay to simulate processing manual ID
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 100));
       }
 
       submitPayment({
@@ -953,9 +953,10 @@ export default function StudentDashboard() {
         {activeTab === 'overview' && (
           <motion.div 
             key="overview"
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
+            exit={{ opacity: 0, scale: 0.99 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="space-y-12"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1217,9 +1218,10 @@ export default function StudentDashboard() {
         {activeTab === 'find' && (
           <motion.div 
             key="find"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="flex flex-col gap-8"
           >
             {/* Map Preview of All Tutors */}
@@ -2124,9 +2126,10 @@ export default function StudentDashboard() {
         {activeTab === 'activity' && (
           <motion.div 
             key="activity"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="space-y-8"
           >
              <h3 className="text-xl sm:text-3xl font-black text-[#0B132B] uppercase italic">Central Activity Logs</h3>
@@ -2205,9 +2208,10 @@ export default function StudentDashboard() {
         {activeTab === 'transit' && (
           <motion.div 
             key="transit"
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
+            exit={{ opacity: 0, scale: 0.99 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="grid lg:grid-cols-2 gap-12"
           >
              <div className="bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
@@ -2529,9 +2533,10 @@ export default function StudentDashboard() {
         {activeTab === 'messages' && (
           <motion.div 
             key="messages"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="grid lg:grid-cols-3 gap-8 h-auto lg:h-[700px]"
           >
             <div className={`lg:col-span-1 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm overflow-hidden flex flex-col ${selectedRecipientId ? 'hidden lg:flex' : 'flex'}`}>
@@ -2611,9 +2616,10 @@ export default function StudentDashboard() {
         {activeTab === 'account' && (
           <motion.div 
             key="account"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="bg-white rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-10 md:p-16 border border-slate-100 shadow-sm max-w-4xl"
           >
              <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">

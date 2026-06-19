@@ -167,6 +167,32 @@ export default function TutorDashboard() {
   const [filterStudentClass, setFilterStudentClass] = useState('');
   const [filterStudentSubject, setFilterStudentSubject] = useState('');
   const [filterStudentAddress, setFilterStudentAddress] = useState('');
+
+  const filteredStudents = useMemo(() => {
+    return users.filter(user => {
+      if (user.role !== "student") return false;
+      
+      const matchesSearch = !studentSearchTerm || 
+        user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+        (user.school && user.school.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
+        (user.address && user.address.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
+        (user.area && user.area.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
+        (user.district && user.district.toLowerCase().includes(studentSearchTerm.toLowerCase()));
+        
+      const matchesClass = !filterStudentClass || 
+        (user.studentClass && user.studentClass === filterStudentClass);
+        
+      const matchesSubject = !filterStudentSubject || 
+        (user.subjects && user.subjects.includes(filterStudentSubject));
+
+      const matchesAddress = !filterStudentAddress ||
+        (user.address && user.address.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
+        (user.area && user.area.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
+        (user.district && user.district.toLowerCase().includes(filterStudentAddress.toLowerCase()));
+        
+      return matchesSearch && matchesClass && matchesSubject && matchesAddress;
+    });
+  }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress]);
   const [selectedStudentForProposal, setSelectedStudentForProposal] = useState<User | null>(null);
   const [proposalDate, setProposalDate] = useState(new Date().toISOString().split("T")[0]);
   const [proposalSlot, setProposalSlot] = useState("04:00 PM");
@@ -631,10 +657,10 @@ export default function TutorDashboard() {
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -10 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.12, ease: "easeOut" }}
         >
           {activeTab === "my_session" && (
             <motion.div
@@ -2554,29 +2580,7 @@ export default function TutorDashboard() {
 
                 <div className="lg:col-span-3 space-y-6">
                   {(() => {
-                    const filtered = users.filter(user => {
-                      if (user.role !== "student") return false;
-                      
-                      const matchesSearch = !studentSearchTerm || 
-                        user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
-                        (user.school && user.school.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
-                        (user.address && user.address.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
-                        (user.area && user.area.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
-                        (user.district && user.district.toLowerCase().includes(studentSearchTerm.toLowerCase()));
-                        
-                      const matchesClass = !filterStudentClass || 
-                        (user.studentClass && user.studentClass === filterStudentClass);
-                        
-                      const matchesSubject = !filterStudentSubject || 
-                        (user.subjects && user.subjects.includes(filterStudentSubject));
-
-                      const matchesAddress = !filterStudentAddress ||
-                        (user.address && user.address.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
-                        (user.area && user.area.toLowerCase().includes(filterStudentAddress.toLowerCase())) ||
-                        (user.district && user.district.toLowerCase().includes(filterStudentAddress.toLowerCase()));
-                        
-                      return matchesSearch && matchesClass && matchesSubject && matchesAddress;
-                    });
+                    const filtered = filteredStudents;
 
                     if (filtered.length === 0) {
                       return (

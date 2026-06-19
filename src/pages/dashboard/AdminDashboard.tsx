@@ -15,13 +15,17 @@ import {
   Zap,
   LayoutDashboard,
   GraduationCap,
+  Mail,
+  MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AdminAnalytics from "../../components/admin/AdminAnalytics";
 import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
 import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
+
+const ChatWindow = lazy(() => import("../../components/ChatWindow"));
 
 export default function AdminDashboard() {
   const {
@@ -39,12 +43,15 @@ export default function AdminDashboard() {
     currentUser,
     updateUser,
     cancelSession,
+    messages,
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages"
   >("analytics");
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
+  const [messagesSearch, setMessagesSearch] = useState("");
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [approvedAnim, setApprovedAnim] = useState<{
     type: "nid" | "academic" | null;
@@ -141,11 +148,12 @@ export default function AdminDashboard() {
     else if (path.endsWith("/withdrawals")) setActiveTab("withdrawals");
     else if (path.endsWith("/users")) setActiveTab("users");
     else if (path.endsWith("/sessions")) setActiveTab("sessions");
+    else if (path.endsWith("/messages")) setActiveTab("messages");
     else setActiveTab("analytics");
   }, [location.pathname]);
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages",
   ) => {
     setSelectedTutorIds([]);
     const pathMap = {
@@ -155,6 +163,7 @@ export default function AdminDashboard() {
       withdrawals: "/dashboard/withdrawals",
       users: "/dashboard/users",
       sessions: "/dashboard/sessions",
+      messages: "/dashboard/messages",
     };
     navigate(pathMap[tab]);
   };
@@ -344,6 +353,7 @@ export default function AdminDashboard() {
           { id: "withdrawals", label: "Tutor payouts" },
           { id: "users", label: "User directory" },
           { id: "sessions", label: "Session audits" },
+          { id: "messages", label: "Secure messages" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -369,9 +379,10 @@ export default function AdminDashboard() {
         {activeTab === "analytics" && (
           <motion.div
             key="analytics"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <AdminAnalytics 
               users={users} 
@@ -385,24 +396,184 @@ export default function AdminDashboard() {
         {activeTab === "users" && (
           <motion.div
             key="users"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <AdminUserDirectory 
               users={users} 
               updateUser={updateUser} 
               currentUser={currentUser} 
+              onMessageUser={(userId) => {
+                setSelectedRecipientId(userId);
+                handleTabChange("messages");
+              }}
             />
+          </motion.div>
+        )}
+
+        {activeTab === "messages" && (
+          <motion.div
+            key="messages"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+          >
+            {/* Contacts list side column */}
+            <div className={`lg:col-span-1 bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm overflow-hidden flex flex-col ${selectedRecipientId ? 'hidden lg:flex' : 'flex'} min-h-[400px] h-[600px]`}>
+              <div className="mb-4">
+                <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block mb-1">Administrative Channels</span>
+                <h3 className="text-sm font-black uppercase text-[#0B132B] tracking-wider italic mb-4">
+                  Active Links
+                </h3>
+                {/* Search Bar for Contacts */}
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search any user or role..."
+                    value={messagesSearch}
+                    onChange={(e) => setMessagesSearch(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100/50 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] placeholder-slate-400 text-ellipsis"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar hide-scrollbar">
+                {(() => {
+                  const adminContacts = users.filter(u => {
+                    if (u.id === currentUser.id) return false;
+                    
+                    // If searching, search in email, name, role, university
+                    if (messagesSearch.trim()) {
+                      const s = messagesSearch.toLowerCase();
+                      return u.name.toLowerCase().includes(s) || 
+                             u.role.toLowerCase().includes(s) || 
+                             u.email.toLowerCase().includes(s) ||
+                             (u.university && u.university.toLowerCase().includes(s));
+                    }
+                    
+                    // Otherwise, only show users we have conversation history with
+                    const hasMessages = messages.some(m => 
+                      m.participants.includes(currentUser.id) && m.participants.includes(u.id)
+                    );
+                    return hasMessages;
+                  });
+
+                  if (adminContacts.length === 0) {
+                    return (
+                      <div className="py-20 text-center opacity-40">
+                        <Users className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {messagesSearch ? "No active users match criteria." : "No message handshakes. Search above to find any user."}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return adminContacts.map((contact) => {
+                    const unreadCount = messages.filter(
+                      (m) =>
+                        m.senderId === contact.id &&
+                        m.receiverId === currentUser.id &&
+                        !m.isRead,
+                    ).length;
+
+                    return (
+                      <button
+                        key={contact.id}
+                        onClick={() => setSelectedRecipientId(contact.id)}
+                        className={`w-full p-4 rounded-[2rem] border transition-all flex items-center gap-3 text-left group relative cursor-pointer ${
+                          selectedRecipientId === contact.id
+                            ? "bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-150"
+                            : "bg-white border-slate-50 text-[#0B132B] hover:border-slate-200"
+                        }`}
+                      >
+                        <div className="relative shrink-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-black italic border ${
+                              selectedRecipientId === contact.id
+                                ? "bg-white/20 border-white/10"
+                                : "bg-slate-50 border-slate-100"
+                            }`}
+                          >
+                            {contact.name.charAt(0)}
+                          </div>
+                          {unreadCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <h4 className="text-xs font-black italic truncate">
+                              {contact.name}
+                            </h4>
+                            <span className={`text-[7px] shrink-0 font-black tracking-widest uppercase px-1.5 py-0.5 rounded ${
+                              selectedRecipientId === contact.id 
+                                ? 'bg-white/20 text-white' 
+                                : contact.role === 'tutor' 
+                                  ? 'bg-amber-100 text-amber-800' 
+                                  : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {contact.role}
+                            </span>
+                          </div>
+                          <p
+                            className={`text-[8px] font-semibold tracking-wider truncate mt-0.5 ${
+                              selectedRecipientId === contact.id
+                                ? "opacity-75"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {contact.email}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Chat conversation area */}
+            <div className={`lg:col-span-2 ${selectedRecipientId ? 'block' : 'hidden lg:block'}`}>
+              {selectedRecipientId ? (
+                <Suspense
+                  fallback={
+                    <div className="h-[400px] bg-slate-50 animate-pulse rounded-3xl" />
+                  }
+                >
+                  <ChatWindow recipientId={selectedRecipientId} onBack={() => setSelectedRecipientId(null)} />
+                </Suspense>
+              ) : (
+                <div className="h-[600px] bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200/60 flex flex-col items-center justify-center text-center p-8">
+                  <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border border-slate-100 mb-6">
+                    <MessageSquare className="w-8 h-8 text-[#0D5BFF]" />
+                  </div>
+                  <h4 className="text-sm font-black text-[#0B132B] uppercase tracking-widest italic mb-2">
+                    Secure Chat Terminal
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider max-w-[280px]">
+                    Select an active channel from the left sidebar or search to initiate the administrative hotline.
+                  </p>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 
         {activeTab === "sessions" && (
           <motion.div
             key="sessions"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <AdminSessionAudits 
               sessions={sessions} 
@@ -416,9 +587,10 @@ export default function AdminDashboard() {
         {activeTab === "verifications" && (
           <motion.div
             key="verifications"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="space-y-8"
           >
             {/* Bulk Actions Control Bar */}
@@ -580,9 +752,10 @@ export default function AdminDashboard() {
         {activeTab === "payments" && (
           <motion.div
             key="payments"
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
+            exit={{ opacity: 0, scale: 0.99 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="space-y-8"
           >
             <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
@@ -661,9 +834,10 @@ export default function AdminDashboard() {
         {activeTab === "withdrawals" && (
           <motion.div
             key="withdrawals"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="space-y-12"
           >
             <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
