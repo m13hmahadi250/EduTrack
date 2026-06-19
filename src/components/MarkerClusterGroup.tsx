@@ -34,6 +34,11 @@ export default function MarkerClusterGroup({ children, ...options }: MarkerClust
     setClusterGroup(group);
 
     return () => {
+      // @ts-ignore
+      if (group && typeof group.clearLayers === 'function') {
+        // @ts-ignore
+        group.clearLayers();
+      }
       parentContainer.removeLayer(group);
     };
   }, [context.layerContainer, context.map, JSON.stringify(options)]);

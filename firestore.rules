@@ -27,12 +27,27 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        (request.auth.token != null && "email" in request.auth.token &&
+         (request.auth.token.email == 'edutrackbangladesh@gmail.com' ||
+          request.auth.token.email == 'm13hmahadi.personal@gmail.com')) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '') == 'edutrackbangladesh@gmail.com' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '') == 'm13hmahadi.personal@gmail.com'))
+      );
+    }
+
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email == 'admin@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
+      );
     }
 
     function isVerifiedEmail() {
-      // Temporarily relaxing for dev environment, but keeping structure for hardening
       return isSignedIn();
     }
 
@@ -56,23 +71,25 @@ service cloud.firestore {
                (data.get('bio', null) == null || data.bio is string) &&
                (data.get('hourlyRate', null) == null || data.hourlyRate is number) &&
                (data.get('profileImage', null) == null || data.profileImage is string) &&
+               (data.get('isBlocked', null) == null || data.isBlocked is bool) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
       allow read: if isSignedIn() || resource.data.role == 'tutor';
 
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
-                    (incoming().role != 'admin' || request.auth.token.email == 'admin@gmail.com');
+                    (incoming().role != 'admin' || isSuperAdmin());
 
-      allow update: if (isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && 
-                       incoming().role == existing().role && 
+      allow update: if isAdmin() || (
+                       (isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && 
+                       (incoming().role == existing().role || isSuperAdmin()) && 
                        incoming().email == existing().email && 
-                       (incoming().balance == existing().balance || (incoming().role == 'tutor' && incoming().balance < existing().balance)) && 
-                       incoming().isVerified == existing().isVerified
+                       (incoming().balance == existing().balance || (incoming().role == 'tutor' && incoming().balance < existing().balance) || isSuperAdmin()) && 
+                       (incoming().isVerified == existing().isVerified || isSuperAdmin())
                     ) || (
                        isSignedIn() && 
                        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingSum', 'totalRatings'])
-                    ) || isAdmin();
+                    ));
 
       allow delete: if isAdmin();
     }

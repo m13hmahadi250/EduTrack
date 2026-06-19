@@ -41,7 +41,9 @@ export default function Home() {
         const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
         const querySnapshot = await getDocs(q);
         if (active) {
-          const fetched = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const fetched = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() as any }))
+            .filter((u: any) => !u.isBlocked);
           setRealTutors(fetched);
         }
       } catch (error) {

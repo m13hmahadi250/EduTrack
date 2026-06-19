@@ -18,6 +18,7 @@ import {
   where, 
   addDoc,
   updateDoc,
+  deleteDoc,
   increment,
   Timestamp
 } from 'firebase/firestore';
@@ -81,6 +82,7 @@ export interface User {
   daysPerWeek?: number;
   availabilitySlots?: { [key: string]: string[] }; 
   hasDismissedProfileNotice?: boolean;
+  isBlocked?: boolean;
 }
 
 export interface Session {
@@ -159,6 +161,7 @@ interface AppState {
   logout: () => Promise<void>;
   signup: (userData: Partial<User>, password: string) => Promise<void>;
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   updateLocation: (id: string, lat: number, lng: number) => Promise<void>;
   toggleTracking: (id: string, isOn: boolean) => Promise<void>;
   updateAvailabilitySlots: (slots: { [key: string]: string[] }) => Promise<void>;
@@ -260,7 +263,18 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
+          let userData = userDoc.data() as User;
+          const lowercaseEmail = firebaseUser.email?.toLowerCase();
+          if (lowercaseEmail === 'edutrackbangladesh@gmail.com' || lowercaseEmail === 'm13hmahadi.personal@gmail.com') {
+            if (userData.role !== 'admin' || !userData.isVerified) {
+              userData = { ...userData, role: 'admin', isVerified: true };
+              try {
+                await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin', isVerified: true });
+              } catch (e) {
+                console.error("Error upgrading main admin role in Firestore Auth observer:", e);
+              }
+            }
+          }
           set({ currentUser: userData });
           
           // Setup real-time listeners for data
@@ -313,9 +327,34 @@ export const useAppStore = create<AppState>((set, get) => {
 
     login: async (email, password) => {
       set({ isLoading: true });
+      const trimmedEmail = email.trim();
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (error) {
+        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      } catch (error: any) {
+        // Auto-provision primary main admin on the fly if the credentials match
+        const lowerEmail = trimmedEmail.toLowerCase();
+        if ((lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') && password === 'Mahdi250') {
+          try {
+            const signupRes = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+            const uid = signupRes.user.uid;
+            const newUser: User = {
+              id: uid,
+              email: trimmedEmail.toLowerCase(),
+              name: 'Main Provider Admin',
+              phone: '01711223344',
+              role: 'admin',
+              balance: 0,
+              isVerified: true,
+              isTrackingOn: false,
+              rating: 5,
+            };
+            await setDoc(doc(db, 'users', uid), newUser);
+            set({ currentUser: newUser, isLoading: false });
+            return;
+          } catch (signupErr) {
+            console.error("Auto-provision of main admin failed:", signupErr);
+          }
+        }
         set({ isLoading: false });
         throw error;
       }
@@ -333,22 +372,36 @@ export const useAppStore = create<AppState>((set, get) => {
         
         if (!userDoc.exists()) {
           // New user from Google
+          const lowerGEmail = user.email?.toLowerCase();
+          const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
           const newUser: User = {
             id: user.uid,
             email: user.email!,
-            name: user.displayName || 'Google User',
+            name: user.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
             phone: user.phoneNumber || '',
-            role: requestedRole || 'student', // Default to student if no role specified
+            role: isMainAdmin ? 'admin' : (requestedRole || 'student'), // Admin if main email
             balance: 0,
-            isVerified: false,
+            isVerified: isMainAdmin ? true : false,
             isTrackingOn: false,
-            rating: 0,
+            rating: isMainAdmin ? 5 : 0,
             profileImage: user.photoURL || undefined
           };
           await setDoc(doc(db, 'users', user.uid), newUser);
           set({ currentUser: newUser });
         } else {
-          set({ currentUser: userDoc.data() as User });
+          let userData = userDoc.data() as User;
+          const lowerGEmail = user.email?.toLowerCase();
+          if (lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com') {
+            if (userData.role !== 'admin' || !userData.isVerified) {
+              userData = { ...userData, role: 'admin', isVerified: true };
+              try {
+                await updateDoc(doc(db, 'users', user.uid), { role: 'admin', isVerified: true });
+              } catch (e) {
+                console.error("Error setting Google logged-in admin role:", e);
+              }
+            }
+          }
+          set({ currentUser: userData });
         }
       } catch (error) {
         set({ isLoading: false });
@@ -417,7 +470,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Determine role - handle the requested admin email
         let finalRole: Role = userData.role as Role;
-        if (userData.email === 'admin@gmail.com') {
+        const lowerSignupEmail = userData.email?.toLowerCase();
+        if (lowerSignupEmail === 'admin@gmail.com' || lowerSignupEmail === 'edutrackbangladesh@gmail.com' || lowerSignupEmail === 'm13hmahadi.personal@gmail.com') {
           finalRole = 'admin';
         }
 
@@ -452,8 +506,27 @@ export const useAppStore = create<AppState>((set, get) => {
         if (current?.id === id) {
           set({ currentUser: { ...current, ...data } as User });
         }
+        const usersList = get().users;
+        if (usersList.some(u => u.id === id)) {
+          set({
+            users: usersList.map(u => u.id === id ? { ...u, ...data } as User : u)
+          });
+        }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      }
+    },
+
+    deleteUser: async (id) => {
+      try {
+        await deleteDoc(doc(db, 'users', id));
+        // Remove from local users list
+        const usersList = get().users;
+        set({
+          users: usersList.filter(u => u.id !== id)
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
       }
     },
 
@@ -874,9 +947,27 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   cleanupListeners();
 
   // 1. Listen to OWN user document for real-time profile updates (balance, verification, etc.)
-  const unsubSelf = onSnapshot(doc(db, 'users', uid), (snapshot) => {
+  const unsubSelf = onSnapshot(doc(db, 'users', uid), async (snapshot) => {
     if (snapshot.exists()) {
-      set({ currentUser: snapshot.data() as User });
+      const userData = { id: snapshot.id, ...snapshot.data() } as User;
+      const lowerSelfEmail = userData.email?.toLowerCase();
+      if (lowerSelfEmail === 'edutrackbangladesh@gmail.com' || lowerSelfEmail === 'm13hmahadi.personal@gmail.com') {
+        if (userData.role !== 'admin' || !userData.isVerified) {
+          const updatedData = { ...userData, role: 'admin' as Role, isVerified: true };
+          set({ currentUser: updatedData });
+          try {
+            await updateDoc(doc(db, 'users', uid), { role: 'admin', isVerified: true });
+          } catch (e) {
+            console.error("Error upgrading main admin role in Firestore:", e);
+          }
+          return;
+        }
+      }
+      set({ currentUser: userData });
+    } else {
+      // User document was deleted (e.g. removed by admin)
+      set({ currentUser: null });
+      auth.signOut();
     }
   }, (error) => {
     handleFirestoreError(error, OperationType.GET, `users/${uid}`);
@@ -897,13 +988,16 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
 
   const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-    const users = snapshot.docs.map(doc => {
-      const data = doc.data() as User;
+    let users = snapshot.docs.map(doc => {
+      const data = { id: doc.id, ...doc.data() } as User;
       if (data.role === 'admin') {
         return { ...data, name: 'ADMIN ACCOUNT' };
       }
       return data;
     });
+    if (role !== 'admin') {
+      users = users.filter(user => !user.isBlocked);
+    }
     set({ users });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'users');
@@ -934,7 +1028,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     sessionsQuery = query(collection(db, 'sessions'), where('tutorId', '==', uid));
   }
   const unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
-    const sessions = snapshot.docs.map(doc => doc.data() as Session);
+    const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
     set({ sessions });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'sessions');
@@ -948,7 +1042,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       withdrawalsQuery = query(collection(db, 'withdrawals'), where('tutorId', '==', uid));
     }
     const unsubWithdrawals = onSnapshot(withdrawalsQuery, (snapshot) => {
-      const withdrawals = snapshot.docs.map(doc => doc.data() as Withdrawal);
+      const withdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Withdrawal));
       set({ withdrawals });
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'withdrawals');
@@ -960,7 +1054,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const messagesQuery = query(collection(db, 'messages'), where('participants', 'array-contains', uid));
   
   const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
-    const messages = snapshot.docs.map(doc => doc.data() as Message);
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
     set({ messages });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'messages');
@@ -970,7 +1064,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   // Listen to notifications
   const notificationsQuery = query(collection(db, 'notifications'), where('userId', '==', uid));
   const unsubNotifs = onSnapshot(notificationsQuery, (snapshot) => {
-    const notifications = snapshot.docs.map(doc => doc.data() as Notification);
+    const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
     set({ notifications });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'notifications');

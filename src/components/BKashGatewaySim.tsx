@@ -103,7 +103,7 @@ export default function BKashGatewaySim({
           timestamp: new Date().toLocaleTimeString(),
           type: 'info',
           method: 'SYSTEM',
-          url: 'bKash Gateway Intializing...',
+          url: 'bKash Gateway Initializing...',
           payload: 'EduTrack bKash Sandbox integration environment online.'
         }
       ]);

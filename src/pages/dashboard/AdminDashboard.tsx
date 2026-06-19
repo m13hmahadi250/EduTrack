@@ -19,11 +19,15 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import AdminAnalytics from "../../components/admin/AdminAnalytics";
+import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
+import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
 
 export default function AdminDashboard() {
   const {
     users,
     payments,
+    sessions,
     verifyTutor,
     approvePayment,
     rejectPayment,
@@ -33,12 +37,14 @@ export default function AdminDashboard() {
     sendNotification,
     sendMessage,
     currentUser,
+    updateUser,
+    cancelSession,
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "verifications" | "payments" | "withdrawals"
-  >("verifications");
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions"
+  >("analytics");
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [approvedAnim, setApprovedAnim] = useState<{
     type: "nid" | "academic" | null;
@@ -130,19 +136,25 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const path = location.pathname;
-    if (path.endsWith("/payments")) setActiveTab("payments");
+    if (path.endsWith("/verifications")) setActiveTab("verifications");
+    else if (path.endsWith("/payments")) setActiveTab("payments");
     else if (path.endsWith("/withdrawals")) setActiveTab("withdrawals");
-    else setActiveTab("verifications");
+    else if (path.endsWith("/users")) setActiveTab("users");
+    else if (path.endsWith("/sessions")) setActiveTab("sessions");
+    else setActiveTab("analytics");
   }, [location.pathname]);
 
   const handleTabChange = (
-    tab: "verifications" | "payments" | "withdrawals",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions",
   ) => {
     setSelectedTutorIds([]);
     const pathMap = {
-      verifications: "/dashboard",
+      analytics: "/dashboard",
+      verifications: "/dashboard/verifications",
       payments: "/dashboard/payments",
       withdrawals: "/dashboard/withdrawals",
+      users: "/dashboard/users",
+      sessions: "/dashboard/sessions",
     };
     navigate(pathMap[tab]);
   };
@@ -326,9 +338,12 @@ export default function AdminDashboard() {
       {/* Navigation Matrix */}
       <div className="flex space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
         {[
-          { id: "verifications", label: "Identity Protocol" },
-          { id: "payments", label: "Inbound Revenue" },
-          { id: "withdrawals", label: "Tutor Payouts" },
+          { id: "analytics", label: "Command Center" },
+          { id: "verifications", label: "Identity protocol" },
+          { id: "payments", label: "Inbound revenue" },
+          { id: "withdrawals", label: "Tutor payouts" },
+          { id: "users", label: "User directory" },
+          { id: "sessions", label: "Session audits" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -351,6 +366,53 @@ export default function AdminDashboard() {
       </div>
 
       <AnimatePresence mode="wait">
+        {activeTab === "analytics" && (
+          <motion.div
+            key="analytics"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <AdminAnalytics 
+              users={users} 
+              payments={payments} 
+              withdrawals={withdrawals} 
+              sessions={sessions} 
+            />
+          </motion.div>
+        )}
+
+        {activeTab === "users" && (
+          <motion.div
+            key="users"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <AdminUserDirectory 
+              users={users} 
+              updateUser={updateUser} 
+              currentUser={currentUser} 
+            />
+          </motion.div>
+        )}
+
+        {activeTab === "sessions" && (
+          <motion.div
+            key="sessions"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <AdminSessionAudits 
+              sessions={sessions} 
+              users={users} 
+              cancelSession={cancelSession} 
+              sendNotification={sendNotification} 
+            />
+          </motion.div>
+        )}
+
         {activeTab === "verifications" && (
           <motion.div
             key="verifications"

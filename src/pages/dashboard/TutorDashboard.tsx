@@ -926,7 +926,7 @@ export default function TutorDashboard() {
                   rating={currentUser?.rating || 0}
                   totalReviews={currentUser?.totalRatings || 0}
                 />
-                <WeeklyGrowthChart />
+                <EarningsSummaryWidget sessions={sessions} hourlyRate={currentUser?.hourlyRate || 1000} />
               </div>
             </motion.div>
           )}
@@ -3110,46 +3110,315 @@ const ReputationTracker = memo(
   },
 );
 
-const WeeklyGrowthChart = memo(() => {
-  return (
-    <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm min-h-[300px]">
-      <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">
-        Weekly Growth
-      </h3>
-      <div className="h-48 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dummyData}>
-            <Line
-              type="monotone"
-              dataKey="earnings"
-              stroke="#0D5BFF"
-              strokeWidth={4}
-              dot={{ fill: "#0D5BFF", strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 8 }}
-            />
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 9, fontWeight: 900, fill: "#94A3B8" }}
-              dy={10}
-            />
-            <Tooltip
-              contentStyle={{
-                borderRadius: "1rem",
-                border: "none",
-                boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-                fontSize: "10px",
-                fontWeight: 900,
-                textTransform: "uppercase",
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+const EarningsSummaryWidget = memo(
+  ({
+    sessions,
+    hourlyRate,
+  }: {
+    sessions: Session[];
+    hourlyRate: number;
+  }) => {
+    const [viewMode, setViewMode] = useState<"week" | "month" | "year">("week");
+
+    const processedData = useMemo(() => {
+      const completed = sessions.filter((s) => s.status === "completed");
+
+      if (viewMode === "week") {
+        const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const data = weekdays.map((day) => ({
+          name: day,
+          earnings: 0,
+          count: 0,
+          hours: 0,
+        }));
+
+        completed.forEach((s) => {
+          try {
+            const timestamp = s.endTime || s.scheduledTime;
+            if (!timestamp) return;
+            const date = new Date(timestamp);
+            const dayIdx = (date.getDay() + 6) % 7; // Mon=0, Sun=6
+            if (dayIdx >= 0 && dayIdx < 7) {
+              const duration = s.duration || 60;
+              const earn = Math.round((duration / 60) * hourlyRate);
+              data[dayIdx].earnings += earn;
+              data[dayIdx].count += 1;
+              data[dayIdx].hours += duration / 60;
+            }
+          } catch (e) {
+            // ignore
+          }
+        });
+
+        const allZero = data.every((d) => d.earnings === 0);
+        return {
+          chartData: allZero
+            ? weekdays.map((day, idx) => ({
+                name: day,
+                earnings: [1200, 1800, 1500, 2200, 2800, 2400, 3200][idx] || 1000,
+                count: 1,
+                hours: 1,
+              }))
+            : data,
+          isSimulated: allZero,
+        };
+      } else if (viewMode === "month") {
+        const weeks = ["Week 1", "Week 2", "Week 3", "Week 4"];
+        const data = weeks.map((w) => ({
+          name: w,
+          earnings: 0,
+          count: 0,
+          hours: 0,
+        }));
+        const now = new Date();
+
+        completed.forEach((s) => {
+          try {
+            const timestamp = s.endTime || s.scheduledTime;
+            if (!timestamp) return;
+            const date = new Date(timestamp);
+            const diffTime = Math.abs(now.getTime() - date.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let weekIdx = 3;
+            if (diffDays <= 7) weekIdx = 0;
+            else if (diffDays <= 14) weekIdx = 1;
+            else if (diffDays <= 21) weekIdx = 2;
+            else if (diffDays <= 30) weekIdx = 3;
+            else return;
+
+            const duration = s.duration || 60;
+            const earn = Math.round((duration / 60) * hourlyRate);
+
+            const targetIdx = 3 - weekIdx;
+            data[targetIdx].earnings += earn;
+            data[targetIdx].count += 1;
+            data[targetIdx].hours += duration / 60;
+          } catch (e) {
+            // ignore
+          }
+        });
+
+        const allZero = data.every((d) => d.earnings === 0);
+        return {
+          chartData: allZero
+            ? weeks.map((w, idx) => ({
+                name: w,
+                earnings: [4500, 6200, 5800, 8400][idx] || 4000,
+                count: 4,
+                hours: 4,
+              }))
+            : data,
+          isSimulated: allZero,
+        };
+      } else {
+        const months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        const data = months.map((m) => ({
+          name: m,
+          earnings: 0,
+          count: 0,
+          hours: 0,
+        }));
+
+        completed.forEach((s) => {
+          try {
+            const timestamp = s.endTime || s.scheduledTime;
+            if (!timestamp) return;
+            const date = new Date(timestamp);
+            const mIdx = date.getMonth();
+            if (mIdx >= 0 && mIdx < 12) {
+              const duration = s.duration || 60;
+              const earn = Math.round((duration / 60) * hourlyRate);
+              data[mIdx].earnings += earn;
+              data[mIdx].count += 1;
+              data[mIdx].hours += duration / 60;
+            }
+          } catch (e) {
+            // ignore
+          }
+        });
+
+        const allZero = data.every((d) => d.earnings === 0);
+        return {
+          chartData: allZero
+            ? months.map((m, idx) => ({
+                name: m,
+                earnings:
+                  [
+                    15000, 18000, 22000, 17000, 25000, 29000, 31000, 28000,
+                    32000, 35000, 40000, 42000,
+                  ][idx] || 15000,
+                count: 15,
+                hours: 15,
+              }))
+            : data,
+          isSimulated: allZero,
+        };
+      }
+    }, [sessions, hourlyRate, viewMode]);
+
+    const { chartData, isSimulated } = processedData;
+
+    const totalEarnings = useMemo(() => {
+      return chartData.reduce((acc, d) => acc + d.earnings, 0);
+    }, [chartData]);
+
+    const totalSessions = useMemo(() => {
+      return chartData.reduce((acc, d) => acc + d.count, 0);
+    }, [chartData]);
+
+    const totalHours = useMemo(() => {
+      return chartData.reduce((acc, d) => acc + d.hours, 0);
+    }, [chartData]);
+
+    return (
+      <div className="bg-white dark:bg-[#0B132B] rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-all min-h-[300px]">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-black text-[#0B132B] dark:text-slate-100 uppercase italic flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-[#0D5BFF]" />
+              Earnings Summary
+            </h3>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+              Income from completed sessions
+            </p>
+          </div>
+
+          {/* Timeframe selector segments */}
+          <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+            {(["week", "month", "year"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all ${
+                  viewMode === mode
+                    ? "bg-[#0D5BFF] text-white shadow-md shadow-blue-500/10"
+                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dynamic mini KPIs inside grid */}
+        <div className="grid grid-cols-3 gap-2.5 mb-8">
+          <div className="bg-slate-50/50 dark:bg-[#111A2E]/50 border border-slate-100/50 dark:border-slate-800/40 p-4 rounded-[1.5rem] flex flex-col justify-between">
+            <p className="text-[7.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              Period Income
+            </p>
+            <h4 className="text-base sm:text-lg font-black text-[#0D5BFF] italic">
+              ৳{totalEarnings.toLocaleString()}
+            </h4>
+          </div>
+          <div className="bg-slate-50/50 dark:bg-[#111A2E]/50 border border-slate-100/50 dark:border-slate-800/40 p-4 rounded-[1.5rem] flex flex-col justify-between">
+            <p className="text-[7.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              Teaching Hours
+            </p>
+            <h4 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 italic">
+              {totalHours.toFixed(1)}h
+            </h4>
+          </div>
+          <div className="bg-slate-50/50 dark:bg-[#111A2E]/50 border border-slate-100/50 dark:border-slate-800/40 p-4 rounded-[1.5rem] flex flex-col justify-between">
+            <p className="text-[7.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              Classes Done
+            </p>
+            <h4 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 italic">
+              {totalSessions}
+            </h4>
+          </div>
+        </div>
+
+        {/* Chart Stage */}
+        <div className="h-56 w-full select-none">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorEarning" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#0D5BFF" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#0D5BFF" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="4 4"
+                vertical={false}
+                stroke="rgba(148, 163, 184, 0.1)"
+              />
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 8, fontWeight: 900, fill: "#94A3B8" }}
+                dy={8}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 8, fontWeight: 900, fill: "#94A3B8" }}
+                tickFormatter={(v) => `৳${v}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(11, 19, 43, 0.95)",
+                  borderRadius: "1.2rem",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
+                  fontSize: "10px",
+                  fontWeight: 900,
+                  color: "#FFFFFF",
+                }}
+                itemStyle={{ color: "#38BDF8" }}
+                labelStyle={{ color: "#E2E8F0", paddingBottom: "4px" }}
+                formatter={(value: any) => [`৳${value}`, "Income"]}
+              />
+              <Line
+                type="monotone"
+                dataKey="earnings"
+                stroke="#0D5BFF"
+                strokeWidth={3.5}
+                dot={{ fill: "#0D5BFF", strokeWidth: 1.5, r: 3.5 }}
+                activeDot={{ r: 6.5, fill: "#0D5BFF", stroke: "#FFFFFF", strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Projections mode announcement */}
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${isSimulated ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
+            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              {isSimulated ? "Baseline Projection Mode" : "Real-time Live Synced"}
+            </span>
+          </div>
+          {isSimulated && (
+            <span className="text-[7.5px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/5 px-2 py-0.5 rounded-lg border border-amber-500/10">
+              No completed sessions yet
+            </span>
+          )}
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 const TrackerBar = memo(
   ({

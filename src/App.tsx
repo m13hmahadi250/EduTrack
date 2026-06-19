@@ -31,6 +31,36 @@ const LoadingScreen = () => (
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const currentUser = useAppStore(state => state.currentUser);
   if (!currentUser) return <Navigate to="/login" replace />;
+  
+  // @ts-ignore
+  if (currentUser.isBlocked) {
+    return (
+      <div className="min-h-screen bg-[#0B132B] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-slate-900 border border-rose-500/20 rounded-[2.5rem] p-10 shadow-2xl uppercase">
+          <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-500/30 animate-pulse">
+            <svg className="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black italic text-rose-500 tracking-wider mb-2">Account suspended</h2>
+          <p className="text-[10px] font-bold text-slate-400 tracking-widest leading-relaxed mb-6">
+            Your login token has been frozen due to compliance or terms of service issues.
+          </p>
+          <div className="text-[9px] font-black text-[#0D5BFF] tracking-widest mb-6">
+            Ref ID: {currentUser.id.substring(0, 12).toUpperCase()}
+          </div>
+          <button 
+            type="button"
+            onClick={() => useAppStore.getState().logout()}
+            className="w-full px-6 py-4 bg-slate-800 hover:bg-rose-600 text-white rounded-2xl text-[9px] font-black tracking-widest uppercase transition-all shadow-md cursor-pointer border border-transparent"
+          >
+            Log Out Account
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) return <Navigate to="/dashboard" replace />;
   return <DashboardLayout>{children}</DashboardLayout>;
 }
