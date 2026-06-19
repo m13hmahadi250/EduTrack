@@ -2448,7 +2448,7 @@ export default function TutorDashboard() {
               <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                    Student Query Engine
+                    Find Student
                   </h3>
                   <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-widest mt-1">
                     Find students who match your subject list & teachable parameters
