@@ -12,7 +12,16 @@ import {
   Coins,
   ArrowRightLeft,
   Mail,
-  Smartphone
+  Smartphone,
+  X,
+  GraduationCap,
+  BookOpen,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Briefcase,
+  Activity,
+  FileText
 } from 'lucide-react';
 
 interface AdminUserDirectoryProps {
@@ -32,6 +41,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [balanceInput, setBalanceInput] = useState<string>('');
+  const [inspectingUser, setInspectingUser] = useState<User | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -534,6 +544,16 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
                         
+                        {/* Inspect Profile */}
+                        <button
+                          onClick={() => setInspectingUser(user)}
+                          className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-slate-100 dark:bg-slate-900/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800"
+                          title="Inspect All User Details"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                          <span>Inspect</span>
+                        </button>
+
                         {/* Send Message */}
                         {user.id !== currentUser.id && onMessageUser ? (
                           <button
@@ -659,13 +679,344 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 onClick={confirmModal.onConfirm}
                 className={`px-4 py-2 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
                   confirmModal.isDanger 
-                    ? 'bg-rose-600 hover:bg-rose-700' 
-                    : 'bg-[#0D5BFF] hover:bg-blue-600'
+                     ? 'bg-rose-600 hover:bg-rose-700' 
+                     : 'bg-[#0D5BFF] hover:bg-blue-600'
                 }`}
               >
                 {confirmModal.confirmText || 'Confirm'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete User Information Inspection Panel */}
+      {inspectingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10 bg-slate-955/80 dark:bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-2xl p-6 md:p-10 max-w-4xl w-full my-auto space-y-8 relative overflow-hidden font-sans">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] dark:text-[#5a91ff] flex items-center justify-center font-black italic border border-blue-50 dark:border-blue-900/30 overflow-hidden shrink-0">
+                  {inspectingUser.profileImage ? (
+                    <img src={inspectingUser.profileImage} alt={inspectingUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="text-lg">{inspectingUser.name?.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-wider text-slate-800 dark:text-white italic flex items-center gap-2">
+                    {inspectingUser.name || 'Anonymous User'}
+                    {inspectingUser.isVerified && (
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 fill-emerald-500/15" />
+                    )}
+                  </h3>
+                  <p className="text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase mt-0.5">
+                    ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()} LEDGER NODE
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectingUser(null)}
+                className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Main Information Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-y-auto max-h-[55vh] pr-2 custom-scrollbar">
+              
+              {/* Profile card & balance */}
+              <div className="md:col-span-1 space-y-6">
+                
+                {/* Visual Overview */}
+                <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Wallet Balance</span>
+                  <div className="flex items-baseline gap-1 text-slate-800 dark:text-white">
+                    <span className="text-xl font-bold">৳</span>
+                    <span className="text-3xl font-black italic">{(inspectingUser.balance || 0).toLocaleString()}</span>
+                  </div>
+                  
+                  {/* Quick Verification Flags */}
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                      <span className="text-slate-400">Account status</span>
+                      <span className={inspectingUser.isBlocked ? "text-rose-550" : "text-emerald-500"}>
+                        {inspectingUser.isBlocked ? "Blocked / Suspended" : "Active / Verified"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                      <span className="text-slate-400">Identity check</span>
+                      <span className={inspectingUser.nidStatus === 'approved' ? "text-emerald-500" : "text-amber-500"}>
+                        {inspectingUser.nidStatus || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                      <span className="text-slate-400">Academic check</span>
+                      <span className={inspectingUser.academicStatus === 'approved' ? "text-emerald-500" : "text-amber-500"}>
+                        {inspectingUser.academicStatus || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Micro Actions Panel inside inspect */}
+                <div className="space-y-3">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block px-1">Moderation Controls</span>
+                  
+                  {/* Status Toggle */}
+                  {inspectingUser.id !== currentUser.id && (
+                    <button
+                      onClick={() => {
+                        handleToggleBlock(inspectingUser);
+                        setInspectingUser(prev => prev ? { ...prev, isBlocked: !prev.isBlocked } : null);
+                      }}
+                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-[#0D5BFF]"
+                    >
+                      <span>Toggle block state</span>
+                      <span className="font-mono text-slate-400">{inspectingUser.isBlocked ? "UNBLOCK" : "BLOCK"}</span>
+                    </button>
+                  )}
+
+                  {/* Manual verification status toggle */}
+                  {inspectingUser.role === 'tutor' && (
+                    <button
+                      onClick={() => {
+                        handleToggleVerification(inspectingUser);
+                        setInspectingUser(prev => prev ? { ...prev, isVerified: !prev.isVerified, nidStatus: !prev.isVerified ? 'approved' : 'rejected', academicStatus: !prev.isVerified ? 'approved' : 'rejected' } : null);
+                      }}
+                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-[#0D5BFF]"
+                    >
+                      <span>Verification Badge</span>
+                      <span className="font-mono text-slate-400">{inspectingUser.isVerified ? "REVOKE" : "GRANT VERIFIED"}</span>
+                    </button>
+                  )}
+
+                  {/* Send Direct Messages */}
+                  {inspectingUser.id !== currentUser.id && onMessageUser && (
+                    <button
+                      onClick={() => {
+                        onMessageUser(inspectingUser.id);
+                        setInspectingUser(null);
+                      }}
+                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-[#0D5BFF]/20"
+                    >
+                      <span>Open chat Inbox</span>
+                      <Mail className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Core Details Panel */}
+              <div className="md:col-span-2 space-y-6">
+                
+                {/* Contact & Identity Nodes (Unmasked) */}
+                <div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
+                    Contact & Authentication Credentials (UNMASKED)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1 font-mono tracking-wider">{inspectingUser.phone || 'NOT CONFIGURED'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verified E-Mail Node</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1 break-all font-mono">{inspectingUser.email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Biological Gender</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.gender || 'NOT CONFIGURED'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Date of Birth</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.birthDate || 'NOT CONFIGURED'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Geography Area Nodes */}
+                <div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Zone & Geographic Parameters</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">District</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.district || 'NOT SPECIFIED'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Area / Area Code</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.area || 'NOT SPECIFIED'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Thana</span>
+                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.thana || 'NOT SPECIFIED'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Role Specific Academic parameters */}
+                {inspectingUser.role === 'tutor' ? (
+                  <div className="space-y-6 animate-fade-in">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Expert / Academic Qualifications</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">University</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.university || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Department / Course</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.course || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Academic Class Tenure</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">
+                            {inspectingUser.year ? `${inspectingUser.year} Year` : ''} {inspectingUser.semester ? `• Semester ${inspectingUser.semester}` : ''} {!inspectingUser.year && !inspectingUser.semester ? 'Full Program Completed / Standard' : ''}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">National Identity NID (Unmasked)</span>
+                          <p className="text-xs font-black text-slate-850 dark:text-white mt-1 font-mono tracking-widest">{inspectingUser.nidNumber || 'NOT SUBMITTED'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Hourly Rate Quote</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">৳{inspectingUser.hourlyRate || 0} / Hour</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Teaching Availability frequency</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.daysPerWeek || 0} Days / Week</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bio / Bio block */}
+                    {inspectingUser.bio && (
+                      <div>
+                        <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-1.5 ml-1">Expert Profile Bio</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-350 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl italic leading-relaxed">
+                          "{inspectingUser.bio}"
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Subjects and Classes list */}
+                    {(inspectingUser.subjects?.length || inspectingUser.classes?.length) ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-2">Service-Level Subjects</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {inspectingUser.subjects?.map((subj, sidx) => (
+                              <span key={sidx} className="bg-blue-50 dark:bg-blue-900/30 text-[#0D5BFF] dark:text-blue-300 px-2.5 py-1 text-[8px] font-black rounded-lg uppercase tracking-wider">{subj}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-2">Service-Level Classes</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {inspectingUser.classes?.map((cls, cidx) => (
+                              <span key={cidx} className="bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 px-2.5 py-1 text-[8px] font-black rounded-lg uppercase tracking-wider">{cls}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Verification Documents display */}
+                    {(inspectingUser.nidFrontImg || inspectingUser.nidBackImg || (inspectingUser.documents && inspectingUser.documents.length > 0)) && (
+                      <div className="space-y-4">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 dark:border-slate-800 pb-1.5">Verification Images & Certificates (Secure Ledger Links)</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          
+                          {/* NID Images */}
+                          {inspectingUser.nidFrontImg && (
+                            <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">NID Front Image</span>
+                              <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                                <img src={inspectingUser.nidFrontImg} alt="NID Front" className="w-full h-full object-cover cursor-zoom-in" onClick={() => window.open(inspectingUser.nidFrontImg, '_blank')} />
+                              </div>
+                            </div>
+                          )}
+
+                          {inspectingUser.nidBackImg && (
+                            <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">NID Back Image</span>
+                              <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                                <img src={inspectingUser.nidBackImg} alt="NID Back" className="w-full h-full object-cover cursor-zoom-in" onClick={() => window.open(inspectingUser.nidBackImg, '_blank')} />
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Academic Documents */}
+                          {inspectingUser.documents && inspectingUser.documents.length > 0 && (
+                            <div className="sm:col-span-2 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Academic Certificates & Transcripts</span>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {inspectingUser.documents.map((docUrl, dIdx) => (
+                                  <div key={dIdx} className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-850 relative group cursor-pointer hover:border-[#0D5BFF] transition-all" onClick={() => window.open(docUrl, '_blank')}>
+                                    <img src={docUrl} alt={`Certificate ${dIdx + 1}`} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <span className="text-[8px] font-black text-white uppercase tracking-wider">Open Raw</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                ) : (
+                  // Student Specific fields
+                  <div className="space-y-6 animate-fade-in">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Student / Institution Settings</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans">School / College</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.school || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Class Grade Level</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.studentClass || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Department / Group</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.group || 'GENERAL'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Desired Subject Track</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.subject || 'All General Support'}</p>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans">Full Home / Location Address</span>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1 truncate" title={inspectingUser.address}>{inspectingUser.address || 'NOT CONFIGURED'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* Footer Closing Button */}
+            <div className="flex items-center justify-end pt-4 border-t border-slate-100 dark:border-slate-800/60 font-sans">
+              <button
+                onClick={() => setInspectingUser(null)}
+                className="px-6 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Close Audit Inspection
+              </button>
+            </div>
+
           </div>
         </div>
       )}
