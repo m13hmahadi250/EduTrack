@@ -50,118 +50,6 @@ export default function TeacherProfile() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Fallback Mock data mapping if firebase doesn't have it or we match a mock id
-  const fallbackList = [
-    {
-      id: 'mock-sarah',
-      name: "Sarah Rahman",
-      role: 'tutor',
-      university: "University of Dhaka",
-      course: "B.Sc. in Physics",
-      subjects: ["Physics", "Math", "Further Mathematics"],
-      classes: ["Class 9", "Class 10", "HSC Level"],
-      rating: 4.9,
-      totalRatings: 18,
-      profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400",
-      hourlyRate: 800,
-      daysPerWeek: 3,
-      district: "Dhaka",
-      area: "Dhanmondi",
-      thana: "Dhanmondi Thana",
-      phone: "+8801755123456",
-      email: "sarah.rahman.du@gmail.com",
-      bio: "Dedicated Physics undergraduate at University of Dhaka with 3+ years of experience helping students break down complex physical sciences into simple, intuitive mechanical steps. Specializes in HSC board preparation.",
-      isVerified: true,
-      experience: "3 Years in Dhanmondi area",
-      availabilitySlots: {
-        "Saturday": ["04:00 PM - 06:00 PM"],
-        "Monday": ["04:00 PM - 06:00 PM"],
-        "Wednesday": ["06:00 PM - 08:00 PM"]
-      }
-    },
-    {
-      id: 'mock-adnan',
-      name: "Adnan Sami",
-      role: 'tutor',
-      university: "BUET",
-      course: "B.Sc. in Computer Science & Engineering",
-      subjects: ["ICT", "Programming", "Math", "Computer Science"],
-      classes: ["Class 8", "HSC Level", "Admission Candidates"],
-      rating: 5.0,
-      totalRatings: 32,
-      profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400",
-      hourlyRate: 1200,
-      daysPerWeek: 2,
-      district: "Dhaka",
-      area: "Bakhshibazar",
-      thana: "Lalbagh",
-      phone: "+8801811987654",
-      email: "adnan.sami.cse@buet.ac.bd",
-      bio: "BUET CSE student passionate about coding, algorithms, and high-school ICT courses. Offers hands-on coding exercises, rigorous structural preparation, and strategic exam tricks for securing highest marks.",
-      isVerified: true,
-      experience: "4 Years coaching and private tuition",
-      availabilitySlots: {
-        "Sunday": ["05:00 PM - 07:00 PM"],
-        "Tuesday": ["05:00 PM - 07:00 PM"]
-      }
-    },
-    {
-      id: 'mock-nadia',
-      name: "Nadia Islam",
-      role: 'tutor',
-      university: "North South University (NSU)",
-      course: "B.A. in English Literature",
-      subjects: ["English Literature", "Grammar", "IELTS Prep", "Spoken English"],
-      classes: ["Class 6", "Class 10", "O/A Levels", "IELTS aspirants"],
-      rating: 4.8,
-      totalRatings: 14,
-      profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400",
-      hourlyRate: 700,
-      daysPerWeek: 4,
-      district: "Dhaka",
-      area: "Gulshan",
-      thana: "Gulshan Thana",
-      phone: "+8801911456123",
-      email: "nadia.islam.nsu@outlook.com",
-      bio: "Gold Medalist from English department NSU. Highly skilled in customized curriculum planning, communicative language teaching, writing mechanics, and preparation for Cambridge O/A-level curricula.",
-      isVerified: true,
-      experience: "2 Years at International School Prep",
-      availabilitySlots: {
-        "Monday": ["03:00 PM - 05:00 PM"],
-        "Tuesday": ["03:00 PM - 05:00 PM"],
-        "Thursday": ["03:00 PM - 05:00 PM"],
-        "Friday": ["09:00 AM - 11:30 AM"]
-      }
-    },
-    {
-      id: 'mock-sajid',
-      name: "Sajid Hasan",
-      role: 'tutor',
-      university: "IUT",
-      course: "B.Sc. in Mechanical Engineering",
-      subjects: ["Chemistry", "Analytical Mechanics", "Higher Mathematics"],
-      classes: ["Class 9", "Class 10", "HSC Level"],
-      rating: 4.9,
-      totalRatings: 9,
-      profileImage: undefined,
-      hourlyRate: 600,
-      daysPerWeek: 3,
-      district: "Gazipur",
-      area: "Board Bazar",
-      thana: "Joydebpur",
-      phone: "+8801511234789",
-      email: "sajid.hasan.iut@gmail.com",
-      bio: "Senior level Mechanical Engineering student at Islamic University of Technology. Focused on concept building over rote learning. Teaches physical and analytical chemistry with real-world mechanical diagrams.",
-      isVerified: false,
-      experience: "1.5 Years tutoring experience",
-      availabilitySlots: {
-        "Saturday": ["06:00 PM - 08:00 PM"],
-        "Sunday": ["06:00 PM - 08:00 PM"],
-        "Wednesday": ["06:00 PM - 08:00 PM"]
-      }
-    }
-  ];
-
   // Check if current reader is a verified student
   // Active/valid student means roles includes 'student' (or we check if currentUser exists and is any student role)
   const isVerifiedStudent = currentUser && (currentUser.role === 'student' || currentUser.role === 'admin');
@@ -170,14 +58,6 @@ export default function TeacherProfile() {
     let active = true;
     const fetchTutorDetails = async () => {
       if (!id) return;
-      
-      // First check if it matches a mock tutor
-      const mockMatch = fallbackList.find(item => item.id === id);
-      if (mockMatch) {
-        setTutor(mockMatch);
-        setLoading(false);
-        return;
-      }
 
       try {
         const { doc, getDoc } = await import('firebase/firestore');
@@ -280,41 +160,51 @@ export default function TeacherProfile() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         
-        {/* Banner Card */}
-        <div className="relative h-60 bg-gradient-to-r from-slate-900 to-[#0B132B] rounded-[2.5rem] overflow-hidden shadow-2xl p-8 mb-8 border border-white/5 flex items-end">
-          <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#0D5BFF_1.5px,transparent_1px)] [background-size:16px_16px]"></div>
-          <div className="absolute right-10 top-10 w-96 h-96 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-          
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-end gap-6 w-full">
-            
-            {/* Direct Avatar placement */}
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-3xl bg-white dark:bg-slate-800 border-4 border-white dark:border-[#111A2E] overflow-hidden shadow-xl shrink-0 -mb-16 md:-mb-20 z-20 flex items-center justify-center">
-              {tutor.profileImage ? (
-                <img src={tutor.profileImage} alt={tutor.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-400 flex items-center justify-center text-white font-black italic text-4xl">
-                  {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                </div>
-              )}
-            </div>
+        {/* Profile Header Block wrapping banner and overlapping card */}
+        <div className="relative mb-24 md:mb-20">
+          {/* Background Brand Banner */}
+          <div className="relative h-48 md:h-60 bg-gradient-to-r from-[#0D5BFF] via-blue-600 to-[#1E40AF] rounded-[2.5rem] overflow-hidden shadow-xl border border-blue-400/10">
+            {/* Soft, beautiful fluid decorative blobs instead of dot matrix */}
+            <div className="absolute -right-16 -top-16 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute left-1/4 -bottom-20 w-64 h-64 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none"></div>
+          </div>
 
-            <div className="flex-grow text-white space-y-2 md:pb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight italic">{tutor.name}</h1>
-                {tutor.isVerified && (
-                  <ShieldCheck className="w-7 h-7 text-emerald-400 fill-emerald-500/15" />
-                )}
+          {/* Overlapping Profile Info Panel */}
+          <div className="relative -mt-20 md:-mt-24 px-6 md:px-12 flex flex-col md:flex-row items-center md:items-end gap-6 justify-between w-full z-10">
+            
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+              {/* High-fidelity overlapping avatar shadow base */}
+              <div className="w-32 h-32 md:w-36 md:h-36 rounded-[2rem] bg-white dark:bg-[#111A2E] p-1.5 shadow-[0_20px_50px_-12px_rgba(13,91,255,0.25)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 shrink-0 select-none flex items-center justify-center">
+                <div className="w-full h-full rounded-[1.6rem] overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  {tutor.profileImage ? (
+                    <img src={tutor.profileImage} alt={tutor.name} className="w-full h-full object-cover transition-transform hover:scale-105 duration-300" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-400 flex items-center justify-center text-white font-black italic text-4xl">
+                      {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-xs font-bold text-blue-300 uppercase tracking-widest flex items-center gap-1.5 flex-wrap">
-                <GraduationCap className="w-4 h-4 text-blue-400" />
-                {tutor.university || 'Certified Academic Mentor'} • {tutor.course || 'Expert Department'}
-              </p>
+
+              {/* Title parameters */}
+              <div className="space-y-2 md:pb-2">
+                <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
+                  <h1 className="text-2xl md:text-4xl font-black uppercase text-[#0B132B] dark:text-white tracking-tight italic leading-none">{tutor.name}</h1>
+                  {tutor.isVerified && (
+                    <ShieldCheck className="w-6 h-6 md:w-8 md:h-8 text-[#0D5BFF] fill-[#0D5BFF]/10 shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs font-bold text-[#0D5BFF] dark:text-blue-400 uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
+                  <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
+                  {tutor.university || 'Certified Academic Mentor'} • {tutor.course || 'Expert Department'}
+                </p>
+              </div>
             </div>
 
             {/* Float Stars Rating */}
-            <div className="md:pb-4 self-end flex items-center gap-1.5 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl shadow-sm select-none">
+            <div className="md:mb-3 flex items-center gap-2 bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 px-5 py-3 rounded-2xl shadow-[0_12px_30px_-6px_rgba(0,0,0,0.08)] select-none">
               <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="text-xs font-black text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
+              <span className="text-xs font-black text-[#0B132B] dark:text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
               <span className="text-[10px] text-slate-400 font-bold">({tutor.totalRatings || 12} Reviews)</span>
             </div>
 

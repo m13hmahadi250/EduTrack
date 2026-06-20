@@ -62,58 +62,9 @@ export default function Home() {
   const [selectedSubject, setSelectedSubject] = React.useState('All');
   const [selectedDistrict, setSelectedDistrict] = React.useState('All');
 
-  // Unified list of available tutors (Firestore Real + High-Fidelity Local Mock templates)
+  // Unified list of available tutors (Firestore Real)
   const allTutors = React.useMemo(() => {
-    const list = [...realTutors];
-    const fallbackList = [
-      {
-        id: 'mock-sarah',
-        name: "Sarah Rahman",
-        university: "University of Dhaka",
-        subjects: ["Physics", "Math", "Further Mathematics"],
-        rating: 4.9,
-        profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400",
-        district: "Dhaka",
-        area: "Dhanmondi"
-      },
-      {
-        id: 'mock-adnan',
-        name: "Adnan Sami",
-        university: "BUET",
-        subjects: ["ICT", "Programming", "Computer Science", "Math"],
-        rating: 5.0,
-        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400",
-        district: "Dhaka",
-        area: "Bakhshibazar"
-      },
-      {
-        id: 'mock-nadia',
-        name: "Nadia Islam",
-        university: "North South University (NSU)",
-        subjects: ["English Literature", "English", "IELTS"],
-        rating: 4.8,
-        profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400",
-        district: "Dhaka",
-        area: "Gulshan"
-      },
-      {
-        id: 'mock-sajid',
-        name: "Sajid Hasan",
-        university: "IUT",
-        subjects: ["Chemistry", "Math", "Analytical Mechanics"],
-        rating: 4.9,
-        profileImage: undefined,
-        district: "Gazipur",
-        area: "Board Bazar"
-      }
-    ];
-
-    for (const fb of fallbackList) {
-      if (!list.some(r => r.id === fb.id || r.name.toLowerCase() === fb.name.toLowerCase())) {
-        list.push(fb);
-      }
-    }
-    return list;
+    return realTutors;
   }, [realTutors]);
 
   // Compute live search filter results
@@ -480,7 +431,7 @@ export default function Home() {
           ) : (
             <motion.div 
               layout
-              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8"
+              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
             >
               {filteredTutors.map((t) => (
                 <motion.div
