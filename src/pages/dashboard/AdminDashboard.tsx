@@ -345,8 +345,59 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Mobile/Tablet Adaptive Grid Selector (All Panels Fully Visible) */}
+      <div className="lg:hidden block mb-6" id="admin-mobile-tablet-tab-matrix">
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 italic">
+          Quick Navigation Command Board
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {[
+            { id: "analytics", label: "Command Center", icon: LayoutDashboard },
+            { id: "users", label: "User directory", icon: Users },
+            { id: "verifications", label: "Identity protocol", icon: Shield },
+            { id: "payments", label: "Inbound revenue", icon: CreditCard },
+            { id: "withdrawals", label: "Tutor payouts", icon: Wallet },
+            { id: "sessions", label: "Session audits", icon: History },
+            { id: "messages", label: "Secure messages", icon: MessageSquare },
+          ].map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all duration-300 relative overflow-hidden active:scale-[0.97] cursor-pointer ${
+                  isActive
+                    ? "bg-[#0B132B] dark:bg-[#0D5BFF] text-white border-transparent shadow-lg shadow-slate-950/20"
+                    : "bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                }`}
+                id={`admin-tab-btn-${tab.id}`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "bg-slate-100 dark:bg-slate-800 text-[#0D5BFF]"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[10px] font-black uppercase tracking-wider leading-tight truncate`}>
+                    {tab.label}
+                  </p>
+                  <p className={`text-[8px] font-medium tracking-tight uppercase truncate ${isActive ? 'text-white/60' : 'text-slate-400'}`}>
+                    {isActive ? "Active View" : "Click to view"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Navigation Matrix */}
-      <div className="flex space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
+      <div className="lg:flex hidden space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
         {[
           { id: "users", label: "User directory" },
           { id: "verifications", label: "Identity protocol" },

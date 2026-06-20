@@ -192,33 +192,109 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust & Safety Section - Visible Grid Style */}
-      <section id="safety" className="py-24 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+      {/* Featured Tutors - Bento Grid Style */}
+      <section id="find-tutors" className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Safety First</h2>
-            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
-              Security You Can <span className="text-[#0D5BFF]">Trust</span>
-            </h3>
+          
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
+            <div>
+              <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Elite Network</h2>
+              <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
+                Teacher <span className="text-[#0D5BFF]">Directory</span>
+              </h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-xl">
+                Browse, search, and verify certified home tutors in real-time. Click any card to view their full credentials in a new tab.
+              </p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-12">
-            <TrustCard 
-              icon={<Shield className="w-10 h-10" />}
-              title="Identity Verification"
-              description="Every tutor must upload their National ID and Student ID card. Our team manually verifies each document before they can join."
-            />
-            <TrustCard 
-              icon={<MapPin className="w-10 h-10" />}
-              title="Live GPS Tracking"
-              description="Parents can track the tutor's live location via their dashboard to ensure safety and confirm punctuality."
-            />
-            <TrustCard 
-              icon={<Award className="w-10 h-10" />}
-              title="Verified Certification"
-              description="Academic records and university IDs are double-checked. Only top-tier students from reputable institutions are accepted."
-            />
+          {/* Search Controls Bento Box */}
+          <div className="bg-slate-50 dark:bg-[#111A2E]/50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm mb-12 gap-6 flex flex-col md:flex-row items-center justify-between">
+            
+            {/* Search Input */}
+            <div className="relative w-full md:flex-grow">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Search by name, university, or subject..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Dropdown Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto shrink-0">
+              
+              {/* Subject Filter */}
+              <div className="relative w-full sm:w-48">
+                <select 
+                  value={selectedSubject} 
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
+                >
+                  <option value="All">All Subjects</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Math">Math</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="English">English</option>
+                  <option value="ICT">ICT</option>
+                  <option value="Computer Science">Computer Science</option>
+                </select>
+              </div>
+
+              {/* District Filter */}
+              <div className="relative w-full sm:w-48">
+                <select 
+                  value={selectedDistrict} 
+                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
+                >
+                  <option value="All">All Districts</option>
+                  <option value="Dhaka">Dhaka</option>
+                  <option value="Chattogram">Chattogram</option>
+                  <option value="Gazipur">Gazipur</option>
+                </select>
+              </div>
+
+            </div>
+
           </div>
+
+          {/* Grid of Cards with Motion layout animation */}
+          {filteredTutors.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-20 p-8 bg-slate-50 dark:bg-[#111A2E]/20 rounded-[3rem] border-2 border-dashed border-slate-200/80 dark:border-slate-800 max-w-xl mx-auto flex flex-col items-center justify-center space-y-4"
+            >
+              <Users className="w-12 h-12 text-[#0D5BFF] animate-pulse" />
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">No Mentors Found</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1.5 leading-relaxed max-w-sm mx-auto">
+                  We couldn't locate any tutors matching your query. Check spelling or expand district search parameters.
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              layout
+              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
+            >
+              {filteredTutors.map((t) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                >
+                  <TutorPreviewCard tutor={t} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
         </div>
       </section>
 
@@ -354,109 +430,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Tutors - Bento Grid Style */}
-      <section id="find-tutors" className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
+      {/* Trust & Safety Section - Visible Grid Style */}
+      <section id="safety" className="py-24 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
-            <div>
-              <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Elite Network</h2>
-              <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
-                Teacher <span className="text-[#0D5BFF]">Directory</span>
-              </h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-xl">
-                Browse, search, and verify certified home tutors in real-time. Click any card to view their full credentials in a new tab.
-              </p>
-            </div>
+          <div className="text-center mb-20">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Safety First</h2>
+            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+              Security You Can <span className="text-[#0D5BFF]">Trust</span>
+            </h3>
           </div>
 
-          {/* Search Controls Bento Box */}
-          <div className="bg-slate-50 dark:bg-[#111A2E]/50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm mb-12 gap-6 flex flex-col md:flex-row items-center justify-between">
-            
-            {/* Search Input */}
-            <div className="relative w-full md:flex-grow">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Search by name, university, or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
-              />
-            </div>
-
-            {/* Dropdown Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto shrink-0">
-              
-              {/* Subject Filter */}
-              <div className="relative w-full sm:w-48">
-                <select 
-                  value={selectedSubject} 
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
-                >
-                  <option value="All">All Subjects</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Math">Math</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="English">English</option>
-                  <option value="ICT">ICT</option>
-                  <option value="Computer Science">Computer Science</option>
-                </select>
-              </div>
-
-              {/* District Filter */}
-              <div className="relative w-full sm:w-48">
-                <select 
-                  value={selectedDistrict} 
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
-                >
-                  <option value="All">All Districts</option>
-                  <option value="Dhaka">Dhaka</option>
-                  <option value="Chattogram">Chattogram</option>
-                  <option value="Gazipur">Gazipur</option>
-                </select>
-              </div>
-
-            </div>
-
+          <div className="grid md:grid-cols-3 gap-12">
+            <TrustCard 
+              icon={<Shield className="w-10 h-10" />}
+              title="Identity Verification"
+              description="Every tutor must upload their National ID and Student ID card. Our team manually verifies each document before they can join."
+            />
+            <TrustCard 
+              icon={<MapPin className="w-10 h-10" />}
+              title="Live GPS Tracking"
+              description="Parents can track the tutor's live location via their dashboard to ensure safety and confirm punctuality."
+            />
+            <TrustCard 
+              icon={<Award className="w-10 h-10" />}
+              title="Verified Certification"
+              description="Academic records and university IDs are double-checked. Only top-tier students from reputable institutions are accepted."
+            />
           </div>
-
-          {/* Grid of Cards with Motion layout animation */}
-          {filteredTutors.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center py-20 p-8 bg-slate-50 dark:bg-[#111A2E]/20 rounded-[3rem] border-2 border-dashed border-slate-200/80 dark:border-slate-800 max-w-xl mx-auto flex flex-col items-center justify-center space-y-4"
-            >
-              <Users className="w-12 h-12 text-[#0D5BFF] animate-pulse" />
-              <div>
-                <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">No Mentors Found</h4>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1.5 leading-relaxed max-w-sm mx-auto">
-                  We couldn't locate any tutors matching your query. Check spelling or expand district search parameters.
-                </p>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              layout
-              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
-            >
-              {filteredTutors.map((t) => (
-                <motion.div
-                  key={t.id}
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                >
-                  <TutorPreviewCard tutor={t} />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-
         </div>
       </section>
 

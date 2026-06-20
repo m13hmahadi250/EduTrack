@@ -30,10 +30,10 @@ const Navbar = memo(() => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2.5 group">
-              <Logo className="w-10 h-10 group-hover:rotate-6 transition-transform duration-300" />
+            <Link to="/" className="flex items-center space-x-1.5 group">
+              <Logo className="w-8 h-8 sm:w-10 sm:h-10 group-hover:rotate-6 transition-transform duration-300" />
               <span 
-                className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors flex cursor-default select-none"
+                className="text-base sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors flex cursor-default select-none"
               >
                 {"EduTrack".split("").map((char, index) => (
                   <span
@@ -47,7 +47,7 @@ const Navbar = memo(() => {
               </span>
             </Link>
           </div>
-          <div className="flex items-center space-x-6 md:space-x-8">
+          <div className="flex items-center space-x-1.5 sm:space-x-3">
             {!currentUser && (
                <div className="hidden md:flex items-center space-x-2 text-[11px] font-black uppercase tracking-wider text-[#6B7280] dark:text-slate-400">
                  <Link 
@@ -72,38 +72,38 @@ const Navbar = memo(() => {
             )}
             
             {currentUser ? (
-              <div className="flex items-center space-x-3.5">
+              <div className="flex items-center space-x-1.5 sm:space-x-2.5">
                 <button
                   onClick={toggleTheme}
-                  className="p-2.5 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
+                  className="p-1.5 sm:p-2 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
                   aria-label="Toggle Theme"
                   title="Toggle Theme"
                 >
                   {theme === 'dark' ? (
-                    <Sun className="h-4 w-4 text-amber-500 animate-spin-slow" />
+                    <Sun className="h-3.5 w-3.5 text-amber-500 animate-spin-slow" />
                   ) : (
-                    <Moon className="h-4 w-4 text-[#0D5BFF]" />
+                    <Moon className="h-3.5 w-3.5 text-[#0D5BFF]" />
                   )}
                 </button>
                 <Link 
                   to="/messages" 
-                  className="p-2.5 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
+                  className="p-1.5 sm:p-2 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
                   title="Messages"
                 >
-                  <MessageSquare className="h-4 w-4" />
+                  <MessageSquare className="h-3.5 w-3.5" />
                 </Link>
                 <Link 
                   to="/dashboard" 
-                  className="text-[11px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white hover:text-white dark:hover:text-white hover:bg-[#0D5BFF] dark:hover:bg-[#0D5BFF] bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/30 dark:border-slate-700/30 px-4 py-2.5 rounded-xl transition-all duration-200 hidden sm:inline-block"
+                  className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white hover:text-white dark:hover:text-white hover:bg-[#0D5BFF] dark:hover:bg-[#0D5BFF] bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/30 dark:border-slate-700/30 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-xl transition-all duration-200 inline-block"
                 >
                   Dashboard
                 </Link>
-                <div className="flex items-center space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/80 dark:border-slate-800/80 pl-3.5 ml-1">
+                <div className="flex items-center space-x-1 sm:space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/85 dark:border-slate-800 pl-2 sm:pl-3.5 ml-0.5 shrink-0">
                   <div className="p-0.5 rounded-full bg-gradient-to-tr from-[#0D5BFF] to-blue-400 overflow-hidden shadow-sm flex-shrink-0">
                     {currentUser.profileImage ? (
-                      <img src={currentUser.profileImage} alt={currentUser.name} className="h-8 w-8 rounded-full object-cover border border-white dark:border-[#111A2E]" referrerPolicy="no-referrer" />
+                      <img src={currentUser.profileImage} alt={currentUser.name} className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover border border-white dark:border-[#111A2E]" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full text-slate-600 dark:text-slate-300">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full text-slate-600 dark:text-slate-300">
                         <UserIcon className="h-4 w-4" />
                       </div>
                     )}
@@ -112,10 +112,10 @@ const Navbar = memo(() => {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer"
+                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer shrink-0"
                   title="Logout"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3.5 w-3.5" />
                 </button>
               </div>
             ) : (

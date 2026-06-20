@@ -9,6 +9,7 @@ import {
   Send, 
   ShieldCheck, 
   CheckCircle,
+  Sparkles,
   Bell,
   Clock,
   LayoutDashboard,
@@ -835,14 +836,71 @@ export default function StudentDashboard() {
                <span className="text-[10px] font-black uppercase tracking-widest">Live Broadcast</span>
              </motion.div>
            )}
+           <button 
+             onClick={() => window.dispatchEvent(new Event('start-edutrack-tour'))}
+             className="w-12 h-12 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl hover:shadow-lg hover:shadow-blue-500/15 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 shrink-0"
+             title="Quick Start Tour"
+           >
+             <Sparkles className="w-5 h-5 text-white animate-pulse" />
+           </button>
            <button className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all">
               <Bell className="w-5 h-5" />
            </button>
         </div>
       </div>
 
+      {/* Mobile/Tablet Adaptive Grid Selector (All Panels Fully Visible) */}
+      <div className="lg:hidden block mb-6" id="student-mobile-tablet-tab-matrix">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]/50 mb-3 italic">
+          Quick Navigation Dashboard Matrix
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {[
+            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+            { id: 'find', label: 'Find Tutor', icon: Search },
+            { id: 'activity', label: 'Activity Log', icon: Activity },
+            { id: 'transit', label: 'Transit Tracker', icon: MapPin },
+            { id: 'messages', label: 'Messages', icon: MessageSquare },
+            { id: 'account', label: 'My Account', icon: Award }
+          ].map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all duration-300 relative overflow-hidden active:scale-[0.97] cursor-pointer ${
+                  isActive
+                    ? "bg-[#0B132B] dark:bg-[#0D5BFF] text-white border-transparent shadow-lg shadow-slate-950/20"
+                    : "bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                }`}
+                id={`student-tab-btn-${tab.id}`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "bg-slate-100 dark:bg-slate-800 text-[#0D5BFF]"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[10px] font-black uppercase tracking-wider leading-tight truncate`}>
+                    {tab.label}
+                  </p>
+                  <p className={`text-[8px] font-medium tracking-tight uppercase truncate ${isActive ? 'text-white/60' : 'text-slate-400'}`}>
+                    {isActive ? "Active View" : "Click to view"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Main Navigation */}
-      <div className="flex space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
+      <div className="lg:flex hidden space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },

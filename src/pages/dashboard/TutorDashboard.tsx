@@ -19,6 +19,7 @@ import {
   Calendar,
   Zap,
   ShieldCheck,
+  Sparkles,
   CreditCard,
   User as UserIcon,
   CheckCircle,
@@ -564,7 +565,7 @@ export default function TutorDashboard() {
               <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                  Verified Expert
+                  VERIFIED
                 </span>
               </div>
             ) : (
@@ -575,6 +576,14 @@ export default function TutorDashboard() {
                 </span>
               </div>
             )}
+
+            <button
+              onClick={() => window.dispatchEvent(new Event('start-edutrack-tour'))}
+              className="w-10 h-10 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 dark:from-[#0D5BFF] dark:to-indigo-505 text-white border border-transparent rounded-[1.2rem] flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+              title="Quick Start Tour"
+            >
+              <Sparkles className="w-4 h-4 text-white animate-pulse" />
+            </button>
 
             <button
               id="tutor-dashboard-header-share-btn"
@@ -590,8 +599,58 @@ export default function TutorDashboard() {
         </div>
       </div>
 
+      {/* Mobile/Tablet Adaptive Grid Selector (All Panels Fully Visible) */}
+      <div className="lg:hidden block mb-6" id="tutor-mobile-tablet-tab-matrix">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]/50 mb-3 italic">
+          Quick Navigation Dashboard Matrix
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {[
+            { id: "my_session", label: "My Session", icon: Clock },
+            { id: "find_students", label: "Find Students", icon: Search },
+            { id: "balance", label: "Balance", icon: CreditCard },
+            { id: "transit_mode", label: "Location Track", icon: MapPin },
+            { id: "messages", label: "Messages", icon: MessageSquare },
+            { id: "pro_profile", label: "Pro Profile", icon: Award },
+          ].map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all duration-300 relative overflow-hidden active:scale-[0.97] cursor-pointer ${
+                  isActive
+                    ? "bg-[#0B132B] dark:bg-[#0D5BFF] text-white border-transparent shadow-lg shadow-slate-950/20"
+                    : "bg-white dark:bg-slate-900 border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                }`}
+                id={`tutor-tab-btn-${tab.id}`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "bg-slate-100 dark:bg-slate-800 text-[#0D5BFF]"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[10px] font-black uppercase tracking-wider leading-tight truncate`}>
+                    {tab.label}
+                  </p>
+                  <p className={`text-[8px] font-medium tracking-tight uppercase truncate ${isActive ? 'text-white/60' : 'text-slate-400'}`}>
+                    {isActive ? "Active View" : "Click to view"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Tabs */}
-      <div className="relative border-b border-slate-100 pb-px">
+      <div className="lg:block hidden relative border-b border-slate-100 pb-px">
         {/* Mobile Left Scroll Button */}
         <button
           onClick={() => scrollTabs("left")}
@@ -2384,59 +2443,61 @@ export default function TutorDashboard() {
                         </h3>
                       </div>
 
-                      <div className="grid grid-cols-7 gap-2 overflow-x-auto pb-4 custom-scrollbar">
-                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                          (day) => {
-                            const dayName =
-                              day === "Sun"
-                                ? "Sunday"
-                                : day === "Mon"
-                                  ? "Monday"
-                                  : day === "Tue"
-                                    ? "Tuesday"
-                                    : day === "Wed"
-                                      ? "Wednesday"
-                                      : day === "Thu"
-                                        ? "Thursday"
-                                        : day === "Fri"
-                                          ? "Friday"
-                                          : "Saturday";
-                            const daySlots =
-                              currentUser.availabilitySlots?.[dayName] || [];
+                      <div className="overflow-x-auto pb-4 custom-scrollbar w-full font-sans" id="visual-schedule-responsive-scroller">
+                        <div className="grid grid-cols-7 gap-3 min-w-[760px] lg:min-w-0" id="visual-schedule-columns-matrix">
+                          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                            (day) => {
+                              const dayName =
+                                day === "Sun"
+                                  ? "Sunday"
+                                  : day === "Mon"
+                                    ? "Monday"
+                                    : day === "Tue"
+                                      ? "Tuesday"
+                                      : day === "Wed"
+                                        ? "Wednesday"
+                                        : day === "Thu"
+                                          ? "Thursday"
+                                          : day === "Fri"
+                                            ? "Friday"
+                                            : "Saturday";
+                              const daySlots =
+                                currentUser.availabilitySlots?.[dayName] || [];
 
-                            return (
-                              <div
-                                key={day}
-                                className="min-w-[100px] space-y-3"
-                              >
-                                <div className="text-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                                  <span className="text-[10px] font-black uppercase text-[#0B132B] italic">
-                                    {day}
-                                  </span>
+                              return (
+                                <div
+                                  key={day}
+                                  className="min-w-[100px] space-y-3"
+                                >
+                                  <div className="text-center p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                                    <span className="text-[10px] font-black uppercase text-[#0B132B] dark:text-slate-200 italic">
+                                      {day}
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1.5 px-1">
+                                    {daySlots.map((slot) => (
+                                      <div
+                                        key={slot}
+                                        className="px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl text-center"
+                                      >
+                                        <span className="text-[8px] sm:text-[9px] font-black text-[#0D5BFF] dark:text-blue-400 whitespace-nowrap">
+                                          {slot}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {daySlots.length === 0 && (
+                                      <div className="px-3 py-4 border border-dashed border-slate-100 dark:border-slate-800 rounded-xl text-center">
+                                        <span className="text-[7px] font-black text-slate-200 dark:text-slate-700 uppercase">
+                                          REST
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="space-y-1.5 px-1">
-                                  {daySlots.map((slot) => (
-                                    <div
-                                      key={slot}
-                                      className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl text-center"
-                                    >
-                                      <span className="text-[8px] font-black text-[#0D5BFF]">
-                                        {slot}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  {daySlots.length === 0 && (
-                                    <div className="px-3 py-4 border border-dashed border-slate-100 rounded-xl text-center">
-                                      <span className="text-[7px] font-black text-slate-200">
-                                        REST
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          },
-                        )}
+                              );
+                            },
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
