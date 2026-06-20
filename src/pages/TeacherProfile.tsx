@@ -193,7 +193,7 @@ export default function TeacherProfile() {
                   <img 
                     src={tutor.profileImage} 
                     alt={tutor.name} 
-                    className="w-full h-full object-cover" 
+                    className={`w-full h-full object-cover transition-all duration-300 ${!isVerifiedStudent ? 'blur-lg select-none pointer-events-none' : 'blur-none'}`} 
                     referrerPolicy="no-referrer" 
                   />
                 ) : (
