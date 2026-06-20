@@ -18,6 +18,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const DashboardRouter = lazy(() => import('./pages/DashboardRouter'));
 const Messages = lazy(() => import('./pages/Messages'));
+const TeacherProfile = lazy(() => import('./pages/TeacherProfile'));
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-white flex items-center justify-center">
@@ -100,6 +101,7 @@ function LayoutWrapper() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/teachers/:id" element={<TeacherProfile />} />
             <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <DashboardRouter />

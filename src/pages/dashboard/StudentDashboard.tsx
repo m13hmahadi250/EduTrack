@@ -1467,24 +1467,45 @@ export default function StudentDashboard() {
                         </div>
                       ))
                     ) : (
-                      filteredTutors.map((tutor, index) => (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 15 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ 
-                            duration: 0.35,
-                            ease: [0.16, 1, 0.3, 1],
-                            delay: Math.min(index * 0.04, 0.24)
-                          }}
-                          key={tutor.id} 
-                          id={`tutor-card-${tutor.id}`}
-                          onClick={() => setSelectedTutor(tutor)}
-                          className={`tutor-card p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                            selectedTutor?.id === tutor.id 
-                            ? 'border-[#0D5BFF] bg-blue-50/30' 
-                            : 'border-slate-100 bg-white hover:border-slate-200'
-                          }`}
-                        >
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        {filteredTutors.length === 0 ? (
+                          <motion.div
+                            key="no-tutors-found"
+                            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: -10 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            className="w-full text-center py-14 p-8 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-3"
+                          >
+                            <Users className="w-8 h-8 text-[#0D5BFF] animate-pulse" />
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-widest text-[#0B132B] italic">No Mentors Found</h4>
+                              <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 max-w-[240px] leading-relaxed mx-auto">
+                                We couldn't find matches in this sector. Try shifting your filters or widening your area parameters.
+                              </p>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          filteredTutors.map((tutor, index) => (
+                            <motion.div 
+                              layout
+                              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.97, y: -8 }}
+                              transition={{ 
+                                duration: 0.28,
+                                ease: [0.16, 1, 0.3, 1],
+                                delay: Math.min(index * 0.03, 0.15)
+                              }}
+                              key={tutor.id} 
+                              id={`tutor-card-${tutor.id}`}
+                              onClick={() => setSelectedTutor(tutor)}
+                              className={`tutor-card p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                                selectedTutor?.id === tutor.id 
+                                ? 'border-[#0D5BFF] bg-blue-50/30' 
+                                : 'border-slate-100 bg-white hover:border-slate-200'
+                              }`}
+                            >
                         <div className="flex items-center gap-4 relative z-10">
                           {tutor.profileImage ? (
                             <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
@@ -1528,8 +1549,9 @@ export default function StudentDashboard() {
                           </div>
                         </div>
                       </motion.div>
-                    ))
-                  )}
+                     )))}
+                      </AnimatePresence>
+                    )}
                 </div>
               )}
 

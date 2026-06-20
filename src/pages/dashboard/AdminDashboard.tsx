@@ -47,9 +47,9 @@ export default function AdminDashboard() {
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
+  const [activeTab, setActiveTab ] = useState<
     "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages"
-  >("analytics");
+  >("users");
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [messagesSearch, setMessagesSearch] = useState("");
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
@@ -149,7 +149,8 @@ export default function AdminDashboard() {
     else if (path.endsWith("/users")) setActiveTab("users");
     else if (path.endsWith("/sessions")) setActiveTab("sessions");
     else if (path.endsWith("/messages")) setActiveTab("messages");
-    else setActiveTab("analytics");
+    else if (path.endsWith("/analytics")) setActiveTab("analytics");
+    else setActiveTab("users");
   }, [location.pathname]);
 
   const handleTabChange = (
@@ -157,11 +158,11 @@ export default function AdminDashboard() {
   ) => {
     setSelectedTutorIds([]);
     const pathMap = {
-      analytics: "/dashboard",
+      users: "/dashboard",
       verifications: "/dashboard/verifications",
       payments: "/dashboard/payments",
       withdrawals: "/dashboard/withdrawals",
-      users: "/dashboard/users",
+      analytics: "/dashboard/analytics",
       sessions: "/dashboard/sessions",
       messages: "/dashboard/messages",
     };
@@ -347,11 +348,11 @@ export default function AdminDashboard() {
       {/* Navigation Matrix */}
       <div className="flex space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
         {[
-          { id: "analytics", label: "Command Center" },
+          { id: "users", label: "User directory" },
           { id: "verifications", label: "Identity protocol" },
+          { id: "analytics", label: "Command Center" },
           { id: "payments", label: "Inbound revenue" },
           { id: "withdrawals", label: "Tutor payouts" },
-          { id: "users", label: "User directory" },
           { id: "sessions", label: "Session audits" },
           { id: "messages", label: "Secure messages" },
         ].map((tab) => (

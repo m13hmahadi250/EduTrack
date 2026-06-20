@@ -1553,7 +1553,7 @@ export default function TutorDashboard() {
                                   : "text-slate-400"
                               }`}
                             >
-                              {contact.university || (contact.userType === "student" ? "Active Student" : getMaskedEmail(contact.email))}
+                              {contact.university || (contact.role === "student" ? "Active Student" : getMaskedEmail(contact.email))}
                             </p>
                           </div>
                         </button>

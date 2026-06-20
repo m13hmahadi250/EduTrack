@@ -11,7 +11,9 @@ import {
   CheckCircle, 
   ArrowRight,
   TrendingUp,
-  Award
+  Award,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
@@ -56,55 +58,88 @@ export default function Home() {
     };
   }, []);
 
-  const featuredTutors = React.useMemo(() => {
-    const verified = realTutors.filter(u => u.isVerified);
-    const unverified = realTutors.filter(u => !u.isVerified);
-    const merged = [...verified, ...unverified];
-    
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedSubject, setSelectedSubject] = React.useState('All');
+  const [selectedDistrict, setSelectedDistrict] = React.useState('All');
+
+  // Unified list of available tutors (Firestore Real + High-Fidelity Local Mock templates)
+  const allTutors = React.useMemo(() => {
+    const list = [...realTutors];
     const fallbackList = [
       {
         id: 'mock-sarah',
         name: "Sarah Rahman",
         university: "University of Dhaka",
-        subjects: ["Physics & Math"],
+        subjects: ["Physics", "Math", "Further Mathematics"],
         rating: 4.9,
-        profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400"
+        profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400",
+        district: "Dhaka",
+        area: "Dhanmondi"
       },
       {
         id: 'mock-adnan',
         name: "Adnan Sami",
         university: "BUET",
-        subjects: ["Computer Science"],
+        subjects: ["ICT", "Programming", "Computer Science", "Math"],
         rating: 5.0,
-        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
+        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400",
+        district: "Dhaka",
+        area: "Bakhshibazar"
       },
       {
         id: 'mock-nadia',
         name: "Nadia Islam",
-        university: "NSU",
-        subjects: ["English Literature"],
+        university: "North South University (NSU)",
+        subjects: ["English Literature", "English", "IELTS"],
         rating: 4.8,
-        profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400"
+        profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=400",
+        district: "Dhaka",
+        area: "Gulshan"
       },
       {
         id: 'mock-sajid',
         name: "Sajid Hasan",
         university: "IUT",
-        subjects: ["Chemistry & Math"],
+        subjects: ["Chemistry", "Math", "Analytical Mechanics"],
         rating: 4.9,
-        profileImage: undefined
+        profileImage: undefined,
+        district: "Gazipur",
+        area: "Board Bazar"
       }
     ];
 
-    const result = [...merged];
-    for (const fallback of fallbackList) {
-      if (result.length >= 4) break;
-      if (!result.some(r => r.name.toLowerCase() === fallback.name.toLowerCase())) {
-        result.push(fallback);
+    for (const fb of fallbackList) {
+      if (!list.some(r => r.id === fb.id || r.name.toLowerCase() === fb.name.toLowerCase())) {
+        list.push(fb);
       }
     }
-    return result.slice(0, 4);
+    return list;
   }, [realTutors]);
+
+  // Compute live search filter results
+  const filteredTutors = React.useMemo(() => {
+    return allTutors.filter(t => {
+      // 1. Text Search query matching Name, University, or listed Subjects
+      const queryStr = searchQuery.toLowerCase().trim();
+      const matchesSearch = 
+        queryStr === '' ||
+        (t.name && t.name.toLowerCase().includes(queryStr)) ||
+        (t.university && t.university.toLowerCase().includes(queryStr)) ||
+        (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(queryStr)));
+
+      // 2. Exact Subject classification match
+      const matchesSubject = 
+        selectedSubject === 'All' ||
+        (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(selectedSubject.toLowerCase())));
+
+      // 3. Geographic District filter match
+      const matchesDistrict = 
+        selectedDistrict === 'All' ||
+        (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
+
+      return matchesSearch && matchesSubject && matchesDistrict;
+    });
+  }, [allTutors, searchQuery, selectedSubject, selectedDistrict]);
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
@@ -361,30 +396,106 @@ export default function Home() {
       {/* Featured Tutors - Bento Grid Style */}
       <section id="find-tutors" className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+          
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
             <div>
               <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Elite Network</h2>
               <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
-                Featured <span className="text-[#0D5BFF]">Experts</span>
+                Teacher <span className="text-[#0D5BFF]">Directory</span>
               </h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-xl">
+                Browse, search, and verify certified home tutors in real-time. Click any card to view their full credentials in a new tab.
+              </p>
             </div>
-            <Link to="/signup" className="text-[#0D5BFF] font-black uppercase text-xs tracking-widest border-b-2 border-[#0D5BFF] pb-1 hover:text-blue-700 hover:border-blue-700 transition-all">
-              View All Tutors
-            </Link>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {featuredTutors.map(tutor => (
-              <TutorPreviewCard 
-                key={tutor.id}
-                name={tutor.name} 
-                uni={tutor.university || tutor.uni || 'Expert Educator'} 
-                subj={tutor.subjects?.[0] || tutor.subj || 'Academic Mentor'} 
-                rating={tutor.rating || 5.0} 
-                img={tutor.profileImage || tutor.img}
+          {/* Search Controls Bento Box */}
+          <div className="bg-slate-50 dark:bg-[#111A2E]/50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm mb-12 gap-6 flex flex-col md:flex-row items-center justify-between">
+            
+            {/* Search Input */}
+            <div className="relative w-full md:flex-grow">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Search by name, university, or subject..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
               />
-            ))}
+            </div>
+
+            {/* Dropdown Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto shrink-0">
+              
+              {/* Subject Filter */}
+              <div className="relative w-full sm:w-48">
+                <select 
+                  value={selectedSubject} 
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
+                >
+                  <option value="All">All Subjects</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Math">Math</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="English">English</option>
+                  <option value="ICT">ICT</option>
+                  <option value="Computer Science">Computer Science</option>
+                </select>
+              </div>
+
+              {/* District Filter */}
+              <div className="relative w-full sm:w-48">
+                <select 
+                  value={selectedDistrict} 
+                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
+                >
+                  <option value="All">All Districts</option>
+                  <option value="Dhaka">Dhaka</option>
+                  <option value="Chattogram">Chattogram</option>
+                  <option value="Gazipur">Gazipur</option>
+                </select>
+              </div>
+
+            </div>
+
           </div>
+
+          {/* Grid of Cards with Motion layout animation */}
+          {filteredTutors.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-20 p-8 bg-slate-50 dark:bg-[#111A2E]/20 rounded-[3rem] border-2 border-dashed border-slate-200/80 dark:border-slate-800 max-w-xl mx-auto flex flex-col items-center justify-center space-y-4"
+            >
+              <Users className="w-12 h-12 text-[#0D5BFF] animate-pulse" />
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">No Mentors Found</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1.5 leading-relaxed max-w-sm mx-auto">
+                  We couldn't locate any tutors matching your query. Check spelling or expand district search parameters.
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              layout
+              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8"
+            >
+              {filteredTutors.map((t) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                >
+                  <TutorPreviewCard tutor={t} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
         </div>
       </section>
 
@@ -586,33 +697,68 @@ const Step = React.memo(({ number, title, desc, index }: { number: string, title
   );
 });
 
-const TutorPreviewCard = React.memo(({ name, uni, subj, rating, img }: { name: string, uni: string, subj: string, rating: number, img?: string }) => {
+const TutorPreviewCard = React.memo(({ tutor }: { tutor: any }) => {
+  const name = tutor.name;
+  const uni = tutor.university || tutor.uni || 'Expert Educator';
+  const subj = (tutor.subjects && tutor.subjects.join(', ')) || tutor.subj || 'Academic Mentor';
+  const rating = tutor.rating || 5.0;
+  const img = tutor.profileImage || tutor.img;
+  
   return (
-    <div className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 hover:shadow-2xl transition-all duration-500 group">
-      <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
-        {img ? (
-          <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[24px] scale-110 group-hover:blur-[12px] transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
-            <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">
-              {name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+    <Link 
+      to={`/teachers/${tutor.id}`} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 hover:shadow-2xl transition-all duration-500 group flex flex-col justify-between h-full"
+    >
+      <div>
+        <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
+          {img ? (
+            <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[12px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
+              <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">
+                {name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#0D5BFF]">Certified Mentorship</p>
             </div>
-            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#0D5BFF]">Certified Mentorship</p>
+          )}
+          
+          <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
+            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+            <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{Number(rating || 0).toFixed(1)}</span>
           </div>
-        )}
-        <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
-          <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-          <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{Number(rating || 0).toFixed(1)}</span>
+
+          {tutor.isVerified && (
+            <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+              <ShieldCheck className="w-3 h-3 text-white fill-white/10" />
+              <span>Verified ID</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="px-2 pb-2">
+          <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-1 group-hover:text-[#0D5BFF] transition-colors">{name}</h4>
+          <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest mb-3 line-clamp-1">{uni}</p>
+          <div className="flex items-center text-xs font-bold text-slate-500 dark:text-slate-400">
+            <BookOpen className="w-3 h-3 mr-2 text-slate-400 shrink-0" />
+            <span className="line-clamp-1">{subj}</span>
+          </div>
+          {tutor.area && (
+            <div className="flex items-center text-xs font-bold text-slate-500 dark:text-slate-400 mt-1.5">
+              <MapPin className="w-3 h-3 mr-2 text-slate-400 shrink-0" />
+              <span>{tutor.area}{tutor.district ? `, ${tutor.district}` : ''}</span>
+            </div>
+          )}
         </div>
       </div>
-      <div className="px-2 pb-4">
-        <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-1">{name}</h4>
-        <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest mb-3">{uni}</p>
-        <div className="flex items-center text-xs font-bold text-slate-500 dark:text-slate-400">
-          <BookOpen className="w-3 h-3 mr-2" />
-          {subj}
+
+      <div className="px-2 pt-4">
+        <div className="w-full bg-[#0D5BFF] text-white text-center py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm group-hover:shadow-[0_10px_20px_-5px_rgba(13,91,255,0.3)]">
+          <span>View Profile</span>
+          <ExternalLink className="w-3.5 h-3.5" />
         </div>
       </div>
-    </div>
+    </Link>
   );
 });
