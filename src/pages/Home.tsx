@@ -46,7 +46,7 @@ export default function Home() {
         if (active) {
           const fetched = querySnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() as any }))
-            .filter((u: any) => !u.isBlocked);
+            .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false);
           setRealTutors(fetched);
         }
       } catch (error) {

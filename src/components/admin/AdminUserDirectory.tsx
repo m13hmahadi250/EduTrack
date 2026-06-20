@@ -21,7 +21,9 @@ import {
   DollarSign,
   Briefcase,
   Activity,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface AdminUserDirectoryProps {
@@ -248,6 +250,35 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
       },
       isCurrentlyVerified ? 'Revoke Badge' : 'Verify Badge',
       isCurrentlyVerified
+    );
+  };
+
+  // Toggle show on home page manually
+  const handleToggleHomeVisibility = (user: User) => {
+    const isCurrentlyVisible = user.showOnHomePage !== false;
+    const confirmMsg = isCurrentlyVisible
+      ? `Hide tutor profile ${user.name} from the landing home page?`
+      : `Feature and show tutor profile ${user.name} on the landing home page?`;
+    
+    triggerConfirm(
+      isCurrentlyVisible ? 'Hide from Landing Page' : 'Show on Landing Page',
+      confirmMsg,
+      async () => {
+        setUpdatingUserId(user.id);
+        try {
+          await updateUser(user.id, { 
+            showOnHomePage: !isCurrentlyVisible
+          });
+          showToast(`Landing page visibility updated.`);
+        } catch (err) {
+          console.error(err);
+          showToast('Failed to update visibility.', 'error');
+        } finally {
+          setUpdatingUserId(null);
+        }
+      },
+      isCurrentlyVisible ? 'Hide Profile' : 'Show Profile',
+      isCurrentlyVisible
     );
   };
 
@@ -613,6 +644,27 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           </button>
                         )}
 
+                        {/* Toggle Home Page Visibility (for Tutors) */}
+                        {isUserTutor && (
+                          <button
+                            onClick={() => handleToggleHomeVisibility(user)}
+                            disabled={updatingUserId === user.id}
+                            className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                              user.showOnHomePage !== false 
+                                ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 hover:bg-indigo-500 hover:text-white' 
+                                : 'bg-slate-100 text-slate-500 dark:bg-slate-900/40 hover:bg-slate-500 hover:text-white dark:text-slate-400'
+                            }`}
+                            title={user.showOnHomePage !== false ? "Hide from landing Home Directory" : "Publish & Feature on Home"}
+                          >
+                            {user.showOnHomePage !== false ? (
+                              <Eye className="w-3.5 h-3.5 text-indigo-500" />
+                            ) : (
+                              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                            )}
+                            <span>{user.showOnHomePage !== false ? "Home: Visible" : "Home: Hidden"}</span>
+                          </button>
+                        )}
+
                         {/* Quick Role Shift */}
                         {user.id !== currentUser.id && (
                           <div className="relative group/role flex items-center">
@@ -793,6 +845,20 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     >
                       <span>Verification Badge</span>
                       <span className="font-mono text-slate-400">{inspectingUser.isVerified ? "REVOKE" : "GRANT VERIFIED"}</span>
+                    </button>
+                  )}
+
+                  {/* Home page directory display toggle */}
+                  {inspectingUser.role === 'tutor' && (
+                    <button
+                      onClick={() => {
+                        handleToggleHomeVisibility(inspectingUser);
+                        setInspectingUser(prev => prev ? { ...prev, showOnHomePage: prev.showOnHomePage === false } : null);
+                      }}
+                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-indigo-500 hover:text-indigo-600"
+                    >
+                      <span>Show On Homepage</span>
+                      <span className="font-mono text-indigo-500">{inspectingUser.showOnHomePage !== false ? "VISIBLE" : "HIDDEN"}</span>
                     </button>
                   )}
 

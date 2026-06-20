@@ -84,6 +84,7 @@ export interface User {
   hasDismissedProfileNotice?: boolean;
   isBlocked?: boolean;
   gender?: 'Male' | 'Female' | 'Other' | string;
+  showOnHomePage?: boolean;
 }
 
 export interface Session {
