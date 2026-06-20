@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
+import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, 
   Mail, 
@@ -19,7 +20,8 @@ import {
   ExternalLink,
   GraduationCap,
   Briefcase,
-  DollarSign
+  DollarSign,
+  Share2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -99,6 +101,26 @@ export default function TeacherProfile() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const shareProfile = async () => {
+    const shareData = {
+      title: `${tutor?.name || 'Expert Tutor'} | EduTrack`,
+      text: `Connect with NID-verified tutor ${tutor?.name || 'Academic Mentor'} from ${tutor?.university || 'Expert institution'} on EduTrack Bangladesh.`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        copyToClipboard(window.location.href, 'profile');
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        copyToClipboard(window.location.href, 'profile');
+      }
+    }
+  };
+
   const initDirectChat = () => {
     if (!currentUser) {
       navigate('/login');
@@ -142,6 +164,16 @@ export default function TeacherProfile() {
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" id={`teacher-profile-root-${tutor.id}`}>
+      <Helmet>
+        <title>{`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`}</title>
+        <meta name="description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh. Rated ${Number(tutor.rating || 5.0).toFixed(1)}/5.`} />
+        <meta property="og:title" content={`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`} />
+        <meta property="og:description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh.`} />
+        {tutor.profileImage && <meta property="og:image" content={tutor.profileImage} />}
+        <meta name="twitter:title" content={`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`} />
+        <meta name="twitter:description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh.`} />
+        {tutor.profileImage && <meta name="twitter:image" content={tutor.profileImage} />}
+      </Helmet>
       
       {/* Top Banner & Navigation */}
       <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">
@@ -151,6 +183,14 @@ export default function TeacherProfile() {
             <span>EduTrack Directory</span>
           </Link>
           <div className="flex items-center gap-3">
+            <button
+              onClick={shareProfile}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              id="share-profile-header-btn"
+            >
+              <Share2 className="w-3.5 h-3.5 text-[#0D5BFF]" />
+              <span>{copied === 'profile' ? 'Link Copied!' : 'Share Profile'}</span>
+            </button>
             <div className="px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] border border-blue-100 dark:border-blue-900/30">
               {tutor.isVerified ? "🔒 Verified Ledger Verified" : "📜 Public Listing"}
             </div>
@@ -389,6 +429,18 @@ export default function TeacherProfile() {
                     <span className="text-slate-400 font-black">{tutor.thana}</span>
                   </div>
                 )}
+                
+                {/* Embedded dynamic share action */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                  <button
+                    onClick={shareProfile}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-wider rounded-2xl border border-slate-200/60 dark:border-slate-800/80 transition-all cursor-pointer shadow-sm active:scale-95"
+                    id="share-profile-financials-btn"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>{copied === 'profile' ? 'Link Copied to Clipboard!' : 'Share Teacher Profile'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 

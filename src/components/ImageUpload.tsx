@@ -32,40 +32,13 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
     setProgress(0);
 
     try {
-      const response = await fetch('/api/storage/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          folder: 'profiles'
-        })
-      });
-
-      const responseText = await response.text();
-      let responseData;
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (e) {
-        console.error("Failed to parse response:", responseText);
-        throw new Error(`Server returned non-JSON response (${response.status}): ${responseText.substring(0, 200)}`);
-      }
-
-      if (!response.ok) {
-        const errorDetail = responseData.message || responseData.error || responseData.details || responseText || 'Unknown server error';
-        throw new Error(`Storage error (${response.status}): ${errorDetail}`);
-      }
-
-      const { uploadUrl, publicUrl } = responseData;
-      if (!uploadUrl || !publicUrl) {
-        throw new Error('Server did not return upload URLs');
-      }
+      // Create FormData to send raw file to server for 'sharp' compression & webp conversion
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('folder', 'profiles');
 
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', uploadUrl, true);
-      
-      // IMPORTANT: Content-Type must match what was signed in the backend
-      xhr.setRequestHeader('Content-Type', file.type);
+      xhr.open('POST', '/api/storage/upload', true);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -74,24 +47,35 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
       };
 
       xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 204) {
-          onUpload(publicUrl);
-          setIsUploading(false);
-          setProgress(0);
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.publicUrl) {
+              onUpload(data.publicUrl);
+              setIsUploading(false);
+              setProgress(0);
+            } else {
+              setError('Server did not return a valid public URL');
+              setIsUploading(false);
+            }
+          } catch (e) {
+            setError('Failed to parse upload response');
+            setIsUploading(false);
+          }
         } else {
-          console.error("XHR Upload Failed:", xhr.status, xhr.statusText, xhr.responseText);
-          setError(`Upload failed with status ${xhr.status}. Make sure CORS is configured in Cloudflare R2.`);
+          console.error("Upload server compression error:", xhr.status, xhr.responseText);
+          setError(`Upload failed with status ${xhr.status}. Please check Cloudflare R2 configurations.`);
           setIsUploading(false);
         }
       };
 
       xhr.onerror = () => {
-        console.error("XHR Network/CORS Error. This almost always means CORS is not configured on the R2 bucket.");
-        setError('CORS Error: Please ensure you have added a CORS policy to your R2 bucket settings in Cloudflare.');
+        console.error("Upload network error during image post");
+        setError('Upload failure due to network error.');
         setIsUploading(false);
       };
 
-      xhr.send(file);
+      xhr.send(formData);
     } catch (err: any) {
       setError(err.message || 'Upload failed. Please try again.');
       setIsUploading(false);

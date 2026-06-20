@@ -12,6 +12,8 @@ import PromotionalBanner from './components/PromotionalBanner';
 import DeadlineNotifier from './components/DeadlineNotifier';
 import MessageToastCenter from './components/MessageToastCenter';
 
+import BeautifulSkeleton from './components/BeautifulSkeleton';
+
 // Lazy load pages for better initial bundle size
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
@@ -20,14 +22,7 @@ const DashboardRouter = lazy(() => import('./pages/DashboardRouter'));
 const Messages = lazy(() => import('./pages/Messages'));
 const TeacherProfile = lazy(() => import('./pages/TeacherProfile'));
 
-const LoadingScreen = () => (
-  <div className="min-h-screen bg-white flex items-center justify-center">
-    <div className="flex flex-col items-center">
-      <div className="w-16 h-16 border-[6px] border-[#0D5BFF]/10 border-t-[#0D5BFF] rounded-full animate-spin mb-4"></div>
-      <p className="text-[#0B132B] font-black uppercase tracking-widest text-[10px]">Loading EduTrack</p>
-    </div>
-  </div>
-);
+const LoadingScreen = () => <BeautifulSkeleton />;
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const currentUser = useAppStore(state => state.currentUser);

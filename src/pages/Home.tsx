@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import { Helmet } from 'react-helmet-async';
 import { 
   ShieldCheck, 
   Users, 
@@ -94,6 +95,15 @@ export default function Home() {
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
+      <Helmet>
+        <title>EduTrack | Security-First Home Tutoring Platform in Bangladesh</title>
+        <meta name="description" content="Connect with trusted, NID-verified home tutors in Bangladesh or list your profile as an expert tutor. Experience real-time GPS tracking, secure billing, and premium academic pairing on EduTrack." />
+        <meta property="og:title" content="EduTrack | Security-First Home Tutoring Platform in Bangladesh" />
+        <meta property="og:description" content="Connect with trusted, NID-verified home tutors in Bangladesh. Real-time GPS tracking, secure billing, and premium academic pairing." />
+        <meta name="twitter:title" content="EduTrack | Security-First Home Tutoring Platform in Bangladesh" />
+        <meta name="twitter:description" content="Connect with trusted, NID-verified home tutors in Bangladesh. Real-time GPS tracking, secure billing, and premium academic pairing." />
+      </Helmet>
+
       {/* Hero Section - Magazine Style */}
       <section className="relative min-h-[90vh] flex items-center pt-20 overflow-hidden bg-white dark:bg-[#111A2E] transition-colors duration-300">
         {/* Background Accents */}
