@@ -160,59 +160,72 @@ export default function TeacherProfile() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         
-        {/* Profile Header Block wrapping banner and overlapping card */}
-        <div className="relative mb-24 md:mb-20">
-          {/* Background Brand Banner */}
-          <div className="relative h-48 md:h-60 bg-gradient-to-r from-[#0D5BFF] via-blue-600 to-[#1E40AF] rounded-[2.5rem] overflow-hidden shadow-xl border border-blue-400/10">
-            {/* Soft, beautiful fluid decorative blobs instead of dot matrix */}
-            <div className="absolute -right-16 -top-16 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="absolute left-1/4 -bottom-20 w-64 h-64 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none"></div>
-          </div>
+        {/* Banner Card with beautiful blur backdrop overlay */}
+        <div className="relative h-60 bg-gradient-to-r from-slate-900 to-[#0B132B] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5">
+          {/* Blurred profile picture backdrop to create matching depth */}
+          {tutor.profileImage ? (
+            <div className="absolute inset-0 select-none pointer-events-none">
+              <img 
+                src={tutor.profileImage} 
+                alt="" 
+                className="w-full h-full object-cover blur-[8px] opacity-25 scale-110" 
+                referrerPolicy="no-referrer" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B132B] via-transparent to-transparent"></div>
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(#0D5BFF_1.5px,transparent_1px)] [background-size:24px_24px] opacity-15"></div>
+          )}
+          
+          <div className="absolute right-10 top-10 w-96 h-96 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        </div>
 
-          {/* Overlapping Profile Info Panel */}
-          <div className="relative -mt-20 md:-mt-24 px-6 md:px-12 flex flex-col md:flex-row items-center md:items-end gap-6 justify-between w-full z-10">
-            
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
-              {/* High-fidelity overlapping avatar shadow base */}
-              <div className="w-32 h-32 md:w-36 md:h-36 rounded-[2rem] bg-white dark:bg-[#111A2E] p-1.5 shadow-[0_20px_50px_-12px_rgba(13,91,255,0.25)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 shrink-0 select-none flex items-center justify-center">
-                <div className="w-full h-full rounded-[1.6rem] overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  {tutor.profileImage ? (
-                    <img src={tutor.profileImage} alt={tutor.name} className="w-full h-full object-cover transition-transform hover:scale-105 duration-300" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-400 flex items-center justify-center text-white font-black italic text-4xl">
-                      {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Title parameters */}
-              <div className="space-y-2 md:pb-2">
-                <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-                  <h1 className="text-2xl md:text-4xl font-black uppercase text-[#0B132B] dark:text-white tracking-tight italic leading-none">{tutor.name}</h1>
-                  {tutor.isVerified && (
-                    <ShieldCheck className="w-6 h-6 md:w-8 md:h-8 text-[#0D5BFF] fill-[#0D5BFF]/10 shrink-0" />
-                  )}
-                </div>
-                <p className="text-xs font-bold text-[#0D5BFF] dark:text-blue-400 uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
-                  <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
-                  {tutor.university || 'Certified Academic Mentor'} • {tutor.course || 'Expert Department'}
-                </p>
+        {/* Overlapping Content Row that is OUTSIDE the overflow-hidden parent! */}
+        <div className="relative -mt-24 md:-mt-28 px-6 md:px-12 z-20 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full pb-2">
+          
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+            {/* Direct Avatar placement - with premium shadow depth and glossy border */}
+            <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] bg-white dark:bg-[#111A2E] p-1.5 shadow-[0_20px_45px_-12px_rgba(0,0,0,0.3)] shrink-0 z-30 border border-slate-150 dark:border-slate-800 flex items-center justify-center transform hover:scale-[1.03] transition-transform duration-300 animate-fade-in">
+              <div className="w-full h-full rounded-[1.7rem] overflow-hidden bg-slate-50 dark:bg-slate-850">
+                {tutor.profileImage ? (
+                  <img src={tutor.profileImage} alt={tutor.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-400 flex items-center justify-center text-white font-black italic text-4xl">
+                    {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Float Stars Rating */}
-            <div className="md:mb-3 flex items-center gap-2 bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 px-5 py-3 rounded-2xl shadow-[0_12px_30px_-6px_rgba(0,0,0,0.08)] select-none">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="text-xs font-black text-[#0B132B] dark:text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
-              <span className="text-[10px] text-slate-400 font-bold">({tutor.totalRatings || 12} Reviews)</span>
+            <div className="flex-grow space-y-2.5 pb-2">
+              <div className="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
+                <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight italic text-slate-900 dark:text-white drop-shadow-sm">{tutor.name}</h1>
+                {tutor.isVerified && (
+                  <span className="p-1 px-2.5 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shadow-sm">
+                    <ShieldCheck className="w-3.5 h-3.5 fill-emerald-500/10 shrink-0" />
+                    <span>Verified</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-bold text-[#0D5BFF] dark:text-blue-300 uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
+                <GraduationCap className="w-4 h-4 text-[#0D5BFF] dark:text-blue-400" />
+                {tutor.university || 'Certified Academic Mentor'} • {tutor.course || 'Expert Department'}
+              </p>
             </div>
 
           </div>
+
+          {/* Float Stars Rating */}
+          <div className="mb-2 flex items-center gap-1.5 bg-white/90 dark:bg-[#111A2E]/90 backdrop-blur-md border border-slate-100 dark:border-slate-800/80 px-4.5 py-2.5 rounded-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] select-none">
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span className="text-xs font-black text-slate-800 dark:text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
+            <span className="text-[10px] text-slate-400 font-bold">({tutor.totalRatings || 12} Reviews)</span>
+          </div>
+
         </div>
 
         {/* Outer details split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 md:pt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 md:pt-10">
           
           {/* Main Info Column (Left 8 columns on large screens) */}
           <div className="lg:col-span-8 space-y-8">
