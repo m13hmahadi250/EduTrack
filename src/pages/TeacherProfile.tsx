@@ -160,72 +160,86 @@ export default function TeacherProfile() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         
-        {/* Banner Card with beautiful blur backdrop overlay */}
-        <div className="relative h-60 bg-gradient-to-r from-slate-900 to-[#0B132B] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5">
-          {/* Blurred profile picture backdrop to create matching depth */}
-          {tutor.profileImage ? (
-            <div className="absolute inset-0 select-none pointer-events-none">
-              <img 
-                src={tutor.profileImage} 
-                alt="" 
-                className="w-full h-full object-cover blur-[8px] opacity-25 scale-110" 
-                referrerPolicy="no-referrer" 
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0B132B] via-transparent to-transparent"></div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(#0D5BFF_1.5px,transparent_1px)] [background-size:24px_24px] opacity-15"></div>
-          )}
-          
+        {/* Banner Cover Backing */}
+        <div className="relative h-48 md:h-64 bg-gradient-to-r from-[#0F172A] to-[#1E293B] rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-200/10 dark:border-white/5">
+          <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#0D5BFF_1.5px,transparent_1px)] [background-size:16px_16px]"></div>
           <div className="absolute right-10 top-10 w-96 h-96 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+          <div className="absolute left-1/4 bottom-0 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
         </div>
 
-        {/* Overlapping Content Row that is OUTSIDE the overflow-hidden parent! */}
-        <div className="relative -mt-24 md:-mt-28 px-6 md:px-12 z-20 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full pb-2">
+        {/* Polished Overlapping Profile Header Row */}
+        <div className="relative z-10 px-6 md:px-10 -mt-16 md:-mt-24 flex flex-col md:flex-row items-center md:items-end gap-6 w-full select-none">
           
-          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
-            {/* Direct Avatar placement - with premium shadow depth and glossy border */}
-            <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] bg-white dark:bg-[#111A2E] p-1.5 shadow-[0_20px_45px_-12px_rgba(0,0,0,0.3)] shrink-0 z-30 border border-slate-150 dark:border-slate-800 flex items-center justify-center transform hover:scale-[1.03] transition-transform duration-300 animate-fade-in">
-              <div className="w-full h-full rounded-[1.7rem] overflow-hidden bg-slate-50 dark:bg-slate-850">
-                {tutor.profileImage ? (
-                  <img src={tutor.profileImage} alt={tutor.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-400 flex items-center justify-center text-white font-black italic text-4xl">
-                    {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
+          {/* Avatar Container with true Overlapping Depth */}
+          <div className="relative w-32 h-32 md:w-44 md:h-44 rounded-[2rem] bg-white dark:bg-[#111A2E] p-2 border border-slate-150 dark:border-slate-800/80 shadow-2xl shrink-0 z-20 group transition-all duration-300">
+            
+            {/* Glowing Backdrop Blur Effect behind Avatar */}
+            {tutor.profileImage && (
+              <div 
+                className="absolute inset-2 rounded-[1.5rem] bg-cover bg-center blur-2xl opacity-45 scale-105 pointer-events-none group-hover:scale-110 group-hover:opacity-60 transition-all duration-500" 
+                style={{ backgroundImage: `url(${tutor.profileImage})` }}
+              />
+            )}
+            {!tutor.profileImage && (
+              <div className="absolute inset-2 rounded-[1.5rem] bg-gradient-to-br from-[#0D5BFF] to-purple-500 blur-2xl opacity-30 pointer-events-none"></div>
+            )}
+
+            {/* Main Sharp Profile Image */}
+            <div className="w-full h-full rounded-[1.5rem] overflow-hidden relative bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50 z-10">
+              {tutor.profileImage ? (
+                <img 
+                  src={tutor.profileImage} 
+                  alt={tutor.name} 
+                  className="w-full h-full object-cover select-none pointer-events-none" 
+                  referrerPolicy="no-referrer" 
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-500 flex items-center justify-center text-white font-black italic text-5xl">
+                  {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
 
-            <div className="flex-grow space-y-2.5 pb-2">
-              <div className="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
-                <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight italic text-slate-900 dark:text-white drop-shadow-sm">{tutor.name}</h1>
-                {tutor.isVerified && (
-                  <span className="p-1 px-2.5 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shadow-sm">
-                    <ShieldCheck className="w-3.5 h-3.5 fill-emerald-500/10 shrink-0" />
-                    <span>Verified</span>
-                  </span>
-                )}
+            {/* Overlapping Badge */}
+            {tutor.isVerified && (
+              <div className="absolute -top-3 -right-3 bg-emerald-500 text-white rounded-2xl p-2 shadow-lg shadow-emerald-500/20 border-4 border-white dark:border-[#111A2E] z-30">
+                <ShieldCheck className="w-4 h-4 text-white fill-white/10" />
               </div>
-              <p className="text-xs font-bold text-[#0D5BFF] dark:text-blue-300 uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
-                <GraduationCap className="w-4 h-4 text-[#0D5BFF] dark:text-blue-400" />
-                {tutor.university || 'Certified Academic Mentor'} • {tutor.course || 'Expert Department'}
-              </p>
-            </div>
+            )}
+          </div>
 
+          {/* Teacher Details with High Contrast Visibility */}
+          <div className="flex-grow space-y-2 md:pb-4 text-center md:text-left z-10">
+            <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
+              <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight italic text-slate-900 dark:text-white drop-shadow-sm">
+                {tutor.name}
+              </h1>
+              {tutor.isVerified && (
+                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl border border-emerald-100/50 dark:border-emerald-900/30">
+                  ID Checked
+                </span>
+              )}
+            </div>
+            
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
+              <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
+              <span className="text-[#0B132B] dark:text-white font-black">{tutor.university || 'Certified Academic Mentor'}</span>
+              <span className="text-slate-300 dark:text-slate-700">•</span>
+              <span>{tutor.course || 'Expert Department'}</span>
+            </p>
           </div>
 
           {/* Float Stars Rating */}
-          <div className="mb-2 flex items-center gap-1.5 bg-white/90 dark:bg-[#111A2E]/90 backdrop-blur-md border border-slate-100 dark:border-slate-800/80 px-4.5 py-2.5 rounded-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] select-none">
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="text-xs font-black text-slate-800 dark:text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
+          <div className="md:pb-4 self-stretch md:self-end flex items-center justify-center gap-1.5 bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 px-4 py-3 rounded-2xl shadow-lg shadow-slate-100/50 dark:shadow-none select-none z-10 shrink-0">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <span className="text-xs font-black text-[#0B132B] dark:text-white">{Number(tutor.rating || 5.0).toFixed(1)}</span>
             <span className="text-[10px] text-slate-400 font-bold">({tutor.totalRatings || 12} Reviews)</span>
           </div>
 
         </div>
 
         {/* Outer details split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 md:pt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 md:pt-12">
           
           {/* Main Info Column (Left 8 columns on large screens) */}
           <div className="lg:col-span-8 space-y-8">
