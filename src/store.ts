@@ -85,6 +85,7 @@ export interface User {
   isBlocked?: boolean;
   gender?: 'Male' | 'Female' | 'Other' | string;
   showOnHomePage?: boolean;
+  showTour?: boolean;
 }
 
 export interface Session {
@@ -349,6 +350,7 @@ export const useAppStore = create<AppState>((set, get) => {
               isVerified: true,
               isTrackingOn: false,
               rating: 5,
+              showTour: true,
             };
             await setDoc(doc(db, 'users', uid), newUser);
             set({ currentUser: newUser, isLoading: false });
@@ -387,6 +389,7 @@ export const useAppStore = create<AppState>((set, get) => {
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
             profileImage: user.photoURL || undefined,
+            showTour: true,
             ...additionalUserData
           };
           await setDoc(doc(db, 'users', user.uid), newUser);
@@ -486,6 +489,7 @@ export const useAppStore = create<AppState>((set, get) => {
           isVerified: finalRole === 'admin' || finalRole === 'student',
           isTrackingOn: false,
           rating: 0,
+          showTour: true,
         } as User;
 
         // Save to Firestore

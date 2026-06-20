@@ -56,6 +56,9 @@ export default function TeacherProfile() {
   // Active/valid student means roles includes 'student' (or we check if currentUser exists and is any student role)
   const isVerifiedStudent = currentUser && (currentUser.role === 'student' || currentUser.role === 'admin');
 
+  // Students can NEVER see actual phone/email. Only Admins or the Tutor themselves can see unmasked credentials.
+  const canSeeContactInfo = currentUser && (currentUser.role === 'admin' || currentUser.id === id);
+
   useEffect(() => {
     let active = true;
     const fetchTutorDetails = async () => {
@@ -442,16 +445,16 @@ export default function TeacherProfile() {
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Direct Contact Ledger - Security Lockdown Zone */}
+                      {/* Direct Contact Ledger - Security Lockdown Zone */}
             <div className={`rounded-[2.5rem] p-6 border-2 transition-all overflow-hidden relative shadow-xl ${
-              isVerifiedStudent 
-              ? 'bg-emerald-50/10 border-emerald-500/25 dark:bg-emerald-950/5 dark:border-emerald-500/15' 
-              : 'bg-blue-50/10 border-[#0D5BFF]/15 dark:bg-blue-950/5 dark:border-blue-900/20'
+              !currentUser 
+                ? 'bg-blue-50/10 border-[#0D5BFF]/15 dark:bg-blue-950/5 dark:border-blue-900/20'
+                : canSeeContactInfo
+                  ? 'bg-emerald-50/10 border-emerald-500/25 dark:bg-emerald-950/5 dark:border-emerald-500/15'
+                  : 'bg-[#0D5BFF]/5 border-[#0D5BFF]/20 dark:bg-blue-950/5 dark:border-blue-900/20'
             }`}>
               
-              {!isVerifiedStudent ? (
+              {!currentUser ? (
                 // Lock screen: Guest cannot view.
                 <div className="space-y-6">
                   <div className="flex items-start gap-3">
@@ -492,8 +495,58 @@ export default function TeacherProfile() {
                   </div>
 
                 </div>
+              ) : !canSeeContactInfo ? (
+                // Locked screen for student context: Can start a chat and see beautiful masked details
+                <div className="space-y-6 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <div className="p-3 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/40 border border-[#0D5BFF]/25 dark:border-blue-900/40">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">Direct Contacts Masked</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">PRIVACY PROTECTION PROTOCOL</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-300 leading-relaxed font-bold">
+                    For public safety and security, raw email addresses and phone numbers are masked. Please coordinate using our encrypted direct peer messaging network.
+                  </p>
+
+                  <div className="space-y-4">
+                    
+                    {/* Masked Phone */}
+                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
+                      <div>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
+                        <p className="text-sm font-mono font-black text-slate-400 dark:text-slate-500 tracking-wider mt-0.5">{maskPhone(tutor.phone)}</p>
+                      </div>
+                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-400 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
+                    </div>
+
+                    {/* Masked Email */}
+                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
+                      <div>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verified E-Mail Node</span>
+                        <p className="text-sm font-mono font-black text-slate-400 dark:text-slate-500 break-all mt-0.5">{maskEmail(tutor.email)}</p>
+                      </div>
+                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-400 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
+                    </div>
+
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <button 
+                      onClick={initDirectChat}
+                      className="w-full py-4.5 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl shadow-lg shadow-[#0D5BFF]/15 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Initiate Direct Chat</span>
+                    </button>
+                  </div>
+
+                </div>
               ) : (
-                // Unlocked screen: Verified Student OR Admin can see direct credentials!
+                // Privileged administrator or verified self-profile access
                 <div className="space-y-6 animate-fade-in">
                   <div className="flex items-start gap-3">
                     <div className="p-3 rounded-2xl bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-500 border border-emerald-200 dark:border-emerald-900/40">
@@ -501,7 +554,7 @@ export default function TeacherProfile() {
                     </div>
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Credentials Unlocked</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">STUDENT IDENTITY CONFIRMED</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">PRIVILEGED LEDGER ACCESS</p>
                     </div>
                   </div>
 
@@ -554,7 +607,7 @@ export default function TeacherProfile() {
                 </div>
               )}
 
-            </div>
+            </div>    </div>
 
           </div>
 

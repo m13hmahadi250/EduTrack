@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../data/bangladeshData';
 
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'tutor'>('student');
@@ -63,7 +64,13 @@ export default function Signup() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    setFormData((prev: any) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'district') {
+        next.thana = '';
+      }
+      return next;
+    });
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -366,28 +373,86 @@ export default function Signup() {
                   accentColor={accentColor}
                 />
               </div>
-              <Input 
-                label="District" 
-                name="district" 
-                required 
-                onChange={handleInputChange} 
-                onBlur={handleBlur}
-                error={touched.district ? errors.district : undefined}
-                placeholder="e.g. Dhaka" 
-                value={formData.district || ''}
-                accentColor={accentColor}
-              />
-              <Input 
-                label="Thana" 
-                name="thana" 
-                required 
-                onChange={handleInputChange} 
-                onBlur={handleBlur}
-                error={touched.thana ? errors.thana : undefined}
-                placeholder="e.g. Mirpur" 
-                value={formData.thana || ''}
-                accentColor={accentColor}
-              />
+              <div className="space-y-1.5 w-full">
+                <div className="flex justify-between items-center px-0.5">
+                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                    District <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {touched.district && errors.district && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                      {errors.district}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <select
+                    name="district"
+                    required
+                    value={formData.district || ''}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                      touched.district && errors.district
+                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
+                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                    }`}
+                    style={{
+                      ['--tw-ring-color' as any]: touched.district && errors.district ? 'rgb(239, 68, 68)' : accentColor
+                    }}
+                  >
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500">Select District</option>
+                    {BANGLADESH_DISTRICTS.map((dist) => (
+                      <option key={dist} value={dist} className="text-[#0B132B]">{dist}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 w-full">
+                <div className="flex justify-between items-center px-0.5">
+                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                    Thana <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {touched.thana && errors.thana && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                      {errors.thana}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <select
+                    name="thana"
+                    required
+                    disabled={!formData.district}
+                    value={formData.thana || ''}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                      !formData.district ? 'opacity-60 cursor-not-allowed' : ''
+                    } ${
+                      touched.thana && errors.thana
+                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
+                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                    }`}
+                    style={{
+                      ['--tw-ring-color' as any]: touched.thana && errors.thana ? 'rgb(239, 68, 68)' : accentColor
+                    }}
+                  >
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500">
+                      {formData.district ? 'Select Thana' : 'Select District First'}
+                    </option>
+                    {formData.district && BANGLADESH_THANAS[formData.district]?.map((th) => (
+                      <option key={th} value={th} className="text-[#0B132B]">{th}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
               <div className="sm:col-span-2">
                 <Input 
                   label="Area / Neighborhood" 

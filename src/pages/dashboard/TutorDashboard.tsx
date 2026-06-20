@@ -27,6 +27,7 @@ import {
   Square,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Briefcase,
   GraduationCap,
   Plus,
@@ -54,6 +55,7 @@ import {
   Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import {
   LineChart,
   Line,
@@ -2000,22 +2002,66 @@ export default function TutorDashboard() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <ProfileField
-                          label="District"
-                          value={profileForm.district}
-                          onChange={(v) =>
-                            setProfileForm({ ...profileForm, district: v })
-                          }
-                          placeholder="e.g. Dhaka"
-                        />
-                        <ProfileField
-                          label="Thana"
-                          value={profileForm.thana}
-                          onChange={(v) =>
-                            setProfileForm({ ...profileForm, thana: v })
-                          }
-                          placeholder="e.g. Mirpur"
-                        />
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                            District
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={profileForm.district || ""}
+                              onChange={(e) => {
+                                const newDist = e.target.value;
+                                setProfileForm({
+                                  ...profileForm,
+                                  district: newDist,
+                                  thana: "",
+                                });
+                              }}
+                              className="w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer"
+                            >
+                              <option value="" disabled>Select District</option>
+                              {BANGLADESH_DISTRICTS.map((dist) => (
+                                <option key={dist} value={dist}>{dist}</option>
+                              ))}
+                            </select>
+                            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
+                              <ChevronDown className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                            Thana
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={profileForm.thana || ""}
+                              disabled={!profileForm.district}
+                              onChange={(e) =>
+                                setProfileForm({
+                                  ...profileForm,
+                                  thana: e.target.value,
+                                })
+                              }
+                              className={`w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer ${
+                                !profileForm.district ? "opacity-60 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              <option value="" disabled>
+                                {profileForm.district ? "Select Thana" : "Select District First"}
+                              </option>
+                              {profileForm.district &&
+                                BANGLADESH_THANAS[profileForm.district]?.map((th) => (
+                                  <option key={th} value={th}>{th}</option>
+                                ))}
+                            </select>
+                            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
+                              <ChevronDown className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </div>
+
                         <ProfileField
                           label="Area"
                           value={profileForm.area}

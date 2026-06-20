@@ -72,6 +72,7 @@ service cloud.firestore {
                (data.get('hourlyRate', null) == null || data.hourlyRate is number) &&
                (data.get('profileImage', null) == null || data.profileImage is string) &&
                (data.get('isBlocked', null) == null || data.isBlocked is bool) &&
+               (data.get('showTour', null) == null || data.showTour is bool) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 

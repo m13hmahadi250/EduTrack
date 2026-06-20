@@ -20,14 +20,14 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 export default function GuidedTour() {
-  const { currentUser } = useAppStore();
+  const { currentUser, updateUser } = useAppStore();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
   // Check if the user needs to see the tour on first login
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && currentUser.showTour === true) {
       const tourCompletedKey = `edutrack_tour_completed_${currentUser.id}`;
       const isCompleted = localStorage.getItem(tourCompletedKey);
       if (!isCompleted) {
@@ -58,6 +58,11 @@ export default function GuidedTour() {
     const tourCompletedKey = `edutrack_tour_completed_${currentUser.id}`;
     localStorage.setItem(tourCompletedKey, 'true');
     setIsOpen(false);
+    
+    // Update Firestore to disable auto-tour permanently for this account
+    if (currentUser.showTour === true) {
+      updateUser(currentUser.id, { showTour: false });
+    }
   };
 
   const steps = [

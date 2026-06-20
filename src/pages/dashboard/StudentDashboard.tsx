@@ -21,6 +21,7 @@ import {
   Play,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   ArrowLeft,
   Zap,
   FileText,
@@ -53,6 +54,7 @@ const FileUpload = lazy(() => import('../../components/FileUpload'));
 const RatingModal = lazy(() => import('../../components/RatingModal'));
 const ChatWindow = lazy(() => import('../../components/ChatWindow'));
 import { motion, AnimatePresence } from 'motion/react';
+import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
@@ -123,6 +125,8 @@ export default function StudentDashboard() {
   const [filterVersion, setFilterVersion] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterArea, setFilterArea] = useState('');
+  const [filterDistrict, setFilterDistrict] = useState('');
+  const [filterThana, setFilterThana] = useState('');
   const [filterRating, setFilterRating] = useState(0);
   const [filterGender, setFilterGender] = useState('');
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
@@ -547,13 +551,15 @@ export default function StudentDashboard() {
                            user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
                            user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
                            user.area?.toLowerCase().includes(filterArea.toLowerCase());
+      const matchesDistrict = !filterDistrict || (user.district && user.district.toLowerCase() === filterDistrict.toLowerCase());
+      const matchesThana = !filterThana || (user.thana && user.thana.toLowerCase() === filterThana.toLowerCase());
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
       const matchesGender = !filterGender || (user.gender && user.gender.toLowerCase() === filterGender.toLowerCase());
 
-      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesRating && matchesGender;
+      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesDistrict && matchesThana && matchesRating && matchesGender;
     }).forEach(u => unique.set(u.id, u));
     return Array.from(unique.values()) as User[];
-  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterRating, filterGender]);
+  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterDistrict, filterThana, filterRating, filterGender]);
 
   const [bKashNumber, setBkashNumber] = useState('');
   const [amount, setAmount] = useState('');
@@ -1391,11 +1397,49 @@ export default function StudentDashboard() {
                     </select>
                   </FilterGroup>
 
-                  <FilterGroup label="Location / Area">
+                  <FilterGroup label="District Focus">
+                    <div className="relative">
+                      <select 
+                        value={filterDistrict}
+                        onChange={e => {
+                          setFilterDistrict(e.target.value);
+                          setFilterThana('');
+                        }}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-4 pr-10 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="">ANY DISTRICT</option>
+                        {BANGLADESH_DISTRICTS.map(dist => (
+                          <option key={dist} value={dist}>{dist.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FilterGroup>
+
+                  <FilterGroup label="Thana Sector">
+                    <div className="relative">
+                      <select 
+                        value={filterThana}
+                        disabled={!filterDistrict}
+                        onChange={e => setFilterThana(e.target.value)}
+                        className={`w-full bg-slate-50 border border-slate-100 rounded-2xl pl-4 pr-10 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all appearance-none cursor-pointer ${
+                          !filterDistrict ? 'opacity-60 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <option value="">{filterDistrict ? 'ANY THANA' : 'SELECT DISTRICT FIRST'}</option>
+                        {filterDistrict && BANGLADESH_THANAS[filterDistrict]?.map(th => (
+                          <option key={th} value={th}>{th.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FilterGroup>
+
+                  <FilterGroup label="Area Accent">
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="DISTRICT OR AREA..."
+                        placeholder="E.G. ROAD No., FLOODS..."
                         value={filterArea}
                         onChange={e => setFilterArea(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
@@ -1483,6 +1527,9 @@ export default function StudentDashboard() {
                       setFilterSubjects([]);
                       setFilterClass('');
                       setFilterArea('');
+                      setFilterDistrict('');
+                      setFilterThana('');
+                      setFilterVersion('');
                       setFilterRating(0);
                       setFilterGender('');
                     }}

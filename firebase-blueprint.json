@@ -43,7 +43,8 @@
         "rating": { "type": "number" },
         "totalRatings": { "type": "number" },
         "ratingSum": { "type": "number" },
-        "availabilitySlots": { "type": "object" }
+        "availabilitySlots": { "type": "object" },
+        "showTour": { "type": "boolean" }
       },
       "required": ["id", "role", "name", "email"]
     },

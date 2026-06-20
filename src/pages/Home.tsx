@@ -17,6 +17,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
@@ -251,9 +252,9 @@ export default function Home() {
                   className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
                 >
                   <option value="All">All Districts</option>
-                  <option value="Dhaka">Dhaka</option>
-                  <option value="Chattogram">Chattogram</option>
-                  <option value="Gazipur">Gazipur</option>
+                  {BANGLADESH_DISTRICTS.map((dist) => (
+                    <option key={dist} value={dist}>{dist}</option>
+                  ))}
                 </select>
               </div>
 
