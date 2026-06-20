@@ -50,6 +50,7 @@ import {
   Venus,
   Phone,
   Mail,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -161,6 +162,37 @@ export default function TutorDashboard() {
     null,
   );
   const [showProfileNotice, setShowProfileNotice] = useState(true);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const shareProfile = async () => {
+    if (!currentUser) return;
+    const profileUrl = `${window.location.origin}/teachers/${currentUser.id}`;
+    const shareData = {
+      title: `${currentUser.name} | Expert Tutor Profile`,
+      text: `Hi! Check out my tutoring profile on EduTrack. Connect with me for premium academic coaching and secure NID-verified home tutoring.`,
+      url: profileUrl,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(profileUrl);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(profileUrl);
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 2000);
+        } catch (clipErr) {
+          console.error("Failed to copy profile link", clipErr);
+        }
+      }
+    }
+  };
 
   // Custom interactive subject system states for Tutors
   const [tutorActiveSubjectTab, setTutorActiveSubjectTab] = useState<'Bangla Version' | 'English Version' | 'Madrasha'>('Bangla Version');
@@ -527,7 +559,7 @@ export default function TutorDashboard() {
               {currentUser.name}
             </span>
           </p>
-          <div className="mt-4 flex">
+          <div className="mt-4 flex flex-wrap gap-3 items-center">
             {currentUser.isVerified ? (
               <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
@@ -543,6 +575,17 @@ export default function TutorDashboard() {
                 </span>
               </div>
             )}
+
+            <button
+              id="tutor-dashboard-header-share-btn"
+              onClick={shareProfile}
+              className="px-5 py-2.5 bg-white hover:bg-slate-50 text-[#0D5BFF] border border-slate-200 rounded-2xl flex items-center space-x-2 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                {copiedLink ? "Link Copied!" : "Share Profile Link"}
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -1714,6 +1757,21 @@ export default function TutorDashboard() {
                         {currentUser.academicStatus || "Pending"}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Share My Public Profile Context */}
+                  <div className="w-full pb-6 mb-6 border-b border-slate-100">
+                    <button
+                      id="tutor-pro-tab-share-btn"
+                      onClick={shareProfile}
+                      className="w-full flex items-center justify-center gap-2.5 py-4 bg-slate-50 hover:bg-slate-100 text-[#0D5BFF] text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200/60 transition-all cursor-pointer shadow-sm active:scale-95 hover:scale-[1.01]"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>{copiedLink ? "Link Copied to Clipboard!" : "Share My Public Profile"}</span>
+                    </button>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center mt-2 px-2 leading-relaxed">
+                      Share this custom certified url with parents and students to secure private direct bookings!
+                    </p>
                   </div>
 
                   <button

@@ -670,7 +670,7 @@ const TutorPreviewCard = React.memo(({ tutor }: { tutor: any }) => {
       to={`/teachers/${tutor.id}`} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 hover:shadow-2xl transition-all duration-500 group flex flex-col justify-between h-full"
+      className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-2xl hover:-translate-y-2.5 hover:scale-[1.015] active:scale-[0.985] transition-all duration-500 group flex flex-col justify-between h-full"
     >
       <div>
         <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
