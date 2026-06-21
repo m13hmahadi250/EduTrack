@@ -23,8 +23,7 @@ import {
   Activity,
   FileText,
   Eye,
-  EyeOff,
-  Sparkles
+  EyeOff
 } from 'lucide-react';
 
 interface AdminUserDirectoryProps {
@@ -53,11 +52,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     onConfirm: () => void | Promise<void>;
     confirmText?: string;
     isDanger?: boolean;
-  } | null>(null);
-
-  const [emailErrorModal, setEmailErrorModal] = useState<{
-    isOpen: boolean;
-    details: string;
   } | null>(null);
 
   const [toast, setToast] = useState<{
@@ -224,46 +218,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         }
       },
       'Update Role',
-      false
-    );
-  };
-
-  // Send/Resend Welcome onboarding email
-  const handleSendWelcomeEmail = (user: User) => {
-    if (!user.email) {
-      showToast("Cannot deliver message. This account does not have a registered email address.", "error");
-      return;
-    }
-
-    triggerConfirm(
-      'Trigger Onboarding Email',
-      `Delivering premium welcome onboarding email to ${user.name || 'User'} (${user.email}). Continue?`,
-      async () => {
-        setUpdatingUserId(user.id);
-        try {
-          const res = await fetch('/api/send-welcome-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: user.name, email: user.email })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            showToast(`Premium welcome onboarding email successfully sent using ${data.provider}!`);
-          } else {
-            const errorDetails = data.details || data.message || 'unknown error';
-            showToast(`Delivery error: ${errorDetails}`, 'error');
-            if (errorDetails.toLowerCase().includes('emailjs') || errorDetails.toLowerCase().includes('delivery error')) {
-              setEmailErrorModal({ isOpen: true, details: errorDetails });
-            }
-          }
-        } catch (err: any) {
-          console.error(err);
-          showToast("Network dispatch error when triggering welcome email.", "error");
-        } finally {
-          setUpdatingUserId(null);
-        }
-      },
-      'Send Welcome Email',
       false
     );
   };
@@ -643,19 +597,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           </button>
                         ) : null}
 
-                        {/* Send Welcome Onboarding Email */}
-                        {user.email ? (
-                          <button
-                            onClick={() => handleSendWelcomeEmail(user)}
-                            disabled={updatingUserId === user.id}
-                            className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-100/20"
-                            title="Resend/Send Onboarding premium welcome email to the user"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Welcome Email</span>
-                          </button>
-                        ) : null}
-
                         {/* Suspension Toggle */}
                         {user.id !== currentUser.id ? (
                           <button
@@ -921,18 +862,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     </button>
                   )}
 
-                  {/* Send Welcome Onboarding Email */}
-                  {inspectingUser.email && (
-                    <button
-                      onClick={() => handleSendWelcomeEmail(inspectingUser)}
-                      disabled={updatingUserId === inspectingUser.id}
-                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100/20 dark:border-indigo-900/40 hover:bg-indigo-600 hover:text-white cursor-pointer"
-                    >
-                      <span>Send Welcome Email</span>
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
                   {/* Send Direct Messages */}
                   {inspectingUser.id !== currentUser.id && onMessageUser && (
                     <button
@@ -1154,81 +1083,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               </button>
             </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* EmailJS Connection / App Password Troubleshooting Dialog */}
-      {emailErrorModal && emailErrorModal.isOpen && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0B132B] rounded-3xl border border-slate-100 dark:border-slate-800/80 max-w-lg w-full overflow-hidden shadow-2xl p-6 relative font-sans">
-            <button
-              onClick={() => setEmailErrorModal(null)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800/50 pb-4 mb-4">
-              <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-500">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  Email Delivery Troubleshooting
-                </h3>
-                <p className="text-[10px] text-slate-500 font-medium">How to fix authentication blocks on Vercel hosts</p>
-              </div>
-            </div>
-
-            <div className="space-y-4 text-[11px] leading-relaxed text-slate-600 dark:text-slate-350 max-h-[350px] overflow-y-auto pr-1">
-              <div className="p-3.5 bg-rose-50/50 dark:bg-rose-950/15 border border-rose-100 dark:border-rose-900/40 rounded-xl">
-                <span className="font-bold text-rose-600 dark:text-rose-400 block mb-1">Server Reporting Error:</span>
-                <p className="font-mono text-[10px] break-all leading-normal bg-white/60 dark:bg-black/20 p-2 rounded-lg border border-rose-100/50 dark:border-rose-900/10">
-                  {emailErrorModal.details}
-                </p>
-              </div>
-
-              <div>
-                <span className="font-black text-rose-500 block uppercase tracking-widest text-[9px] mb-2">WHY IS THIS HAPPENING UNDER VERCEL?</span>
-                <p>
-                  Google Security automatically blocks SMTP/login authentication requests made from cloud serverless hosting platforms like Vercel when using your default account password. This triggers EmailJS to return general <strong className="text-slate-900 dark:text-white">"Delivery error: unknown error"</strong> codes.
-                </p>
-              </div>
-
-              <div>
-                <span className="font-black text-indigo-500 block uppercase tracking-widest text-[9px] mb-2">STEP-BY-STEP FIX FOR EDUTRACK BANGLADESH:</span>
-                <ol className="list-decimal pl-4 space-y-2.5">
-                  <li>
-                    <strong className="text-slate-850 dark:text-slate-200">1. Setup Vercel Project Environment:</strong> 
-                    Variables in local files (like <code className="font-mono bg-slate-100 dark:bg-slate-900 px-1 py-0.5 rounded text-[10px]">.env.example</code>) are only local templates. You <em className="italic">must</em> define these 4 keys inside your <strong className="text-indigo-500">Vercel Dashboard Project Settings → Environment Variables</strong>:
-                    <div className="mt-1.5 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg font-mono text-[9px] leading-snug text-slate-500 dark:text-slate-400 uppercase space-y-1">
-                      <div>• EMAILJS_SERVICE_ID = "service_97aqldo"</div>
-                      <div>• EMAILJS_TEMPLATE_ID = "template_pqpkl9f"</div>
-                      <div>• EMAILJS_PUBLIC_KEY = "KMlc7Mvc7cTknAuKE"</div>
-                      <div>• EMAILJS_PRIVATE_KEY = "oyCKkRIkwgAlpmTk9LAhe"</div>
-                    </div>
-                  </li>
-                  <li>
-                    <strong className="text-slate-850 dark:text-slate-200">2. Generate a 16-character Google App Password:</strong>
-                    Do not use your main Gmail/Email account password. Go to your Google Account Settings → <strong className="text-[#0D5BFF]">Security → 2-Step Verification → App Passwords</strong>. Name it <code className="font-mono text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 px-1 py-0.5 rounded">EduTrack EmailJS</code> and copy the 16-letter code.
-                  </li>
-                  <li>
-                    <strong className="text-slate-850 dark:text-slate-200">3. Connect App Password in EmailJS Dashboard:</strong>
-                    Visit <a href="https://dashboard.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-[#0D5BFF] underline font-bold">EmailJS Dashboard</a>, edit your Email Service (e.g. Gmail), paste the 16-letter App Password in the Password field, and select Save.
-                  </li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end border-t border-slate-100 dark:border-slate-800/50 pt-4 mt-4 font-sans">
-              <button
-                onClick={() => setEmailErrorModal(null)}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Understood, I will configure it
-              </button>
-            </div>
           </div>
         </div>
       )}

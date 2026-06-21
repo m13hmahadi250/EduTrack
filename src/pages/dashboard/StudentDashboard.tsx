@@ -60,7 +60,6 @@ import { MetricCard, FilterGroup, DashboardInput } from '../../components/Dashbo
 import { Skeleton } from '../../components/Skeleton';
 import { PaymentService, PaymentProvider } from '../../services/paymentService';
 import BKashGatewaySim from '../../components/BKashGatewaySim';
-import { jsPDF } from 'jspdf';
 
 const MapLoading = () => (
    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
@@ -164,9 +163,10 @@ export default function StudentDashboard() {
   const [mapSubjectQuery, setMapSubjectQuery] = useState('');
   const [mapMinRating, setMapMinRating] = useState<number>(0);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!currentUser || myPayments.length === 0) return;
 
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     
     // Header Colors

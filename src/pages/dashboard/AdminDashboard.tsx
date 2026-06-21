@@ -21,11 +21,18 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import AdminAnalytics from "../../components/admin/AdminAnalytics";
-import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
-import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
 
+const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
+const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
+const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
 const ChatWindow = lazy(() => import("../../components/ChatWindow"));
+
+const ComponentLoading = () => (
+  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
+    <div className="w-10 h-10 border-4 border-[#0D5BFF]/10 border-t-[#0D5BFF] rounded-full animate-spin mb-4"></div>
+    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Loading secure admin deck...</span>
+  </div>
+);
 
 export default function AdminDashboard() {
   const {
@@ -436,12 +443,14 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
-            <AdminAnalytics 
-              users={users} 
-              payments={payments} 
-              withdrawals={withdrawals} 
-              sessions={sessions} 
-            />
+            <Suspense fallback={<ComponentLoading />}>
+              <AdminAnalytics 
+                users={users} 
+                payments={payments} 
+                withdrawals={withdrawals} 
+                sessions={sessions} 
+              />
+            </Suspense>
           </motion.div>
         )}
 
@@ -453,15 +462,17 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
-            <AdminUserDirectory 
-              users={users} 
-              updateUser={updateUser} 
-              currentUser={currentUser} 
-              onMessageUser={(userId) => {
-                setSelectedRecipientId(userId);
-                handleTabChange("messages");
-              }}
-            />
+            <Suspense fallback={<ComponentLoading />}>
+              <AdminUserDirectory 
+                users={users} 
+                updateUser={updateUser} 
+                currentUser={currentUser} 
+                onMessageUser={(userId) => {
+                  setSelectedRecipientId(userId);
+                  handleTabChange("messages");
+                }}
+              />
+            </Suspense>
           </motion.div>
         )}
 
@@ -627,12 +638,14 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
-            <AdminSessionAudits 
-              sessions={sessions} 
-              users={users} 
-              cancelSession={cancelSession} 
-              sendNotification={sendNotification} 
-            />
+            <Suspense fallback={<ComponentLoading />}>
+              <AdminSessionAudits 
+                sessions={sessions} 
+                users={users} 
+                cancelSession={cancelSession} 
+                sendNotification={sendNotification} 
+              />
+            </Suspense>
           </motion.div>
         )}
 

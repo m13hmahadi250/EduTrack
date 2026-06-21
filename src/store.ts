@@ -20,9 +20,7 @@ import {
   updateDoc,
   deleteDoc,
   increment,
-  Timestamp,
-  getDocs,
-  limit
+  Timestamp
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 
@@ -252,69 +250,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
-const triggerAutoWelcome = async (newUser: User) => {
-  try {
-    // 1. Try to find any existing admin to represent as the sender
-    let adminId = 'admin_system_default';
-    let adminName = 'EduTrack Admin';
-    try {
-      const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'), limit(1));
-      const adminsSnapshot = await getDocs(adminsQuery);
-      if (!adminsSnapshot.empty) {
-        const adminDoc = adminsSnapshot.docs[0];
-        adminId = adminDoc.id;
-        adminName = adminDoc.data().name || 'EduTrack Admin';
-      }
-    } catch (e) {
-      console.warn('[AutoWelcome] No explicit admin found, defaulting sender context.', e);
-    }
-
-    // 2. Draft high-fidelity local content
-    const msgId = `msg_welcome_${Date.now()}`;
-    const welcomeContent = `Assalamualaikum & Welcome to EduTrack Bangladesh, ${newUser.name || 'Valued Member'}! 🇧🇩
-
-We are absolutely thrilled to have you join our platform. EduTrack Bangladesh is the most secure home tutoring platform in the country, built with smart features, live tracking, and NID-verified educators.
-
-Here is how you can get started right away:
-1. Complete Your Profile details (select your preferred classes, subjects, standard location, and rates) so our smart search algorithm can match you perfectly.
-2. For Tutors: Head to your profile page and upload your NID & Academic Certificates to get manually verified by our team.
-3. For Students/Parents: Explore our expert directories and send a secure direct session proposal.
-
-If you have any questions, feedback, or require immediate setup support, simply type a reply right here in this secure chat!
-
-Best regards,
-${adminName}
-EduTrack Administration`;
-
-    // 3. Create welcome chat direct message (DM)
-    await setDoc(doc(db, 'messages', msgId), {
-      id: msgId,
-      senderId: adminId,
-      receiverId: newUser.id,
-      participants: [adminId, newUser.id],
-      content: welcomeContent,
-      timestamp: new Date().toISOString(),
-      isRead: false
-    });
-
-    // 4. Create local in-app Notification
-    const notifId = `notif_welcome_${Date.now()}`;
-    await setDoc(doc(db, 'notifications', notifId), {
-      id: notifId,
-      userId: newUser.id,
-      title: 'Welcome to EduTrack Bangladesh! 🎉',
-      message: 'Your account is created successfully. Complete your profile details to unlock professional matchmaking.',
-      type: 'success',
-      isRead: false,
-      timestamp: new Date().toISOString()
-    });
-
-    console.log(`[AutoWelcome] Successfully sent welcome direct message and in-app system notification to: ${newUser.email}`);
-  } catch (err) {
-    console.error('[AutoWelcome] Error while sending welcome in-app assets:', err);
-  }
-};
-
 let activeUnsubscribes: (() => void)[] = [];
 
 function cleanupListeners() {
@@ -459,20 +394,6 @@ export const useAppStore = create<AppState>((set, get) => {
           };
           await setDoc(doc(db, 'users', user.uid), newUser);
           set({ currentUser: newUser });
-
-          // Trigger premium automated welcome email & in-app greeting messages for new account
-          triggerAutoWelcome(newUser);
-
-          fetch('/api/send-welcome-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newUser.name, email: newUser.email })
-          }).then(async (res) => {
-            const resData = await res.json().catch(() => ({}));
-            console.log('[EmailService] Google signup onboarding email result:', resData);
-          }).catch((err) => {
-            console.error('[EmailService] Google signup background onboarding email failure:', err);
-          });
         } else {
           let userData = userDoc.data() as User;
           const lowerGEmail = user.email?.toLowerCase();
@@ -574,20 +495,6 @@ export const useAppStore = create<AppState>((set, get) => {
         // Save to Firestore
         await setDoc(doc(db, 'users', uid), newUser);
         set({ currentUser: newUser });
-
-        // Trigger premium automated welcome email & in-app greeting messages in the background (non-blocking)
-        triggerAutoWelcome(newUser);
-
-        fetch('/api/send-welcome-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newUser.name, email: newUser.email })
-        }).then(async (res) => {
-          const resData = await res.json().catch(() => ({}));
-          console.log('[EmailService] Triggered onboarding email result:', resData);
-        }).catch((err) => {
-          console.error('[EmailService] Failed background send-welcome-email triggering:', err);
-        });
       } catch (error) {
         set({ isLoading: false });
         if (error instanceof Error && !error.message.includes('users/')) {

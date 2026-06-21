@@ -6,9 +6,10 @@ import compression from "compression";
 import multer from "multer";
 import sharp from "sharp";
 import fs from "fs";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getWelcomeEmailHtml } from "./welcomeEmailTemplate.js";
+import { initializeApp, deleteApp } from "firebase/app";
+import { initializeFirestore, doc, getDocFromServer, terminate } from "firebase/firestore";
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -35,6 +36,98 @@ function getS3Client() {
   return s3Client;
 }
 
+// Boot-sequence dependency check state variables
+let bootCompleted = false;
+let bootError: string | null = null;
+let r2Healthy = false;
+let firebaseHealthy = false;
+
+async function checkDependencies() {
+  console.log("[Boot] Starting structural reachability checks...");
+
+  // 1. Check Firebase reaching
+  try {
+    const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (fs.existsSync(firebaseConfigPath)) {
+      const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+      // Initialize with unique name for the server boot check
+      const bootApp = initializeApp(firebaseConfig, "ServerBootApp");
+      const db = initializeFirestore(bootApp, {
+        experimentalForceLongPolling: true,
+      }, firebaseConfig.firestoreDatabaseId);
+
+      try {
+        // Verify connection to Firestore by requesting the connection test document
+        const docRef = doc(db, 'test', 'connection');
+        const testConnectionPromise = getDocFromServer(docRef);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Firebase Firestore connection timed out after 5000ms")), 5000)
+        );
+
+        // Let's await either the successful read or a timeout
+        await Promise.race([testConnectionPromise, timeoutPromise]);
+        firebaseHealthy = true;
+        console.log("[Boot] Firebase Firestore is fully reachable and responsive!");
+      } finally {
+        try {
+          await terminate(db).catch(() => {});
+          await deleteApp(bootApp).catch(() => {});
+          console.log("[Boot] Temporary Firebase instance cleaned up and terminated successfully.");
+        } catch (cleanupErr) {
+          console.warn("[Boot] Warning during Firebase temporary cleanup:", cleanupErr);
+        }
+      }
+    } else {
+      console.warn("[Boot] firebase-applet-config.json not found, skipping connection check.");
+      firebaseHealthy = true; // allow gracefully if config is not present
+    }
+  } catch (err: any) {
+    // If the error message is simply permission-denied, Firestore is reached!
+    if (err && (err.code === 'permission-denied' || (err.message && err.message.includes('permission-denied')))) {
+      firebaseHealthy = true;
+      console.log("[Boot] Firebase Firestore is fully reachable (permission-denied expected without logged-in auth).");
+    } else {
+      console.error("[Boot] Firebase reachability check failed:", err.message || err);
+      firebaseHealthy = false;
+      bootError = `Firebase service is unreachable: ${err.message || err}`;
+      throw err;
+    }
+  }
+
+  // 2. Check Cloudflare R2 reaching
+  try {
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (bucket) {
+      const s3 = getS3Client();
+      const command = new ListObjectsV2Command({
+        Bucket: bucket,
+        MaxKeys: 1,
+      });
+
+      const testR2Promise = s3.send(command);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Cloudflare R2 connection timed out after 5000ms")), 5000)
+      );
+
+      await Promise.race([testR2Promise, timeoutPromise]);
+      r2Healthy = true;
+      console.log("[Boot] Cloudflare R2 storage is fully reachable and authorized!");
+    } else {
+      console.warn("[Boot] R2_BUCKET_NAME is not configured, skipping optional check.");
+      r2Healthy = true;
+    }
+  } catch (err: any) {
+    console.error("[Boot] Cloudflare R2 reachability check failed:", err.message || err);
+    r2Healthy = false;
+    const msg = `Cloudflare R2 is unreachable: ${err.message || err}`;
+    bootError = bootError ? `${bootError} | ${msg}` : msg;
+    throw err;
+  }
+
+  bootCompleted = true;
+}
+
 export const app = express();
 
 // Ensure local uploads directory exists
@@ -52,6 +145,31 @@ app.use(compression({ threshold: 0 }));
 // Basic middleware
 app.use(cors());
 app.use(express.json());
+
+// Boot-sequence dependency blocker middleware to fail early instead of silent 'unknown error' failures
+app.use((req, res, next) => {
+  // Allow healthcheck always so the monitoring or developers can inspect status
+  if (req.path === "/api/health") {
+    return next();
+  }
+
+  if (bootError) {
+    return res.status(503).json({
+      error: "Service Unavailable",
+      message: "Server failed to fully connect to critical dependencies during the boot sequence.",
+      details: bootError
+    });
+  }
+
+  if (!bootCompleted) {
+    return res.status(503).json({
+      error: "Service Unavailable",
+      message: "Server is booting and performing dependency reachability checks. Please try again shortly.",
+    });
+  }
+
+  next();
+});
 
 // Set Cache-Control header for API GET endpoints to enable browser caching
 app.use((req, res, next) => {
@@ -76,7 +194,18 @@ console.log("- R2_ENDPOINT:", process.env.R2_ENDPOINT ? "Set" : "MISSING");
 console.log("- R2_BUCKET_NAME:", process.env.R2_BUCKET_NAME ? "Set" : "MISSING");
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", env: process.env.NODE_ENV, cloud: !!process.env.VERCEL });
+  const isHealthy = bootCompleted && !bootError;
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? "ok" : "unhealthy",
+    env: process.env.NODE_ENV,
+    cloud: !!process.env.VERCEL,
+    dependencies: {
+      bootCompleted,
+      bootError: bootError || undefined,
+      firebase: firebaseHealthy ? "reachable" : "unreachable",
+      cloudflareR2: r2Healthy ? "reachable" : "unreachable"
+    }
+  });
 });
 
 /**
@@ -223,127 +352,6 @@ app.post("/api/storage/presign", async (req, res) => {
   }
 });
 
-/**
- * Endpoint to trigger Premium Welcome / Onboarding Email
- * Supports both Resend API and EmailJS REST API depending on available environment credentials.
- * Automatically falls back to high-fidelity console logging to prevent user registration blocks 
- * when credentials aren't yet active in the environment.
- */
-app.post("/api/send-welcome-email", async (req, res) => {
-  const { name, email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ error: "Missing required parameter 'email'" });
-  }
-
-  const html = getWelcomeEmailHtml(name);
-  let providerUsed = "none";
-  let statusMessage = "Email template compiled successfully";
-  let success = true;
-
-  try {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const emailJsTemplateId = process.env.EMAILJS_TEMPLATE_ID;
-    const emailJsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
-    const serviceId = process.env.EMAILJS_SERVICE_ID || "service_97aqldo";
-    
-    // 1. Deliver via EmailJS as first option (Prioritizes EmailJS and works perfectly with gmail.com addresses like edutrackbangladesh@gmail.com)
-    if (emailJsTemplateId && emailJsPublicKey) {
-      console.log(`[EmailService] Attempting to deliver onboarding email to "${email}" via EmailJS (Service: ${serviceId})...`);
-      const emailJsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
-      
-      const payload: any = {
-        service_id: serviceId,
-        template_id: emailJsTemplateId,
-        user_id: emailJsPublicKey,
-        template_params: {
-          to_email: email,
-          user_email: email,
-          email: email,
-          to_name: name || "Valued User",
-          user_name: name || "Valued User",
-          name: name || "Valued User",
-          html_content: html
-        }
-      };
-
-      // To bypass non-browser 403 blocks securely without disabling it in Dashboard,
-      // users can simply define EMAILJS_PRIVATE_KEY which is sent as the accessToken.
-      if (emailJsPrivateKey) {
-        payload.accessToken = emailJsPrivateKey;
-      }
-
-      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errMsg = await response.text();
-        if (errMsg.includes("Delivery error: unknown error") || errMsg.toLowerCase().includes("delivery error")) {
-          throw new Error("EmailJS Delivery Failure: EmailJS failed to connect to your configured Email Service (Gmail/SMTP). This usually means your Google App Password or SMTP credentials in the EmailJS Dashboard are incorrect or expired. Please update the service connection in https://dashboard.emailjs.com");
-        }
-        throw new Error(`EmailJS API returned status ${response.status}: ${errMsg}`);
-      }
-      providerUsed = "emailjs";
-      statusMessage = "Welcome email sent successfully via EmailJS REST API";
-      console.log(`[EmailService] EmailJS onboarding delivery succeeded for: ${email}`);
-    } 
-    // 2. Deliver via Resend only if explicitly configured and no EmailJS setup is present 
-    else if (resendApiKey) {
-      console.log(`[EmailService] Attempting to deliver onboarding email to "${email}" via Resend...`);
-      const fromEmail = process.env.SENDER_EMAIL || "EduTrack Bangladesh <welcome@edutrackbd.com>";
-      
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [email],
-          subject: "Welcome to EduTrack Bangladesh!",
-          html: html
-        })
-      });
-
-      const data: any = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || `Resend API returned status ${response.status}`);
-      }
-      
-      providerUsed = "resend";
-      statusMessage = "Welcome email sent successfully via Resend API";
-      console.log(`[EmailService] Resend onboarding delivery succeeded for: ${email}`);
-    } 
-    // 3. Fallback to developer sandbox preview if no matching service credentials are input yet
-    else {
-      providerUsed = "sandbox-preview";
-      statusMessage = `Welcome email simulated successfully. To enable live delivery via EmailJS (using edutrackbangladesh@gmail.com), configure EMAILJS_TEMPLATE_ID and EMAILJS_PUBLIC_KEY in your settings panel.`;
-      console.log(`[EmailService] Welcome email mock generated for "${email}" (Awaiting key declarations inside secrets configuration)`);
-    }
-
-    res.json({
-      success,
-      provider: providerUsed,
-      message: statusMessage,
-      recipient: email
-    });
-
-  } catch (error: any) {
-    console.error("[EmailService] Failed to send onboarding welcome email:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to deliver welcome email",
-      details: error.message || String(error)
-    });
-  }
-});
-
 app.all("/api/*", (req, res) => {
   res.status(404).json({ error: "API Route Not Found", path: req.path });
 });
@@ -351,6 +359,11 @@ app.all("/api/*", (req, res) => {
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Unhandled Error:", err);
   res.status(500).json({ error: "Internal Server Error", message: err.message });
+});
+
+// Kick off boot sequence reachability checks in the background
+checkDependencies().catch((err) => {
+  console.error("[Boot] Critical dependency verification failed during startup:", err);
 });
 
 export default app;
