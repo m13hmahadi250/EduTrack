@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, AlertCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
+import ImageCropModal from './ImageCropModal';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -14,7 +15,24 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const initiateCrop = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Please provide an image file (PNG, JPG, etc)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string);
+    };
+    reader.onerror = () => {
+      setError('Failed to read selected image file.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -97,7 +115,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleUpload(e.dataTransfer.files[0]);
+      initiateCrop(e.dataTransfer.files[0]);
     }
   };
 
@@ -122,7 +140,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
           type="file" 
           className="hidden" 
           accept="image/*"
-          onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+          onChange={(e) => e.target.files?.[0] && initiateCrop(e.target.files[0])}
         />
 
         {currentImageUrl ? (
@@ -137,15 +155,15 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
                <Camera className="w-5 h-5 text-white hover:scale-110 transition-transform" />
                {onDelete && (
                  <button
-                   type="button"
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     onDelete();
-                   }}
-                   className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110"
-                   title="Delete Photo"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110"
+                    title="Delete Photo"
                  >
-                   <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                  </button>
                )}
             </div>
@@ -160,13 +178,13 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
         {isUploading && (
           <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-4">
              <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  className="h-full bg-[#0D5BFF]"
-                />
-             </div>
-             <span className="text-[7px] font-black uppercase text-[#0B132B]">{Math.round(progress)}%</span>
+                 <motion.div 
+                   initial={{ width: 0 }}
+                   animate={{ width: `${progress}%` }}
+                   className="h-full bg-[#0D5BFF]"
+                 />
+              </div>
+              <span className="text-[7px] font-black uppercase text-[#0B132B]">{Math.round(progress)}%</span>
           </div>
         )}
       </div>
@@ -196,6 +214,23 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
             <AlertCircle className="w-3 h-3 text-rose-500" />
             <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest">{error}</p>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {cropImageSrc && (
+          <ImageCropModal
+            imageSrc={cropImageSrc}
+            onConfirm={(croppedFile) => {
+              setCropImageSrc(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+              handleUpload(croppedFile);
+            }}
+            onCancel={() => {
+              setCropImageSrc(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

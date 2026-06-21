@@ -12,8 +12,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Zap,
-  ArrowLeft,
-  Sparkles
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -23,9 +22,6 @@ export default function Messages() {
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -62,41 +58,6 @@ export default function Messages() {
   const filteredPartners = chatPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const selectedUser = users.find(u => u.id === selectedUserId);
-
-  const fetchAiSuggestions = async (tutor: any) => {
-    if (!tutor) return;
-    setIsGeneratingAi(true);
-    try {
-      const response = await fetch("/api/suggest-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tutorName: tutor.name,
-          subjects: tutor.subjects,
-          classes: tutor.classes,
-          university: tutor.university,
-          hourlyRate: tutor.hourlyRate,
-          experience: tutor.experience,
-          bio: tutor.bio
-        }),
-      });
-      const data = await response.json();
-      if (data.questions && Array.isArray(data.questions)) {
-        setAiSuggestions(data.questions);
-      }
-    } catch (err) {
-      console.error("Failed to load AI suggestions", err);
-    } finally {
-      setIsGeneratingAi(false);
-    }
-  };
-
-  useEffect(() => {
-    setAiSuggestions([]);
-    if (currentUser?.role === 'student' && selectedUser?.role === 'tutor') {
-      fetchAiSuggestions(selectedUser);
-    }
-  }, [selectedUserId, currentUser?.role, selectedUser?.id]);
 
   const conversation = messages.filter(m => 
     (m.senderId === currentUser.id && m.receiverId === selectedUserId) || 
@@ -339,70 +300,6 @@ export default function Messages() {
 
               {/* Input Box */}
               <div className="p-4 sm:p-6 lg:p-10 bg-white relative z-10 border-t border-slate-100 flex flex-col gap-4">
-                {/* AI Assistant Suggestions (For Student to Tutor Inquiries) */}
-                {currentUser?.role === 'student' && selectedUser?.role === 'tutor' && (
-                  <div className="flex flex-col gap-3 p-5 sm:p-6 bg-gradient-to-r from-indigo-50/50 via-blue-50/30 to-violet-50/50 rounded-[2rem] border border-indigo-100 relative overflow-hidden shadow-sm">
-                    {/* Glowing background decor */}
-                    <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-400/10 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="absolute -bottom-12 -left-12 w-24 h-24 bg-violet-400/10 rounded-full blur-2xl pointer-events-none"></div>
-
-                    <div className="flex items-center justify-between relative z-10">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-lg bg-[#0D5BFF] flex items-center justify-center text-white shadow-md">
-                          <Sparkles className="w-3 h-3" />
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-950 flex items-center gap-1.5">
-                          AI Inquiry Assistant
-                          <span className="text-[8px] font-bold text-[#0D5BFF]/80 normal-case italic">Powered by Gemini</span>
-                        </span>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => fetchAiSuggestions(selectedUser)}
-                        disabled={isGeneratingAi}
-                        className="text-[8px] font-black uppercase tracking-wider text-[#0D5BFF] hover:text-blue-700 disabled:opacity-50 transition-colors cursor-pointer"
-                      >
-                        {isGeneratingAi ? "GENERATING..." : "REGENERATE ✨"}
-                      </button>
-                    </div>
-
-                    {isGeneratingAi ? (
-                      <div className="flex items-center gap-3 py-2 relative z-10">
-                        <div className="flex space-x-1.5 justify-center items-center">
-                          <div className="h-1.5 w-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                          <div className="h-1.5 w-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                          <div className="h-1.5 w-1.5 bg-[#0D5BFF] rounded-full animate-bounce"></div>
-                        </div>
-                        <span className="text-[9px] font-semibold uppercase tracking-widest text-indigo-950/50 italic animate-pulse">Drafting inquiries for {selectedUser.name}...</span>
-                      </div>
-                    ) : aiSuggestions.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 relative z-10">
-                        {aiSuggestions.map((question, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setInputText(question);
-                            }}
-                            className="group text-left p-3.5 bg-white hover:bg-indigo-50/20 border border-slate-100 hover:border-indigo-200 rounded-2xl text-[9px] font-black uppercase italic tracking-wider text-[#0B132B]/80 hover:text-[#0B132B] transition-all duration-300 shadow-sm flex items-start gap-2.5 relative overflow-hidden cursor-pointer"
-                          >
-                            <span className="text-[#0D5BFF] font-extrabold text-[12px] select-none block mt-0.5 group-hover:scale-110 transition-transform">✦</span>
-                            <span className="flex-1 leading-normal uppercase">{question}</span>
-                            <span className="opacity-0 group-hover:opacity-100 text-[8px] text-[#0D5BFF] font-black uppercase tracking-widest pl-1 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0 whitespace-nowrap">
-                              DRAFT →
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-2 text-[8px] font-black text-indigo-950/40 uppercase tracking-wider italic relative z-10">
-                        Select a tutor or click Regenerate to load personalized inquiries.
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Quick Replies section */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[8px] font-black uppercase tracking-widest text-[#0B132B]/40">Suggested Quick Replies</span>
