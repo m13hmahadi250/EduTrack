@@ -8,6 +8,7 @@ import sharp from "sharp";
 import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { getWelcomeEmailHtml } from "./welcomeEmailTemplate.js";
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -219,6 +220,124 @@ app.post("/api/storage/presign", async (req, res) => {
   } catch (error: any) {
     console.error("[Storage] Critical general presign failure:", error);
     res.status(500).json({ error: error.message || "Internal presign service failure" });
+  }
+});
+
+/**
+ * Endpoint to trigger Premium Welcome / Onboarding Email
+ * Supports both Resend API and EmailJS REST API depending on available environment credentials.
+ * Automatically falls back to high-fidelity console logging to prevent user registration blocks 
+ * when credentials aren't yet active in the environment.
+ */
+app.post("/api/send-welcome-email", async (req, res) => {
+  const { name, email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: "Missing required parameter 'email'" });
+  }
+
+  const html = getWelcomeEmailHtml(name);
+  let providerUsed = "none";
+  let statusMessage = "Email template compiled successfully";
+  let success = true;
+
+  try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const emailJsTemplateId = process.env.EMAILJS_TEMPLATE_ID;
+    const emailJsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
+    const serviceId = process.env.EMAILJS_SERVICE_ID || "service_97aqldo";
+    
+    // 1. Deliver via EmailJS as first option (Prioritizes EmailJS and works perfectly with gmail.com addresses like edutrackbangladesh@gmail.com)
+    if (emailJsTemplateId && emailJsPublicKey) {
+      console.log(`[EmailService] Attempting to deliver onboarding email to "${email}" via EmailJS (Service: ${serviceId})...`);
+      const emailJsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
+      
+      const payload: any = {
+        service_id: serviceId,
+        template_id: emailJsTemplateId,
+        user_id: emailJsPublicKey,
+        template_params: {
+          to_email: email,
+          user_email: email,
+          email: email,
+          to_name: name || "Valued User",
+          user_name: name || "Valued User",
+          name: name || "Valued User",
+          html_content: html
+        }
+      };
+
+      // To bypass non-browser 403 blocks securely without disabling it in Dashboard,
+      // users can simply define EMAILJS_PRIVATE_KEY which is sent as the accessToken.
+      if (emailJsPrivateKey) {
+        payload.accessToken = emailJsPrivateKey;
+      }
+
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errMsg = await response.text();
+        throw new Error(`EmailJS API returned status ${response.status}: ${errMsg}`);
+      }
+      providerUsed = "emailjs";
+      statusMessage = "Welcome email sent successfully via EmailJS REST API";
+      console.log(`[EmailService] EmailJS onboarding delivery succeeded for: ${email}`);
+    } 
+    // 2. Deliver via Resend only if explicitly configured and no EmailJS setup is present 
+    else if (resendApiKey) {
+      console.log(`[EmailService] Attempting to deliver onboarding email to "${email}" via Resend...`);
+      const fromEmail = process.env.SENDER_EMAIL || "EduTrack Bangladesh <welcome@edutrackbd.com>";
+      
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [email],
+          subject: "Welcome to EduTrack Bangladesh!",
+          html: html
+        })
+      });
+
+      const data: any = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.message || `Resend API returned status ${response.status}`);
+      }
+      
+      providerUsed = "resend";
+      statusMessage = "Welcome email sent successfully via Resend API";
+      console.log(`[EmailService] Resend onboarding delivery succeeded for: ${email}`);
+    } 
+    // 3. Fallback to developer sandbox preview if no matching service credentials are input yet
+    else {
+      providerUsed = "sandbox-preview";
+      statusMessage = `Welcome email simulated successfully. To enable live delivery via EmailJS (using edutrackbangladesh@gmail.com), configure EMAILJS_TEMPLATE_ID and EMAILJS_PUBLIC_KEY in your settings panel.`;
+      console.log(`[EmailService] Welcome email mock generated for "${email}" (Awaiting key declarations inside secrets configuration)`);
+    }
+
+    res.json({
+      success,
+      provider: providerUsed,
+      message: statusMessage,
+      recipient: email
+    });
+
+  } catch (error: any) {
+    console.error("[EmailService] Failed to send onboarding welcome email:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to deliver welcome email",
+      details: error.message || String(error)
+    });
   }
 });
 

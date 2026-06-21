@@ -23,7 +23,8 @@ import {
   Activity,
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  Sparkles
 } from 'lucide-react';
 
 interface AdminUserDirectoryProps {
@@ -218,6 +219,42 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         }
       },
       'Update Role',
+      false
+    );
+  };
+
+  // Send/Resend Welcome onboarding email
+  const handleSendWelcomeEmail = (user: User) => {
+    if (!user.email) {
+      showToast("Cannot deliver message. This account does not have a registered email address.", "error");
+      return;
+    }
+
+    triggerConfirm(
+      'Trigger Onboarding Email',
+      `Delivering premium welcome onboarding email to ${user.name || 'User'} (${user.email}). Continue?`,
+      async () => {
+        setUpdatingUserId(user.id);
+        try {
+          const res = await fetch('/api/send-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: user.name, email: user.email })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            showToast(`Premium welcome onboarding email successfully sent using ${data.provider}!`);
+          } else {
+            showToast(`Delivery error: ${data.details || data.message || 'unknown error'}`, 'error');
+          }
+        } catch (err: any) {
+          console.error(err);
+          showToast("Network dispatch error when triggering welcome email.", "error");
+        } finally {
+          setUpdatingUserId(null);
+        }
+      },
+      'Send Welcome Email',
       false
     );
   };
@@ -597,6 +634,19 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           </button>
                         ) : null}
 
+                        {/* Send Welcome Onboarding Email */}
+                        {user.email ? (
+                          <button
+                            onClick={() => handleSendWelcomeEmail(user)}
+                            disabled={updatingUserId === user.id}
+                            className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-100/20"
+                            title="Resend/Send Onboarding premium welcome email to the user"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Welcome Email</span>
+                          </button>
+                        ) : null}
+
                         {/* Suspension Toggle */}
                         {user.id !== currentUser.id ? (
                           <button
@@ -859,6 +909,18 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     >
                       <span>Show On Homepage</span>
                       <span className="font-mono text-indigo-500">{inspectingUser.showOnHomePage !== false ? "VISIBLE" : "HIDDEN"}</span>
+                    </button>
+                  )}
+
+                  {/* Send Welcome Onboarding Email */}
+                  {inspectingUser.email && (
+                    <button
+                      onClick={() => handleSendWelcomeEmail(inspectingUser)}
+                      disabled={updatingUserId === inspectingUser.id}
+                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100/20 dark:border-indigo-900/40 hover:bg-indigo-600 hover:text-white cursor-pointer"
+                    >
+                      <span>Send Welcome Email</span>
+                      <Sparkles className="w-3.5 h-3.5" />
                     </button>
                   )}
 
