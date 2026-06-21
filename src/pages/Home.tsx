@@ -161,8 +161,6 @@ export default function Home() {
                   alt="Education" 
                   className="w-full h-[600px] object-cover"
                   referrerPolicy="no-referrer"
-                  loading="eager"
-                  fetchPriority="high"
                 />
               </div>
               {/* Floating Stat Card */}
@@ -678,7 +676,7 @@ const TutorPreviewCard = React.memo(({ tutor }: { tutor: any }) => {
       <div>
         <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
           {img ? (
-            <img src={img} alt={name} className="w-full h-full object-cover scale-100 group-hover:scale-105 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
+            <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[12px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
               <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">

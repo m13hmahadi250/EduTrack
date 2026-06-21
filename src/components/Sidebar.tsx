@@ -43,7 +43,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
       { id: 'find_students', label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
       { id: 'balance', label: 'Balance', icon: CreditCard, path: '/dashboard/balance' },
       { id: 'transit_mode', label: 'Location Track', icon: Map, path: '/dashboard/transit' },
-      { id: 'pro_profile', label: 'Profile', icon: User, path: '/dashboard/profile' },
+      { id: 'pro_profile', label: 'Pro Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isStudent ? [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
