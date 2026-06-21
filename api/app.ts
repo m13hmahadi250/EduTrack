@@ -283,6 +283,9 @@ app.post("/api/send-welcome-email", async (req, res) => {
 
       if (!response.ok) {
         const errMsg = await response.text();
+        if (errMsg.includes("Delivery error: unknown error") || errMsg.toLowerCase().includes("delivery error")) {
+          throw new Error("EmailJS Delivery Failure: EmailJS failed to connect to your configured Email Service (Gmail/SMTP). This usually means your Google App Password or SMTP credentials in the EmailJS Dashboard are incorrect or expired. Please update the service connection in https://dashboard.emailjs.com");
+        }
         throw new Error(`EmailJS API returned status ${response.status}: ${errMsg}`);
       }
       providerUsed = "emailjs";
