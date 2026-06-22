@@ -156,6 +156,7 @@ interface AppState {
   notifications: Notification[];
   isLoading: boolean;
   isInitialized: boolean;
+  isLoggingOut: boolean;
   typingStatus: { [userId: string]: string | null };
   
   // Actions
@@ -310,6 +311,7 @@ export const useAppStore = create<AppState>((set, get) => {
     notifications: [],
     isLoading: true,
     isInitialized: false,
+    isLoggingOut: false,
     typingStatus: {},
     theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
 
@@ -464,8 +466,12 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     logout: async () => {
+      set({ isLoggingOut: true });
       cleanupListeners();
+      // Allow the UI logout transition animation to execute perfectly
+      await new Promise((resolve) => setTimeout(resolve, 1400));
       await signOut(auth);
+      set({ isLoggingOut: false });
     },
 
     signup: async (userData, password) => {

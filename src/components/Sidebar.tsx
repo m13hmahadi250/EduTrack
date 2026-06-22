@@ -139,20 +139,20 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
 
       {/* Profile Status Card - Only for tutors/admins */}
       {currentUser.role !== 'student' && (
-        <div className={`mb-6 p-5 rounded-2xl border transition-all ${
+        <div className={`mb-4 p-3 rounded-xl border transition-all ${
           currentUser.isVerified 
-            ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30' 
-            : 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30'
+            ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-100/60 dark:border-emerald-900/20' 
+            : 'bg-rose-50/40 dark:bg-rose-950/10 border-rose-100/60 dark:border-rose-900/20'
         }`}>
-          <div className="flex justify-between items-center mb-2">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${
-              currentUser.isVerified ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+          <div className="flex justify-between items-center mb-1">
+            <span className={`text-[8.5px] font-black uppercase tracking-widest ${
+              currentUser.isVerified ? 'text-emerald-600/80 dark:text-emerald-400/80' : 'text-rose-600/80 dark:text-rose-400/80'
             }`}>Profile Status</span>
-            <Shield className={`w-4 h-4 ${
+            <Shield className={`w-3.5 h-3.5 ${
               currentUser.isVerified ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400 animate-pulse'
             }`} />
           </div>
-          <div className={`text-xs font-black uppercase italic ${
+          <div className={`text-[10px] font-black uppercase italic ${
             currentUser.isVerified ? 'text-emerald-900 dark:text-emerald-200' : 'text-rose-900 dark:text-rose-200'
           }`}>
             {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}

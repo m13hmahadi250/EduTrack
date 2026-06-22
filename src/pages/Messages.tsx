@@ -190,7 +190,7 @@ export default function Messages() {
                       </span>
                     )}
                     {isPartnerOnline && (
-                      <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0B132B] ring-0 shadow-sm" />
+                      <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white dark:border-[#0B132B] shadow-sm" />
                     )}
                   </div>
                   <div className="text-left flex-1 min-w-0">

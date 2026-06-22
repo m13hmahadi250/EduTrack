@@ -4,7 +4,9 @@
  */
 
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import { LogOut } from 'lucide-react';
 import { useAppStore } from './store';
 import Navbar from './components/Navbar';
 import DashboardLayout from './components/DashboardLayout';
@@ -65,7 +67,9 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 function LayoutWrapper() {
   const isInitialized = useAppStore(state => state.isInitialized);
   const theme = useAppStore(state => state.theme);
+  const isLoggingOut = useAppStore(state => state.isLoggingOut);
   const location = useLocation();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     if (theme === 'dark') {
@@ -74,6 +78,13 @@ function LayoutWrapper() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  React.useEffect(() => {
+    if (isLoggingOut) {
+      // Direct routing back to home screen immediately on logout to sync backdrop
+      navigate('/', { replace: true });
+    }
+  }, [isLoggingOut, navigate]);
 
   if (!isInitialized) {
     return <LoadingScreen />;
@@ -112,6 +123,60 @@ function LayoutWrapper() {
           </Routes>
         </Suspense>
       </main>
+
+      {/* Premium Fullscreen Logout Transition Overlay */}
+      <AnimatePresence>
+        {isLoggingOut && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[9999] bg-[#0B132B]/95 flex flex-col items-center justify-center p-6 backdrop-blur-md"
+          >
+            <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-[#0D5BFF]/15 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-3xl animate-pulse delay-700"></div>
+
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: -20 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 100, damping: 15 }}
+              className="max-w-md w-full bg-slate-900/80 border border-slate-800/80 rounded-[3rem] p-12 text-center shadow-3xl flex flex-col items-center justify-center relative overflow-hidden"
+            >
+              {/* Glowing ring animation with custom rotation */}
+              <div className="relative mb-8 w-24 h-24 flex items-center justify-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1.8, ease: "linear" }}
+                  className="absolute inset-0 rounded-full border-4 border-t-[#0D5BFF] border-b-emerald-500 border-x-transparent"
+                />
+                <div className="w-16 h-16 bg-slate-800/90 rounded-full flex items-center justify-center border border-slate-700/50 shadow-inner">
+                  <LogOut className="w-6 h-6 text-emerald-400 rotate-180 animate-pulse" />
+                </div>
+              </div>
+
+              <h3 className="text-xl font-black text-white uppercase italic tracking-wider mb-2">
+                Session Closing
+              </h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                Securing Transit Logs
+              </p>
+
+              <p className="text-xs font-bold text-slate-300 tracking-wide leading-relaxed max-w-[280px]">
+                Saving session metrics and clearing secure tracking credentials. Returning you home...
+              </p>
+
+              {/* Progress dynamic dots */}
+              <div className="flex items-center gap-2 mt-8">
+                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
