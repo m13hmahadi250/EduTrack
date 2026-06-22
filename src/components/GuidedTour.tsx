@@ -52,7 +52,7 @@ export default function GuidedTour() {
     return () => window.removeEventListener('start-edutrack-tour', handleStartTour);
   }, []);
 
-  if (!currentUser || !isOpen) return null;
+  if (!currentUser) return null;
 
   const handleComplete = () => {
     const tourCompletedKey = `edutrack_tour_completed_${currentUser.id}`;
@@ -211,18 +211,23 @@ export default function GuidedTour() {
 
   return (
     <AnimatePresence>
-      <div 
-        id="guided-tour-overlay" 
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[100000] flex items-center justify-center p-4 font-sans"
-      >
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, scale: 0.9, y: 30 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: -30 }}
-          transition={{ type: 'spring', duration: 0.5 }}
-          className="bg-white dark:bg-[#0B132B] text-slate-800 dark:text-white rounded-[2.8rem] w-full max-w-lg p-8 sm:p-10 border border-slate-100 dark:border-slate-800/80 shadow-[0_24px_80px_rgba(0,0,0,0.4)] relative overflow-hidden"
+      {isOpen && (
+        <motion.div 
+          id="guided-tour-overlay" 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[100000] flex items-center justify-center p-4 font-sans"
         >
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -30 }}
+            transition={{ type: 'spring', duration: 0.5 }}
+            className="bg-white dark:bg-[#0B132B] text-slate-800 dark:text-white rounded-[2.8rem] w-full max-w-lg p-8 sm:p-10 border border-slate-100 dark:border-slate-800/80 shadow-[0_24px_80px_rgba(0,0,0,0.4)] relative overflow-hidden"
+          >
           {/* Top colored accent line glow */}
           <div className={`absolute top-0 inset-x-0 h-2 bg-gradient-to-r ${step.color}`}></div>
           
@@ -307,7 +312,8 @@ export default function GuidedTour() {
             </div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

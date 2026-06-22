@@ -86,6 +86,7 @@ export interface User {
   gender?: 'Male' | 'Female' | 'Other' | string;
   showOnHomePage?: boolean;
   showTour?: boolean;
+  isOnline?: boolean;
 }
 
 export interface Session {

@@ -259,11 +259,22 @@ export default function BKashGatewaySim({
     }, 2000);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div id="bkash-checkout-overlay" className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden relative border border-slate-200">
+    <motion.div 
+      id="bkash-checkout-overlay" 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto"
+    >
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        transition={{ type: "spring", duration: 0.4 }}
+        className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden relative border border-slate-200"
+      >
         
         {/* Absolute visual elements */}
         <div className="absolute top-0 left-0 w-64 h-64 bg-[#E51275]/5 blur-3xl rounded-full pointer-events-none -z-10"></div>
@@ -579,7 +590,7 @@ export default function BKashGatewaySim({
           </div>
 
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

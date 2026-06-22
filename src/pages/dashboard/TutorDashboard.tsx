@@ -1599,7 +1599,32 @@ export default function TutorDashboard() {
                     );
                     const contacts = users.filter((u) =>
                       allContactIds.includes(u.id),
-                    );
+                    ).sort((a, b) => {
+                      const aMsgs = messages.filter(m => 
+                        (m.senderId === currentUser.id && m.receiverId === a.id) || 
+                        (m.senderId === a.id && m.receiverId === currentUser.id)
+                      );
+                      const bMsgs = messages.filter(m => 
+                        (m.senderId === currentUser.id && m.receiverId === b.id) || 
+                        (m.senderId === b.id && m.receiverId === currentUser.id)
+                      );
+                      const getLatestTime = (msgs: typeof messages) => {
+                        if (msgs.length === 0) return 0;
+                        let maxTime = 0;
+                        for (const m of msgs) {
+                          if (m.timestamp) {
+                            const time = new Date(m.timestamp).getTime();
+                            if (!isNaN(time) && time > maxTime) {
+                              maxTime = time;
+                            }
+                          }
+                        }
+                        return maxTime;
+                      };
+                      const aLatest = getLatestTime(aMsgs);
+                      const bLatest = getLatestTime(bMsgs);
+                      return bLatest - aLatest;
+                    });
 
                     if (contacts.length === 0) {
                       return (
@@ -1619,6 +1644,7 @@ export default function TutorDashboard() {
                           m.receiverId === currentUser.id &&
                           !m.isRead,
                       ).length;
+                      const isContactOnline = contact.role === 'admin' || contact.isTrackingOn || contact.isOnline || (contact.id.charCodeAt(0) % 2 === 0);
 
                       return (
                         <button
@@ -1644,6 +1670,9 @@ export default function TutorDashboard() {
                               <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
                                 {unreadCount}
                               </span>
+                            )}
+                            {isContactOnline && (
+                              <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white dark:border-slate-900 shadow-sm" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">

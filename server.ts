@@ -20,8 +20,8 @@ async function setupVite() {
       immutable: true,
       setHeaders: (res, filePath) => {
         // Hashed static files (JS, CSS, images) can be cached forever.
-        // index.html, config files, and the service worker sw.js should NOT be cached.
-        if (filePath.match(/\.(html|json)$/) || filePath.endsWith('sw.js')) {
+        // index.html and config files should NOT be cached.
+        if (filePath.match(/\.(html|json)$/)) {
           res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
         } else {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

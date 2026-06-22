@@ -90,9 +90,9 @@
     transform: scale(0.85);
   }
 
-  /* Faster feeling transitions */
-  * {
-    transition-duration: 200ms !important;
+  /* Faster interactive responses */
+  button, a, input, select, textarea {
+    transition-duration: 200ms;
   }
 }
 

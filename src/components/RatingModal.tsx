@@ -30,7 +30,13 @@ export default function RatingModal({ sessionId, tutorName, onClose }: RatingMod
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0B132B]/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="fixed inset-0 bg-[#0B132B]/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -111,6 +117,6 @@ export default function RatingModal({ sessionId, tutorName, onClose }: RatingMod
           </p>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

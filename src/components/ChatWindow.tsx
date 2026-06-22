@@ -104,38 +104,38 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
   if (!recipient) return null;
 
   return (
-    <div className="flex flex-col h-[500px] sm:h-[600px] bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-[500px] sm:h-[600px] bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+      <div className="p-3 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
           {onBack && (
             <button
               onClick={onBack}
               type="button"
-              className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
               title="Back to contacts"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4.5 h-4.5" />
             </button>
           )}
           {recipient.profileImage ? (
-            <img src={recipient.profileImage} alt={recipient.name} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+            <img src={recipient.profileImage} alt={recipient.name} className="w-8.5 h-8.5 rounded-lg object-cover shrink-0" />
           ) : (
-            <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-[#0D5BFF] font-black italic shrink-0">
+            <div className="w-8.5 h-8.5 bg-white border border-slate-100 rounded-lg flex items-center justify-center text-[#0D5BFF] font-black italic shrink-0">
               {recipient.name.charAt(0)}
             </div>
           )}
           <div className="min-w-0">
-            <h4 className="text-xs sm:text-sm font-black text-[#0B132B] italic truncate">
+            <h4 className="text-xs sm:text-sm font-semibold text-[#0B132B] truncate">
               {recipient.role === 'admin' ? 'EDUTRACK ADMIN' : recipient.name}
             </h4>
-            <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[7.5px] sm:text-[8px] font-black text-slate-400 tracking-widest uppercase">Secure Link Active</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[7.5px] sm:text-[8px] font-bold text-slate-400 tracking-wider uppercase">Secure Link Active</span>
             </div>
           </div>
         </div>
-        <div className="hidden sm:block px-3 py-1 bg-blue-50 text-[8px] font-black text-[#0D5BFF] tracking-widest rounded-lg border border-blue-100 italic uppercase">
+        <div className="hidden sm:block px-2.5 py-0.5 bg-blue-50 text-[8px] font-bold text-[#0D5BFF] tracking-wider rounded border border-blue-100 italic uppercase">
           Channel {recipient.id.substring(0, 8)}
         </div>
       </div>
@@ -143,83 +143,92 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 scroll-smooth"
+        className="flex-1 overflow-y-auto p-3 sm:p-4.5 lg:p-5 custom-scrollbar scroll-smooth bg-slate-50/10"
       >
-        {chatMessages.length === 0 && (
+        {chatMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
             <ShieldAlert className="w-12 h-12 mb-4" />
             <p className="text-[10px] font-black tracking-[0.2em] max-w-[200px]">
               No data packets transmitted yet. Initiate secure handshake.
             </p>
           </div>
-        )}
-        
-        {chatMessages.map((msg) => {
-          const isMe = msg.senderId === currentUser?.id;
-          return (
-            <motion.div 
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              key={msg.id} 
-              className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[85%] sm:max-w-[80%] ${isMe ? 'text-right' : 'text-left'}`}>
-                <div className={`
-                  px-4 sm:px-6 py-2.5 sm:py-4 rounded-[1.4rem] sm:rounded-[1.8rem] text-xs sm:text-sm font-semibold leading-relaxed
-                  ${isMe 
-                    ? 'bg-[#0B132B] text-white rounded-tr-none shadow-xl shadow-slate-200' 
-                    : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'}
-                `}>
-                  {msg.content}
-                </div>
-                <div className={`flex items-center gap-2 mt-1.5 px-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <p className="text-[8px] font-black text-slate-300 tracking-widest italic">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  {isMe && (
-                    <div>
-                      {msg.isRead ? (
-                        <CheckCheck className="w-3 h-3 text-[#0D5BFF]" />
-                      ) : (
-                        <Check className="w-3 h-3 text-slate-300" />
+        ) : (
+          <div className="flex flex-col justify-end min-h-full space-y-2.5 sm:space-y-3.5">
+            {chatMessages.map((msg) => {
+              const isMe = msg.senderId === currentUser?.id;
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  key={msg.id} 
+                  className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[80%] sm:max-w-[75%] ${isMe ? 'text-right' : 'text-left'} flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    <div className={`
+                      px-3.5 py-2 rounded-[1.25rem] sm:rounded-[1.5rem] text-sm font-medium leading-relaxed select-text whitespace-pre-wrap break-words
+                      ${isMe 
+                        ? 'bg-[#0D5BFF] text-white rounded-br-[0.25rem] shadow-sm shadow-[#0D5BFF]/10' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-[#F8F9FA] rounded-bl-[0.25rem] border border-slate-200/40 dark:border-slate-800/60'}
+                    `}>
+                      {msg.content}
+                    </div>
+                    <div className={`flex items-center gap-1.5 mt-1 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <p className="text-[8.5px] font-medium text-slate-400/80 uppercase tracking-wider">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {isMe && (
+                        <div className="flex items-center space-x-1.5 bg-slate-100/50 dark:bg-slate-800/40 px-2 py-0.5 rounded-full select-none">
+                          {msg.isRead ? (
+                            <>
+                              <CheckCheck className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                              <span className="text-[8.5px] font-bold text-[#0D5BFF] uppercase tracking-wider">Read</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="text-[8.5px] font-semibold text-slate-400 uppercase tracking-wider">Sent</span>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {isRecipientTyping && (
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-2xl px-4 py-2 rounded-tl-none flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce"></span>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Typing</span>
                 </div>
-              </div>
-            </motion.div>
-          );
-        })}
-        {isRecipientTyping && (
-          <motion.div 
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-start"
-          >
-            <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] px-5 py-3 rounded-tl-none flex items-center gap-2">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-bounce"></span>
-              </div>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Typing</span>
-            </div>
-          </motion.div>
+              </motion.div>
+            )}
+          </div>
         )}
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} className="p-3 sm:p-6 bg-slate-50/50 border-t border-slate-100 flex flex-col gap-3">
+      <form onSubmit={handleSend} className="p-3 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/85 flex flex-col gap-2 shadow-md">
         {/* Quick Replies section */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[8px] font-black uppercase tracking-widest text-[#0B132B]/40">Suggested Quick Replies</span>
-          <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none scroll-smooth">
+        <div className="flex flex-col gap-1">
+          <span className="text-[8px] font-bold uppercase tracking-widest text-[#0B132B]/40 dark:text-slate-400/40">Suggested Replies</span>
+          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-none scroll-smooth">
             {quickReplies.map((replyText, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => handleQuickReply(replyText)}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white hover:bg-[#0B132B] text-[9px] font-black uppercase italic tracking-wider text-[#0B132B]/80 hover:text-white border border-slate-100 hover:border-[#0B132B] rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+                className="px-3 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-bold text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer"
               >
                 {replyText}
               </button>
@@ -227,19 +236,19 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.5rem] p-1 pr-1.5 pl-3 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
           <input 
             value={content}
             onChange={handleContentChange}
             placeholder="Type your message..."
-            className="w-full bg-white border border-slate-100 rounded-2xl py-3.5 sm:py-4 pl-4 sm:pl-6 pr-12 sm:pr-14 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] shadow-sm transition-all"
+            className="flex-1 bg-transparent py-1.5 sm:py-2 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0"
           />
           <button 
             type="submit"
             disabled={!content.trim()}
-            className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 bg-[#0D5BFF] text-white rounded-xl shadow-lg shadow-blue-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100"
+            className="bg-[#0D5BFF] text-white h-8 w-8 rounded-full flex items-center justify-center shadow-lg shadow-blue-100/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 shrink-0 cursor-pointer"
           >
-            <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Send className="w-3.5 h-3.5" />
           </button>
         </div>
       </form>

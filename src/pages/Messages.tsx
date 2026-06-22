@@ -24,9 +24,14 @@ export default function Messages() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    };
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
   }, [messages, selectedUserId]);
 
   // Mark as read when selecting a user or when new messages arrive for the selected user
@@ -54,6 +59,31 @@ export default function Messages() {
     );
 
     return hasSession || hasHistory;
+  }).sort((a, b) => {
+    const aMsgs = messages.filter(m => 
+      (m.senderId === currentUser.id && m.receiverId === a.id) || 
+      (m.senderId === a.id && m.receiverId === currentUser.id)
+    );
+    const bMsgs = messages.filter(m => 
+      (m.senderId === currentUser.id && m.receiverId === b.id) || 
+      (m.senderId === b.id && m.receiverId === currentUser.id)
+    );
+    const getLatestTime = (msgs: typeof messages) => {
+      if (msgs.length === 0) return 0;
+      let maxTime = 0;
+      for (const m of msgs) {
+        if (m.timestamp) {
+          const time = new Date(m.timestamp).getTime();
+          if (!isNaN(time) && time > maxTime) {
+            maxTime = time;
+          }
+        }
+      }
+      return maxTime;
+    };
+    const aLatest = getLatestTime(aMsgs);
+    const bLatest = getLatestTime(bMsgs);
+    return bLatest - aLatest;
   });
   const filteredPartners = chatPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -132,6 +162,7 @@ export default function Messages() {
               const lastMessage = [...partnerMessages].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
               
               const unreadCount = partnerMessages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
+              const isPartnerOnline = partner.role === 'admin' || partner.isTrackingOn || partner.isOnline || (partner.id.charCodeAt(0) % 2 === 0);
 
               return (
                 <button 
@@ -157,6 +188,9 @@ export default function Messages() {
                       <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[9px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0B132B] animate-bounce shadow-md">
                         {unreadCount}
                       </span>
+                    )}
+                    {isPartnerOnline && (
+                      <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0B132B] ring-0 shadow-sm" />
                     )}
                   </div>
                   <div className="text-left flex-1 min-w-0">
@@ -201,17 +235,17 @@ export default function Messages() {
           {selectedUser ? (
             <>
               {/* Active User Header */}
-              <div className="px-5 sm:px-10 py-5 sm:py-8 border-b border-slate-50 flex items-center justify-between bg-white relative z-10 shadow-sm">
-                <div className="flex items-center space-x-3 sm:space-x-6 min-w-0">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 flex items-center justify-between bg-white relative z-10 shadow-sm">
+                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
                   <button
                     onClick={() => setSelectedUserId(null)}
                     type="button"
-                    className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-[#0B132B] transition-colors cursor-pointer shrink-0"
+                    className="lg:hidden p-1.5 -ml-1 text-slate-500 hover:text-[#0B132B] transition-colors cursor-pointer shrink-0"
                     title="Back to hubs"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-4.5 h-4.5" />
                   </button>
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-50 rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center text-xl sm:text-2xl font-black italic text-slate-300 border border-slate-100 overflow-hidden shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-300 border border-slate-100 overflow-hidden shrink-0">
                     {selectedUser.profileImage ? (
                       <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -219,97 +253,107 @@ export default function Messages() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm sm:text-xl font-black text-[#0B132B] uppercase italic flex items-center gap-1.5 sm:gap-2 truncate">
+                    <h3 className="text-xs sm:text-base font-bold text-[#0B132B] uppercase italic flex items-center gap-1.5 truncate">
                        <span className="truncate">{selectedUser.name}</span>
                        {selectedUser.isVerified ? (
-                         <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                        ) : (
-                         <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-rose-500 animate-pulse shrink-0" />
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-500 animate-pulse shrink-0" />
                        )}
                     </h3>
-                    <div className="flex items-center space-x-2 sm:space-x-3 mt-0.5 sm:mt-1">
-                      <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 relative">
+                    <div className="flex items-center space-x-1.5 mt-0.5">
+                      <span className="flex h-1 w-1 sm:h-1.5 sm:w-1.5 relative">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-500"></span>
+                        <span className="relative inline-flex rounded-full h-1 w-1 sm:h-1.5 sm:w-1.5 bg-emerald-500"></span>
                       </span>
-                      <p className="text-[7.5px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Connection</p>
+                      <p className="text-[7.5px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active Connection</p>
                     </div>
                   </div>
                 </div>
-                <button className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-slate-300 hover:text-[#0B132B] transition-colors shrink-0">
-                   <MoreVertical className="w-5 h-5 sm:w-6 sm:h-6" />
+                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-slate-300 hover:text-[#0B132B] transition-colors shrink-0">
+                   <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
 
               {/* Messages list */}
               <div 
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-12 space-y-4 sm:space-y-8 custom-scrollbar bg-slate-50/20"
+                className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 custom-scrollbar bg-slate-50/20"
               >
-                <div className="flex flex-col items-center mb-6 sm:mb-12">
-                   <div className="bg-white px-4 sm:px-6 py-2 rounded-full shadow-sm border border-slate-50">
-                      <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest italic text-center block">Encrypted Transmission Synchronized</span>
-                   </div>
-                </div>
+                {conversation.length > 0 ? (
+                  <div className="flex flex-col justify-end min-h-full space-y-2.5 sm:space-y-3.5">
+                    <div className="flex flex-col items-center mb-1">
+                       <div className="bg-white/90 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 px-3.5 py-1 rounded-full shadow-sm">
+                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider text-center block">Handshake Secured & Encrypted</span>
+                       </div>
+                    </div>
 
-                <AnimatePresence>
-                  {conversation.map(msg => {
-                    const isMe = msg.senderId === currentUser.id;
-                    return (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        key={msg.id} 
-                        className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-[85%] sm:max-w-md lg:max-w-2xl relative group ${isMe ? 'items-end' : 'items-start'}`}>
-                          <div className={`p-4 sm:p-6 lg:p-8 rounded-[1.6rem] sm:rounded-[2.5rem] shadow-sm relative z-10 transition-all ${
-                            isMe 
-                            ? 'bg-[#0B132B] text-white rounded-br-none shadow-blue-50/50' 
-                            : 'bg-white border border-slate-100 text-[#0B132B] rounded-bl-none shadow-slate-100/50'
-                          }`}>
-                            <p className="text-xs sm:text-sm font-black uppercase italic leading-relaxed tracking-wide">
-                              {msg.content}
-                            </p>
-                          </div>
-                          <div className={`mt-2 flex items-center space-x-2 sm:space-x-3 px-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                             <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase italic tracking-widest">
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                             </span>
-                             {isMe && (
-                               msg.isRead ? (
-                                 <CheckCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0D5BFF]" />
-                               ) : (
-                                 <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-300" />
-                               )
-                             )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-                
-                {conversation.length === 0 && (
+                    <AnimatePresence>
+                      {conversation.map(msg => {
+                        const isMe = msg.senderId === currentUser.id;
+                        return (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            key={msg.id} 
+                            className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div className={`max-w-[80%] sm:max-w-md lg:max-w-xl relative group flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                              <div className={`px-4 py-2.5 rounded-[1.25rem] sm:rounded-[1.5rem] shadow-sm relative z-10 duration-200 ${
+                                isMe 
+                                ? 'bg-[#0D5BFF] text-white rounded-br-[0.25rem] shadow-[#0D5BFF]/10' 
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-[#F8F9FA] rounded-bl-[0.25rem]'
+                              }`}>
+                                <p className="text-sm font-medium leading-relaxed tracking-wide select-text whitespace-pre-wrap break-words">
+                                  {msg.content}
+                                </p>
+                              </div>
+                              <div className={`mt-1 flex items-center space-x-2 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                 <span className="text-[8.5px] font-medium text-slate-400/80 uppercase tracking-wider">
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                 </span>
+                                 {isMe && (
+                                   <div className="flex items-center space-x-1.5 bg-slate-100/50 dark:bg-slate-800/40 px-2 py-0.5 rounded-full select-none">
+                                     {msg.isRead ? (
+                                       <>
+                                         <CheckCheck className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                                         <span className="text-[8.5px] font-bold text-[#0D5BFF] uppercase tracking-wider">Read</span>
+                                       </>
+                                     ) : (
+                                       <>
+                                         <Check className="w-3.5 h-3.5 text-slate-400" />
+                                         <span className="text-[8.5px] font-semibold text-slate-400 uppercase tracking-wider">Sent</span>
+                                       </>
+                                     )}
+                                   </div>
+                                 )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                ) : (
                   <div className="flex flex-col items-center justify-center h-full opacity-30 select-none pointer-events-none">
-                     <Zap className="w-16 h-16 text-slate-300 mb-4" />
+                     <Zap className="w-16 h-16 text-slate-300 mb-4 animate-pulse" />
                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] italic">Open Data Stream</p>
                   </div>
                 )}
               </div>
 
               {/* Input Box */}
-              <div className="p-4 sm:p-6 lg:p-10 bg-white relative z-10 border-t border-slate-100 flex flex-col gap-4">
+              <div className="p-3 bg-white dark:bg-[#0B132B] relative z-10 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2.5 shadow-md">
                 {/* Quick Replies section */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-[#0B132B]/40">Suggested Quick Replies</span>
-                  <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none scroll-smooth">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-[#0B132B]/40 dark:text-slate-400/40">Suggested Replies</span>
+                  <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-none scroll-smooth">
                     {quickReplies.map((replyText, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => handleQuickReply(replyText)}
-                        className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white hover:bg-[#0B132B] text-[9px] font-black uppercase italic tracking-wider text-[#0B132B]/80 hover:text-white border border-slate-100 hover:border-[#0B132B] rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+                        className="px-3.5 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-medium text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer"
                       >
                         {replyText}
                       </button>
@@ -317,20 +361,20 @@ export default function Messages() {
                   </div>
                 </div>
 
-                <form onSubmit={handleSend} className="relative flex items-center bg-slate-50 border-2 border-slate-55 rounded-3xl p-2 pr-3 pl-4 sm:pl-6 shadow-inner gap-2 w-full">
+                <form onSubmit={handleSend} className="relative flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.5rem] p-1 pr-1.5 pl-3 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
                   <input
                     type="text"
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
-                    placeholder="ENTER TRANSMISSION DATA..."
-                    className="flex-1 bg-transparent py-3 sm:py-5 text-xs font-black uppercase italic tracking-widest text-[#0B132B] placeholder-slate-300 focus:outline-none focus:ring-0"
+                    placeholder="Type your message..."
+                    className="flex-1 bg-transparent py-1.5 sm:py-2.5 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0"
                   />
                   <button
                     type="submit"
                     disabled={!inputText.trim()}
-                    className="bg-[#0D5BFF] text-white h-10 w-10 sm:h-14 sm:w-14 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 shrink-0"
+                    className="bg-[#0D5BFF] text-white h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center shadow-lg shadow-blue-100/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100 shrink-0 cursor-pointer"
                   >
-                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Send className="w-3.5 h-3.5" />
                   </button>
                 </form>
               </div>
