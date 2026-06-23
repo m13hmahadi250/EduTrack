@@ -335,6 +335,7 @@ export default function TutorDashboard() {
     else if (path.endsWith("/availability")) setActiveTab("availability");
     else if (path.endsWith("/messages")) setActiveTab("messages");
     else if (path.endsWith("/find-students")) setActiveTab("find_students");
+    else if (path.endsWith("/class-logs")) setActiveTab("class_logs");
     else setActiveTab("my_session");
   }, [location.pathname]);
 
@@ -346,7 +347,8 @@ export default function TutorDashboard() {
       | "pro_profile"
       | "availability"
       | "messages"
-      | "find_students",
+      | "find_students"
+      | "class_logs",
   ) => {
     const pathMap = {
       my_session: "/dashboard",
@@ -356,6 +358,7 @@ export default function TutorDashboard() {
       availability: "/dashboard/availability",
       messages: "/dashboard/messages",
       find_students: "/dashboard/find-students",
+      class_logs: "/dashboard/class-logs",
     };
     navigate(pathMap[tab]);
   };
@@ -699,7 +702,7 @@ export default function TutorDashboard() {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id as any)}
-              className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative inline-block ${
+              className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative inline-block cursor-pointer z-30 pointer-events-auto ${
                 activeTab === tab.id
                   ? "text-[#0B132B]"
                   : "text-[#0B132B]/30 hover:text-[#0B132B]"

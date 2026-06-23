@@ -438,17 +438,19 @@ export default function StudentDashboard() {
     else if (path.endsWith('/profile')) setActiveTab('account');
     else if (path.endsWith('/transit')) setActiveTab('transit');
     else if (path.endsWith('/messages')) setActiveTab('messages');
+    else if (path.endsWith('/class-logs')) setActiveTab('class-verification');
     else setActiveTab('overview');
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit') => {
+  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification') => {
     const pathMap = {
       overview: '/dashboard',
       find: '/dashboard/search',
       activity: '/dashboard/activity',
       account: '/dashboard/profile',
       transit: '/dashboard/transit',
-      messages: '/dashboard/messages'
+      messages: '/dashboard/messages',
+      'class-verification': '/dashboard/class-logs'
     };
     navigate(pathMap[tab]);
   };
@@ -929,7 +931,7 @@ export default function StudentDashboard() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
-            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative ${
+            className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative cursor-pointer z-30 pointer-events-auto ${
               activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >

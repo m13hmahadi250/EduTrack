@@ -188,6 +188,7 @@ interface AppState {
   // Class verification actions
   logClass: (studentId: string, tutorId: string, subject: string, date: string, notes?: string) => Promise<void>;
   verifyClass: (classLogId: string, status: 'verified' | 'disputed', notes?: string) => Promise<void>;
+  deleteClassLog: (classLogId: string) => Promise<void>;
   
   // Admin actions
   verifyTutor: (id: string, type: 'nid' | 'academic', status: 'approved' | 'rejected') => Promise<void>;
@@ -912,6 +913,14 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `class_logs/${classLogId}`);
+      }
+    },
+
+    deleteClassLog: async (classLogId) => {
+      try {
+        await deleteDoc(doc(db, 'class_logs', classLogId));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `class_logs/${classLogId}`);
       }
     },
 

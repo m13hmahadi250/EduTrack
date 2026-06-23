@@ -18,7 +18,8 @@ import {
   XCircle,
   HelpCircle,
   TrendingUp,
-  Award
+  Award,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -34,7 +35,8 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     messages, 
     classLogs, 
     logClass, 
-    verifyClass 
+    verifyClass,
+    deleteClassLog
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -42,7 +44,8 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     messages: state.messages,
     classLogs: state.classLogs || [],
     logClass: state.logClass,
-    verifyClass: state.verifyClass
+    verifyClass: state.verifyClass,
+    deleteClassLog: state.deleteClassLog
   })));
 
   // States
@@ -60,6 +63,25 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
 
   // Verification notes for Tutor actions
   const [tutorReplyNotes, setTutorReplyNotes] = useState('');
+
+  // Find class logs registered for the selected date
+  const selectedDateLogs = useMemo(() => {
+    if (!selectedDate) return [];
+    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    return classLogs.filter(log => log.date === dateStr);
+  }, [selectedDate, classLogs]);
+
+  // Auto-select first log of selected date when date changes or logs sync
+  React.useEffect(() => {
+    if (selectedDateLogs.length > 0) {
+      const belongs = selectedDateLogs.some(log => log.id === selectedClassLog?.id);
+      if (!belongs) {
+        setSelectedClassLog(selectedDateLogs[0]);
+      }
+    } else {
+      setSelectedClassLog(null);
+    }
+  }, [selectedDateLogs, selectedClassLog]);
 
   // Fetch relevant date properties
   const year = currentDate.getFullYear();
@@ -84,11 +106,21 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     }
   }, [users, sessions, currentUser, role]);
 
-  // If a student has no active sessions, allow choosing any tutor in the system as a fallback
-  const fallbackUsers = useMemo(() => {
-    if (connectedUsers.length > 0) return connectedUsers;
-    return users.filter(u => u.role === (role === 'student' ? 'tutor' : 'student'));
+  // Split into active connected and other partners for better dropdown organization
+  const { activePartners, otherPartners } = useMemo(() => {
+    const oppRole = role === 'student' ? 'tutor' : 'student';
+    const oppositeUsers = users.filter(u => u.role === oppRole && !u.isBlocked);
+    const connectedSet = new Set(connectedUsers.map(u => u.id));
+    
+    const active = oppositeUsers.filter(u => connectedSet.has(u.id));
+    const others = oppositeUsers.filter(u => !connectedSet.has(u.id));
+    return { activePartners: active, otherPartners: others };
   }, [users, connectedUsers, role]);
+
+  // Combined sorted list
+  const fallbackUsers = useMemo(() => {
+    return [...activePartners, ...otherPartners];
+  }, [activePartners, otherPartners]);
 
   // Generate Calendar Days list for grid
   const calendarCells = useMemo(() => {
@@ -125,6 +157,8 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     return classLogs.filter(log => log.date.startsWith(monthPrefix));
   }, [classLogs, year, month]);
+
+
 
   // Statistics for transparency reporting
   const stats = useMemo(() => {
@@ -319,25 +353,21 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
               const dateLogs = getLogsForDate(cell.dateStr);
               const hasLogs = dateLogs.length > 0;
               
-              // Determine status colors
+              // Determine status colors based on all logs of that day
               let borderStyle = 'border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF] hover:shadow-md';
               let bgStyle = 'bg-slate-50/50 dark:bg-slate-900 hover:bg-white dark:hover:bg-slate-800';
-              let badgeColor = '';
 
               if (hasLogs) {
-                const status = dateLogs[0].status; // handle single log status for simpler calendar coloring
-                if (status === 'verified') {
-                  borderStyle = 'border-emerald-300 dark:border-emerald-700/50 shadow-inner bg-emerald-50/10';
-                  bgStyle = 'bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
-                  badgeColor = 'bg-emerald-500';
-                } else if (status === 'disputed') {
-                  borderStyle = 'border-rose-300 dark:border-rose-700/50 shadow-inner bg-rose-50/10';
+                const statuses = dateLogs.map(l => l.status);
+                if (statuses.includes('disputed')) {
+                  borderStyle = 'border-rose-300 dark:border-rose-700/50 shadow-inner';
                   bgStyle = 'bg-rose-500/10 dark:bg-rose-950/20 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20';
-                  badgeColor = 'bg-rose-500 animate-pulse';
+                } else if (statuses.includes('pending')) {
+                  borderStyle = 'border-amber-300 dark:border-amber-700/50 shadow-inner';
+                  bgStyle = 'bg-amber-500/10 dark:bg-amber-950/20 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20';
                 } else {
-                  borderStyle = 'border-amber-300 dark:border-amber-700/50 shadow-inner bg-amber-50/10';
-                  bgStyle = 'bg-amber-500/10 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
-                  badgeColor = 'bg-amber-500';
+                  borderStyle = 'border-emerald-300 dark:border-emerald-700/50 shadow-inner';
+                  bgStyle = 'bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-500 dark:text-emerald-405 hover:bg-emerald-500/20';
                 }
               }
 
@@ -371,18 +401,30 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       {cell.dayNum}
                     </span>
                     {hasLogs && (
-                      <span className={`w-2 h-2 rounded-full ${badgeColor}`} />
+                      <div className="flex gap-0.5" id={`day-indicator-${cell.dayNum}`}>
+                        {dateLogs.map((log) => {
+                          const dotColor = 
+                            log.status === 'verified' ? 'bg-emerald-500' :
+                            log.status === 'disputed' ? 'bg-rose-500 animate-pulse' :
+                            'bg-amber-500';
+                          return <span key={log.id} className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />;
+                        })}
+                      </div>
                     )}
                   </div>
                   
                   {/* Miniature Detail on Hover or if small screen */}
                   <div className="text-[7.5px] truncate font-black tracking-tight leading-tight uppercase w-full">
                     {hasLogs ? (
-                      <div className="flex items-center gap-1">
-                        <span className="truncate">{dateLogs[0].subject}</span>
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        {dateLogs.length > 1 ? (
+                          <span className="text-[#0D5BFF] dark:text-blue-400 font-extrabold">{dateLogs.length} Classes Logged</span>
+                        ) : (
+                          <span className="truncate">{dateLogs[0].subject}</span>
+                        )}
                       </div>
                     ) : (
-                      <span className="opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity">
+                      <span className="opacity-0 group-hover:opacity-100 text-slate-450 dark:text-slate-500 transition-opacity">
                         + Mark class
                       </span>
                     )}
@@ -443,6 +485,47 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
             </h3>
           </div>
 
+          {/* Multi-log Selector Tabs if there are multiple entries on the same day */}
+          {selectedDateLogs.length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-6 p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <p className="w-full text-[8.5px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">
+                Multiple logs on this day ({selectedDateLogs.length})
+              </p>
+              {selectedDateLogs.map((log) => {
+                const isCurrent = log.id === selectedClassLog?.id;
+                const partner = getUserDetails(role === 'student' ? log.tutorId : log.studentId);
+                const statColor = 
+                  log.status === 'verified' ? 'text-emerald-500' :
+                  log.status === 'disputed' ? 'text-rose-500 animate-pulse' :
+                  'text-amber-500';
+                return (
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => setSelectedClassLog(log)}
+                    className={`flex-1 min-w-[130px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                      isCurrent 
+                        ? 'bg-white dark:bg-slate-900 border-[#0D5BFF] shadow-sm' 
+                        : 'bg-transparent border-transparent hover:bg-slate-100/50 dark:hover:bg-slate-800/20'
+                    }`}
+                  >
+                    <p className="text-[10px] font-black truncate text-slate-850 dark:text-white">
+                      {log.subject}
+                    </p>
+                    <div className="flex items-center justify-between gap-1 mt-1.5 min-w-0">
+                      <span className="text-[8px] font-bold text-slate-400 truncate uppercase max-w-[70px]">
+                        {partner?.name || 'Partner'}
+                      </span>
+                      <span className={`text-[8px] font-black uppercase shrink-0 ${statColor}`}>
+                        • {log.status}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             {selectedClassLog ? (
               <motion.div
@@ -458,7 +541,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Status:</span>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
                       selectedClassLog.status === 'verified' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                      selectedClassLog.status === 'disputed' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-500 dark:text-rose-400' :
+                      selectedClassLog.status === 'disputed' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-500 dark:text-rose-450' :
                       'bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400'
                     }`}>
                       {selectedClassLog.status}
@@ -548,6 +631,19 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                         <span>Dispute Log</span>
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Student Retract Controls */}
+                {role === 'student' && selectedClassLog.status === 'pending' && (
+                  <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-[8.5px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white mb-2">Retract Conduction Mark</p>
+                    <ConfirmRetractButton 
+                      onConfirm={async () => {
+                        await deleteClassLog(selectedClassLog.id);
+                        setSelectedClassLog(null);
+                      }} 
+                    />
                   </div>
                 )}
               </motion.div>
@@ -675,11 +771,24 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-xs font-black uppercase text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] transition-all cursor-pointer"
                     >
                       <option value="">-- Choose Tutor --</option>
-                      {fallbackUsers.map(tutor => (
-                        <option key={tutor.id} value={tutor.id}>
-                          {tutor.name} ({tutor.subject || 'Coaches All Subjects'})
-                        </option>
-                      ))}
+                      {activePartners.length > 0 && (
+                        <optgroup label="✨ Your Connected Partners" className="font-extrabold text-[#0D5BFF]">
+                          {activePartners.map(tutor => (
+                            <option key={tutor.id} value={tutor.id} className="font-normal text-[#0B132B] dark:text-white">
+                              {tutor.name} ({tutor.subject || (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : 'Coaches All Subjects')})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {otherPartners.length > 0 && (
+                        <optgroup label="📋 Other System Tutors" className="font-extrabold text-slate-500">
+                          {otherPartners.map(tutor => (
+                            <option key={tutor.id} value={tutor.id} className="font-normal text-[#0B132B] dark:text-white">
+                              {tutor.name} ({tutor.subject || (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : 'Coaches All Subjects')})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
 
@@ -694,6 +803,20 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"
                       required
                     />
+                    
+                    {/* Quick Select Recommendation Pills */}
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {['Physics', 'Chemistry', 'Higher Math', 'Biology', 'English', 'ICT', 'General Science'].map((sub) => (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => setFormSubject(sub)}
+                          className="px-2.5 py-1 text-[10px] font-black rounded-full bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF] text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition cursor-pointer"
+                        >
+                          {sub}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Optional Notes */}
@@ -737,5 +860,43 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function ConfirmRetractButton({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  
+  if (confirming) {
+    return (
+      <div className="w-full flex gap-3">
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 rounded-2xl font-black uppercase tracking-wider text-[10px] transition cursor-pointer text-center"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            await onConfirm();
+          }}
+          className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase tracking-wider text-[10px] transition cursor-pointer text-center"
+        >
+          Yes, Retract
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-900/30 text-rose-500 rounded-2xl font-black uppercase tracking-wider text-[10px] shadow-sm transition cursors-pointer"
+    >
+      <Trash2 className="w-4 h-4" />
+      <span>Retract Class Entry</span>
+    </button>
   );
 }
