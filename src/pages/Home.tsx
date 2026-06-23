@@ -63,6 +63,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedSubject, setSelectedSubject] = React.useState('All');
   const [selectedDistrict, setSelectedDistrict] = React.useState('All');
+  const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
 
   // Unified list of available tutors (Firestore Real)
   const allTutors = React.useMemo(() => {
@@ -85,14 +86,21 @@ export default function Home() {
         selectedSubject === 'All' ||
         (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(selectedSubject.toLowerCase())));
 
-      // 3. Geographic District filter match
+      // 3. Tag-based filtering match (matches at least one selected tag if tags are active)
+      const matchesTags = 
+        selectedTags.length === 0 ||
+        (t.subjects && t.subjects.some((s: string) => 
+          selectedTags.some(tag => s.toLowerCase().includes(tag.toLowerCase()))
+        ));
+
+      // 4. Geographic District filter match
       const matchesDistrict = 
         selectedDistrict === 'All' ||
         (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
 
-      return matchesSearch && matchesSubject && matchesDistrict;
+      return matchesSearch && matchesSubject && matchesTags && matchesDistrict;
     });
-  }, [allTutors, searchQuery, selectedSubject, selectedDistrict]);
+  }, [allTutors, searchQuery, selectedSubject, selectedTags, selectedDistrict]);
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
@@ -260,6 +268,50 @@ export default function Home() {
 
             </div>
 
+          </div>
+
+          {/* Tag-Based Subject Filters */}
+          <div className="mb-12">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 px-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                <BookOpen className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                Filter by Subject Tags
+              </span>
+              {selectedTags.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedTags([])}
+                  className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  Clear All Tags ({selectedTags.length})
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2.5 px-2">
+              {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'ICT', 'Higher Math', 'Bangla'].map((tag) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTags(selectedTags.filter(t => t !== tag));
+                      } else {
+                        setSelectedTags([...selectedTags, tag]);
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border transition-all duration-200 transform hover:scale-[1.02] active:scale-95 cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md shadow-blue-500/20'
+                        : 'bg-white dark:bg-[#111A2E]/40 border-slate-200/50 dark:border-slate-800 text-[#0B132B] dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Grid of Cards with Motion layout animation */}

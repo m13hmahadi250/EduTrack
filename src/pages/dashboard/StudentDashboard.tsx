@@ -105,7 +105,8 @@ export default function StudentDashboard() {
     bookSession, 
     updateLocation, 
     messages,
-    grantEndPermission
+    grantEndPermission,
+    endSession
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -115,7 +116,8 @@ export default function StudentDashboard() {
     bookSession: state.bookSession,
     updateLocation: state.updateLocation,
     messages: state.messages,
-    grantEndPermission: state.grantEndPermission
+    grantEndPermission: state.grantEndPermission,
+    endSession: state.endSession
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -1142,13 +1144,13 @@ export default function StudentDashboard() {
                       onClick={() => grantEndPermission(activeSession.id, !activeSession.studentPermissionGranted)}
                       className={`w-full sm:w-auto px-6 py-4.5 rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
                         activeSession.studentPermissionGranted 
-                          ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/10' 
+                          ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' 
                           : 'bg-[#0B132B] text-white hover:bg-slate-900 shadow-black/20'
                       }`}
                     >
                       {activeSession.studentPermissionGranted ? (
                         <>
-                          <CheckCircle className="w-4 h-4 fill-white text-emerald-500" />
+                          <CheckCircle className="w-4 h-4 text-emerald-500 font-bold" />
                           <span>Permission Granted</span>
                         </>
                       ) : (
@@ -1157,6 +1159,29 @@ export default function StudentDashboard() {
                           <span>Grant Finish Permission</span>
                         </>
                       )}
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to end and complete this tutoring session now?")) {
+                          try {
+                            await grantEndPermission(activeSession.id, true);
+                            await endSession(activeSession.id);
+                            useAppStore.getState().sendNotification(
+                              currentUser.id,
+                              'Session Completed',
+                              'You have successfully ended and marked this session as completed.',
+                              'success'
+                            );
+                          } catch (err) {
+                            console.error('Failed to end session:', err);
+                          }
+                        }
+                      }}
+                      className="w-full sm:w-auto px-6 py-4.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer shadow-rose-900/20"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>End Session</span>
                     </button>
                   </div>
                 </div>
@@ -1604,6 +1629,37 @@ export default function StudentDashboard() {
                    Filter & Search Experts
                  </button>
               )}
+
+              {/* Active Subject Filter Tags */}
+              {filterSubjects.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-1 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                    Filtering By:
+                  </span>
+                  {filterSubjects.map(sub => (
+                    <span 
+                      key={sub}
+                      className="inline-flex items-center gap-1.5 bg-blue-500/10 dark:bg-blue-500/20 text-[#0D5BFF] dark:text-blue-300 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border border-blue-500/10"
+                    >
+                      <span>{sub}</span>
+                      <button 
+                        onClick={() => setFilterSubjects(prev => prev.filter(s => s !== sub))}
+                        className="w-4 h-4 rounded-full bg-blue-500/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-[8px] transition cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  <button 
+                    onClick={() => setFilterSubjects([])}
+                    className="ml-auto text-[9px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 transition-colors cursor-pointer px-2 py-1"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Tutor Selection Panel */}
                 {(!selectedTutor || windowWidth > 1024) && (
