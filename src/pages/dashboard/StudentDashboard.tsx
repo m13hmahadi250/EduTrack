@@ -53,6 +53,7 @@ const ImageUpload = lazy(() => import('../../components/ImageUpload'));
 const FileUpload = lazy(() => import('../../components/FileUpload'));
 const RatingModal = lazy(() => import('../../components/RatingModal'));
 const ChatWindow = lazy(() => import('../../components/ChatWindow'));
+import ClassLogsCalendar from '../../components/ClassLogsCalendar';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
@@ -135,7 +136,7 @@ export default function StudentDashboard() {
   const [locationErrorMessage, setLocationErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification'>('overview');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
@@ -873,6 +874,7 @@ export default function StudentDashboard() {
             { id: 'overview', label: 'Overview', icon: LayoutDashboard },
             { id: 'find', label: 'Find Tutor', icon: Search },
             { id: 'activity', label: 'Activity Log', icon: Activity },
+            { id: 'class-verification', label: 'Class Cal', icon: Calendar },
             { id: 'transit', label: 'Transit Tracker', icon: MapPin },
             { id: 'messages', label: 'Messages', icon: MessageSquare },
             { id: 'account', label: 'My Account', icon: Award }
@@ -919,6 +921,7 @@ export default function StudentDashboard() {
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },
           { id: 'activity', label: 'Activity Log' },
+          { id: 'class-verification', label: 'Class Cal' },
           { id: 'transit', label: 'Transit Tracker' },
           { id: 'messages', label: 'Messages' },
           { id: 'account', label: 'My Account' }
@@ -2909,6 +2912,18 @@ export default function StudentDashboard() {
                  </div>
                )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'class-verification' && (
+          <motion.div 
+            key="class-verification"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+          >
+            <ClassLogsCalendar role="student" />
           </motion.div>
         )}
 

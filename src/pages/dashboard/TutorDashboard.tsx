@@ -69,6 +69,7 @@ const MapTracker = lazy(() => import("../../components/MapTracker"));
 const ImageUpload = lazy(() => import("../../components/ImageUpload"));
 const FileUpload = lazy(() => import("../../components/FileUpload"));
 import DemandHeatmap from "../../components/DemandHeatmap";
+import ClassLogsCalendar from "../../components/ClassLogsCalendar";
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -160,6 +161,7 @@ export default function TutorDashboard() {
     | "availability"
     | "messages"
     | "find_students"
+    | "class_logs"
   >("my_session");
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
     null,
@@ -627,6 +629,7 @@ export default function TutorDashboard() {
           {[
             { id: "my_session", label: "My Session", icon: Clock },
             { id: "find_students", label: "Find Students", icon: Search },
+            { id: "class_logs", label: "Class Cal", icon: Calendar },
             { id: "balance", label: "Balance", icon: CreditCard },
             { id: "transit_mode", label: "Location Track", icon: MapPin },
             { id: "messages", label: "Messages", icon: MessageSquare },
@@ -687,6 +690,7 @@ export default function TutorDashboard() {
           {[
             { id: "my_session", label: "My Session" },
             { id: "find_students", label: "Find Students" },
+            { id: "class_logs", label: "Class Cal" },
             { id: "balance", label: "Balance" },
             { id: "transit_mode", label: "Location Track" },
             { id: "messages", label: "Messages" },
@@ -2595,6 +2599,17 @@ export default function TutorDashboard() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === "class_logs" && (
+            <motion.div
+              key="class_logs"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <ClassLogsCalendar role="tutor" />
             </motion.div>
           )}
 

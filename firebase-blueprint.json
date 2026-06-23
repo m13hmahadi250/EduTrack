@@ -127,6 +127,24 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "userId", "title", "message", "type", "isRead", "timestamp"]
+    },
+    "ClassLog": {
+      "title": "ClassLog",
+      "description": "A record of a single class verified or log entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "disputed"] },
+        "subject": { "type": "string" },
+        "notes": { "type": "string" },
+        "loggedAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "tutorNotes": { "type": "string" }
+      },
+      "required": ["id", "studentId", "tutorId", "date", "status", "subject", "loggedAt"]
     }
   },
   "firestore": {
@@ -153,6 +171,10 @@
     "/notifications/{notificationId}": {
       "schema": "Notification",
       "description": "User notifications"
+    },
+    "/class_logs/{classLogId}": {
+      "schema": "ClassLog",
+      "description": "Class date verification logs"
     }
   }
 }

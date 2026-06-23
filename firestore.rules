@@ -224,6 +224,39 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // --- Class Logs Collection ---
+    match /class_logs/{classLogId} {
+      function isValidClassLog(data) {
+        return data.keys().hasAll(['id', 'studentId', 'tutorId', 'date', 'status', 'subject', 'loggedAt']) &&
+               isValidId(data.id) &&
+               isValidId(data.studentId) &&
+               isValidId(data.tutorId) &&
+               data.date is string && data.date.size() <= 32 &&
+               data.status in ['pending', 'verified', 'disputed'] &&
+               data.subject is string && data.subject.size() <= 200 &&
+               data.loggedAt is string &&
+               (data.get('notes', null) == null || data.notes is string) &&
+               (data.get('reviewedAt', null) == null || data.reviewedAt is string) &&
+               (data.get('tutorNotes', null) == null || data.tutorNotes is string);
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+
+      allow create: if isSignedIn() && isValidId(classLogId) && isValidClassLog(incoming()) &&
+                    incoming().studentId == request.auth.uid &&
+                    incoming().status == 'pending';
+
+      allow update: if isAdmin() || (
+        isSignedIn() && isValidClassLog(incoming()) && (
+          (resource.data.tutorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'reviewedAt', 'tutorNotes'])) ||
+          (resource.data.studentId == request.auth.uid && incoming().studentId == request.auth.uid)
+        )
+      );
+
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+    }
+
     // --- Typing Indicators ---
     match /typing/{userId} {
       allow read: if isSignedIn();

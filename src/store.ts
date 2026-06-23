@@ -146,6 +146,19 @@ export interface Notification {
   timestamp: string;
 }
 
+export interface ClassLog {
+  id: string;
+  studentId: string;
+  tutorId: string;
+  date: string; // "YYYY-MM-DD"
+  status: 'pending' | 'verified' | 'disputed';
+  subject: string;
+  loggedAt: string;
+  reviewedAt?: string;
+  notes?: string;
+  tutorNotes?: string;
+}
+
 interface AppState {
   currentUser: User | null;
   users: User[];
@@ -154,6 +167,7 @@ interface AppState {
   withdrawals: Withdrawal[];
   messages: Message[];
   notifications: Notification[];
+  classLogs: ClassLog[];
   isLoading: boolean;
   isInitialized: boolean;
   isLoggingOut: boolean;
@@ -170,6 +184,10 @@ interface AppState {
   updateLocation: (id: string, lat: number, lng: number) => Promise<void>;
   toggleTracking: (id: string, isOn: boolean) => Promise<void>;
   updateAvailabilitySlots: (slots: { [key: string]: string[] }) => Promise<void>;
+  
+  // Class verification actions
+  logClass: (studentId: string, tutorId: string, subject: string, date: string, notes?: string) => Promise<void>;
+  verifyClass: (classLogId: string, status: 'verified' | 'disputed', notes?: string) => Promise<void>;
   
   // Admin actions
   verifyTutor: (id: string, type: 'nid' | 'academic', status: 'approved' | 'rejected') => Promise<void>;
@@ -309,6 +327,7 @@ export const useAppStore = create<AppState>((set, get) => {
     withdrawals: [],
     messages: [],
     notifications: [],
+    classLogs: [],
     isLoading: true,
     isInitialized: false,
     isLoggingOut: false,
@@ -836,6 +855,66 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
+    logClass: async (studentId, tutorId, subject, date, notes = '') => {
+      const id = `clog_${Date.now()}`;
+      try {
+        await setDoc(doc(db, 'class_logs', id), {
+          id,
+          studentId,
+          tutorId,
+          subject,
+          date,
+          status: 'pending',
+          notes,
+          loggedAt: new Date().toISOString()
+        });
+        
+        // Notify the tutor
+        const student = get().currentUser;
+        const studentName = student?.name || 'A student';
+        await get().sendNotification(
+          tutorId,
+          'Class Verification Request',
+          `${studentName} has marked ${date} as a conducted class for ${subject}. Please verify or dispute.`,
+          'info'
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `class_logs/${id}`);
+      }
+    },
+
+    verifyClass: async (classLogId, status, notes = '') => {
+      try {
+        const updates: any = { 
+          status,
+          reviewedAt: new Date().toISOString()
+        };
+        if (notes) {
+          updates.tutorNotes = notes;
+        }
+        await updateDoc(doc(db, 'class_logs', classLogId), updates);
+
+        const log = get().classLogs.find(l => l.id === classLogId);
+        if (log) {
+          const tutor = get().currentUser;
+          const tutorName = tutor?.name || 'Your tutor';
+          const notificationTitle = status === 'verified' ? 'Class Log Verified' : 'Class Log Disputed';
+          const notificationBody = status === 'verified'
+            ? `${tutorName} verified that the class on ${log.date} took place.`
+            : `${tutorName} disputed the class on ${log.date}.`;
+
+          await get().sendNotification(
+            log.studentId,
+            notificationTitle,
+            notificationBody,
+            status === 'verified' ? 'success' : 'error'
+          );
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `class_logs/${classLogId}`);
+      }
+    },
+
     requestWithdrawal: async (withdrawalData) => {
       const id = `with_${Date.now()}`;
       
@@ -1084,6 +1163,23 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     handleFirestoreError(error, OperationType.LIST, 'notifications');
   });
   activeUnsubscribes.push(unsubNotifs);
+
+  // Listen to class verifications
+  let classLogsQuery;
+  if (role === 'student') {
+    classLogsQuery = query(collection(db, 'class_logs'), where('studentId', '==', uid));
+  } else if (role === 'tutor') {
+    classLogsQuery = query(collection(db, 'class_logs'), where('tutorId', '==', uid));
+  } else {
+    classLogsQuery = query(collection(db, 'class_logs'));
+  }
+  const unsubClassLogs = onSnapshot(classLogsQuery, (snapshot) => {
+    const classLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClassLog));
+    set({ classLogs });
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'class_logs');
+  });
+  activeUnsubscribes.push(unsubClassLogs);
 
   // Listen to typing indicators
   const unsubTyping = onSnapshot(collection(db, 'typing'), (snapshot) => {
