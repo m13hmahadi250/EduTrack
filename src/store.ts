@@ -102,6 +102,8 @@ export interface Session {
   meetingLink?: string;
   rating?: number;
   feedback?: string;
+  studentPermissionGranted?: boolean;
+  tutorRequestedEnd?: boolean;
 }
 
 export interface Withdrawal {
@@ -202,6 +204,7 @@ interface AppState {
   bookSession: (session: Omit<Session, 'id'> & { status?: Session['status'] }) => Promise<void>;
   acceptSession: (sessionId: string) => Promise<void>;
   rejectSession: (sessionId: string) => Promise<void>;
+  grantEndPermission: (sessionId: string, granted: boolean) => Promise<void>;
   
   // Tutor actions
   startSession: (sessionId: string) => Promise<void>;
@@ -209,6 +212,7 @@ interface AppState {
   cancelSession: (sessionId: string) => Promise<void>;
   rateSession: (sessionId: string, rating: number, feedback: string) => Promise<void>;
   requestWithdrawal: (withdrawal: Omit<Withdrawal, 'id' | 'status' | 'timestamp'>) => Promise<void>;
+  requestEndPermission: (sessionId: string) => Promise<void>;
   
   // Messages
   sendMessage: (msg: Omit<Message, 'id' | 'timestamp' | 'isRead' | 'participants'>) => Promise<void>;
@@ -798,7 +802,9 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         await updateDoc(doc(db, 'sessions', id), { 
           status: 'active', 
-          startTime: new Date().toISOString() 
+          startTime: new Date().toISOString(),
+          studentPermissionGranted: false,
+          tutorRequestedEnd: false
         });
         const sess = get().sessions.find(s => s.id === id);
         if (sess) {
@@ -811,10 +817,46 @@ export const useAppStore = create<AppState>((set, get) => {
 
     endSession: async (id) => {
       try {
+        const sess = get().sessions.find(s => s.id === id);
+        if (sess && !sess.studentPermissionGranted) {
+          throw new Error('Teacher cannot finish this session without student permission.');
+        }
         await updateDoc(doc(db, 'sessions', id), { 
           status: 'completed', 
           endTime: new Date().toISOString() 
         });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
+      }
+    },
+
+    grantEndPermission: async (id, granted) => {
+      try {
+        await updateDoc(doc(db, 'sessions', id), {
+          studentPermissionGranted: granted
+        });
+        const sess = get().sessions.find(s => s.id === id);
+        if (sess) {
+          if (granted) {
+            await get().sendNotification(sess.tutorId, 'Permission Granted', 'Your student has granted you permission to complete the active lesson.', 'success');
+          } else {
+            await get().sendNotification(sess.tutorId, 'Permission Revoked', 'Your student has revoked or declined permission to complete the lesson.', 'error');
+          }
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
+      }
+    },
+
+    requestEndPermission: async (id) => {
+      try {
+        await updateDoc(doc(db, 'sessions', id), {
+          tutorRequestedEnd: true
+        });
+        const sess = get().sessions.find(s => s.id === id);
+        if (sess) {
+          await get().sendNotification(sess.studentId, 'Completion Permission Requested', 'Your tutor wishes to complete the session. Please grant permission.', 'info');
+        }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
       }

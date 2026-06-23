@@ -104,7 +104,8 @@ export default function StudentDashboard() {
     sessions, 
     bookSession, 
     updateLocation, 
-    messages 
+    messages,
+    grantEndPermission
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -113,7 +114,8 @@ export default function StudentDashboard() {
     sessions: state.sessions,
     bookSession: state.bookSession,
     updateLocation: state.updateLocation,
-    messages: state.messages
+    messages: state.messages,
+    grantEndPermission: state.grantEndPermission
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -993,17 +995,17 @@ export default function StudentDashboard() {
                       ].map((step, idx) => (
                         <div 
                           key={idx} 
-                          className={`p-4 rounded-2xl border transition-all duration-300 ${
+                          className={`p-3 rounded-xl border transition-all duration-300 ${
                             step.checked 
                               ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-950/20' 
                               : 'bg-white/5 border-white/10 text-slate-400 hover:border-blue-500/30'
                           }`}
                         >
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">{step.label}</span>
-                            <span className={`w-2 h-2 rounded-full ${step.checked ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${step.checked ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
                           </div>
-                          <p className={`text-xs font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-300 font-medium'}`}>
+                          <p className={`text-[11px] font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-300 font-medium'}`}>
                             {step.value}
                           </p>
                         </div>
@@ -1118,6 +1120,44 @@ export default function StudentDashboard() {
                         Join Digital Classroom
                       </a>
                     )}
+                  </div>
+                </div>
+                <div className="mt-8 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-start sm:items-center gap-4">
+                    <div className="p-3 bg-white/15 rounded-2xl shrink-0">
+                      <ShieldAlert className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black uppercase italic tracking-wider">End-Of-Session Permission</p>
+                      <p className="text-[10px] text-rose-100 mt-1 max-w-xl leading-relaxed">Your tutor cannot mark this session as completed on their dashboard without your active permission.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 self-end sm:self-center">
+                    {activeSession.tutorRequestedEnd && !activeSession.studentPermissionGranted && (
+                      <span className="text-[8px] bg-yellow-400 text-slate-900 px-3 py-1.5 rounded-xl font-black uppercase italic tracking-wider animate-bounce shadow">
+                        Tutor Requested
+                      </span>
+                    )}
+                    <button
+                      onClick={() => grantEndPermission(activeSession.id, !activeSession.studentPermissionGranted)}
+                      className={`w-full sm:w-auto px-6 py-4.5 rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
+                        activeSession.studentPermissionGranted 
+                          ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/10' 
+                          : 'bg-[#0B132B] text-white hover:bg-slate-900 shadow-black/20'
+                      }`}
+                    >
+                      {activeSession.studentPermissionGranted ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 fill-white text-emerald-500" />
+                          <span>Permission Granted</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4 text-rose-100" />
+                          <span>Grant Finish Permission</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </motion.div>

@@ -30,7 +30,16 @@ const Navbar = memo(() => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-1.5 group">
+            <Link 
+              to="/" 
+              onClick={(e) => {
+                if (isHome) {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              className="flex items-center space-x-1.5 group"
+            >
               <Logo className="w-8 h-8 sm:w-10 sm:h-10 group-hover:rotate-6 transition-transform duration-300" />
               <span 
                 className="text-base sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors flex cursor-default select-none"

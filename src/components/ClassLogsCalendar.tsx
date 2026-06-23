@@ -56,7 +56,8 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
 
   // Form states for Student marking a class
   const [formTutorId, setFormTutorId] = useState('');
-  const [formSubject, setFormSubject] = useState('');
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [customSubjectInput, setCustomSubjectInput] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
@@ -92,16 +93,24 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Memoized connected users based on active sessions or chat logs
+  // Memoized connected users based on active sessions or chat logs for the current user
   const connectedUsers = useMemo(() => {
     if (!currentUser) return [];
     if (role === 'student') {
-      // Find tutors with sessions or conversations
-      const tutorIdsWithSessions = new Set(sessions.map(s => s.tutorId));
+      // Find tutors with active/valid sessions with this student
+      const tutorIdsWithSessions = new Set(
+        sessions
+          .filter(s => s.studentId === currentUser.id && s.status !== 'rejected' && s.status !== 'cancelled')
+          .map(s => s.tutorId)
+      );
       return users.filter(u => u.role === 'tutor' && tutorIdsWithSessions.has(u.id));
     } else {
-      // Find students with sessions or conversations
-      const studentIdsWithSessions = new Set(sessions.map(s => s.studentId));
+      // Find students with active/valid sessions with this tutor
+      const studentIdsWithSessions = new Set(
+        sessions
+          .filter(s => s.tutorId === currentUser.id && s.status !== 'rejected' && s.status !== 'cancelled')
+          .map(s => s.studentId)
+      );
       return users.filter(u => u.role === 'student' && studentIdsWithSessions.has(u.id));
     }
   }, [users, sessions, currentUser, role]);
@@ -117,10 +126,10 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
     return { activePartners: active, otherPartners: others };
   }, [users, connectedUsers, role]);
 
-  // Combined sorted list
+  // Combined sorted list - only return active/connected partners for Class Cal tracking
   const fallbackUsers = useMemo(() => {
-    return [...activePartners, ...otherPartners];
-  }, [activePartners, otherPartners]);
+    return activePartners;
+  }, [activePartners]);
 
   // Generate Calendar Days list for grid
   const calendarCells = useMemo(() => {
@@ -194,10 +203,22 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
       setFormError('Please select a tutor');
       return;
     }
-    if (!formSubject) {
-      setFormError('Please input the tuition subject');
+
+    let finalSubjectsList = [...selectedSubjects];
+    if (customSubjectInput.trim()) {
+      const val = customSubjectInput.trim();
+      if (!finalSubjectsList.includes(val)) {
+        finalSubjectsList.push(val);
+      }
+    }
+
+    if (finalSubjectsList.length === 0) {
+      setFormError('Please select or input at least one tuition subject');
       return;
     }
+
+    const finalSubjectStr = finalSubjectsList.join(', ');
+
     if (!selectedDate) {
       setFormError('No date selected');
       return;
@@ -219,7 +240,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
       await logClass(
         currentUser.id,
         formTutorId,
-        formSubject,
+        finalSubjectStr,
         dateStr,
         formNotes
       );
@@ -227,7 +248,8 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
         setShowLogModal(false);
         setFormSuccess(false);
         setFormNotes('');
-        setFormSubject('');
+        setSelectedSubjects([]);
+        setCustomSubjectInput('');
       }, 1500);
     } catch (err: any) {
       setFormError(err.message || 'Operation failed');
@@ -771,51 +793,105 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-xs font-black uppercase text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] transition-all cursor-pointer"
                     >
                       <option value="">-- Choose Tutor --</option>
-                      {activePartners.length > 0 && (
-                        <optgroup label="✨ Your Connected Partners" className="font-extrabold text-[#0D5BFF]">
-                          {activePartners.map(tutor => (
-                            <option key={tutor.id} value={tutor.id} className="font-normal text-[#0B132B] dark:text-white">
-                              {tutor.name} ({tutor.subject || (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : 'Coaches All Subjects')})
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {otherPartners.length > 0 && (
-                        <optgroup label="📋 Other System Tutors" className="font-extrabold text-slate-500">
-                          {otherPartners.map(tutor => (
-                            <option key={tutor.id} value={tutor.id} className="font-normal text-[#0B132B] dark:text-white">
-                              {tutor.name} ({tutor.subject || (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : 'Coaches All Subjects')})
-                            </option>
-                          ))}
-                        </optgroup>
+                      {fallbackUsers.length > 0 ? (
+                        fallbackUsers.map(tutor => (
+                          <option key={tutor.id} value={tutor.id} className="font-normal text-[#0B132B] dark:text-white">
+                            {tutor.name} ({tutor.subject || (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : 'Coaches All Subjects')})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="" disabled>No active session-connected tutors found</option>
                       )}
                     </select>
                   </div>
 
                   {/* Subject Input */}
                   <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Subject Topic</label>
-                    <input
-                      type="text"
-                      value={formSubject}
-                      onChange={(e) => setFormSubject(e.target.value)}
-                      placeholder="e.g., Physics, Calculus Chapter 5"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"
-                      required
-                    />
+                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Subject Topic(s)</label>
+                    
+                    {/* Selected Subjects Chips */}
+                    {selectedSubjects.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2.5">
+                        {selectedSubjects.map((sub, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1.5 bg-blue-500/10 dark:bg-blue-500/20 text-[#0D5BFF] dark:text-blue-300 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-500/10"
+                          >
+                            <span>{sub}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSubjects(selectedSubjects.filter(s => s !== sub))}
+                              className="w-4 h-4 rounded-full bg-blue-500/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-[9px] transition cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={customSubjectInput}
+                        onChange={(e) => setCustomSubjectInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault();
+                            const val = customSubjectInput.trim().replace(/,$/, '');
+                            if (val) {
+                              if (!selectedSubjects.includes(val)) {
+                                setSelectedSubjects([...selectedSubjects, val]);
+                              }
+                              setCustomSubjectInput('');
+                            }
+                          }
+                        }}
+                        placeholder={selectedSubjects.length > 0 ? "Add another subject..." : "Type custom subject (Press Enter or comma to add)"}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 pr-16 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"
+                      />
+                      {customSubjectInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = customSubjectInput.trim();
+                            if (!selectedSubjects.includes(val)) {
+                              setSelectedSubjects([...selectedSubjects, val]);
+                            }
+                            setCustomSubjectInput('');
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0B132B] hover:bg-[#0D5BFF] text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
                     
                     {/* Quick Select Recommendation Pills */}
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      {['Physics', 'Chemistry', 'Higher Math', 'Biology', 'English', 'ICT', 'General Science'].map((sub) => (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => setFormSubject(sub)}
-                          className="px-2.5 py-1 text-[10px] font-black rounded-full bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF] text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition cursor-pointer"
-                        >
-                          {sub}
-                        </button>
-                      ))}
+                      {['Physics', 'Chemistry', 'Higher Math', 'Biology', 'English', 'ICT', 'General Science'].map((sub) => {
+                        const isSelected = selectedSubjects.includes(sub);
+                        return (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedSubjects(selectedSubjects.filter(s => s !== sub));
+                              } else {
+                                setSelectedSubjects([...selectedSubjects, sub]);
+                              }
+                            }}
+                            className={`px-2.5 py-1 text-[10px] font-black rounded-full border transition cursor-pointer ${
+                              isSelected 
+                                ? 'bg-blue-500/15 border-[#0D5BFF] text-[#0D5BFF]' 
+                                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                            }`}
+                          >
+                            {sub}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

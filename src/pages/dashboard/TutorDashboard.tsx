@@ -119,6 +119,7 @@ export default function TutorDashboard() {
     messages,
     payments,
     logout,
+    requestEndPermission,
   } = useAppStore(
     useShallow((state) => ({
       currentUser: state.currentUser,
@@ -136,6 +137,7 @@ export default function TutorDashboard() {
       messages: state.messages,
       payments: state.payments,
       logout: state.logout,
+      requestEndPermission: state.requestEndPermission,
     })),
   );
 
@@ -894,18 +896,60 @@ export default function TutorDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => {
-                            const activeSess = sessions.find(
-                              (s) => s.status === "active",
-                            );
-                            if (activeSess) endSession(activeSess.id);
-                          }}
-                          className="px-8 py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-blue-900/20 flex items-center gap-2 group/btn"
-                        >
-                          <Square className="w-4 h-4 fill-white" />
-                          <span>Complete Session</span>
-                        </button>
+                        {sessions.find((s) => s.status === "active")?.studentPermissionGranted ? (
+                          <button
+                            onClick={() => {
+                              const activeSess = sessions.find(
+                                (s) => s.status === "active",
+                              );
+                              if (activeSess) {
+                                endSession(activeSess.id);
+                              }
+                            }}
+                            className="px-8 py-4 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-900/20 flex items-center gap-2 group/btn cursor-pointer"
+                          >
+                            <Square className="w-4 h-4 fill-white" />
+                            <span>Complete Session</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              const activeSess = sessions.find(
+                                (s) => s.status === "active",
+                              );
+                              if (activeSess) {
+                                if (activeSess.tutorRequestedEnd) {
+                                  useAppStore.getState().sendNotification(
+                                    currentUser!.id,
+                                    "Awaiting Student Action",
+                                    "Your student has been prompted. They must authorize session completion from their dashboard.",
+                                    "warning"
+                                  );
+                                } else {
+                                  await requestEndPermission(activeSess.id);
+                                  useAppStore.getState().sendNotification(
+                                    currentUser!.id,
+                                    "Request Dispatched",
+                                    "Sent completion permission request to your student. Please wait for authorization.",
+                                    "info"
+                                  );
+                                }
+                              }
+                            }}
+                            className={`px-8 py-4 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center gap-2 group/btn cursor-pointer ${
+                              sessions.find((s) => s.status === "active")?.tutorRequestedEnd
+                                ? 'bg-amber-600 hover:bg-amber-750 shadow-amber-900/20'
+                                : 'bg-[#0B132B] hover:bg-slate-900 border border-white/10 shadow-black/20 animate-pulse'
+                            }`}
+                          >
+                            <Square className="w-4 h-4 fill-white" />
+                            <span>
+                              {sessions.find((s) => s.status === "active")?.tutorRequestedEnd
+                                ? "Waiting on Student"
+                                : "Request End Permission"}
+                            </span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleTabChange("transit_mode")}
                           className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all border border-white/10"
@@ -1059,13 +1103,44 @@ export default function TutorDashboard() {
                                 Lesson
                               </button>
                             ) : (
-                              <button
-                                onClick={() => endSession(sess.id)}
-                                className="px-6 py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest flex items-center gap-2 hover:bg-rose-600 transition-all animate-pulse"
-                              >
-                                <Square className="w-4 h-4 fill-current" />{" "}
-                                Finish Session
-                              </button>
+                              sess.studentPermissionGranted ? (
+                                <button
+                                  onClick={() => endSession(sess.id)}
+                                  className="px-6 py-4 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest flex items-center gap-2 hover:bg-emerald-600 transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
+                                >
+                                  <Square className="w-4 h-4 fill-current" />{" "}
+                                  Finish Session
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={async () => {
+                                    if (sess.tutorRequestedEnd) {
+                                      useAppStore.getState().sendNotification(
+                                        currentUser!.id,
+                                        "Awaiting Student Action",
+                                        "Contact your student or wait for them to grant permission to complete class from their dashboard.",
+                                        "warning"
+                                      );
+                                    } else {
+                                      await requestEndPermission(sess.id);
+                                      useAppStore.getState().sendNotification(
+                                        currentUser!.id,
+                                        "Request Dispatched",
+                                        "Dispatched completion request to the student. Please wait for them to approve.",
+                                        "info"
+                                      );
+                                    }
+                                  }}
+                                  className={`px-6 py-4 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest flex items-center gap-2 transition-all cursor-pointer ${
+                                    sess.tutorRequestedEnd
+                                      ? 'bg-amber-600 hover:bg-amber-700'
+                                      : 'bg-[#0B132B] hover:bg-slate-900 border border-white/10 animate-pulse'
+                                  }`}
+                                >
+                                  <Square className="w-4 h-4 fill-current" />{" "}
+                                  {sess.tutorRequestedEnd ? "Waiting Perm." : "Req. Permission"}
+                                </button>
+                              )
                             )}
                             <button
                               onClick={() => {
