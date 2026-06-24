@@ -56,6 +56,7 @@ const ChatWindow = lazy(() => import('../../components/ChatWindow'));
 import ClassLogsCalendar from '../../components/ClassLogsCalendar';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
+import { getCoordinatesForLocation } from '../../utils/geocoding';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
@@ -70,9 +71,12 @@ const MapLoading = () => (
    </div>
 );
 
-const getTutorLocation = (tutorId: string, tutorLocation?: { lat: number; lng: number }, studentLoc?: [number, number]): [number, number] | null => {
+const getTutorLocation = (tutorId: string, tutorLocation?: { lat: number; lng: number }, studentLoc?: [number, number], district?: string, thana?: string): [number, number] | null => {
   if (tutorLocation?.lat && tutorLocation?.lng) {
     return [tutorLocation.lat, tutorLocation.lng];
+  }
+  if (district || thana) {
+    return getCoordinatesForLocation(district || '', thana || '', tutorId);
   }
   if (studentLoc) {
     const charSum = tutorId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -507,7 +511,9 @@ export default function StudentDashboard() {
     nidFrontImg: currentUser?.nidFrontImg || '',
     nidBackImg: currentUser?.nidBackImg || '',
     documents: currentUser?.documents || [],
-    gender: currentUser?.gender || ''
+    gender: currentUser?.gender || '',
+    district: currentUser?.district || '',
+    thana: currentUser?.thana || ''
   });
 
   // Sync form state when currentUser changes or editing is toggled
@@ -523,7 +529,9 @@ export default function StudentDashboard() {
         nidFrontImg: currentUser.nidFrontImg || '',
         nidBackImg: currentUser.nidBackImg || '',
         documents: currentUser.documents || [],
-        gender: currentUser.gender || ''
+        gender: currentUser.gender || '',
+        district: currentUser.district || '',
+        thana: currentUser.thana || ''
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -816,6 +824,7 @@ export default function StudentDashboard() {
     e.preventDefault();
     if (!currentUser) return;
     setIsUpdating(true);
+    const coords = getCoordinatesForLocation(accountForm.district || '', accountForm.thana || '', currentUser.id);
     await useAppStore.getState().updateUser(currentUser.id, {
       name: accountForm.name,
       phone: accountForm.phone,
@@ -826,7 +835,10 @@ export default function StudentDashboard() {
       nidFrontImg: accountForm.nidFrontImg,
       nidBackImg: accountForm.nidBackImg,
       documents: accountForm.documents,
-      gender: accountForm.gender
+      gender: accountForm.gender,
+      district: accountForm.district,
+      thana: accountForm.thana,
+      location: { lat: coords[0], lng: coords[1] }
     });
     setIsEditingAccount(false);
     setIsUpdating(false);
@@ -1332,7 +1344,7 @@ export default function StudentDashboard() {
                               .forEach(s => {
                                 const tutor = users.find(u => u.id === s.tutorId);
                                 if (tutor) {
-                                  const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                  const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
                                   if (coords && !uniqueTutors.has(tutor.id)) {
                                     uniqueTutors.set(tutor.id, {
                                       id: tutor.id,
@@ -1347,7 +1359,7 @@ export default function StudentDashboard() {
                             users
                               .filter(u => u.role === 'tutor' && u.isVerified)
                               .forEach(tutor => {
-                                const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
                                 if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
                                   uniqueTutors.set(tutor.id, {
                                     id: tutor.id,
@@ -2273,7 +2285,7 @@ export default function StudentDashboard() {
 
                                     if (filteredList.length === 0) {
                                       return (
-                                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-150 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
+                                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
                                           <p className="text-[9px] font-black uppercase tracking-widest leading-loose">
                                             {selectedTutor ? "No matched tutor-expert subjects" : "No matched curricular Focus"}
                                           </p>
@@ -2630,7 +2642,7 @@ export default function StudentDashboard() {
                             users
                               .filter(u => u.role === 'tutor' && u.isVerified)
                               .forEach(t => {
-                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng], t.district, t.thana);
                                 if (coords) {
                                   const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
                                   if (dist <= nearbyRadius) {
@@ -2654,7 +2666,7 @@ export default function StudentDashboard() {
                                 return true;
                               })
                               .map(t => {
-                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng], t.district, t.thana);
                                 if (!coords) return null;
                                 const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
                                 if (dist > nearbyRadius) return null;
@@ -2678,7 +2690,7 @@ export default function StudentDashboard() {
                               placeholder="Search subjects (e.g. Physics, Chemistry, Math)..."
                               value={mapSubjectQuery}
                               onChange={(e) => setMapSubjectQuery(e.target.value)}
-                              className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-850 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                              className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
                             />
                           </div>
 
@@ -2686,7 +2698,7 @@ export default function StudentDashboard() {
                             <select
                               value={mapMinRating || ''}
                               onChange={(e) => setMapMinRating(Number(e.target.value) || 0)}
-                              className="flex-1 px-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-850 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] cursor-pointer"
+                              className="flex-1 px-3 py-2.5 bg-white dark:bg-[#111A2E] text-slate-800 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] cursor-pointer"
                             >
                               <option value={0}>All Ratings</option>
                               <option value={4.0}>⭐ 4.0+ Stars</option>
@@ -2769,7 +2781,7 @@ export default function StudentDashboard() {
                                         return;
                                       }
 
-                                      const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                      const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
                                       if (coords && !uniqueTutors.has(tutor.id)) {
                                         uniqueTutors.set(tutor.id, {
                                           id: tutor.id,
@@ -2800,7 +2812,7 @@ export default function StudentDashboard() {
                                     return true;
                                   })
                                   .map(t => {
-                                    const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng]);
+                                    const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng], t.district, t.thana);
                                     if (!coords) return null;
                                     const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
                                     if (dist > nearbyRadius) return null;
@@ -3089,6 +3101,33 @@ export default function StudentDashboard() {
                          <option value="Male">MALE</option>
                          <option value="Female">FEMALE</option>
                          <option value="Other">OTHER</option>
+                       </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">District</label>
+                       <select 
+                         value={accountForm.district}
+                         onChange={e => setAccountForm({...accountForm, district: e.target.value, thana: ''})}
+                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
+                       >
+                         <option value="">SELECT DISTRICT</option>
+                         {BANGLADESH_DISTRICTS.map(dist => (
+                           <option key={dist} value={dist}>{dist.toUpperCase()}</option>
+                         ))}
+                       </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Thana / Sub-district</label>
+                       <select 
+                         value={accountForm.thana}
+                         disabled={!accountForm.district}
+                         onChange={e => setAccountForm({...accountForm, thana: e.target.value})}
+                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
+                       >
+                         <option value="">{accountForm.district ? 'SELECT THANA' : 'SELECT DISTRICT FIRST'}</option>
+                         {accountForm.district && BANGLADESH_THANAS[accountForm.district]?.map(th => (
+                           <option key={th} value={th}>{th.toUpperCase()}</option>
+                         ))}
                        </select>
                     </div>
                     <div className="md:col-span-2 space-y-2">
@@ -3382,7 +3421,7 @@ export default function StudentDashboard() {
 
               <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Shield className={`w-6 h-6 ${viewingProfileUser.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
                       <div>
@@ -3395,7 +3434,7 @@ export default function StudentDashboard() {
                     {viewingProfileUser.nidStatus === 'approved' && <Check className="w-5 h-5 text-emerald-500 bg-emerald-50 rounded-full p-1" />}
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Award className={`w-6 h-6 ${viewingProfileUser.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
                       <div>
@@ -3422,7 +3461,7 @@ export default function StudentDashboard() {
 
                 <div className="space-y-2">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Professional Bio</span>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-medium font-sans">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-medium font-sans">
                     {viewingProfileUser.bio || "Academic expert dedicated to elevating student capabilities and instilling key study discipline."}
                   </p>
                 </div>
@@ -3467,7 +3506,7 @@ export default function StudentDashboard() {
                     </button>
                   </>
                 ) : (
-                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800">
                     Awaiting response from {viewingProfileUser.name}
                   </div>
                 )}

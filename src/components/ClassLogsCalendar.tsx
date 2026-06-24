@@ -1153,7 +1153,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
             
             <div className="flex flex-wrap items-center gap-3">
               {/* Dynamic Active Month Export Buttons */}
-              <div className="flex items-center gap-1.5 border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/20 p-1.5 rounded-2xl">
+              <div className="flex items-center gap-1.5 border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 p-1.5 rounded-2xl">
                 <button
                   type="button"
                   onClick={() => exportMonthToCSV(activeMonthStats)}
@@ -1187,14 +1187,14 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
               <div className="flex items-center gap-2">
                 <button 
                   onClick={handlePrevMonth}
-                  className="w-10 h-10 border border-slate-150 dark:border-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-350 dark:hover:border-slate-700 transition"
+                  className="w-10 h-10 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition"
                   title="Previous Month"
                 >
                   <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                 </button>
                 <button 
                   onClick={handleNextMonth}
-                  className="w-10 h-10 border border-slate-150 dark:border-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-350 dark:hover:border-slate-700 transition"
+                  className="w-10 h-10 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition"
                   title="Next Month"
                 >
                   <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
@@ -1380,7 +1380,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                         : 'bg-transparent border-transparent hover:bg-slate-100/50 dark:hover:bg-slate-800/20'
                     }`}
                   >
-                    <p className="text-[10px] font-black truncate text-slate-850 dark:text-white">
+                    <p className="text-[10px] font-black truncate text-slate-800 dark:text-white">
                       {log.subject}
                     </p>
                     <div className="flex items-center justify-between gap-1 mt-1.5 min-w-0">
@@ -1661,7 +1661,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                 placeholder={`Search ${role === 'student' ? 'teacher' : 'student'}...`}
                 value={analyticsSearch}
                 onChange={(e) => setAnalyticsSearch(e.target.value)}
-                className="bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-800 rounded-2xl px-4 py-2 pl-9 text-xs font-medium text-slate-850 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all w-48"
+                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2 pl-9 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all w-48"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
                 🔍
@@ -1669,7 +1669,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
             </div>
 
             {/* Quick Export Active Month Ledger */}
-            <div className="flex items-center gap-1 border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/20 p-1 rounded-2xl">
+            <div className="flex items-center gap-1 border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 p-1 rounded-2xl">
               <button
                 type="button"
                 onClick={() => exportMonthToCSV(activeMonthStats)}
@@ -1716,7 +1716,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                   return (
                     <div 
                       key={p.id}
-                      className="bg-slate-50/50 dark:bg-slate-850/20 border border-slate-100 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm hover:border-[#0D5BFF]/25 transition duration-300 flex flex-col gap-6"
+                      className="bg-slate-50/50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm hover:border-[#0D5BFF]/25 transition duration-300 flex flex-col gap-6"
                     >
                       {/* Partner Identity Header */}
                       <div className="flex items-start gap-4">
@@ -1746,7 +1746,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       <div className="grid grid-cols-4 gap-3">
                         <div className="bg-white dark:bg-slate-900 border border-slate-100/60 dark:border-slate-800/80 rounded-2xl p-3 text-center shadow-inner">
                           <p className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Total</p>
-                          <p className="text-lg font-black text-slate-850 dark:text-white mt-0.5">{p.total}</p>
+                          <p className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{p.total}</p>
                         </div>
                         <div className="bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100/20 rounded-2xl p-3 text-center">
                           <p className="text-[7.5px] font-black uppercase tracking-wider text-emerald-500">Verified</p>
@@ -1831,7 +1831,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
               {analyticsData.months.map(m => (
                 <div 
                   key={m.monthKey} 
-                  className="bg-slate-50/40 dark:bg-slate-850/10 border border-slate-100 dark:border-slate-800 rounded-3xl p-6"
+                  className="bg-slate-50/40 dark:bg-slate-800/10 border border-slate-100 dark:border-slate-800 rounded-3xl p-6"
                 >
                   {/* Month Label Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
@@ -1847,7 +1847,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       </span>
                       <button
                         onClick={() => exportMonthToCSV(m)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-705 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
                         title="Export CSV"
                       >
                         <Download className="w-3 h-3 text-slate-500" />
@@ -1870,7 +1870,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                     <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 dark:from-indigo-950/20 dark:to-slate-900 border border-indigo-100/50 dark:border-indigo-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                       <div className="space-y-1">
                         <p className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Total Sessions</p>
-                        <h4 className="text-2xl font-black text-slate-850 dark:text-white leading-none">{m.total}</h4>
+                        <h4 className="text-2xl font-black text-slate-800 dark:text-white leading-none">{m.total}</h4>
                         <p className="text-[9px] font-medium text-slate-400">Classes Taught</p>
                       </div>
                       <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center font-black text-lg">
@@ -1947,7 +1947,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
 
                             {/* Verification Stats inside Card */}
                             <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider border-t border-slate-50 dark:border-slate-800/60 pt-2.5">
-                              <span className="text-slate-400">Total: <span className="text-slate-850 dark:text-white font-extrabold">{p.total}</span></span>
+                              <span className="text-slate-400">Total: <span className="text-slate-800 dark:text-white font-extrabold">{p.total}</span></span>
                               <div className="flex gap-2">
                                 {p.verified > 0 && (
                                   <span className="text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg">{p.verified} OK</span>
@@ -1979,10 +1979,10 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
               {yearlyAnalytics.map(yData => (
                 <div 
                   key={yData.year} 
-                  className="bg-slate-50/40 dark:bg-slate-850/10 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 space-y-6"
+                  className="bg-slate-50/40 dark:bg-slate-800/10 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 space-y-6"
                 >
                   {/* Year Header Block */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-150 dark:border-slate-800 pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm">
                         📅
@@ -2002,7 +2002,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                       </span>
                       <button
                         onClick={() => exportYearToCSV(yData)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-705 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
                         title="Export Year CSV"
                       >
                         <Download className="w-3 h-3 text-slate-500" />
@@ -2062,7 +2062,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                             <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 dark:from-indigo-950/20 dark:to-slate-900 border border-indigo-100/50 dark:border-indigo-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                               <div className="space-y-1">
                                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Total Sessions</p>
-                                <h4 className="text-2xl font-black text-slate-850 dark:text-white leading-none">{mData.total}</h4>
+                                <h4 className="text-2xl font-black text-slate-800 dark:text-white leading-none">{mData.total}</h4>
                                 <p className="text-[9px] font-medium text-slate-400">Classes Taught</p>
                               </div>
                               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-455 flex items-center justify-center font-black text-lg">
@@ -2122,7 +2122,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                                 return (
                                   <div 
                                     key={partnerData.id}
-                                    className="bg-slate-50/60 dark:bg-slate-850/30 border border-slate-100/50 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-300"
+                                    className="bg-slate-50/60 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-300"
                                   >
                                     {/* Identity block */}
                                     <div className="flex items-center gap-3 min-w-0">
@@ -2193,7 +2193,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
             >
               <button 
                 onClick={() => setShowLogModal(false)}
-                className="absolute top-6 right-6 w-10 h-10 rounded-full border border-slate-100 dark:border-slate-850 flex items-center justify-center text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="absolute top-6 right-6 w-10 h-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2348,7 +2348,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
                     </div>
                   )}
 
-                  <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-850">
+                  <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => setShowLogModal(false)}

@@ -123,7 +123,7 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
     const finalScore = Math.min(100, data.baselineScore + (data.count * 12));
     
     // Choose styling color palette
-    let bgColor = 'bg-slate-50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-850';
+    let bgColor = 'bg-slate-50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800';
     let textColor = 'text-slate-400';
     let label = 'Low Demand';
     let pulse = false;
@@ -189,7 +189,7 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800/80 p-8 sm:p-10 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-8">
       {/* Header section with explanatory tags */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-850 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-800 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
@@ -205,7 +205,7 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
         </div>
         
         {/* Colors Legend */}
-        <div className="flex flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-slate-950/20 p-3 rounded-2xl border border-slate-100/60 dark:border-slate-850/50">
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-slate-950/20 p-3 rounded-2xl border border-slate-100/60 dark:border-slate-800/50">
           <span className="text-[8px] font-bold uppercase text-slate-400 mr-1">Legend:</span>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
@@ -356,7 +356,7 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
       </div>
 
       {/* Optimization recommendations footer banner */}
-      <div className="grid md:grid-cols-3 gap-6 bg-slate-50 dark:bg-slate-950/20 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-850/50">
+      <div className="grid md:grid-cols-3 gap-6 bg-slate-50 dark:bg-slate-950/20 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800/50">
         <div className="md:col-span-1 space-y-1.5 flex flex-col justify-center">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-500" />
@@ -375,7 +375,7 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
             <button
               key={idx}
               onClick={() => handleCellClick(rec.day, rec.hour)}
-              className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-2xl flex flex-col justify-between text-left hover:border-[#0D5BFF] hover:shadow-lg transition-all active:scale-95 group/rec cursor-pointer"
+              className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col justify-between text-left hover:border-[#0D5BFF] hover:shadow-lg transition-all active:scale-95 group/rec cursor-pointer"
             >
               <div>
                 <span className="text-[7px] font-black uppercase tracking-widest text-[#0D5BFF] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded">

@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
+import { getCoordinatesForLocation } from "../../utils/geocoding";
 import {
   LineChart,
   Line,
@@ -496,10 +497,12 @@ export default function TutorDashboard() {
     if (!currentUser) return;
     setIsUpdating(true);
     try {
+      const coords = getCoordinatesForLocation(profileForm.district || "", profileForm.thana || "", currentUser.id);
       await updateUser(currentUser.id, {
         ...profileForm,
         hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
+        location: { lat: coords[0], lng: coords[1] }
       });
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
@@ -2444,7 +2447,7 @@ export default function TutorDashboard() {
 
                             if (filteredList.length === 0) {
                               return (
-                                <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-150 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
+                                <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
                                   <p className="text-[9px] font-black uppercase tracking-widest leading-loose">No matched curricular Focus</p>
                                 </div>
                               );
@@ -3152,7 +3155,7 @@ export default function TutorDashboard() {
                           <select
                             value={proposalSubject}
                             onChange={e => setProposalSubject(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                           >
                             {selectedStudentForProposal.subjects && selectedStudentForProposal.subjects.length > 0 ? (
                               selectedStudentForProposal.subjects.map(sub => (
@@ -3176,7 +3179,7 @@ export default function TutorDashboard() {
                               value={proposalDate}
                               min={new Date().toISOString().split("T")[0]}
                               onChange={e => setProposalDate(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                             />
                           </div>
 
@@ -3187,7 +3190,7 @@ export default function TutorDashboard() {
                             <select
                               value={proposalSlot}
                               onChange={e => setProposalSlot(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                             >
                               {[
                                 "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -3220,7 +3223,7 @@ export default function TutorDashboard() {
                             onChange={e => setProposalNotes(e.target.value)}
                             placeholder="Introduce yourself, outline credentials, or propose specific rates..."
                             rows={3}
-                            className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-5 text-xs font-medium text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-5 text-xs font-medium text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                           />
                         </div>
 
@@ -3312,7 +3315,7 @@ export default function TutorDashboard() {
                 {/* Academics Section */}
                 <div>
                   <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Academic Parameters</h4>
-                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
                     <div className="space-y-1">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Institute / School</span>
                       <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.school || 'Autonomous Learner'}</p>
@@ -3335,7 +3338,7 @@ export default function TutorDashboard() {
                 {/* Location Section */}
                 <div>
                   <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Address & Geography</h4>
-                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans">
+                  <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans">
                     <div className="space-y-1">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">District</span>
                       <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.district || 'Not Specified'}</p>
@@ -3367,7 +3370,7 @@ export default function TutorDashboard() {
                 {/* Core Contact info */}
                 <div>
                   <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Contact Channels</h4>
-                  <div className="bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans space-y-4">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/60 font-sans space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] rounded-xl flex items-center justify-center">
@@ -3403,7 +3406,7 @@ export default function TutorDashboard() {
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-sans">Enrolled / Desired Subjects</span>
                   <div className="flex flex-wrap gap-2">
                     {(viewingProfileUser.subjects || ['General Syllabus Support']).map((sub, idx) => (
-                      <span key={idx} className="px-3 py-1 bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-lg text-[10px] font-extrabold uppercase text-[#0B132B] dark:text-white">
+                      <span key={idx} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-[10px] font-extrabold uppercase text-[#0B132B] dark:text-white">
                         {sub}
                       </span>
                     ))}
@@ -3453,7 +3456,7 @@ export default function TutorDashboard() {
                       </button>
                     </>
                   ) : (
-                    <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800">
                       Awaiting response from {viewingProfileUser.name}
                     </div>
                   )

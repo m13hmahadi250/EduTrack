@@ -1,9 +1,9 @@
 import { useEffect, useMemo, memo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAppStore } from '../store';
-import { ZoomIn, ZoomOut, Focus, Navigation, ExternalLink } from 'lucide-react';
+import { ZoomIn, ZoomOut, Focus, Navigation, ExternalLink, MapPin } from 'lucide-react';
 import MarkerClusterGroup from './MarkerClusterGroup';
 
 // Fix typical leaflet marker icon issue in React
@@ -20,6 +20,17 @@ L.Icon.Default.mergeOptions({
   iconUrl: iconMarker,
   shadowUrl: iconShadow,
 });
+
+function MapEventsHandler({ active, onMapClick }: { active: boolean; onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      if (active) {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+      }
+    }
+  });
+  return null;
+}
 
 interface UserMarker {
   id: string;
@@ -102,13 +113,19 @@ function CustomMapHUD({
   studentLocation, 
   tutorLocation, 
   tutors, 
-  students 
+  students,
+  isPinningMode,
+  setIsPinningMode,
+  hasUser
 }: { 
   center: [number, number]; 
   studentLocation?: [number, number]; 
   tutorLocation?: [number, number]; 
   tutors?: UserMarker[]; 
   students?: UserMarker[]; 
+  isPinningMode: boolean;
+  setIsPinningMode: (val: boolean) => void;
+  hasUser: boolean;
 }) {
   const map = useMap();
   
@@ -176,6 +193,22 @@ function CustomMapHUD({
 
       <div className="h-[1px] bg-slate-200/60 dark:bg-slate-800 mx-1" />
 
+      {/* Manual Pin Placement Mode */}
+      {hasUser && (
+        <button 
+          type="button"
+          onClick={() => setIsPinningMode(!isPinningMode)}
+          className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all cursor-pointer border ${
+            isPinningMode 
+              ? 'bg-amber-500 text-white border-amber-400 animate-pulse shadow-md' 
+              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white border-transparent'
+          }`}
+          title={isPinningMode ? "Click Map to Set Location" : "Map Pin Placement (Manual Location Calibration)"}
+        >
+          <MapPin className="w-4 h-4 stroke-[2.5]" />
+        </button>
+      )}
+
       {/* Recenter */}
       <button 
         type="button"
@@ -210,9 +243,26 @@ const MapTracker = memo(({
   tutors,
   students 
 }: MapTrackerProps) => {
-  const { theme } = useAppStore();
+  const { theme, currentUser, updateLocation } = useAppStore();
 
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  const [isPinningMode, setIsPinningMode] = useState(false);
+
+  const handleMapClick = async (lat: number, lng: number) => {
+    if (!currentUser) return;
+    try {
+      await updateLocation(currentUser.id, lat, lng);
+      setIsPinningMode(false);
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        "Location Set",
+        `Coordinates manually calibrated on the tracking radar to [${lat.toFixed(4)}, ${lng.toFixed(4)}].`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Failed to update manual coordinate placement:", err);
+    }
+  };
 
   const selectedTutorObj = useMemo(() => {
     if (!selectedTutorId) return null;
@@ -479,14 +529,38 @@ const MapTracker = memo(({
         ))}
 
         <MapRecenter lat={center[0]} lng={center[1]} />
+        <MapEventsHandler active={isPinningMode} onMapClick={handleMapClick} />
         <CustomMapHUD 
           center={center} 
           studentLocation={studentLocation} 
           tutorLocation={tutorLocation} 
           tutors={tutors} 
           students={students} 
+          isPinningMode={isPinningMode}
+          setIsPinningMode={setIsPinningMode}
+          hasUser={!!currentUser}
         />
       </MapContainer>
+
+      {/* Manual Pinning Instructions Overlay */}
+      {isPinningMode && (
+        <div className="absolute top-4 left-4 z-[1000] p-3.5 sm:p-4 bg-amber-500 text-white rounded-2xl shadow-xl border border-amber-400/50 font-sans max-w-[240px] sm:max-w-xs animate-fade-in">
+          <p className="text-[9px] font-black uppercase tracking-[0.15em] mb-1 text-amber-100 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+            CALIBRATING LOCATION
+          </p>
+          <p className="text-[10px] sm:text-xs font-bold leading-normal text-white">
+            Tap/click anywhere on the map grid to manually place your radar pin drop.
+          </p>
+          <button 
+            type="button"
+            onClick={() => setIsPinningMode(false)}
+            className="mt-2.5 px-3 py-1 bg-white hover:bg-slate-100 text-amber-600 font-black text-[9px] uppercase tracking-widest rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 border-none"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Distance Ruler Floating HUD Overlay */}
       {studentLocation && selectedTutorObj && (
@@ -524,7 +598,7 @@ const MapTracker = memo(({
               <button
                 type="button"
                 onClick={() => setSelectedTutorId(null)}
-                className="flex-1 py-1 px-2 text-[8px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-350 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-705 rounded-lg transition-colors cursor-pointer text-center border border-slate-200/40 dark:border-transparent"
+                className="flex-1 py-1 px-2 text-[8px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-350 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer text-center border border-slate-200/40 dark:border-transparent"
               >
                 Clear Path
               </button>

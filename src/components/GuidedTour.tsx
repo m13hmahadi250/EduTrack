@@ -109,7 +109,7 @@ export default function GuidedTour() {
               <span className="text-[8px] font-medium text-slate-400 block mt-1">Direct verification of BUET, DU & DM graduates.</span>
             </div>
           </div>
-          <p className="text-[10px] leading-relaxed text-slate-500 font-medium bg-slate-50 dark:bg-slate-950/20 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850">
+          <p className="text-[10px] leading-relaxed text-slate-500 font-medium bg-slate-50 dark:bg-slate-950/20 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
             💡 <span className="font-bold text-slate-700 dark:text-slate-300">Tutor Cards:</span> Look for cards with the double check ledger badge, providing NID-verified state credentials.
           </p>
           <div className="text-center pt-1">

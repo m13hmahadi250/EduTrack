@@ -361,7 +361,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-4 pt-1 border-t border-slate-50 dark:border-slate-850">
+          <div className="flex gap-4 pt-1 border-t border-slate-50 dark:border-slate-800">
             <button
               type="button"
               onClick={onCancel}

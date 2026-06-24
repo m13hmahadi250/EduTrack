@@ -948,7 +948,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                         </div>
                         <div>
                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">National Identity NID (Unmasked)</span>
-                          <p className="text-xs font-black text-slate-850 dark:text-white mt-1 font-mono tracking-widest">{inspectingUser.nidNumber || 'NOT SUBMITTED'}</p>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1 font-mono tracking-widest">{inspectingUser.nidNumber || 'NOT SUBMITTED'}</p>
                         </div>
                         <div>
                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Hourly Rate Quote</span>
@@ -1024,7 +1024,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Academic Certificates & Transcripts</span>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {inspectingUser.documents.map((docUrl, dIdx) => (
-                                  <div key={dIdx} className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-850 relative group cursor-pointer hover:border-[#0D5BFF] transition-all" onClick={() => window.open(docUrl, '_blank')}>
+                                  <div key={dIdx} className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-pointer hover:border-[#0D5BFF] transition-all" onClick={() => window.open(docUrl, '_blank')}>
                                     <img src={docUrl} alt={`Certificate ${dIdx + 1}`} className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                       <span className="text-[8px] font-black text-white uppercase tracking-wider">Open Raw</span>
