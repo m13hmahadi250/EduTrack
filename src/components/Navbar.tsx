@@ -107,7 +107,10 @@ const Navbar = memo(() => {
                 >
                   Dashboard
                 </Link>
-                <div className="flex items-center space-x-1 sm:space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/85 dark:border-slate-800 pl-2 sm:pl-3.5 ml-0.5 shrink-0">
+                <Link 
+                  to="/dashboard"
+                  className="flex items-center space-x-1 sm:space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/85 dark:border-slate-800 pl-2 sm:pl-3.5 ml-0.5 shrink-0 hover:opacity-85 transition-opacity cursor-pointer"
+                >
                   <div className="p-0.5 rounded-full bg-gradient-to-tr from-[#0D5BFF] to-blue-400 overflow-hidden shadow-sm flex-shrink-0">
                     {currentUser.profileImage ? (
                       <img src={currentUser.profileImage} alt={currentUser.name} className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover border border-white dark:border-[#111A2E]" referrerPolicy="no-referrer" />
@@ -117,8 +120,8 @@ const Navbar = memo(() => {
                       </div>
                     )}
                   </div>
-                  <span className="font-bold text-[#0B132B] dark:text-white hidden lg:block max-w-[100px] truncate">{currentUser.name}</span>
-                </div>
+                  <span className="font-bold text-[#0B132B] dark:text-white hidden lg:block max-w-[100px] truncate hover:text-[#0D5BFF] transition-colors">{currentUser.name}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer shrink-0"

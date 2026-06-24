@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, 
   Mail, 
@@ -98,6 +97,16 @@ export default function TeacherProfile() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (tutor) {
+      document.title = `${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`;
+      const descMeta = document.querySelector('meta[name="description"]');
+      if (descMeta) {
+        descMeta.setAttribute('content', `Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh. Rated ${Number(tutor.rating || 5.0).toFixed(1)}/5.`);
+      }
+    }
+  }, [tutor]);
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopied(label);
@@ -167,16 +176,6 @@ export default function TeacherProfile() {
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" id={`teacher-profile-root-${tutor.id}`}>
-      <Helmet>
-        <title>{`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`}</title>
-        <meta name="description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh. Rated ${Number(tutor.rating || 5.0).toFixed(1)}/5.`} />
-        <meta property="og:title" content={`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`} />
-        <meta property="og:description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh.`} />
-        {tutor.profileImage && <meta property="og:image" content={tutor.profileImage} />}
-        <meta name="twitter:title" content={`${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`} />
-        <meta name="twitter:description" content={`Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh.`} />
-        {tutor.profileImage && <meta name="twitter:image" content={tutor.profileImage} />}
-      </Helmet>
       
       {/* Top Banner & Navigation */}
       <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">
