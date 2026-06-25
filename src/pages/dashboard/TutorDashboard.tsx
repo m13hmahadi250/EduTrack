@@ -121,6 +121,7 @@ export default function TutorDashboard() {
     payments,
     logout,
     requestEndPermission,
+    submitPayment,
   } = useAppStore(
     useShallow((state) => ({
       currentUser: state.currentUser,
@@ -139,6 +140,7 @@ export default function TutorDashboard() {
       payments: state.payments,
       logout: state.logout,
       requestEndPermission: state.requestEndPermission,
+      submitPayment: state.submitPayment,
     })),
   );
 
@@ -440,6 +442,42 @@ export default function TutorDashboard() {
   >("bkash");
   const [withdrawalSuccess, setWithdrawalSuccess] = useState(false);
   const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
+
+  // Manual payment states
+  const [tutorBkashNumber, setTutorBkashNumber] = useState("");
+  const [tutorTrxId, setTutorTrxId] = useState("");
+  const [tutorPaymentSuccess, setTutorPaymentSuccess] = useState(false);
+  const [isSubmittingTutorPayment, setIsSubmittingTutorPayment] = useState(false);
+  const [tutorPaymentError, setTutorPaymentError] = useState("");
+  const [historyTab, setHistoryTab] = useState<"withdrawals" | "deposits">("withdrawals");
+
+  const handleTutorPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tutorBkashNumber || !tutorTrxId || isSubmittingTutorPayment || !currentUser) return;
+    
+    setIsSubmittingTutorPayment(true);
+    setTutorPaymentError("");
+    try {
+      await submitPayment({
+        studentId: "admin",
+        tutorId: currentUser.id,
+        amount: 200,
+        bKashNumber: tutorBkashNumber,
+        transactionId: tutorTrxId,
+      });
+      setTutorPaymentSuccess(true);
+      setTutorBkashNumber("");
+      setTutorTrxId("");
+      setTimeout(() => {
+        setTutorPaymentSuccess(false);
+      }, 5000);
+    } catch (err: any) {
+      console.error(err);
+      setTutorPaymentError(err.message || "Failed to submit transaction verification.");
+    } finally {
+      setIsSubmittingTutorPayment(false);
+    }
+  };
 
   // Geolocation tracking logic
   useEffect(() => {
@@ -1201,62 +1239,12 @@ export default function TutorDashboard() {
               className="grid lg:grid-cols-2 gap-12"
             >
               <div className="space-y-8">
-                <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 text-white relative overflow-hidden shadow-2xl">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/10 blur-[100px]"></div>
-                  <div className="flex items-center space-x-4 mb-12 relative z-10">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">
-                      <CreditCard className="w-7 h-7 text-[#0D5BFF]" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black uppercase italic">
-                        Wallet Records
-                      </h2>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        Liquidity Status
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 mb-12">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4">
-                      Floating Balance
-                    </p>
-                    <h3 className="text-7xl font-black italic tracking-tighter">
-                      ৳{currentUser.balance?.toLocaleString()}
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 relative z-10">
-                    <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5">
-                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                        Total Yield
-                      </p>
-                      <p className="text-xl font-black italic">
-                        ৳
-                        {activeSessions.filter((s) => s.status === "completed")
-                          .length * (currentUser.hourlyRate || 1000)}
-                      </p>
-                    </div>
-                    <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5">
-                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                        Withdrawn
-                      </p>
-                      <p className="text-xl font-black italic">
-                        ৳
-                        {tutorWithdrawals
-                          .filter((w) => w.status === "approved")
-                          .reduce((acc, w) => acc + w.amount, 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
+                <div className="bg-[#E51275]/5 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-[#E51275]/10 shadow-sm">
                   <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 flex items-center gap-3">
-                    <Zap className="w-5 h-5 text-amber-500" /> WITHDRAWAL
+                    <CreditCard className="w-5 h-5 text-[#E51275]" /> Tuition Finder Payment
                   </h3>
 
-                  {withdrawalSuccess ? (
+                  {tutorPaymentSuccess ? (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -1266,165 +1254,151 @@ export default function TutorDashboard() {
                         <CheckCircle className="w-10 h-10 text-emerald-500" />
                       </div>
                       <h4 className="text-xl font-black text-emerald-900 uppercase italic">
-                        Payout Synchronized
+                        Payment Verification Sent
                       </h4>
                       <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2 px-0 md:px-10">
-                        Our treasury has received your hook. Expect clearance
-                        within 6-12 standard operational hours.
+                        We have submitted your bKash payment verification of ৳200 to our administrator queue. Your expert profile features will sync shortly!
                       </p>
                     </motion.div>
                   ) : (
-                    <form onSubmit={handleWithdrawRequest} className="space-y-6">
-                      {withdrawalError && (
-                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-left md:text-center">
-                          {withdrawalError}
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <DashboardInput
-                          label="Withdrawal Volume (৳)"
-                          value={withdrawAmount}
-                          onChange={(v) => {
-                            const clean = v.replace(/[^0-9]/g, "");
-                            const formatted = clean ? Number(clean).toLocaleString('en-US') : "";
-                            setWithdrawAmount(formatted);
-                          }}
-                          placeholder="Min 500"
-                          type="text"
-                        />
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-[#0B132B] uppercase tracking-widest italic ml-1">
-                            Payout Gateway
-                          </label>
-                          <select
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value as any)}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] px-5 py-4 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:border-[#0D5BFF] transition-all"
-                          >
-                            <option value="bkash">bKash Personal</option>
-                            <option value="nagad">Nagad Wallet</option>
-                            <option value="bank">Bank Transfer</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <DashboardInput
-                        label="Recipient Identification / ID"
-                        value={bkashNumber}
-                        onChange={setBkashNumber}
-                        placeholder="ACCOUNT NUMBER OR IBAN..."
-                      />
-
-                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
-                        <ShieldCheck className="w-4 h-4 text-[#0D5BFF]" />
-                        <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest">
-                          Security: Funds are locked during audit phase
+                    <form onSubmit={handleTutorPaymentSubmit} className="space-y-6">
+                      <div className="p-5 bg-gradient-to-br from-[#E51275]/10 to-rose-50/50 rounded-2xl border border-rose-100">
+                        <p className="text-xs font-black text-[#E51275] uppercase tracking-wider mb-2">
+                          Manual bKash Instructions
+                        </p>
+                        <p className="text-[10px] text-slate-600 uppercase font-bold tracking-wider leading-relaxed">
+                          Please Send Money  of <span className="text-[#E51275] font-black">৳200</span> to our official admin bKash Personal account:
+                        </p>
+                        <p className="text-lg font-black text-slate-800 tracking-wider mt-2 border-2 border-dashed border-[#E51275]/30 bg-white px-3 py-1.5 rounded-xl w-fit font-mono">
+                          01575-357811
                         </p>
                       </div>
 
-                      <button
-                        disabled={
-                          !withdrawAmount ||
-                          !bkashNumber ||
-                          Number(String(withdrawAmount).replace(/,/g, '')) > (currentUser.balance || 0)
-                        }
-                        className="w-full bg-[#0D5BFF] text-white py-6 rounded-[2.5rem] font-black uppercase italic tracking-widest shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
-                      >
-                        Authorize Secure Payout
-                      </button>
+                      {tutorPaymentError && (
+                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-500 text-[10px] font-black uppercase tracking-widest">
+                          {tutorPaymentError}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <DashboardInput
+                          label="bKash Account No."
+                          value={tutorBkashNumber}
+                          onChange={setTutorBkashNumber}
+                          placeholder="e.g. 017XXXXXXXX"
+                        />
+                        <DashboardInput
+                          label="Transaction ID (TrxID)"
+                          value={tutorTrxId}
+                          onChange={setTutorTrxId}
+                          placeholder="e.g. 8XJ9K12M..."
+                        />
+                      </div>
+
+                      <div className="flex gap-4 items-center pt-2">
+                        <div className="flex-1">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Fixed Amount</span>
+                          <span className="text-lg font-black text-[#0B132B]">৳200 TK</span>
+                        </div>
+                        <button
+                          disabled={!tutorBkashNumber || !tutorTrxId || isSubmittingTutorPayment}
+                          className="flex-[2] bg-[#E51275] text-white py-4 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-2 shadow-lg shadow-[#E51275]/10 font-sans"
+                        >
+                          {isSubmittingTutorPayment ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4" />
+                              Submit Payment verification
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </form>
                   )}
                 </div>
+
+
               </div>
 
               <section className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">
-                  Financial History
-                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                  <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+                    Tuition Finder Payments History
+                  </h3>
+                </div>
+
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
                   <div className="space-y-4">
-                    {tutorWithdrawals
+                    {payments
+                      .filter((p) => p.tutorId === currentUser.id && p.studentId === "admin")
                       .sort(
                         (a, b) =>
-                          new Date(b.timestamp).getTime() -
-                          new Date(a.timestamp).getTime(),
+                          new Date(b.date).getTime() -
+                          new Date(a.date).getTime(),
                       )
-                      .map((w) => (
+                      .map((p) => (
                         <div
-                          key={w.id}
+                          key={p.id}
                           className="p-8 bg-slate-50 rounded-[3rem] border border-slate-100 flex flex-col gap-6 group hover:bg-white hover:shadow-lg transition-all duration-300"
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
                               <div
-                                className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black italic shadow-inner ${
-                                  w.status === "approved"
-                                    ? "bg-emerald-50 text-emerald-500"
-                                    : w.status === "rejected"
-                                      ? "bg-rose-50 text-rose-500"
-                                      : "bg-amber-50 text-amber-500"
-                                }`}
+                                className="w-14 h-14 rounded-2xl flex items-center justify-center font-black italic shadow-inner bg-rose-50 text-[#E51275]"
                               >
-                                {w.paymentMethod?.charAt(0).toUpperCase() ||
-                                  "B"}
+                                B
                               </div>
                               <div>
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                  {new Date(w.timestamp).toLocaleString()}
+                                  {new Date(p.date).toLocaleString()}
                                 </p>
                                 <h4 className="text-sm font-black text-[#0B132B] uppercase italic">
-                                  ID: {w.bKashNumber}
+                                  TRX: {p.transactionId}
                                 </h4>
-                                <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">
-                                  {w.paymentMethod?.toUpperCase()} CHANNEL
+                                <p className="text-[8px] font-black text-[#E51275] uppercase tracking-widest">
+                                  BKASH MANUAL DEPOSIT
                                 </p>
                               </div>
                             </div>
                             <div className="sm:text-right">
                               <p className="text-2xl font-black text-[#0B132B] italic mb-1">
-                                ৳{w.amount}
+                                ৳{p.amount}
                               </p>
                               <div className="flex items-center sm:justify-end gap-2">
                                 <div
                                   className={`w-1.5 h-1.5 rounded-full ${
-                                    w.status === "approved"
+                                    p.status === "approved"
                                       ? "bg-emerald-500"
-                                      : w.status === "rejected"
+                                      : p.status === "rejected"
                                         ? "bg-rose-500"
                                         : "bg-amber-500 animate-pulse"
                                   }`}
                                 />
                                 <span
                                   className={`text-[10px] font-black uppercase tracking-[0.2em] ${
-                                    w.status === "approved"
+                                    p.status === "approved"
                                       ? "text-emerald-500"
-                                      : w.status === "rejected"
+                                      : p.status === "rejected"
                                         ? "text-rose-500"
                                         : "text-amber-500"
                                   }`}
                                 >
-                                  {w.status}
+                                  {p.status}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          {w.adminNote && (
-                            <div
-                              className={`p-4 rounded-2xl border text-[9px] font-bold uppercase tracking-wide flex items-center gap-3 ${
-                                w.status === "approved"
-                                  ? "bg-emerald-50/50 border-emerald-100/50 text-emerald-700"
-                                  : "bg-rose-50/50 border-rose-100/50 text-rose-700"
-                              }`}
-                            >
-                              <div className="w-6 h-6 rounded-lg bg-white/50 flex items-center justify-center">
-                                <ShieldCheck className="w-3 h-3" />
-                              </div>
-                              ADMIN NOTE: {w.adminNote}
-                            </div>
-                          )}
                         </div>
                       ))}
+                    {payments.filter((p) => p.tutorId === currentUser.id && p.studentId === "admin").length === 0 && (
+                      <div className="py-20 text-center opacity-30">
+                        <Zap className="w-12 h-12 mx-auto mb-6" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.4em]">
+                          No manual deposits found
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>

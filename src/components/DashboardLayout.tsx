@@ -4,7 +4,6 @@ import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
-import { motion } from 'motion/react';
 import { 
   BarChart3, 
   Calendar, 
@@ -17,11 +16,12 @@ import {
   Search,
   MessageSquare,
   Menu,
-  X
+  X,
+  Users
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, theme } = useAppStore();
+  const { currentUser, theme, messages } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,20 +33,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isStudent = currentUser.role === 'student';
   const isAdmin = currentUser.role === 'admin';
 
+  const totalUnreadMessages = messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
+
   const navItems = [
     ...(isTutor ? [
       { label: 'Session', icon: Calendar, path: '/dashboard' },
+      { label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
+      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isStudent ? [
-      { label: 'Find', icon: Search, path: '/dashboard/search' },
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+      { label: 'Find Tutor', icon: Search, path: '/dashboard/search' },
+      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isAdmin ? [
       { label: 'Shield', icon: Shield, path: '/dashboard' },
-      { label: 'Payout', icon: Wallet, path: '/dashboard/withdrawals' },
+      { label: 'Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
+      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
+      { label: 'Revenue', icon: CreditCard, path: '/dashboard/payments' },
     ] : []),
-    { label: 'Chat', icon: MessageSquare, path: '/messages' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -109,22 +116,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#111A2E] border-t border-slate-100 dark:border-slate-800 p-3 px-6 z-50 flex justify-between items-center shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)] transition-colors">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => {
-              navigate(item.path);
-              setIsMobileMenuOpen(false);
-            }}
-            className={`flex flex-col items-center gap-1 transition-all ${
-              isActive(item.path) ? 'text-[#0D5BFF]' : 'text-slate-400 dark:text-slate-500'
-            }`}
-          >
-            <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-            <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
-          </button>
-        ))}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800/80 p-2 pb-5 pt-3 px-4 z-50 flex justify-around items-center shadow-[0_-12px_40px_-15px_rgba(0,0,0,0.12)] transition-colors duration-300">
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.label}
+              onClick={() => {
+                navigate(item.path);
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex-1 max-w-[80px] relative py-2 flex flex-col items-center justify-center gap-1 cursor-pointer bg-transparent border-none outline-none"
+            >
+              <div 
+                className={`relative p-2 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                  active 
+                    ? 'bg-[#0B132B]/5 dark:bg-white/10 text-[#0D5BFF] dark:text-[#0D5BFF] scale-110' 
+                    : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
+                }`}
+              >
+                <item.icon className={`w-5 h-5 transition-transform duration-300 ${active ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                
+                {/* Notification Badge */}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-[#111A2E] shadow-sm animate-pulse">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <span 
+                className={`text-[8.5px] font-black uppercase tracking-widest text-center transition-colors duration-300 ${
+                  active 
+                    ? 'text-[#0B132B] dark:text-white' 
+                    : 'text-slate-400 dark:text-slate-500'
+                }`}
+              >
+                {item.label.split(' ')[0]}
+              </span>
+              
+              {/* Active Dot indicator */}
+              {active && (
+                <div 
+                  className="absolute bottom-0 w-1 h-1 rounded-full bg-[#0D5BFF]"
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="hidden lg:block">
