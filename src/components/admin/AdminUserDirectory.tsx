@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { User, useAppStore } from '../../store';
 import { 
   Search, 
@@ -23,7 +23,9 @@ import {
   Activity,
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface AdminUserDirectoryProps {
@@ -35,6 +37,18 @@ interface AdminUserDirectoryProps {
 
 export default function AdminUserDirectory({ users, updateUser, currentUser, onMessageUser }: AdminUserDirectoryProps) {
   const deleteUser = useAppStore(state => state.deleteUser);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 300;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'tutor' | 'admin'>('all');
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'unverified' | 'pending'>('all');
@@ -395,18 +409,36 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
           <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">
             Ledger User Array ({filteredUsers.length} records matched)
           </h4>
+          
+          {/* Scroll Navigation Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleScroll('left')}
+              className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
+              title="Scroll Left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleScroll('right')}
+              className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
+              title="Scroll Right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div ref={scrollContainerRef} className="overflow-x-auto">
           <table className="min-w-full uppercase select-none">
             <thead>
               <tr className="border-b border-slate-50 dark:border-slate-800/40">
-                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">User Identity</th>
-                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Security Scope/Role</th>
-                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Gender</th>
-                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Verification Ledger</th>
-                <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Wallet balance</th>
-                <th className="px-6 py-4 text-right text-[9px] font-black tracking-widest text-slate-400">Protocol Actions</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">User Identity</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Security Scope/Role</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Gender</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Verification Ledger</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Wallet balance</th>
+                <th className="px-3 py-2.5 text-right text-[8px] font-black tracking-widest text-slate-400">Protocol Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
@@ -418,54 +450,54 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 return (
                   <tr 
                     key={user.id} 
-                    className={`group h-20 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
+                    className={`group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
                       isBlocked ? 'bg-rose-50/20 dark:bg-rose-950/5' : ''
                     }`}
                   >
                     
                     {/* User Identity Info */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center font-black italic border border-blue-50 dark:border-blue-900/40 relative overflow-hidden">
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center font-black italic border border-blue-50 dark:border-blue-900/40 relative overflow-hidden shrink-0">
                           {user.profileImage ? (
                             <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
-                            <span>{user.name?.charAt(0).toUpperCase()}</span>
+                            <span className="text-[10px]">{user.name?.charAt(0).toUpperCase()}</span>
                           )}
                           {isBlocked && (
-                            <div className="absolute inset-0 bg-rose-500/80 flex items-center justify-center text-white text-[8px] font-black italic">
+                            <div className="absolute inset-0 bg-rose-500/80 flex items-center justify-center text-white text-[7px] font-black italic">
                               BLOCKED
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="text-[11px] font-black text-slate-800 dark:text-white flex items-center gap-1.5 flex-wrap">
-                            <span>{user.name || 'No Name'}</span>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-1 flex-wrap">
+                            <span className="truncate max-w-[120px]">{user.name || 'No Name'}</span>
                             {user.isVerified && (
-                              <ShieldCheck className="w-4 h-4 text-emerald-500 fill-emerald-500/15" title="Verified Badge User" />
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/15" title="Verified Badge User" />
                             )}
                             {isBlocked ? (
-                              <span className="bg-rose-600 text-white text-[7.5px] font-black px-1.5 py-0.5 rounded tracking-wider uppercase">
+                              <span className="bg-rose-600 text-white text-[7px] font-black px-1 py-0.5 rounded tracking-wider uppercase">
                                 Blocked
                               </span>
                             ) : (
-                              <span className="bg-emerald-600 text-white text-[7.5px] font-black px-1.5 py-0.5 rounded tracking-wider uppercase">
+                              <span className="bg-emerald-600 text-white text-[7px] font-black px-1 py-0.5 rounded tracking-wider uppercase">
                                 Active
                               </span>
                             )}
                           </div>
-                          <div className="text-[9px] font-black text-slate-400 dark:text-slate-500 font-mono tracking-tighter mt-0.5 flex flex-col gap-0.5">
-                            <span className="flex items-center gap-1"><Mail className="w-2.5 h-2.5" /> {user.email}</span>
-                            {user.phone && <span className="flex items-center gap-1"><Smartphone className="w-2.5 h-2.5" /> {user.phone}</span>}
+                          <div className="text-[8.5px] font-black text-slate-400 dark:text-slate-500 font-mono tracking-tighter mt-0.5 flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 truncate max-w-[150px]"><Mail className="w-2.5 h-2.5 shrink-0" /> {user.email}</span>
+                            {user.phone && <span className="flex items-center gap-1"><Smartphone className="w-2.5 h-2.5 shrink-0" /> {user.phone}</span>}
                           </div>
                         </div>
                       </div>
                     </td>
 
                     {/* Role / Context Scope */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <span className={`px-2.5 py-1 text-[8px] font-black rounded-lg w-max tracking-widest ${
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`px-1.5 py-0.5 text-[7px] font-black rounded w-max tracking-widest ${
                           user.role === 'admin' 
                             ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-100/20' 
                             : user.role === 'tutor'
@@ -476,7 +508,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                         </span>
                         
                         {isUserTutor && user.university && (
-                          <span className="text-[7.5px] font-extrabold text-slate-400 dark:text-slate-500 font-mono truncate max-w-[150px]">
+                          <span className="text-[7px] font-extrabold text-slate-400 dark:text-slate-500 font-mono truncate max-w-[110px]" title={user.university}>
                             🎓 {user.university}
                           </span>
                         )}
@@ -484,7 +516,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     </td>
 
                     {/* Gender Selection & Management */}
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-2">
                       <div className="flex flex-col gap-1">
                         <select
                           value={user.gender || ''}
@@ -497,7 +529,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                               .finally(() => setUpdatingUserId(null));
                           }}
                           disabled={updatingUserId === user.id}
-                          className="px-2.5 py-2 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase border border-slate-100 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                          className="px-1.5 py-1 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-[8px] font-black uppercase border border-slate-100 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
                         >
                           <option value="">SPECIFY</option>
                           <option value="Male">MALE</option>
@@ -508,9 +540,9 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     </td>
 
                     {/* Verification Indicators */}
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-2">
                       {isUserTutor ? (
-                        <div className="flex flex-col gap-1 text-[8px] font-black tracking-widest">
+                        <div className="flex flex-col gap-0.5 text-[7px] font-black tracking-widest">
                           <div className="flex items-center gap-1">
                             <span className="text-slate-400">NID:</span>
                             <span className={
@@ -519,7 +551,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             }>{user.nidStatus || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-slate-400">ACADEMIC:</span>
+                            <span className="text-slate-400">ACA:</span>
                             <span className={
                               user.academicStatus === 'approved' ? 'text-emerald-500' :
                               user.academicStatus === 'rejected' ? 'text-rose-500' : 'text-amber-500'
@@ -527,37 +559,37 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           </div>
                         </div>
                       ) : (
-                        <span className="text-[9px] font-black text-slate-300 font-mono italic">student scope</span>
+                        <span className="text-[8px] font-black text-slate-300 font-mono italic">student</span>
                       )}
                     </td>
 
                     {/* Credit Wallet Balance adjusting */}
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-2">
                       {editingBalanceId === user.id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <input
                             type="number"
                             value={balanceInput}
                             onChange={(e) => setBalanceInput(e.target.value)}
-                            className="w-20 px-2 py-1 bg-slate-50 dark:bg-slate-900 text-[10px] font-black rounded border border-slate-200 dark:border-slate-800 outline-none"
+                            className="w-16 px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-[9px] font-black rounded border border-slate-200 dark:border-slate-800 outline-none"
                             placeholder="৳0"
                           />
                           <button
                             onClick={() => handleSaveBalance(user.id)}
-                            className="bg-emerald-500 text-white p-1 rounded hover:bg-emerald-600 transition-colors text-[8px] font-black uppercase cursor-pointer"
+                            className="bg-emerald-500 text-white px-1.5 py-0.5 rounded hover:bg-emerald-600 transition-colors text-[7.5px] font-black uppercase cursor-pointer"
                           >
                             Save
                           </button>
                           <button
                             onClick={() => setEditingBalanceId(null)}
-                            className="bg-rose-500 text-white p-1 rounded hover:bg-rose-600 transition-colors text-[8px] font-black uppercase cursor-pointer"
+                            className="bg-rose-500 text-white px-1.5 py-0.5 rounded hover:bg-rose-600 transition-colors text-[7.5px] font-black uppercase cursor-pointer"
                           >
-                            Cancel
+                            Can
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-800 dark:text-white italic">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black text-slate-800 dark:text-white italic">
                             ৳{(user.balance || 0).toLocaleString()}
                           </span>
                           <button
@@ -565,35 +597,33 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             className="text-slate-400 hover:text-[#0D5BFF] p-1 transition-colors rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                             title="Adjust wallet balance"
                           >
-                            <Coins className="w-3.5 h-3.5" />
+                            <Coins className="w-3 h-3" />
                           </button>
                         </div>
                       )}
                     </td>
 
                     {/* Admin Action Menu */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
                         
                         {/* Inspect Profile */}
                         <button
                           onClick={() => setInspectingUser(user)}
-                          className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-slate-100 dark:bg-slate-900/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800"
+                          className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-slate-100 dark:bg-slate-900/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800 hover:scale-105 active:scale-95"
                           title="Inspect All User Details"
                         >
                           <Search className="w-3.5 h-3.5" />
-                          <span>Inspect</span>
                         </button>
 
                         {/* Send Message */}
                         {user.id !== currentUser.id && onMessageUser ? (
                           <button
                             onClick={() => onMessageUser(user.id)}
-                            className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-blue-50 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-blue-100/20"
+                            className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-blue-50 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-blue-100/20 hover:scale-105 active:scale-95"
                             title="Direct Message User"
                           >
                             <Mail className="w-3.5 h-3.5" />
-                            <span>Message</span>
                           </button>
                         ) : null}
 
@@ -602,7 +632,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <button
                             onClick={() => handleToggleBlock(user)}
                             disabled={updatingUserId === user.id}
-                            className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
                               isBlocked 
                                 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 hover:bg-emerald-500 hover:text-white' 
                                 : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 hover:bg-rose-500 hover:text-white'
@@ -610,7 +640,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             title={isBlocked ? "Reactivate User" : "Suspend User"}
                           >
                             {isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-                            <span>{isBlocked ? "Reactivate" : "Block"}</span>
                           </button>
                         ) : null}
 
@@ -619,11 +648,10 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <button
                             onClick={() => handleRemoveUser(user)}
                             disabled={updatingUserId === user.id}
-                            className="px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer bg-slate-100 dark:bg-slate-900 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-800"
+                            className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-slate-100 dark:bg-slate-900 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-800 hover:scale-105 active:scale-95"
                             title="Permanently Delete User"
                           >
                             <UserMinus className="w-3.5 h-3.5" />
-                            <span>Remove</span>
                           </button>
                         ) : null}
 
@@ -632,7 +660,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <button
                             onClick={() => handleToggleVerification(user)}
                             disabled={updatingUserId === user.id}
-                            className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
                               user.isVerified 
                                 ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 hover:bg-amber-500 hover:text-white' 
                                 : 'bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white'
@@ -640,7 +668,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             title={user.isVerified ? "Revoke Verification" : "Grant Verified Badge"}
                           >
                             <Award className="w-3.5 h-3.5" />
-                            <span>{user.isVerified ? "Revoke Badge" : "Verify Badge"}</span>
                           </button>
                         )}
 
@@ -649,7 +676,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <button
                             onClick={() => handleToggleHomeVisibility(user)}
                             disabled={updatingUserId === user.id}
-                            className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
                               user.showOnHomePage !== false 
                                 ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 hover:bg-indigo-500 hover:text-white' 
                                 : 'bg-slate-100 text-slate-500 dark:bg-slate-900/40 hover:bg-slate-500 hover:text-white dark:text-slate-400'
@@ -661,7 +688,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             ) : (
                               <EyeOff className="w-3.5 h-3.5 text-slate-400" />
                             )}
-                            <span>{user.showOnHomePage !== false ? "Home: Visible" : "Home: Hidden"}</span>
                           </button>
                         )}
 
@@ -672,7 +698,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                               value={user.role}
                               onChange={(e) => handleChangeRole(user.id, e.target.value as any)}
                               disabled={updatingUserId === user.id}
-                              className="px-2 py-1 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-[8.5px] font-black uppercase border border-slate-200 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                              className="px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-[7.5px] font-black uppercase border border-slate-200 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
                             >
                               <option value="student">Student</option>
                               <option value="tutor">Tutor</option>
