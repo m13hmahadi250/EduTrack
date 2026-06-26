@@ -1,5 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0D5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <rect width="24" height="24" rx="6" fill="#0B132B" stroke="none"/>
-  <path d="M22 10v6M2 10l10-5 10 5-10 5z" stroke="white"/>
-  <path d="M6 12v5c3 3 9 3 12 0v-5" stroke="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0D5BFF" />
+      <stop offset="100%" stop-color="#1EA5FC" />
+    </linearGradient>
+  </defs>
+  <!-- Background with smooth rounded corners -->
+  <rect width="100" height="100" rx="22" fill="url(#bgGradient)" />
+  
+  <g fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Graduation Cap -->
+    <!-- Mortar board (diamond) -->
+    <polygon points="50,15 88,30 50,45 12,30" />
+    
+    <!-- Underside cap skull -->
+    <path d="M30,37 v7 c0,6 40,6 40,0 v-7" />
+    
+    <!-- Tassel -->
+    <path d="M76,33.5 v14" stroke-width="5" />
+    <polygon points="73,47.5 79,47.5 76,57" fill="white" stroke="none" />
+
+    <!-- Books Stack -->
+    <!-- Book 1 (Top) -->
+    <path d="M 28,62 h 44 M 28,68 h 44" stroke-width="5" />
+    <path d="M 28,62 c -5,0 -5,6 0,6" stroke-width="5" />
+    <path d="M 72,62 v 6" stroke-width="5" />
+    <line x1="38" y1="65" x2="66" y2="65" stroke-width="4" />
+
+    <!-- Book 2 (Bottom) -->
+    <path d="M 28,74 h 44 M 28,80 h 44" stroke-width="5" />
+    <path d="M 28,74 c -5,0 -5,6 0,6" stroke-width="5" />
+    <path d="M 72,74 v 6" stroke-width="5" />
+    <line x1="38" y1="77" x2="66" y2="77" stroke-width="4" />
+  </g>
 </svg>

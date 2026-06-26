@@ -98,10 +98,14 @@ service cloud.firestore {
     // --- Payments Collection ---
     match /payments/{paymentId} {
       function isValidPayment(data) {
-        return data.keys().hasAll(['id', 'studentId', 'tutorId', 'amount', 'transactionId', 'status', 'date', 'bKashNumber']) &&
+        return data.id is string && data.id.size() <= 128 &&
+               data.studentId is string && data.studentId.size() <= 128 &&
+               data.tutorId is string && data.tutorId.size() <= 128 &&
                data.amount is number && data.amount > 0 &&
+               data.transactionId is string && data.transactionId.size() <= 128 &&
                data.status in ['pending', 'approved', 'rejected'] &&
-               isValidId(data.studentId) && isValidId(data.tutorId);
+               data.date is string && data.date.size() <= 128 &&
+               data.bKashNumber is string && data.bKashNumber.size() <= 128;
       }
 
       allow list: if isAdmin();
@@ -110,8 +114,8 @@ service cloud.firestore {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
       
       allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming()) && 
-                    incoming().studentId == request.auth.uid && 
-                    incoming().status == 'pending';
+                    ((incoming().studentId == request.auth.uid && incoming().status == 'pending') ||
+                     (incoming().tutorId == request.auth.uid && incoming().studentId == 'admin' && incoming().status == 'pending'));
 
       allow update: if (isAdmin() && isValidPayment(incoming())) || (
         isSignedIn() && resource.data.studentId == request.auth.uid && 

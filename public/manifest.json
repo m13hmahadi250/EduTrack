@@ -1,0 +1,31 @@
+{
+  "short_name": "EduTrack",
+  "name": "EduTrack - Modern Tutor Finder",
+  "description": "A modern tutor finder platform for Bangladeshi students and parents featuring real-time GPS tracking, secure messaging, and bKash payment processing.",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0B132B",
+  "theme_color": "#0D5BFF",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
+}
