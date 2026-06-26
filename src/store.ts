@@ -87,6 +87,7 @@ export interface User {
   showOnHomePage?: boolean;
   showTour?: boolean;
   isOnline?: boolean;
+  createdAt?: string;
 }
 
 export interface Session {
@@ -378,6 +379,7 @@ export const useAppStore = create<AppState>((set, get) => {
               isTrackingOn: false,
               rating: 5,
               showTour: true,
+              createdAt: new Date().toISOString(),
             };
             await setDoc(doc(db, 'users', uid), newUser);
             set({ currentUser: newUser, isLoading: false });
@@ -417,6 +419,7 @@ export const useAppStore = create<AppState>((set, get) => {
             rating: isMainAdmin ? 5 : 0,
             profileImage: user.photoURL || undefined,
             showTour: true,
+            createdAt: new Date().toISOString(),
             ...additionalUserData
           };
           await setDoc(doc(db, 'users', user.uid), newUser);
@@ -521,6 +524,7 @@ export const useAppStore = create<AppState>((set, get) => {
           isTrackingOn: false,
           rating: 0,
           showTour: true,
+          createdAt: new Date().toISOString(),
         } as User;
 
         // Save to Firestore

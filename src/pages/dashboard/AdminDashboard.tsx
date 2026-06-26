@@ -427,14 +427,14 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {activeTab === "analytics" && (
           <motion.div
             key="analytics"
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
           >
             <AdminAnalytics 
               users={users} 
@@ -451,7 +451,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
           >
             <AdminUserDirectory 
               users={users} 
@@ -471,7 +471,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-8"
           >
             {/* Contacts list side column */}
@@ -654,7 +654,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
           >
             <AdminSessionAudits 
               sessions={sessions} 
@@ -671,7 +671,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
             className="space-y-8"
           >
             {/* Bulk Actions Control Bar */}
@@ -836,7 +836,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.99 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
             className="space-y-8"
           >
             <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
@@ -918,7 +918,7 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
             className="space-y-12"
           >
             <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">

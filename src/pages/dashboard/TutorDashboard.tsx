@@ -854,13 +854,13 @@ export default function TutorDashboard() {
           loading="lazy"
         />
       )}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
+          transition={{ duration: 0.04, ease: "easeOut" }}
         >
           {activeTab === "my_session" && (
             <motion.div

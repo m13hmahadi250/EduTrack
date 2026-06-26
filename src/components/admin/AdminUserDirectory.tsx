@@ -139,6 +139,13 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
       }
 
       return matchesSearch && matchesRole && matchesVerification && matchesStatus && matchesGender;
+    }).sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (a.createdAt) return -1;
+      if (b.createdAt) return 1;
+      return b.id.localeCompare(a.id);
     });
   }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter]);
 
@@ -326,78 +333,130 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     <div className="space-y-6" id="admin-user-directory-view">
       
       {/* Filtering Options Panel */}
-      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm space-y-6">
         
-        {/* Search Input */}
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name, email, credentials..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
-          />
+        {/* Search Input Row */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, email, credentials..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
+            />
+          </div>
+          
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+            <Filter className="w-3.5 h-3.5 text-[#0D5BFF]" />
+            <span>Interactive Filtering Desk</span>
+          </div>
         </div>
 
-        {/* Filters Select Grid */}
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-          {/* Role filter */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Roles</option>
-              <option value="student">Students</option>
-              <option value="tutor">Tutors (Experts)</option>
-              <option value="admin">Admins</option>
-            </select>
+        {/* Filters Select Segmented Tabs Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/40">
+          
+          {/* Role Filter Category */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Role Scope</span>
+            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+              {[
+                { value: 'all', label: 'ALL' },
+                { value: 'student', label: 'STD' },
+                { value: 'tutor', label: 'TUT' },
+                { value: 'admin', label: 'ADM' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRoleFilter(opt.value as any)}
+                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                    roleFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Verification Badge filter */}
-          <div>
-            <select
-              value={verificationFilter}
-              onChange={(e) => setVerificationFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Verifications</option>
-              <option value="verified">Verified Badge</option>
-              <option value="unverified">No Badge</option>
-              <option value="pending">Review Pending</option>
-            </select>
+          {/* Verification Badge Filter Category */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Verification Status</span>
+            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+              {[
+                { value: 'all', label: 'ALL' },
+                { value: 'verified', label: 'VER' },
+                { value: 'unverified', label: 'NO BG' },
+                { value: 'pending', label: 'PEND' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setVerificationFilter(opt.value as any)}
+                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                    verificationFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Status filter (Blocked vs Active) */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active Only</option>
-              <option value="blocked">Blocked / Suspended</option>
-            </select>
+          {/* Status Filter Category (Blocked vs Active) */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Security Ledger</span>
+            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+              {[
+                { value: 'all', label: 'ALL' },
+                { value: 'active', label: 'ACT' },
+                { value: 'blocked', label: 'BLK' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setStatusFilter(opt.value as any)}
+                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                    statusFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Gender filter */}
-          <div>
-            <select
-              value={genderFilter}
-              onChange={(e) => setGenderFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Genders</option>
-              <option value="male">Male Only</option>
-              <option value="female">Female Only</option>
-              <option value="other">Other Only</option>
-              <option value="none">Not Specified</option>
-            </select>
+          {/* Gender Filter Category */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Gender Profiles</span>
+            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full overflow-x-auto no-scrollbar">
+              {[
+                { value: 'all', label: 'ALL' },
+                { value: 'male', label: 'MALE' },
+                { value: 'female', label: 'FEM' },
+                { value: 'other', label: 'OTH' },
+                { value: 'none', label: 'N/A' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setGenderFilter(opt.value as any)}
+                  className={`flex-1 py-1.5 px-0.5 text-[8px] font-black rounded-lg transition-all uppercase cursor-pointer min-w-max ${
+                    genderFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
+
         </div>
 
       </div>

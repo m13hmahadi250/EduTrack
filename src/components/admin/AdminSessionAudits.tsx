@@ -114,51 +114,78 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
     <div className="space-y-8" id="admin-session-audits-view">
       
       {/* Filtering Options Grid */}
-      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm space-y-6">
         
-        {/* Search */}
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by subject, student, or tutor..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
-          />
+        {/* Search & Header Row */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by subject, student, or tutor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+            <Filter className="w-3.5 h-3.5 text-[#0D5BFF]" />
+            <span>Interactive Sessions Filtering</span>
+          </div>
         </div>
 
-        {/* Multi-Filters select options */}
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-          {/* Status filter */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Sessions</option>
-              <option value="active">Active & Scheduled</option>
-              <option value="completed">Completed Only</option>
-              <option value="cancelled">Cancelled Only</option>
-              <option value="proposed_by_tutor">Pending Tutor Offers</option>
-              <option value="requested_by_student">Pending Student Requests</option>
-            </select>
+        {/* Segmented Option Switchers */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800/40">
+          {/* Status Filter */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Session Status</span>
+            <div className="flex flex-wrap bg-slate-50 dark:bg-slate-900 p-1 rounded-xl gap-1 w-full">
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'active', label: 'Active & Sched' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'cancelled', label: 'Cancelled' },
+                { value: 'proposed_by_tutor', label: 'Tutor Offers' },
+                { value: 'requested_by_student', label: 'Student Requests' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setStatusFilter(opt.value as any)}
+                  className={`flex-1 min-w-[90px] py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer text-center ${
+                    statusFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Rating filter */}
-          <div>
-            <select
-              value={ratingFilter}
-              onChange={(e) => setRatingFilter(e.target.value as any)}
-              className="px-4 py-2 border-0 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-white outline-none cursor-pointer focus:ring-2 focus:ring-[#0D5BFF]"
-            >
-              <option value="all">All Ratings</option>
-              <option value="rated">Rated Sessions Only</option>
-              <option value="poor">Poor Reviews (⭐ 1-3)</option>
-              <option value="unrated">Feedback Impending</option>
-            </select>
+          {/* Rating Filter */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Review Rating</span>
+            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+              {[
+                { value: 'all', label: 'All Ratings' },
+                { value: 'rated', label: 'Rated Only' },
+                { value: 'poor', label: 'Poor (1-3 ⭐)' },
+                { value: 'unrated', label: 'Unrated' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRatingFilter(opt.value as any)}
+                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                    ratingFilter === opt.value
+                      ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
