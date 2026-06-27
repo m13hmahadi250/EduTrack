@@ -55,6 +55,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         { id: 'verifications', label: 'Identity Protocol', icon: Shield, path: '/dashboard' },
         { id: 'payments', label: 'Inbound Revenue', icon: CreditCard, path: '/dashboard/payments' },
         { id: 'withdrawals', label: 'Tutor Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
+        { id: 'account', label: 'Admin Profile', icon: User, path: '/dashboard/account' },
     ] : []),
     { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
   ];

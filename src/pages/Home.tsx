@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import AIChatWidget from '../components/AIChatWidget';
 import { 
   ShieldCheck, 
   Users, 
@@ -140,8 +141,8 @@ export default function Home() {
                 <span className="block text-[#0B132B] dark:text-white -mt-2">At Home</span>
               </h1>
               
-              <p className="text-lg sm:text-xl text-[#1f1b1b] dark:text-slate-300 mb-10 leading-relaxed font-sans font-bold tracking-wide max-w-lg">
-                The most secure home tutoring platform in Bangladesh. Featuring <span className="text-[#0D5BFF] dark:text-blue-400 font-semibold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">real-time GPS tracking</span>, <span className="text-[#0D5BFF] dark:text-blue-400 font-semibold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">NID-verified educators</span>, and seamless payments for your child's success.
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 mb-10 leading-relaxed font-sans font-medium tracking-wide max-w-lg antialiased">
+                The most secure home tutoring platform in Bangladesh. Featuring <span className="text-[#0D5BFF] dark:text-blue-400 font-bold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">real-time GPS tracking</span>, <span className="text-[#0D5BFF] dark:text-blue-400 font-bold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">NID-verified educators</span>, and seamless payments for your child's success.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
@@ -171,14 +172,14 @@ export default function Home() {
                 />
               </div>
               {/* Floating Stat Card */}
-              <div className="absolute -bottom-10 -left-10 bg-white dark:bg-[#1E293B] p-8 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800/80 z-20 max-w-xs -rotate-3 transition-colors">
+              <div className="absolute -bottom-10 -left-10 bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800/80 z-20 max-w-xs -rotate-3 transition-all duration-300 hover:rotate-0">
                 <div className="flex items-center space-x-4 mb-3">
                   <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 rounded-2xl">
                     <CheckCircle className="w-6 h-6" />
                   </div>
-                  <h3 className="font-black text-[#0B132B] dark:text-white text-lg leading-tight uppercase">Verified Quality</h3>
+                  <h3 className="font-extrabold text-[#0B132B] dark:text-white text-base leading-tight uppercase tracking-tight">Verified Quality</h3>
                 </div>
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider">100% of our tutors are manually verified by NID and certificates.</p>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider leading-relaxed">100% of our tutors are manually verified by NID and certificates.</p>
                 <div className="flex -space-x-3">
                   {[1,2,3,4].map(idx => (
                     <div key={idx} className="w-10 h-10 rounded-full border-4 border-white dark:border-[#1E293B] bg-slate-200 overflow-hidden">
@@ -651,6 +652,7 @@ export default function Home() {
           </motion.div>
         </div>
       </footer>
+      <AIChatWidget />
     </div>
   );
 }

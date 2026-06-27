@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Mail,
   MessageSquare,
+  User as UserIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -26,6 +27,7 @@ import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
 import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
 
 const ChatWindow = lazy(() => import("../../components/ChatWindow"));
+const ImageUpload = lazy(() => import("../../components/ImageUpload"));
 
 export default function AdminDashboard() {
   const {
@@ -48,7 +50,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab ] = useState<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account"
   >("users");
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [messagesSearch, setMessagesSearch] = useState("");
@@ -150,11 +152,12 @@ export default function AdminDashboard() {
     else if (path.endsWith("/sessions")) setActiveTab("sessions");
     else if (path.endsWith("/messages")) setActiveTab("messages");
     else if (path.endsWith("/analytics")) setActiveTab("analytics");
+    else if (path.endsWith("/account") || path.endsWith("/profile")) setActiveTab("account");
     else setActiveTab("users");
   }, [location.pathname]);
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account",
   ) => {
     setSelectedTutorIds([]);
     const pathMap = {
@@ -165,6 +168,7 @@ export default function AdminDashboard() {
       analytics: "/dashboard/analytics",
       sessions: "/dashboard/sessions",
       messages: "/dashboard/messages",
+      account: "/dashboard/account",
     };
     navigate(pathMap[tab]);
   };
@@ -359,6 +363,7 @@ export default function AdminDashboard() {
             { id: "withdrawals", label: "Tutor payouts", icon: Wallet },
             { id: "sessions", label: "Session audits", icon: History },
             { id: "messages", label: "Secure messages", icon: MessageSquare },
+            { id: "account", label: "Admin profile", icon: UserIcon },
           ].map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
@@ -406,6 +411,7 @@ export default function AdminDashboard() {
           { id: "withdrawals", label: "Tutor payouts" },
           { id: "sessions", label: "Session audits" },
           { id: "messages", label: "Secure messages" },
+          { id: "account", label: "Admin profile" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1051,6 +1057,70 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === "account" && (
+          <motion.div
+            key="account"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+            className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 shadow-sm max-w-4xl transition-colors mx-auto"
+          >
+             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">
+                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
+                   <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 animate-pulse" />}>
+                     <ImageUpload 
+                       currentImageUrl={currentUser.profileImage} 
+                       onUpload={(url) => updateUser(currentUser.id, { profileImage: url })}
+                       onDelete={() => updateUser(currentUser.id, { profileImage: "/admin_profile.png" })}
+                     />
+                   </Suspense>
+                   <div>
+                      <h3 className="text-3xl font-heading font-black text-[#0B132B] uppercase italic">Admin Credentials</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
+                   </div>
+                </div>
+             </div>
+
+             <div className="space-y-8">
+               <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Full Name</label>
+                     <input 
+                       type="text"
+                       defaultValue={currentUser.name}
+                       id="admin-settings-name"
+                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#0B132B] uppercase tracking-wider focus:outline-none focus:border-[#0D5BFF]"
+                     />
+                  </div>
+                  <div className="space-y-2">
+                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Role Authorization</label>
+                     <input 
+                       type="text"
+                       value="ADMINISTRATOR"
+                       disabled
+                       className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-400 uppercase tracking-wider cursor-not-allowed"
+                     />
+                  </div>
+               </div>
+
+               <div className="flex justify-end pt-4">
+                 <button 
+                   onClick={async () => {
+                     const nameInput = document.getElementById("admin-settings-name") as HTMLInputElement;
+                     if (nameInput && nameInput.value.trim()) {
+                       await updateUser(currentUser.id, { name: nameInput.value.trim() });
+                     }
+                   }}
+                   className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 cursor-pointer"
+                 >
+                    Confirm Changes
+                 </button>
+               </div>
+             </div>
           </motion.div>
         )}
       </AnimatePresence>

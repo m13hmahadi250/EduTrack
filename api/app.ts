@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import cors from "cors";
+import { GoogleGenAI } from "@google/genai";
 import compression from "compression";
 import multer from "multer";
 import sharp from "sharp";
@@ -144,6 +145,96 @@ app.post("/api/storage/presign", async (req, res) => {
   } catch (error: any) {
     console.error("[Storage] Presign error:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Lazy Gemini API Client Initialization
+let aiClient: any = null;
+function getGeminiClient() {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is not configured. Please add it via Settings > Secrets.");
+    }
+    aiClient = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiClient;
+}
+
+const SYSTEM_INSTRUCTION = `You are "EduTrack AI", the friendly virtual guide for EduTrack Bangladesh, the country's most secure and innovative home tutoring platform. 
+Your goal is to help parents, students, and educators understand how the platform works, find the information they need, and get paired with verified teachers.
+
+About EduTrack Bangladesh:
+- Purpose: A security-first home tutoring marketplace connecting verified expert educators with students for personalized, in-home lessons.
+- Target Market: Bangladesh (primarily Dhaka, Chittagong, Sylhet, and other major districts).
+- Tone: Warm, helpful, professional, encouraging, and informative.
+- CRITICAL LANGUAGE RULE: You must respond STICTLY and EXCLUSIVELY in English. Even if the user greets you or asks questions in Bangla or Banglish, reply only in clear, fluent, beautiful English.
+
+Key Platform Pillars for Users:
+1. SECURITY-FIRST (NID & ID Verification):
+   - All tutors must upload their National ID (NID) and Student ID cards.
+   - The EduTrack administrative team manually audits and verifies every document before the tutor's profile goes public.
+2. LIVE GPS TRACKING & SAFETY:
+   - When a lesson starts, tutors can turn on real-time location sharing via the app's GPS tracker.
+   - Parents/Students can see exactly where the tutor is on an interactive map during the lesson, providing unmatched peace of mind.
+3. DIGITAL CLASS LOGGER:
+   - Tutors log details of each tutoring session (duration, topics, student progress, signatures) into a digital class diary.
+   - This creates a transparent audit trail for parents to verify hours taught and subjects covered.
+4. INTEGRATED PAYMENTS & CASH OUT:
+   - Secure and direct bKash / Nagad / Rocket / bank transfer payments for tutoring packages.
+   - Earnings are loaded to the tutor's wallet balance, with seamless bank/mobile-banking withdrawals (withdraw request system).
+5. EASY INTERACTIVE FINDING:
+   - Simple matching search filters: sort and filter tutors by District, Subject categories, Gender, and Ratings.
+   - Fully interactive dashboards for both students (tutees) and teachers (tutors).
+
+Common FAQs you can answer:
+- How to join as a tutor? Sign up, select 'Tutor' role, complete your profile, and upload NID and Student ID under the Verification tab. Once the admin team verifies, you will appear on the homepage list!
+- Is it safe for my child? Yes! Not only are tutors manually verified, but our live GPS tracking lets you see their arrival status and location during active sessions.
+- How are payments handled? Payments can be made securely online. Tutors log sessions, and earnings can be withdrawn to bKash or Bank.
+- Is there a fee? Signing up and browsing verified tutors is completely free for parents!
+
+Formatting and Aesthetics:
+- Your responses will be displayed using HTML/Markdown.
+- Use bullet points, short paragraphs, and bold phrases generously to make your responses look exceptionally organized, readable, and highly polished ("good looking").
+- Avoid cluttered or wall-of-text paragraphs. Always leave empty lines between sections.
+- Keep responses concise, helpful, and welcoming.`;
+
+app.post("/api/ai/chat", async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Invalid request payload. 'messages' array is required." });
+    }
+
+    const ai = getGeminiClient();
+
+    // Map the incoming chat history to standard Google GenAI schema
+    const contents = messages.map((m: any) => ({
+      role: m.role === "assistant" || m.role === "model" ? "model" : "user",
+      parts: [{ text: m.text || m.content || "" }]
+    }));
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: contents,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.7,
+      }
+    });
+
+    const replyText = response.text || "I am here to help you with EduTrack Bangladesh! Let me know if you have any questions.";
+    res.json({ reply: replyText });
+  } catch (error: any) {
+    console.error("[AI Chat API Error]:", error);
+    res.status(500).json({ error: error.message || "Failed to generate AI response" });
   }
 });
 

@@ -304,6 +304,16 @@ export const useAppStore = create<AppState>((set, get) => {
               }
             }
           }
+          if (userData.role === 'admin') {
+            if (!userData.profileImage || userData.profileImage.startsWith('https://i.pravatar.cc') || userData.profileImage.includes('googleusercontent.com') || userData.profileImage === '' || userData.profileImage === '/admin_profile.svg') {
+              userData.profileImage = '/admin_profile.png';
+              try {
+                await updateDoc(doc(db, 'users', firebaseUser.uid), { profileImage: '/admin_profile.png' });
+              } catch (e) {
+                console.error("Error updating admin profile image in Firestore observer:", e);
+              }
+            }
+          }
           set({ currentUser: userData });
           
           // Setup real-time listeners for data
@@ -417,7 +427,7 @@ export const useAppStore = create<AppState>((set, get) => {
             isVerified: isMainAdmin ? true : false,
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
-            profileImage: user.photoURL || undefined,
+            profileImage: isMainAdmin ? '/admin_profile.png' : (user.photoURL || undefined),
             showTour: true,
             createdAt: new Date().toISOString(),
             ...additionalUserData
@@ -434,6 +444,16 @@ export const useAppStore = create<AppState>((set, get) => {
                 await updateDoc(doc(db, 'users', user.uid), { role: 'admin', isVerified: true });
               } catch (e) {
                 console.error("Error setting Google logged-in admin role:", e);
+              }
+            }
+          }
+          if (userData.role === 'admin') {
+            if (!userData.profileImage || userData.profileImage.startsWith('https://i.pravatar.cc') || userData.profileImage.includes('googleusercontent.com') || userData.profileImage === '' || userData.profileImage === '/admin_profile.svg') {
+              userData.profileImage = '/admin_profile.png';
+              try {
+                await updateDoc(doc(db, 'users', user.uid), { profileImage: '/admin_profile.png' });
+              } catch (e) {
+                console.error("Error updating admin profile image in Firestore google login:", e);
               }
             }
           }
@@ -525,6 +545,7 @@ export const useAppStore = create<AppState>((set, get) => {
           rating: 0,
           showTour: true,
           createdAt: new Date().toISOString(),
+          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || undefined)
         } as User;
 
         // Save to Firestore
@@ -1139,7 +1160,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     let users = snapshot.docs.map(doc => {
       const data = { id: doc.id, ...doc.data() } as User;
       if (data.role === 'admin') {
-        return { ...data, name: 'ADMIN ACCOUNT' };
+        return { ...data, name: 'ADMIN ACCOUNT', profileImage: '/admin_profile.png' };
       }
       return data;
     });

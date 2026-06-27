@@ -5,6 +5,17 @@ import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
 
+const getFormattedName = (fullName: string) => {
+  if (!fullName) return '';
+  const words = fullName.trim().split(/\s+/);
+  if (words.length === 3) {
+    return words[1];
+  } else if (words.length === 2) {
+    return words[0];
+  }
+  return fullName;
+};
+
 const Navbar = memo(() => {
   const { currentUser, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
@@ -120,7 +131,7 @@ const Navbar = memo(() => {
                       </div>
                     )}
                   </div>
-                  <span className="font-bold text-[#0B132B] dark:text-white hidden lg:block max-w-[100px] truncate hover:text-[#0D5BFF] transition-colors">{currentUser.name}</span>
+                  <span className="font-bold text-[#0B132B] dark:text-white hidden lg:block max-w-[100px] truncate hover:text-[#0D5BFF] transition-colors">{getFormattedName(currentUser.name)}</span>
                 </Link>
                 <button
                   onClick={handleLogout}
