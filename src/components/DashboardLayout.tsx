@@ -67,10 +67,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Header */}
       <div className="lg:hidden bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/60 p-4 sticky top-0 z-50 flex items-center justify-between transition-colors">
-        <div className="flex items-center space-x-3">
+        <div 
+          onClick={() => navigate('/')}
+          className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <Logo className="w-8 h-8 shadow-lg shadow-blue-200 dark:shadow-none" />
           <span 
-            className="text-lg font-black font-heading text-[#0B132B] dark:text-white flex cursor-default select-none"
+            className="text-lg font-black font-heading text-[#0B132B] dark:text-white flex select-none"
           >
             {"EduTrack".split("").map((char, index) => (
               <span

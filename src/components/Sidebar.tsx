@@ -65,10 +65,13 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
   return (
     <div className="w-full lg:w-80 h-auto min-h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 lg:sticky lg:top-0 transition-colors duration-300">
       {/* Logo */}
-      <div className="hidden lg:flex items-center space-x-3 mb-12">
+      <div 
+        onClick={() => navigate('/')}
+        className="hidden lg:flex items-center space-x-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+      >
         <Logo className="w-10 h-10 shadow-lg shadow-blue-200 dark:shadow-none" />
         <span 
-          className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors flex cursor-default select-none"
+          className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors flex select-none"
         >
           {"EduTrack".split("").map((char, index) => (
             <span
