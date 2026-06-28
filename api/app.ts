@@ -153,9 +153,15 @@ let aiClient: any = null;
 function getGeminiClient() {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "MY_GEMINI_API_KEY" || !apiKey.startsWith("AIzaSy")) {
-      throw new Error("Invalid or missing GEMINI_API_KEY. If you are running locally or on Vercel, please make sure to add a valid Gemini API key (starting with 'AIzaSy') to your environment variables (in your .env file or Vercel Dashboard).");
+    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "MY_GEMINI_API_KEY") {
+      throw new Error("Invalid or missing GEMINI_API_KEY. To resolve this: (1) If running on Vercel, go to your Vercel Dashboard > Project Settings > Environment Variables, add GEMINI_API_KEY with your Google Gemini API key, and redeploy. (2) If running locally, add GEMINI_API_KEY=AIzaSy... to your .env file.");
     }
+    
+    // Log a warning if it doesn't look like a typical Google API key format, but do not block execution
+    if (!apiKey.startsWith("AIzaSy")) {
+      console.warn("[EduTrack AI] Warning: The configured GEMINI_API_KEY does not start with 'AIzaSy'. It may be invalid or structured as a custom key proxy.");
+    }
+
     aiClient = new GoogleGenAI({
       apiKey: apiKey,
       httpOptions: {

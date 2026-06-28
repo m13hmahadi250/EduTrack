@@ -75,6 +75,8 @@ export default function TeacherProfile() {
   const [tutor, setTutor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   // Check if current reader is a verified student
   // Active/valid student means roles includes 'student' (or we check if currentUser exists and is any student role)
@@ -82,6 +84,75 @@ export default function TeacherProfile() {
 
   // Students can NEVER see actual phone/email. Only Admins or the Tutor themselves can see unmasked credentials.
   const canSeeContactInfo = currentUser && (currentUser.role === 'admin' || currentUser.id === id);
+
+  useEffect(() => {
+    let active = true;
+    const fetchReviews = async () => {
+      if (!id) return;
+      setReviewsLoading(true);
+      try {
+        const { collection, query, where, getDocs, doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        
+        // Fetch sessions where tutorId === id
+        const q = query(
+          collection(db, 'sessions'),
+          where('tutorId', '==', id)
+        );
+        const querySnapshot = await getDocs(q);
+        const ratedSessions: any[] = [];
+        
+        for (const docSnap of querySnapshot.docs) {
+          const sData = docSnap.data();
+          if (sData.rating && sData.rating > 0) {
+            ratedSessions.push({
+              id: docSnap.id,
+              ...sData
+            });
+          }
+        }
+
+        // Fetch student user details for each rated session
+        const reviewsWithDetails = await Promise.all(
+          ratedSessions.map(async (sess) => {
+            let studentName = 'Verified Student';
+            let studentImage = undefined;
+            try {
+              const studentRef = doc(db, 'users', sess.studentId);
+              const studentSnap = await getDoc(studentRef);
+              if (studentSnap.exists()) {
+                const sUserData = studentSnap.data();
+                studentName = sUserData.name || 'Verified Student';
+                studentImage = sUserData.profileImage;
+              }
+            } catch (err) {
+              console.error("Error fetching student info for review:", err);
+            }
+            return {
+              ...sess,
+              studentName,
+              studentImage
+            };
+          })
+        );
+
+        if (active) {
+          setReviews(reviewsWithDetails);
+          setReviewsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching reviews: ", error);
+        if (active) {
+          setReviewsLoading(false);
+        }
+      }
+    };
+
+    fetchReviews();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     let active = true;
@@ -198,6 +269,14 @@ export default function TeacherProfile() {
       </div>
     );
   }
+
+  // Use real ratings from sessions if available, otherwise fall back to user profile stats
+  const displayRating = reviews.length > 0 
+    ? (reviews.reduce((acc, r) => acc + (r.rating || 0), 0) / reviews.length) 
+    : (tutor?.rating || 5.0);
+  const displayTotalReviews = reviews.length > 0 
+    ? reviews.length 
+    : (tutor?.totalRatings || 0);
 
   return (
     <motion.div 
@@ -319,8 +398,8 @@ export default function TeacherProfile() {
               <div className="bg-[#0F172A]/70 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-3xl flex items-center gap-3 shadow-md justify-center text-white">
                 <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
                 <div className="text-left">
-                  <div className="text-sm font-black tracking-tight">{Number(tutor.rating || 5.0).toFixed(1)}</div>
-                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">({tutor.totalRatings || 12} Reviews)</div>
+                  <div className="text-sm font-black tracking-tight">{displayTotalReviews > 0 ? Number(displayRating).toFixed(1) : 'New'}</div>
+                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">({displayTotalReviews} {displayTotalReviews === 1 ? 'Review' : 'Reviews'})</div>
                 </div>
               </div>
             </div>
@@ -445,6 +524,97 @@ export default function TeacherProfile() {
                   </div>
                 )}
               </div>
+            </motion.div>
+
+            {/* Segment: Reviews & Testimonials */}
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
+            >
+              <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
+                <Star className="w-4 h-4 text-[#0D5BFF] fill-[#0D5BFF]/10" />
+                <span>Reviews & Testimonials</span>
+                {reviews.length > 0 && (
+                  <span className="ml-auto bg-blue-50 dark:bg-blue-950 text-[#0D5BFF] dark:text-blue-300 text-xs font-black px-2.5 py-1 rounded-xl">
+                    {reviews.length} Total
+                  </span>
+                )}
+              </h3>
+
+              {reviewsLoading ? (
+                <div className="text-center py-8 space-y-2">
+                  <div className="w-6 h-6 border-2 border-[#0D5BFF] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Loading testimonials ledger...</p>
+                </div>
+              ) : reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviews.map((rev) => (
+                    <div 
+                      key={rev.id} 
+                      className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B]/40 border border-slate-100 dark:border-slate-800/60 space-y-3.5 transition-all hover:shadow-md"
+                    >
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        {/* Student Author */}
+                        <div className="flex items-center gap-3">
+                          {rev.studentImage ? (
+                            <img 
+                              src={rev.studentImage} 
+                              alt={rev.studentName} 
+                              className="w-8 h-8 rounded-xl object-cover border border-slate-200"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-[#0D5BFF] dark:text-blue-300 flex items-center justify-center font-bold text-xs uppercase italic">
+                              {rev.studentName.charAt(0)}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase italic">{rev.studentName}</h4>
+                            {rev.subject && (
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                Class Focus: {rev.subject}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Stars Indicator */}
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }).map((_, starIdx) => (
+                            <Star 
+                              key={starIdx} 
+                              className={`w-3.5 h-3.5 ${
+                                starIdx < rev.rating 
+                                  ? 'text-amber-500 fill-amber-500' 
+                                  : 'text-slate-200 dark:text-slate-800'
+                              }`} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Review Feedback Text */}
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic font-medium">
+                        "{rev.feedback || 'The student left a five-star rating with no text commentary.'}"
+                      </p>
+
+                      {/* Session Date */}
+                      {rev.scheduledTime && (
+                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-300" />
+                          <span>Session Delivered: {new Date(rev.scheduledTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-slate-50 dark:bg-[#0B132B]/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800/80">
+                  <Star className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-black uppercase tracking-wider">No student ratings logged yet</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-widest">Delivered tuition sessions will appear here after rating submission.</p>
+                </div>
+              )}
             </motion.div>
 
           </div>
