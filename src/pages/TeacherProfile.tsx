@@ -42,6 +42,31 @@ const maskEmail = (email?: string) => {
   return `${username.substring(0, 2)}*****${username.substring(username.length - 1)}@${domain}`;
 };
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 25, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 80,
+      damping: 15,
+    }
+  }
+};
+
 export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -175,7 +200,14 @@ export default function TeacherProfile() {
   }
 
   return (
-    <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" id={`teacher-profile-root-${tutor.id}`}>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.35 }}
+      className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" 
+      id={`teacher-profile-root-${tutor.id}`}
+    >
       
       {/* Top Banner & Navigation */}
       <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">
@@ -200,10 +232,18 @@ export default function TeacherProfile() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 mt-8">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-6xl mx-auto px-4 mt-8"
+      >
         
         {/* Immersive Singular Profile Banner */}
-        <div className="relative bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] rounded-[2.5rem] overflow-hidden shadow-2xl p-6 md:p-10 mb-8 border border-white/10 flex flex-col md:flex-row items-center gap-6 justify-between select-none">
+        <motion.div 
+          variants={cardVariants}
+          className="relative bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] rounded-[2.5rem] overflow-hidden shadow-2xl p-6 md:p-10 mb-8 border border-white/10 flex flex-col md:flex-row items-center gap-6 justify-between select-none"
+        >
           
           {/* Subtle Ambient Backdrop Image (Deeply Blurred) */}
           {tutor.profileImage && (
@@ -287,7 +327,7 @@ export default function TeacherProfile() {
 
           </div>
 
-        </div>
+        </motion.div>
 
         {/* Outer details split */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 md:pt-12">
@@ -296,7 +336,10 @@ export default function TeacherProfile() {
           <div className="lg:col-span-8 space-y-8">
             
             {/* Segment: Overview Bio */}
-            <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4 transition-colors">
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4 transition-colors"
+            >
               <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#0D5BFF]" />
                 <span>Biography & Vision</span>
@@ -316,10 +359,13 @@ export default function TeacherProfile() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Segment: Class & Subject expertise parameters */}
-            <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors">
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
+            >
               <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-[#0D5BFF]" />
                 <span>Expertise Settings</span>
@@ -360,10 +406,13 @@ export default function TeacherProfile() {
                 </div>
 
               </div>
-            </div>
+            </motion.div>
 
             {/* Segment: Availability Slots */}
-            <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors">
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
+            >
               <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#0D5BFF]" />
                 <span>Availability and Schedules</span>
@@ -396,7 +445,7 @@ export default function TeacherProfile() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
           </div>
 
@@ -404,7 +453,10 @@ export default function TeacherProfile() {
           <div className="lg:col-span-4 space-y-8">
             
             {/* Financials card */}
-            <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors">
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
+            >
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Standard Remuneration</span>
               
               <div className="flex items-baseline gap-1 text-[#0B132B] dark:text-white">
@@ -606,14 +658,14 @@ export default function TeacherProfile() {
                 </div>
               )}
 
-            </div>    </div>
+            </div>    </motion.div>
 
           </div>
 
         </div>
 
-      </div>
+      </motion.div>
 
-    </div>
+    </motion.div>
   );
 }
