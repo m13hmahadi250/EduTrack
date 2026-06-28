@@ -3029,7 +3029,7 @@ export default function TutorDashboard() {
                               <button
                                 onClick={() => {
                                   setSelectedRecipientId(student.id);
-                                  setActiveTab("messages");
+                                  handleTabChange("messages");
                                 }}
                                 className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 text-[#0B132B] dark:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                               >
@@ -3438,7 +3438,7 @@ export default function TutorDashboard() {
                     <button
                       onClick={() => {
                         setSelectedRecipientId(viewingProfileUser.id);
-                        setActiveTab("messages");
+                        handleTabChange("messages");
                         setViewingProfileUser(null);
                         setViewingProfileSession(null);
                       }}
@@ -3465,7 +3465,7 @@ export default function TutorDashboard() {
                 <button
                   onClick={() => {
                     setSelectedRecipientId(viewingProfileUser.id);
-                    setActiveTab("messages");
+                    handleTabChange("messages");
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}

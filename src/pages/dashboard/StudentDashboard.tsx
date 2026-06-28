@@ -947,7 +947,7 @@ export default function StudentDashboard() {
 
                     <div className="flex items-center gap-3 w-full">
                       <button 
-                        onClick={() => setActiveTab('account')}
+                        onClick={() => handleTabChange('account')}
                         className="flex-1 py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-center"
                       >
                         Complete Now
@@ -2237,7 +2237,7 @@ export default function StudentDashboard() {
                                   type="button"
                                   onClick={() => {
                                     setSelectedRecipientId(selectedTutor.id);
-                                    setActiveTab('messages');
+                                    handleTabChange('messages');
                                   }}
                                   className="py-5 bg-white border-2 border-slate-100 text-[#0B132B] rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
                                 >
@@ -3246,7 +3246,7 @@ export default function StudentDashboard() {
                 <button
                   onClick={() => {
                     setSelectedRecipientId(viewingProfileUser.id);
-                    setActiveTab('messages');
+                    handleTabChange('messages');
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}

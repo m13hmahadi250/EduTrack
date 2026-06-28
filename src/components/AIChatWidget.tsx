@@ -223,12 +223,23 @@ export default function AIChatWidget() {
     } catch (err: any) {
       console.error("[AI Chat UI Error]:", err);
       setError(err.message || "Failed to connect to the assistant.");
+      
+      const isKeyError = err.message && (
+        err.message.includes("GEMINI_API_KEY") || 
+        err.message.includes("API key not valid") ||
+        err.message.includes("API_KEY_INVALID")
+      );
+      
+      const errorMsg = isKeyError
+        ? `⚠️ ${err.message}`
+        : "⚠️ Sorry, I encountered an error communicating with the server. Please ensure process.env.GEMINI_API_KEY is configured correctly under Settings > Secrets (in AI Studio) or as an environment variable in your Vercel Dashboard.";
+
       setMessages(prev => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          text: "⚠️ Sorry, I encountered an error communicating with the server. Please ensure process.env.GEMINI_API_KEY is configured correctly under Settings > Secrets."
+          text: errorMsg
         }
       ]);
     } finally {

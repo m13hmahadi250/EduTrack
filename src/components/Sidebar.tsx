@@ -17,7 +17,11 @@ import {
   Wallet,
   Sun,
   Moon,
-  Users
+  Users,
+  Clock,
+  MapPin,
+  Award,
+  Activity
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -39,20 +43,21 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
 
   const navItems = [
     ...(isTutor ? [
-      { id: 'my_session', label: 'My Session', icon: Calendar, path: '/dashboard' },
-      { id: 'find_students', label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
+      { id: 'my_session', label: 'My Session', icon: Clock, path: '/dashboard' },
+      { id: 'find_students', label: 'Find Students', icon: Search, path: '/dashboard/find-students' },
       { id: 'balance', label: 'Balance', icon: CreditCard, path: '/dashboard/balance' },
-      { id: 'transit_mode', label: 'Location Track', icon: Map, path: '/dashboard/transit' },
-      { id: 'pro_profile', label: 'Pro Profile', icon: User, path: '/dashboard/profile' },
+      { id: 'transit_mode', label: 'Location Track', icon: MapPin, path: '/dashboard/transit' },
+      { id: 'pro_profile', label: 'Pro Profile', icon: Award, path: '/dashboard/profile' },
     ] : []),
     ...(isStudent ? [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
         { id: 'find', label: 'Find Tutor', icon: Search, path: '/dashboard/search' },
-        { id: 'activity', label: 'Activity Log', icon: BarChart3, path: '/dashboard/activity' },
-        { id: 'account', label: 'My Account', icon: User, path: '/dashboard/profile' },
+        { id: 'activity', label: 'Activity Log', icon: Activity, path: '/dashboard/activity' },
+        { id: 'account', label: 'My Account', icon: Award, path: '/dashboard/profile' },
     ] : []),
     ...(isAdmin ? [
-        { id: 'verifications', label: 'Identity Protocol', icon: Shield, path: '/dashboard' },
+        { id: 'users', label: 'User Directory', icon: Users, path: '/dashboard' },
+        { id: 'verifications', label: 'Identity Protocol', icon: Shield, path: '/dashboard/verifications' },
         { id: 'payments', label: 'Inbound Revenue', icon: CreditCard, path: '/dashboard/payments' },
         { id: 'withdrawals', label: 'Tutor Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
         { id: 'account', label: 'Admin Profile', icon: User, path: '/dashboard/account' },
