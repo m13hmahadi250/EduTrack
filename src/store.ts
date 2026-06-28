@@ -428,7 +428,7 @@ export const useAppStore = create<AppState>((set, get) => {
             isVerified: isMainAdmin ? true : false,
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
-            profileImage: isMainAdmin ? '/admin_profile.png' : (user.photoURL || undefined),
+            profileImage: isMainAdmin ? '/admin_profile.png' : (user.photoURL || ''),
             showTour: true,
             createdAt: new Date().toISOString(),
             ...additionalUserData
@@ -546,7 +546,7 @@ export const useAppStore = create<AppState>((set, get) => {
           rating: 0,
           showTour: true,
           createdAt: new Date().toISOString(),
-          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || undefined)
+          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || '')
         } as User;
 
         // Save to Firestore
