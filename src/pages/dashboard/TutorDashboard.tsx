@@ -2014,7 +2014,7 @@ export default function TutorDashboard() {
                             <option value="">SELECT GENDER</option>
                             <option value="Male">MALE</option>
                             <option value="Female">FEMALE</option>
-                            <option value="Other">OTHER</option>
+
                           </select>
                         </div>
                       </div>
@@ -2924,7 +2924,6 @@ export default function TutorDashboard() {
                         <option value="">ANY GENDER</option>
                         <option value="Male">MALE</option>
                         <option value="Female">FEMALE</option>
-                        <option value="Other">OTHER</option>
                       </select>
                     </div>
                   </div>

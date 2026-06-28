@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Award,
   Search,
-  ExternalLink
+  ExternalLink,
+  Heart
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
@@ -72,6 +73,35 @@ export default function Home() {
   const [selectedSubject, setSelectedSubject] = React.useState('All');
   const [selectedDistrict, setSelectedDistrict] = React.useState('All');
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+
+  const { currentUser, updateUser } = useAppStore();
+  const [localFavorites, setLocalFavorites] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('edutrack_saved_tutors');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavorite = async (tutorId: string) => {
+    if (currentUser) {
+      const currentSaved = currentUser.savedTutors || [];
+      const isFav = currentSaved.includes(tutorId);
+      const newSaved = isFav 
+        ? currentSaved.filter(id => id !== tutorId)
+        : [...currentSaved, tutorId];
+      await updateUser(currentUser.id, { savedTutors: newSaved });
+    } else {
+      const isFav = localFavorites.includes(tutorId);
+      const newFavs = isFav
+        ? localFavorites.filter(id => id !== tutorId)
+        : [...localFavorites, tutorId];
+      setLocalFavorites(newFavs);
+      localStorage.setItem('edutrack_saved_tutors', JSON.stringify(newFavs));
+    }
+  };
 
   // Unified list of available tutors (Firestore Real)
   const allTutors = React.useMemo(() => {
@@ -80,7 +110,11 @@ export default function Home() {
 
   // Compute live search filter results
   const filteredTutors = React.useMemo(() => {
+    const favoriteIds = currentUser?.savedTutors || localFavorites;
     return allTutors.filter(t => {
+      // 0. Favorites filter match
+      const matchesFavorites = !showFavoritesOnly || favoriteIds.includes(t.id);
+
       // 1. Text Search query matching Name, University, or listed Subjects
       const queryStr = searchQuery.toLowerCase().trim();
       const matchesSearch = 
@@ -106,9 +140,9 @@ export default function Home() {
         selectedDistrict === 'All' ||
         (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
 
-      return matchesSearch && matchesSubject && matchesTags && matchesDistrict;
+      return matchesFavorites && matchesSearch && matchesSubject && matchesTags && matchesDistrict;
     });
-  }, [allTutors, searchQuery, selectedSubject, selectedTags, selectedDistrict]);
+  }, [allTutors, searchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
@@ -266,6 +300,20 @@ export default function Home() {
                 </select>
               </div>
 
+              {/* Favorites Filter */}
+              <button
+                type="button"
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={`flex items-center justify-center gap-2 px-5 py-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer shrink-0 ${
+                  showFavoritesOnly
+                    ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600 shadow-md shadow-rose-200 dark:shadow-none'
+                    : 'bg-white dark:bg-[#0B132B] text-slate-500 dark:text-slate-400 border-slate-200/50 dark:border-slate-800 hover:border-rose-500 hover:text-rose-500'
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${showFavoritesOnly ? 'fill-white text-white' : 'text-rose-500'}`} />
+                <span>Favorites</span>
+              </button>
+
             </div>
 
           </div>
@@ -334,17 +382,24 @@ export default function Home() {
               layout
               className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
             >
-              {filteredTutors.map((t) => (
-                <motion.div
-                  key={t.id}
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                >
-                  <TutorPreviewCard tutor={t} />
-                </motion.div>
-              ))}
+              {filteredTutors.map((t) => {
+                const isFavorite = currentUser?.savedTutors?.includes(t.id) || localFavorites.includes(t.id);
+                return (
+                  <motion.div
+                    key={t.id}
+                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                  >
+                    <TutorPreviewCard 
+                      tutor={t} 
+                      isFavorite={isFavorite}
+                      onToggleFavorite={() => toggleFavorite(t.id)}
+                    />
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
 
@@ -712,7 +767,15 @@ const Step = React.memo(({ number, title, desc, index }: { number: string, title
   );
 });
 
-const TutorPreviewCard = React.memo(({ tutor }: { tutor: any }) => {
+const TutorPreviewCard = React.memo(({ 
+  tutor, 
+  isFavorite, 
+  onToggleFavorite 
+}: { 
+  tutor: any; 
+  isFavorite: boolean; 
+  onToggleFavorite: () => void; 
+}) => {
   const name = tutor.name;
   const uni = tutor.university || tutor.uni || 'Expert Educator';
   const subj = (tutor.subjects && tutor.subjects.join(', ')) || tutor.subj || 'Academic Mentor';
@@ -743,6 +806,19 @@ const TutorPreviewCard = React.memo(({ tutor }: { tutor: any }) => {
             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
             <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{Number(rating || 0).toFixed(1)}</span>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            className="absolute top-4 right-16 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-sm hover:scale-110 active:scale-95 transition-all text-rose-500 hover:text-rose-600 focus:outline-none z-10 cursor-pointer flex items-center justify-center"
+            title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+          >
+            <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-400 dark:text-slate-500'}`} />
+          </button>
 
           {tutor.isVerified && (
             <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">

@@ -88,6 +88,7 @@ export interface User {
   showTour?: boolean;
   isOnline?: boolean;
   createdAt?: string;
+  savedTutors?: string[];
 }
 
 export interface Session {

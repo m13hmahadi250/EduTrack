@@ -329,7 +329,6 @@ export default function Signup() {
                     <option value="" disabled className="text-slate-400 dark:text-slate-500">Select Gender</option>
                     <option value="Male" className="text-[#0B132B]">Male</option>
                     <option value="Female" className="text-[#0B132B]">Female</option>
-                    <option value="Other" className="text-[#0B132B]">Other / Prefer not to say</option>
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
                     <ChevronDown className="w-4 h-4 transition-transform duration-200 group-focus-within:rotate-180" />

@@ -593,7 +593,6 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <option value="">SPECIFY</option>
                           <option value="Male">MALE</option>
                           <option value="Female">FEMALE</option>
-                          <option value="Other">OTHER</option>
                         </select>
                       </div>
                     </td>

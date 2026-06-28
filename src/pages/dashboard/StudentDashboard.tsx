@@ -2842,7 +2842,7 @@ export default function StudentDashboard() {
                          <option value="">SELECT GENDER</option>
                          <option value="Male">MALE</option>
                          <option value="Female">FEMALE</option>
-                         <option value="Other">OTHER</option>
+
                        </select>
                     </div>
                     <div className="md:col-span-2 space-y-2">
