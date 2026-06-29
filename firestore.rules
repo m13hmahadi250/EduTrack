@@ -160,10 +160,8 @@ service cloud.firestore {
                data.scheduledTime is string;
       }
 
-      allow list: if isAdmin();
-      allow list: if isSignedIn() && resource.data.tutorId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
-      allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid) || (isSignedIn() && resource.data.studentId == request.auth.uid) || (resource.data.get('rating', 0) > 0);
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid)) || (resource.data.get('rating', 0) > 0);
 
       allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming()) && 
                     (incoming().studentId == request.auth.uid || incoming().tutorId == request.auth.uid) &&

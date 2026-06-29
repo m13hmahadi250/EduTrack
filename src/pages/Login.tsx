@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,12 +25,18 @@ export default function Login() {
   const login = useAppStore(state => state.login);
   const currentUser = useAppStore(state => state.currentUser);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get('redirect');
 
   useEffect(() => {
     if (currentUser) {
-      navigate('/dashboard');
+      if (redirectUrl) {
+        navigate(redirectUrl);
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, redirectUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +67,11 @@ export default function Login() {
         } else {
           await login(trimmedEmail, password);
         }
-        navigate('/dashboard');
+        if (redirectUrl) {
+          navigate(redirectUrl);
+        } else {
+          navigate('/dashboard');
+        }
       } catch (err: any) {
         console.error("Login error:", err);
         let msg = 'Wrong email or password. Please try again.';

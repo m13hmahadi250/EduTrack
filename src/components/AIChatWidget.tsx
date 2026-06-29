@@ -20,10 +20,10 @@ interface ChatMessage {
 }
 
 const SUGGESTED_PROMPTS = [
-  { text: "How do I sign up as a tutor?", label: "Become a Tutor" },
-  { text: "Is my child safe? NID Verification?", label: "Safety & Security" },
-  { text: "How does live GPS tracking work?", label: "Live GPS Tracking" },
-  { text: "How do payments and cash outs work?", label: "Payments & bKash" }
+  { text: "How do I find a verified tutor near me?", label: "🔍 Find verified tutors near my area" },
+  { text: "How does the tutor verification process work?", label: "🛡️ How tutor NID & safety is verified" },
+  { text: "Can parents track the tutor's arrival live?", label: "📍 Track tutor's arrival live via GPS" },
+  { text: "How do bKash payments and cash outs work?", label: "💳 bKash payment & secure escrow" }
 ];
 
 export default function AIChatWidget() {
@@ -32,7 +32,7 @@ export default function AIChatWidget() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hello! I am **EduTrack AI**, your friendly virtual assistant powered by **Groq LLaMA 3.3**.\n\nI can help you learn how Bangladesh's most secure home tutoring platform works. Feel free to select a suggested question below or ask me anything!",
+      content: "Hello! I am **EduTrack AI**, your helper for EduTrack Bangladesh.\n\nI can help you find verified home tutors, learn about our security standards like manual NID verification, live GPS tracking, and digital class logs. Ask me anything or choose a question below!",
       timestamp: new Date()
     }
   ]);
@@ -250,8 +250,7 @@ export default function AIChatWidget() {
                     <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                   </h3>
                   <div className="flex items-center gap-1.5 text-[10px] text-blue-100 font-medium">
-                    <span>Groq LLaMA 3.3</span>
-                    <span className="w-1 h-1 bg-blue-200 rounded-full" />
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
                     <span className="text-emerald-300">Online</span>
                   </div>
                 </div>
@@ -327,20 +326,20 @@ export default function AIChatWidget() {
 
             {/* Suggested Prompts Grid */}
             {messages.length === 1 && (
-              <div className="p-4 bg-white dark:bg-[#0B132B] border-t border-slate-50 dark:border-slate-900 shrink-0">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mb-2 px-1">
-                  <HelpCircle className="w-3.5 h-3.5 text-[#0D5BFF]" />
+              <div className="p-3 bg-white dark:bg-[#0B132B] border-t border-slate-50 dark:border-slate-900 shrink-0">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1 mb-1.5 px-1">
+                  <HelpCircle className="w-3 h-3 text-[#0D5BFF]" />
                   Suggested Questions
                 </span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {SUGGESTED_PROMPTS.map((prompt, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSendMessage(prompt.text)}
-                      className="text-left p-2.5 rounded-2xl bg-slate-50 hover:bg-[#0D5BFF]/5 dark:bg-slate-900/40 dark:hover:bg-blue-950/30 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]/30 transition-all text-[11px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer flex items-center justify-between group"
+                      className="text-left py-1.5 px-2.5 rounded-xl bg-slate-50/60 hover:bg-blue-50/60 dark:bg-slate-900/40 dark:hover:bg-slate-900/80 border border-slate-100/80 dark:border-slate-800/60 hover:border-[#0D5BFF]/30 transition-all text-[10px] font-semibold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center justify-between gap-1 group hover:shadow-sm"
                     >
-                      <span>{prompt.label}</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0D5BFF] transition-colors" />
+                      <span className="line-clamp-2 leading-tight">{prompt.label}</span>
+                      <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-[#0D5BFF] transition-colors shrink-0" />
                     </button>
                   ))}
                 </div>

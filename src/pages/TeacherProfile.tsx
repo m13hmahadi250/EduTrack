@@ -231,7 +231,7 @@ export default function TeacherProfile() {
 
   const initDirectChat = () => {
     if (!currentUser) {
-      navigate('/login');
+      navigate(`/login?redirect=${encodeURIComponent(`/messages?tId=${tutor?.id}`)}`);
       return;
     }
     // Verified students can start direct chats or apply session requests. Redirect them to global contact stream.
@@ -632,7 +632,7 @@ export default function TeacherProfile() {
               <div className="flex items-baseline gap-1 text-[#0B132B] dark:text-white">
                 <span className="text-2xl font-bold">৳</span>
                 <span className="text-5xl font-black italic">{(tutor.hourlyRate || 800).toLocaleString()}</span>
-                <span className="text-xs text-slate-400 font-black uppercase tracking-wider ml-1">/ Hour</span>
+                <span className="text-xs text-slate-400 font-black uppercase tracking-wider ml-1">/ Month</span>
               </div>
 
               <div className="space-y-3.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
@@ -705,7 +705,7 @@ export default function TeacherProfile() {
 
                   <div className="space-y-2">
                     <Link 
-                      to="/login"
+                      to={`/login?redirect=${encodeURIComponent(`/teacher/${tutor.id}`)}`}
                       className="block text-center w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl shadow-lg shadow-[#0D5BFF]/15 transition-all"
                     >
                       Log In as Student

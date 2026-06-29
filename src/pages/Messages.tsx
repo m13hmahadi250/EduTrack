@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { 
   Send, 
@@ -18,10 +19,18 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function Messages() {
   const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const targetTId = searchParams.get('tId');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (targetTId) {
+      setSelectedUserId(targetTId);
+    }
+  }, [targetTId]);
 
   useEffect(() => {
     const scrollToBottom = () => {
@@ -58,7 +67,9 @@ export default function Messages() {
       (m.senderId === u.id && m.receiverId === currentUser.id)
     );
 
-    return hasSession || hasHistory;
+    const isTargetFromUrl = targetTId ? u.id === targetTId : false;
+
+    return hasSession || hasHistory || isTargetFromUrl;
   }).sort((a, b) => {
     const aMsgs = messages.filter(m => 
       (m.senderId === currentUser.id && m.receiverId === a.id) || 
