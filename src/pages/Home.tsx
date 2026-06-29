@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
-import AIChatWidget from '../components/AIChatWidget';
 import { 
   ShieldCheck, 
   Users, 
@@ -707,7 +706,6 @@ export default function Home() {
           </motion.div>
         </div>
       </footer>
-      <AIChatWidget />
     </div>
   );
 }
