@@ -244,6 +244,60 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+app.post("/api/groq/chat", async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Invalid request payload. 'messages' array is required." });
+    }
+
+    // 1. Get the Groq API Key securely
+    const groqApiKey = process.env.GROQ_API_KEY || "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";
+
+    if (!groqApiKey || groqApiKey === "MY_GROQ_API_KEY") {
+      return res.status(400).json({ error: "Groq API Key is missing. Please configure GROQ_API_KEY under Settings > Secrets." });
+    }
+
+    // 2. Format the messages for the OpenAI/Groq compatible schema
+    const groqMessages = [
+      { role: "system", content: SYSTEM_INSTRUCTION },
+      ...messages.map((m: any) => ({
+        role: m.role === "assistant" || m.role === "model" ? "assistant" : "user",
+        content: m.text || m.content || ""
+      }))
+    ];
+
+    // 3. Make the API request to Groq
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${groqApiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: groqMessages,
+        temperature: 0.7,
+        max_tokens: 1024
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("[Groq API Error Response]:", errorData);
+      throw new Error(errorData.error?.message || `Groq API responded with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const replyText = data.choices?.[0]?.message?.content || "I am here to help you with EduTrack Bangladesh! Let me know if you have any questions.";
+    
+    res.json({ reply: replyText });
+  } catch (error: any) {
+    console.error("[Groq Chat API Error]:", error);
+    res.status(500).json({ error: error.message || "Failed to generate AI response from Groq" });
+  }
+});
+
 app.all("/api/*", (req, res) => {
   res.status(404).json({ error: "API Route Not Found", path: req.path });
 });
