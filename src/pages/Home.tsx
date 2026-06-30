@@ -38,6 +38,8 @@ export default function Home() {
   const [showInstallGuide, setShowInstallGuide] = React.useState(false);
   const [showFirstTimePopup, setShowFirstTimePopup] = React.useState(false);
 
+  const [installNotification, setInstallNotification] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     // Check if app is already running as standalone PWA
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
@@ -92,7 +94,8 @@ export default function Home() {
         console.error("Installation prompt failed:", err);
       }
     } else {
-      setShowInstallGuide(true);
+      setInstallNotification("To install EduTrack, please use your browser menu and select 'Add to Home Screen' or 'Install App'.");
+      setTimeout(() => setInstallNotification(null), 5000);
     }
   };
 
@@ -915,6 +918,35 @@ export default function Home() {
                 Maybe Later
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Fallback Install Notification Toast */}
+      {installNotification && (
+        <div className="fixed bottom-6 left-6 z-50 max-w-sm w-[calc(100vw-3rem)]">
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            className="bg-[#0B132B] dark:bg-[#111A2E] text-white border border-slate-100 dark:border-slate-800 rounded-[2rem] p-5 shadow-2xl flex items-start gap-4 relative transition-colors duration-300"
+          >
+            <div className="p-2.5 bg-blue-500/10 text-[#0D5BFF] rounded-xl shrink-0 mt-0.5">
+              <Info className="w-5 h-5 text-[#0D5BFF] animate-pulse" />
+            </div>
+            <div className="pr-6">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-300">How to Install</h4>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                {installNotification}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInstallNotification(null)}
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-white rounded-full cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </motion.div>
         </div>
       )}
