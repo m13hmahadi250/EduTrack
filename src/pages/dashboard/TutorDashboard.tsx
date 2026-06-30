@@ -103,6 +103,18 @@ const MapLoading = () => (
   </div>
 );
 
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 export default function TutorDashboard() {
   const {
     currentUser,
@@ -214,6 +226,7 @@ export default function TutorDashboard() {
   const [filterStudentSubject, setFilterStudentSubject] = useState('');
   const [filterStudentAddress, setFilterStudentAddress] = useState('');
   const [filterStudentGender, setFilterStudentGender] = useState('');
+  const [studentSortBy, setStudentSortBy] = useState<'default' | 'location'>('default');
 
   const filteredStudents = useMemo(() => {
     return users.filter(user => {
@@ -243,6 +256,35 @@ export default function TutorDashboard() {
       return matchesSearch && matchesClass && matchesSubject && matchesAddress && matchesGender;
     });
   }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress, filterStudentGender]);
+
+  const getDistanceToStudent = (student: User) => {
+    const tutorLoc = currentUser?.location ? [currentUser.location.lat, currentUser.location.lng] : null;
+    const studentLoc = student.location ? [student.location.lat, student.location.lng] : null;
+
+    let tutorCoords: [number, number] | null = tutorLoc as [number, number] | null;
+    if (!tutorCoords && (currentUser?.district || currentUser?.thana)) {
+      tutorCoords = getCoordinatesForLocation(currentUser.district || '', currentUser.thana || '', currentUser.id);
+    }
+
+    let studentCoords: [number, number] | null = studentLoc as [number, number] | null;
+    if (!studentCoords && (student.district || student.thana)) {
+      studentCoords = getCoordinatesForLocation(student.district || '', student.thana || '', student.id);
+    }
+
+    if (!tutorCoords || !studentCoords) return Infinity;
+    return getDistance(tutorCoords[0], tutorCoords[1], studentCoords[0], studentCoords[1]);
+  };
+
+  const sortedStudents = useMemo(() => {
+    if (studentSortBy === 'location') {
+      return [...filteredStudents].sort((a, b) => {
+        const distA = getDistanceToStudent(a);
+        const distB = getDistanceToStudent(b);
+        return distA - distB;
+      });
+    }
+    return filteredStudents;
+  }, [filteredStudents, studentSortBy, currentUser]);
   const [selectedStudentForProposal, setSelectedStudentForProposal] = useState<User | null>(null);
   const [proposalDate, setProposalDate] = useState(new Date().toISOString().split("T")[0]);
   const [proposalSlot, setProposalSlot] = useState("04:00 PM");
@@ -325,7 +367,7 @@ export default function TutorDashboard() {
             updateLocation(currentUser!.id, 23.8103, 90.4125);
             setIsRefreshingLocation(false);
           },
-          { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 15000, maximumAge: 60000 },
+          { enableHighAccuracy: highAccuracy, timeout: 15000, maximumAge: 0 },
         );
       };
       tryGetPosition(true);
@@ -389,6 +431,7 @@ export default function TutorDashboard() {
     nidBackImg: currentUser?.nidBackImg || "",
     documents: currentUser?.documents || [],
     gender: currentUser?.gender || "",
+    location: currentUser?.location || { lat: 23.8103, lng: 90.4125 }
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -412,6 +455,7 @@ export default function TutorDashboard() {
         nidBackImg: currentUser.nidBackImg || "",
         documents: currentUser.documents || [],
         gender: currentUser.gender || "",
+        location: currentUser.location || { lat: 23.8103, lng: 90.4125 }
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -508,10 +552,10 @@ export default function TutorDashboard() {
                 // Graceful fallback to center of Dhaka so dashboard layout stays perfectly functional
                 updateLocation(currentUser.id, 23.8103, 90.4125);
               },
-              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 },
             );
           },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
         );
       } else {
         // Device lacks geolocation hardware/support
@@ -535,12 +579,16 @@ export default function TutorDashboard() {
     if (!currentUser) return;
     setIsUpdating(true);
     try {
-      const coords = getCoordinatesForLocation(profileForm.district || "", profileForm.thana || "", currentUser.id);
+      let finalLocation = profileForm.location;
+      if (!finalLocation || (finalLocation.lat === 23.8103 && finalLocation.lng === 90.4125)) {
+        const coords = getCoordinatesForLocation(profileForm.district || "", profileForm.thana || "", currentUser.id);
+        finalLocation = { lat: coords[0], lng: coords[1] };
+      }
       await updateUser(currentUser.id, {
         ...profileForm,
         hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
-        location: { lat: coords[0], lng: coords[1] }
+        location: finalLocation
       });
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
@@ -2120,6 +2168,7 @@ export default function TutorDashboard() {
                                   ...profileForm,
                                   district: newDist,
                                   thana: "",
+                                  location: { lat: getCoordinatesForLocation(newDist, "", currentUser.id)[0], lng: getCoordinatesForLocation(newDist, "", currentUser.id)[1] }
                                 });
                               }}
                               className="w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer"
@@ -2147,6 +2196,7 @@ export default function TutorDashboard() {
                                 setProfileForm({
                                   ...profileForm,
                                   thana: e.target.value,
+                                  location: { lat: getCoordinatesForLocation(profileForm.district, e.target.value, currentUser.id)[0], lng: getCoordinatesForLocation(profileForm.district, e.target.value, currentUser.id)[1] }
                                 })
                               }
                               className={`w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer ${
@@ -2175,6 +2225,74 @@ export default function TutorDashboard() {
                           }
                           placeholder="e.g. Mirpur 1"
                         />
+                      </div>
+
+                      {/* GPS Coordinates Configuration */}
+                      <div className="space-y-3 bg-slate-100/50 dark:bg-slate-900/40 p-5 rounded-[2rem] border border-slate-200/60 dark:border-slate-800/80">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div>
+                            <h4 className="text-[10px] font-black uppercase text-[#0B132B] dark:text-white tracking-wider flex items-center gap-1.5">
+                              <MapPin className="w-4 h-4 text-[#0D5BFF]" />
+                              GPS Coordinates Accuracy Center
+                            </h4>
+                            <p className="text-[8px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold">100% correct user placement for radar & routing</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!('geolocation' in navigator)) {
+                                alert("Geolocation is not supported by this browser.");
+                                return;
+                              }
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  setProfileForm(prev => ({
+                                    ...prev,
+                                    location: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                                  }));
+                                },
+                                (err) => {
+                                  console.error("Manual GPS request failed:", err);
+                                  alert("Failed to acquire exact location automatically. Please ensure location services and browser site permissions are granted.");
+                                },
+                                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                              );
+                            }}
+                            className="px-3.5 py-2 bg-[#0D5BFF] hover:bg-[#0D5BFF]/90 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all self-stretch sm:self-auto justify-center cursor-pointer"
+                          >
+                            <Compass className="w-3.5 h-3.5" />
+                            DETECT PRECISE GPS
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">Latitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={profileForm.location?.lat ?? 23.8103}
+                              onChange={e => setProfileForm(prev => ({
+                                ...prev,
+                                location: { lat: Number(e.target.value), lng: prev.location?.lng ?? 90.4125 }
+                              }))}
+                              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl py-3 px-5 text-[11px] font-bold text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">Longitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={profileForm.location?.lng ?? 90.4125}
+                              onChange={e => setProfileForm(prev => ({
+                                ...prev,
+                                location: { lat: prev.location?.lat ?? 23.8103, lng: Number(e.target.value) }
+                              }))}
+                              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl py-3 px-5 text-[11px] font-bold text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -2930,8 +3048,30 @@ export default function TutorDashboard() {
                 </div>
 
                 <div className="lg:col-span-3 space-y-6">
+                  {/* Sorting Controls */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                    <div>
+                      <h3 className="text-xs font-black uppercase text-[#0B132B] dark:text-white tracking-wider">Leads & Students</h3>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold">{sortedStudents.length} Students seeking expert tutors</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Sort By:</span>
+                      <div className="relative">
+                        <select
+                          value={studentSortBy}
+                          onChange={(e) => setStudentSortBy(e.target.value as any)}
+                          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all cursor-pointer appearance-none pr-8"
+                        >
+                          <option value="default">✨ Default Order</option>
+                          <option value="location">📍 Nearest Location first</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500" />
+                      </div>
+                    </div>
+                  </div>
+
                   {(() => {
-                    const filtered = filteredStudents;
+                    const filtered = sortedStudents;
 
                     if (filtered.length === 0) {
                       return (
@@ -2987,9 +3127,23 @@ export default function TutorDashboard() {
                                   <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
                                     Inbound Location
                                   </span>
-                                  <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
-                                    {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
-                                  </span>
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
+                                      {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
+                                    </span>
+                                    {(() => {
+                                      const dist = getDistanceToStudent(student);
+                                      if (dist < Infinity) {
+                                        return (
+                                          <span className="text-[9px] font-black uppercase text-[#0D5BFF] dark:text-blue-400 mt-1 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3 text-[#0D5BFF] dark:text-blue-400" />
+                                            {dist.toFixed(1)} km away
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
                                 </div>
                               </div>
 
