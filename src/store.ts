@@ -231,6 +231,10 @@ interface AppState {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   
+  // Promotional banner settings
+  promotionalBannerText: string;
+  updatePromotionalBannerText: (text: string) => Promise<void>;
+  
   // Internal sync
   setLoading: (loading: boolean) => void;
 }
@@ -285,6 +289,18 @@ function cleanupListeners() {
 }
 
 export const useAppStore = create<AppState>((set, get) => {
+  // Listen for global system configurations like promotional banner
+  onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data && data.promotionalBannerText !== undefined) {
+        set({ promotionalBannerText: data.promotionalBannerText });
+      }
+    }
+  }, (error) => {
+    console.warn("Non-blocking: could not fetch promotional banner config:", error);
+  });
+
   // Listen for Auth changes
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
@@ -350,6 +366,16 @@ export const useAppStore = create<AppState>((set, get) => {
     isLoggingOut: false,
     typingStatus: {},
     theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
+
+    promotionalBannerText: "0% COMMISSION FOR INTERNATIONAL ISLAMIC UNIVERSITY CHITTAGONG (IIUC) STUDENTS  • JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • VERIFIED EXPERT MENTORS AVAILABLE IN OUR NEAR • ",
+
+    updatePromotionalBannerText: async (text: string) => {
+      try {
+        await setDoc(doc(db, 'system', 'config'), { promotionalBannerText: text }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'system/config');
+      }
+    },
 
     toggleTheme: () => {
       const currentTheme = get().theme;

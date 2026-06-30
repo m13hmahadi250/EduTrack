@@ -1,8 +1,9 @@
 import React from 'react';
 import { Sparkles, Zap, Gift } from 'lucide-react';
+import { useAppStore } from '../store';
 
 export default function PromotionalBanner() {
-  const adText = "SPECIAL OFFER: JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • VERIFIED TUTORS GET EXCLUSIVE BADGES • REAL-TIME TRACKING NOW LIVE IN ALL CITIES • ";
+  const adText = useAppStore(state => state.promotionalBannerText);
 
   return (
     <div className="bg-[#0B132B] text-white py-3 overflow-hidden whitespace-nowrap border-b border-white/10 relative z-[60] group cursor-default">
@@ -11,13 +12,13 @@ export default function PromotionalBanner() {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="flex items-center space-x-8 flex-shrink-0">
               <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <Sparkles className="w-4 h-4 text-amber-400" />
                 {adText}
                 <Zap className="w-4 h-4 text-[#0D5BFF]" />
               </span>
               <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
-                <Gift className="w-4 h-4 text-rose-500" />
-                LIMITED TIME: FIRST SESSION FREE FOR STUDENTS!
+                <Gift className="w-4 h-4 text-emerald-400" />
+                 REGISTER NOW!
                 <Shield className="w-4 h-4 text-[#0D5BFF]" />
               </span>
             </div>

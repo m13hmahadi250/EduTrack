@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../data/bangladeshData';
+import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'tutor'>('student');
@@ -20,7 +20,7 @@ export default function Signup() {
     const errs: Record<string, string> = {};
 
     // Common fields
-    const commonFields = ['name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender'];
+    const commonFields = ['name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender'];
     commonFields.forEach(field => {
       if (!formData[field] || !formData[field].trim()) {
         errs[field] = 'This field is required';
@@ -66,7 +66,10 @@ export default function Signup() {
     const { name, value } = e.target;
     setFormData((prev: any) => {
       const next = { ...prev, [name]: value };
-      if (name === 'district') {
+      if (name === 'division') {
+        next.district = '';
+        next.thana = '';
+      } else if (name === 'district') {
         next.thana = '';
       }
       return next;
@@ -106,7 +109,7 @@ export default function Signup() {
       setErrors(validationErrors);
       const allTouched: Record<string, boolean> = {};
       const fieldsToCheck = [
-        'name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender',
+        'name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender',
         ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
       ];
       fieldsToCheck.forEach(f => {
@@ -326,9 +329,9 @@ export default function Signup() {
                       ['--tw-ring-color' as any]: touched.gender && errors.gender ? 'rgb(239, 68, 68)' : accentColor
                     }}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500">Select Gender</option>
-                    <option value="Male" className="text-[#0B132B]">Male</option>
-                    <option value="Female" className="text-[#0B132B]">Female</option>
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Gender</option>
+                    <option value="Male" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Male</option>
+                    <option value="Female" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Female</option>
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
                     <ChevronDown className="w-4 h-4 transition-transform duration-200 group-focus-within:rotate-180" />
@@ -372,6 +375,44 @@ export default function Signup() {
                   accentColor={accentColor}
                 />
               </div>
+              <div className="space-y-1.5 w-full sm:col-span-2">
+                <div className="flex justify-between items-center px-0.5">
+                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                    Division <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {touched.division && errors.division && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                      {errors.division}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <select
+                    name="division"
+                    required
+                    value={formData.division || ''}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                      touched.division && errors.division
+                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
+                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                    }`}
+                    style={{
+                      ['--tw-ring-color' as any]: touched.division && errors.division ? 'rgb(239, 68, 68)' : accentColor
+                    }}
+                  >
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Division</option>
+                    {BANGLADESH_DIVISIONS.map((div) => (
+                      <option key={div} value={div} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{div}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-1.5 w-full">
                 <div className="flex justify-between items-center px-0.5">
                   <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
@@ -387,10 +428,13 @@ export default function Signup() {
                   <select
                     name="district"
                     required
+                    disabled={!formData.division}
                     value={formData.district || ''}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                      !formData.division ? 'opacity-60 cursor-not-allowed' : ''
+                    } ${
                       touched.district && errors.district
                         ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
                         : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
@@ -399,9 +443,11 @@ export default function Signup() {
                       ['--tw-ring-color' as any]: touched.district && errors.district ? 'rgb(239, 68, 68)' : accentColor
                     }}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500">Select District</option>
-                    {BANGLADESH_DISTRICTS.map((dist) => (
-                      <option key={dist} value={dist} className="text-[#0B132B]">{dist}</option>
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                      {formData.division ? 'Select District' : 'Select Division First'}
+                    </option>
+                    {formData.division && (BANGLADESH_DIV_TO_DIST[formData.division] || []).map((dist) => (
+                      <option key={dist} value={dist} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{dist}</option>
                     ))}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
@@ -440,11 +486,11 @@ export default function Signup() {
                       ['--tw-ring-color' as any]: touched.thana && errors.thana ? 'rgb(239, 68, 68)' : accentColor
                     }}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500">
+                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
                       {formData.district ? 'Select Thana' : 'Select District First'}
                     </option>
                     {formData.district && BANGLADESH_THANAS[formData.district]?.map((th) => (
-                      <option key={th} value={th} className="text-[#0B132B]">{th}</option>
+                      <option key={th} value={th} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{th}</option>
                     ))}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
@@ -622,7 +668,7 @@ export default function Signup() {
               setErrors(validationErrors);
               const allTouched: Record<string, boolean> = {};
               const fieldsToCheck = [
-                'name', 'email', 'phone', 'password', 'address', 'district', 'thana', 'area', 'gender',
+                'name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender',
                 ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
               ];
               fieldsToCheck.forEach(f => {

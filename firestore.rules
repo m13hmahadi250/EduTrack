@@ -29,9 +29,8 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && (
-        (request.auth.token != null && "email" in request.auth.token &&
-         (request.auth.token.email == 'edutrackbangladesh@gmail.com' ||
-          request.auth.token.email == 'm13hmahadi.personal@gmail.com')) ||
+        request.auth.token.get('email', '') == 'edutrackbangladesh@gmail.com' ||
+        request.auth.token.get('email', '') == 'm13hmahadi.personal@gmail.com' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '') == 'edutrackbangladesh@gmail.com' ||
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '') == 'm13hmahadi.personal@gmail.com'))
@@ -41,7 +40,7 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         isSuperAdmin() ||
-        (request.auth.token != null && "email" in request.auth.token && request.auth.token.email == 'admin@gmail.com') ||
+        request.auth.token.get('email', '') == 'admin@gmail.com' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
       );
@@ -270,6 +269,12 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isOwner(userId) && 
                    (incoming().get('typingTo', null) == null || isValidId(incoming().typingTo));
+    }
+
+    // --- System Config ---
+    match /system/{documentId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
