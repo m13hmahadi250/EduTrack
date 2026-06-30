@@ -36,6 +36,7 @@ export default function Home() {
   const [isInstallable, setIsInstallable] = React.useState(false);
   const [isInstalled, setIsInstalled] = React.useState(false);
   const [showInstallGuide, setShowInstallGuide] = React.useState(false);
+  const [showFirstTimePopup, setShowFirstTimePopup] = React.useState(false);
 
   React.useEffect(() => {
     // Check if app is already running as standalone PWA
@@ -53,6 +54,7 @@ export default function Home() {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
+      setShowFirstTimePopup(false);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -64,6 +66,17 @@ export default function Home() {
     };
   }, []);
 
+  React.useEffect(() => {
+    // Show first-time install popup if not already dismissed and not installed
+    const dismissed = localStorage.getItem('edutrack_first_time_pwa_dismissed');
+    if (!dismissed && !isInstalled) {
+      const timer = setTimeout(() => {
+        setShowFirstTimePopup(true);
+      }, 4000); // 4 seconds delay
+      return () => clearTimeout(timer);
+    }
+  }, [isInstalled]);
+
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -73,6 +86,7 @@ export default function Home() {
           setIsInstalled(true);
           setIsInstallable(false);
           setDeferredPrompt(null);
+          setShowFirstTimePopup(false);
         }
       } catch (err) {
         console.error("Installation prompt failed:", err);
@@ -80,6 +94,17 @@ export default function Home() {
     } else {
       setShowInstallGuide(true);
     }
+  };
+
+  const handleInstallFromPopup = () => {
+    localStorage.setItem('edutrack_first_time_pwa_dismissed', 'true');
+    setShowFirstTimePopup(false);
+    handleInstallClick();
+  };
+
+  const dismissFirstTimePopup = () => {
+    localStorage.setItem('edutrack_first_time_pwa_dismissed', 'true');
+    setShowFirstTimePopup(false);
   };
 
   React.useEffect(() => {
@@ -832,6 +857,62 @@ export default function Home() {
                 className="w-full py-4 bg-[#0B132B] dark:bg-slate-800 text-white font-black rounded-2xl text-xs uppercase tracking-wider hover:bg-[#0D5BFF] hover:dark:bg-[#0D5BFF] transition-all text-center cursor-pointer"
               >
                 Got It, Thanks!
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* First-time PWA Installation Popup */}
+      {showFirstTimePopup && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-[calc(100vw-3rem)]">
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ type: "spring", damping: 20, stiffness: 100 }}
+            className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-850 rounded-[2rem] p-6 shadow-2xl relative transition-colors duration-300"
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={dismissFirstTimePopup}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex gap-4 items-start">
+              <div className="p-3 bg-blue-500/10 text-[#0D5BFF] rounded-2xl shrink-0">
+                <Sparkles className="w-5 h-5 animate-pulse text-[#0D5BFF]" />
+              </div>
+              <div className="pr-4">
+                <span className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-[8px] font-black uppercase tracking-wider text-[#0D5BFF] dark:text-blue-400 rounded-full mb-1">
+                  App Available
+                </span>
+                <h4 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic leading-tight">
+                  Install EduTrack App
+                </h4>
+                <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-1.5 leading-relaxed">
+                  Add EduTrack to your home screen for instant access, native performance, and offline support.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleInstallFromPopup}
+                className="flex-1 py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white font-black rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 text-center cursor-pointer shadow-lg shadow-blue-500/10"
+              >
+                Install Now
+              </button>
+              <button
+                type="button"
+                onClick={dismissFirstTimePopup}
+                className="px-4 py-3 bg-slate-50 dark:bg-slate-800 text-[#0B132B] dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-black rounded-xl text-[10px] uppercase tracking-wider transition-all text-center cursor-pointer"
+              >
+                Maybe Later
               </button>
             </div>
           </motion.div>
