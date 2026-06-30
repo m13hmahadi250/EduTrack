@@ -46,24 +46,43 @@ export default function Home() {
       setIsInstalled(true);
     }
 
+    // Retrieve globally captured installation prompt if present
+    const capturedPrompt = (window as any).getDeferredPrompt ? (window as any).getDeferredPrompt() : null;
+    if (capturedPrompt) {
+      setDeferredPrompt(capturedPrompt);
+      setIsInstallable(true);
+    }
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
+    const handleGlobalInstallable = (e: any) => {
+      if (e.detail) {
+        setDeferredPrompt(e.detail);
+        setIsInstallable(true);
+      }
+    };
+
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
+      if ((window as any).clearDeferredPrompt) {
+        (window as any).clearDeferredPrompt();
+      }
       setShowFirstTimePopup(false);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('pwa-installable', handleGlobalInstallable);
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('pwa-installable', handleGlobalInstallable);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
@@ -88,6 +107,9 @@ export default function Home() {
           setIsInstalled(true);
           setIsInstallable(false);
           setDeferredPrompt(null);
+          if ((window as any).clearDeferredPrompt) {
+            (window as any).clearDeferredPrompt();
+          }
           setShowFirstTimePopup(false);
         }
       } catch (err) {

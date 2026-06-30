@@ -3,6 +3,18 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Capture beforeinstallprompt event globally before React mounts
+let deferredPrompt: any = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Dispatch a custom event so active React components can listen
+  window.dispatchEvent(new CustomEvent('pwa-installable', { detail: e }));
+});
+
+(window as any).getDeferredPrompt = () => deferredPrompt;
+(window as any).clearDeferredPrompt = () => { deferredPrompt = null; };
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
@@ -10,8 +22,8 @@ createRoot(document.getElementById('root')!).render(
 );
 
 // Register service worker for Progressive Web App (PWA) installation
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-  window.addEventListener('load', () => {
+if ('serviceWorker' in navigator) {
+  const registerSW = () => {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {
         console.log('ServiceWorker registered successfully with scope: ', reg.scope);
@@ -19,18 +31,13 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
       .catch(err => {
         console.error('ServiceWorker registration failed: ', err);
       });
-  });
-} else if ('serviceWorker' in navigator) {
-  // Also register in dev for easier local testing/preview
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('ServiceWorker registered in development mode: ', reg.scope);
-      })
-      .catch(err => {
-        console.warn('ServiceWorker registration in development failed: ', err);
-      });
-  });
+  };
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    registerSW();
+  } else {
+    window.addEventListener('load', registerSW);
+  }
 }
 
 
