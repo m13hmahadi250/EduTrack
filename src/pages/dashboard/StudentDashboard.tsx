@@ -46,7 +46,8 @@ import {
   DollarSign,
   Activity,
   Mars,
-  Venus
+  Venus,
+  Heart
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -109,7 +110,8 @@ export default function StudentDashboard() {
     updateLocation, 
     messages,
     grantEndPermission,
-    endSession
+    endSession,
+    updateUser
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -120,7 +122,8 @@ export default function StudentDashboard() {
     updateLocation: state.updateLocation,
     messages: state.messages,
     grantEndPermission: state.grantEndPermission,
-    endSession: state.endSession
+    endSession: state.endSession,
+    updateUser: state.updateUser
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -137,6 +140,7 @@ export default function StudentDashboard() {
   const [filterThana, setFilterThana] = useState('');
   const [filterRating, setFilterRating] = useState(0);
   const [filterGender, setFilterGender] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
   const [sortBy, setSortBy] = useState<'default' | 'location'>('default');
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
@@ -580,11 +584,12 @@ export default function StudentDashboard() {
       const matchesThana = !filterThana || (user.thana && user.thana.toLowerCase() === filterThana.toLowerCase());
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
       const matchesGender = !filterGender || (user.gender && user.gender.toLowerCase() === filterGender.toLowerCase());
+      const matchesFavorites = !showFavoritesOnly || (currentUser?.savedTutors || []).includes(user.id);
 
-      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesDistrict && matchesThana && matchesRating && matchesGender;
+      return matchesSearch && matchesSubject && matchesVersion && matchesClass && matchesArea && matchesDistrict && matchesThana && matchesRating && matchesGender && matchesFavorites;
     }).forEach(u => unique.set(u.id, u));
     return Array.from(unique.values()) as User[];
-  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterDistrict, filterThana, filterRating, filterGender]);
+  }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterDistrict, filterThana, filterRating, filterGender, showFavoritesOnly, currentUser?.savedTutors]);
 
   const getDistanceToTutor = (t: User) => {
     if (!currentUser?.location) {
@@ -1393,6 +1398,26 @@ export default function StudentDashboard() {
                     </div>
                   </FilterGroup>
 
+                  <FilterGroup label="Saved Educators">
+                    <button
+                      type="button"
+                      onClick={() => setShowFavoritesOnly(prev => !prev)}
+                      className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 border rounded-2xl transition-all cursor-pointer ${
+                        showFavoritesOnly 
+                          ? 'border-rose-200 bg-rose-50/50 text-rose-600' 
+                          : 'border-slate-100 text-[#0B132B]'
+                      }`}
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+                        Favorites Only
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {showFavoritesOnly ? 'Active' : 'Off'}
+                      </span>
+                    </button>
+                  </FilterGroup>
+
                   <FilterGroup label="Curriculum Version">
                     <div className="flex flex-wrap gap-2">
                       {['', ...AVAILABLE_VERSIONS].map(v => (
@@ -1559,6 +1584,7 @@ export default function StudentDashboard() {
                       setFilterVersion('');
                       setFilterRating(0);
                       setFilterGender('');
+                      setShowFavoritesOnly(false);
                     }}
                     className="w-full py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all"
                   >
@@ -1709,6 +1735,23 @@ export default function StudentDashboard() {
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                               </h3>
                               <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const currentSaved = currentUser?.savedTutors || [];
+                                    const isFav = currentSaved.includes(tutor.id);
+                                    const newSaved = isFav 
+                                      ? currentSaved.filter(id => id !== tutor.id)
+                                      : [...currentSaved, tutor.id];
+                                    updateUser(currentUser!.id, { savedTutors: newSaved });
+                                  }}
+                                  className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all text-rose-500 cursor-pointer flex items-center justify-center shrink-0"
+                                  title={currentUser?.savedTutors?.includes(tutor.id) ? "Remove from Favorites" : "Add to Favorites"}
+                                >
+                                  <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${currentUser?.savedTutors?.includes(tutor.id) ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+                                </button>
                                 {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
                                    <div className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
                                       <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
@@ -1782,9 +1825,30 @@ export default function StudentDashboard() {
                                     {selectedTutor.name.charAt(0)}
                                   </div>
                                 )}
-                                <div className="space-y-3">
+                                <div className="space-y-3 flex-1">
                                   <div>
-                                    <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
+                                    <div className="flex flex-wrap items-center justify-between gap-4">
+                                      <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">{selectedTutor.name}</h3>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const currentSaved = currentUser?.savedTutors || [];
+                                          const isFav = currentSaved.includes(selectedTutor.id);
+                                          const newSaved = isFav 
+                                            ? currentSaved.filter(id => id !== selectedTutor.id)
+                                            : [...currentSaved, selectedTutor.id];
+                                          updateUser(currentUser!.id, { savedTutors: newSaved });
+                                        }}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest cursor-pointer ${
+                                          currentUser?.savedTutors?.includes(selectedTutor.id)
+                                            ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                            : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-300'
+                                        }`}
+                                      >
+                                        <Heart className={`w-3 h-3 ${currentUser?.savedTutors?.includes(selectedTutor.id) ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+                                        {currentUser?.savedTutors?.includes(selectedTutor.id) ? 'Saved' : 'Save Tutor'}
+                                      </button>
+                                    </div>
                                     <div className="flex flex-wrap items-center gap-3 mt-1">
                                       <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{selectedTutor.university || 'Educational Expert'}</p>
                                       {selectedTutor.rating && (
