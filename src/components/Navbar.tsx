@@ -21,8 +21,6 @@ const Navbar = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
 
-
-
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -39,7 +37,7 @@ const Navbar = memo(() => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/70 dark:bg-[#0B132B]/80 backdrop-blur-md border-b border-slate-200/40 dark:border-slate-800/40 py-2.5 text-slate-800 dark:text-slate-100 transition-all duration-300 shadow-sm shadow-slate-100/5 dark:shadow-none">
+    <nav className="sticky top-0 z-50 bg-gradient-to-b from-white/70 to-white/40 dark:from-[#0B132B]/75 dark:to-[#0B132B]/45 backdrop-blur-2xl border-b border-white/30 dark:border-white/5 py-2.5 text-slate-800 dark:text-slate-100 transition-all duration-300 shadow-[0_8px_32px_0_rgba(13,91,255,0.02),inset_0_1px_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_40px_0_rgba(0,0,0,0.4),inset_0_1px_0_0_rgba(255,255,255,0.12)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
@@ -169,8 +167,6 @@ const Navbar = memo(() => {
           </div>
         </div>
       </div>
-
-
     </nav>
   );
 });

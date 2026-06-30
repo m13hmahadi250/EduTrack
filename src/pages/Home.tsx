@@ -15,84 +15,15 @@ import {
   Award,
   Search,
   ExternalLink,
-  Heart,
-  Download,
-  Smartphone,
-  X,
-  Share,
-  PlusSquare,
-  AppWindow,
-  Info,
-  Facebook,
-  Linkedin,
-  Twitter,
-  Instagram,
-  Mail,
-  Phone,
-  Clock
+  Heart
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>([]);
   const location = useLocation();
-
-  const [showInstallBtn, setShowInstallBtn] = React.useState(true);
-  const [showManualModal, setShowManualModal] = React.useState(false);
-  const [isIOS, setIsIOS] = React.useState(false);
-  const [inIframe, setInIframe] = React.useState(false);
-  const [newsletterEmail, setNewsletterEmail] = React.useState('');
-  const [newsletterSubscribed, setNewsletterSubscribed] = React.useState(false);
-
-  React.useEffect(() => {
-    const isStandalone = 
-      window.matchMedia('(display-mode: standalone)').matches || 
-      (window.navigator as any).standalone === true;
-
-    setInIframe(window.self !== window.top);
-
-    if (isStandalone) {
-      setShowInstallBtn(false);
-    } else {
-      setShowInstallBtn(true);
-    }
-
-    const handlePromptAvailable = () => {
-      setShowInstallBtn(true);
-    };
-
-    const handleInstalled = () => {
-      setShowInstallBtn(false);
-    };
-
-    window.addEventListener('pwa-prompt-available', handlePromptAvailable);
-    window.addEventListener('pwa-installed', handleInstalled);
-
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const ios = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(ios);
-
-    return () => {
-      window.removeEventListener('pwa-prompt-available', handlePromptAvailable);
-      window.removeEventListener('pwa-installed', handleInstalled);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    const promptEvent = (window as any).deferredPrompt;
-    if (promptEvent) {
-      promptEvent.prompt();
-      const { outcome } = await promptEvent.userChoice;
-      if (outcome === 'accepted') {
-        (window as any).deferredPrompt = null;
-        setShowInstallBtn(false);
-      }
-    } else {
-      setShowManualModal(true);
-    }
-  };
 
   React.useEffect(() => {
     document.title = "EduTrack | Security-First Home Tutoring Platform in Bangladesh";
@@ -717,460 +648,63 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PWA Download Section */}
-      {showInstallBtn && (
-        <section className="py-16 bg-slate-50 dark:bg-[#111A2E]/20 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-gradient-to-br from-[#0F172A] to-[#0B132B] rounded-[3rem] p-8 md:p-14 text-left relative overflow-hidden border border-slate-800 shadow-2xl flex flex-col md:flex-row items-center gap-8 md:gap-12">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-[#0D5BFF]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
-              
-              {/* Left Column: Visual Icon / Smartphone mock */}
-              <div className="flex-shrink-0 bg-slate-800/50 p-6 rounded-[2rem] border border-slate-700/50 flex items-center justify-center relative group">
-                <div className="absolute inset-0 bg-[#0D5BFF]/10 rounded-[2rem] scale-95 opacity-0 group-hover:opacity-100 transition-all duration-300 blur-xl"></div>
-                <Smartphone className="w-16 h-16 md:w-24 md:h-24 text-[#0D5BFF] relative z-10" />
-              </div>
-
-              {/* Right Column: Info & Action */}
-              <div className="flex-grow space-y-6">
-                <div>
-                  <span className="text-[10px] font-black tracking-[0.25em] text-[#0D5BFF] uppercase block mb-2">PROGRESSIVE WEB APP</span>
-                  <h3 className="text-2xl md:text-4xl font-black font-heading text-white uppercase italic tracking-tight">
-                    Get the <span className="text-[#0D5BFF]">EduTrack</span> Mobile App
-                  </h3>
-                  <p className="text-slate-400 text-xs md:text-sm font-medium mt-2 leading-relaxed max-w-xl">
-                    Experience real-time GPS tracking, instant messages, and smooth academic matching right from your home screen. Our app is featherlight, secure, and installs in seconds.
-                  </p>
-                </div>
-
-                {/* Benefits Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-slate-200 uppercase tracking-wide">Instant Access</p>
-                      <p className="text-[10px] text-slate-400 font-medium">Launch directly from your mobile dock or home screen.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-slate-200 uppercase tracking-wide">No App Store Needed</p>
-                      <p className="text-[10px] text-slate-400 font-medium">Skip high downloads. Installs instantly under 50KB.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-slate-200 uppercase tracking-wide">Pristine Speeds</p>
-                      <p className="text-[10px] text-slate-400 font-medium">Fully cached, lag-free transitions and responsive layouts.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-slate-200 uppercase tracking-wide">Secure Sandbox</p>
-                      <p className="text-[10px] text-slate-400 font-medium">Encrypted credentials with automated secure billing.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Install Button & Context */}
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                  <button
-                    onClick={handleInstallClick}
-                    className="px-8 py-4 bg-[#0D5BFF] hover:bg-blue-600 active:scale-[0.98] text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-500/20"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download & Install App</span>
-                  </button>
-
-                  {inIframe && (
-                    <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5 max-w-xs leading-tight">
-                      <Info className="w-4 h-4 shrink-0" />
-                      Viewing in a preview frame. For best installation, open in a new tab first!
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Manual Installation Instructions Modal */}
-      <AnimatePresence>
-        {showManualModal && (
-          <div className="fixed inset-0 bg-[#0B132B]/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-[#0F172A] w-full max-w-md p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl space-y-5 text-left"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0D5BFF]">
-                    <AppWindow className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase tracking-tight">Manual App Installation</h3>
-                </div>
-                <button
-                  onClick={() => setShowManualModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full bg-slate-50 dark:bg-slate-900 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4 text-slate-600 dark:text-slate-300">
-                {inIframe && (
-                  <div className="space-y-2 bg-amber-50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200/50 dark:border-amber-900/40">
-                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      Viewing in a Preview Frame
-                    </p>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400/80 leading-normal">
-                      PWA installation is restricted inside preview iframes. Please open the app in a new tab first, then click "Download & Install"!
-                    </p>
-                    <a
-                      href={window.location.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full mt-2 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                    >
-                      <AppWindow className="w-3.5 h-3.5" />
-                      OPEN IN NEW TAB TO DOWNLOAD
-                    </a>
-                  </div>
-                )}
-
-                <p className="text-[10px] font-black uppercase tracking-wider text-[#0D5BFF]">
-                  Select the guide for your device type:
-                </p>
-
-                {isIOS ? (
-                  // iOS Guide
-                  <div className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Apple iOS Safari instructions:</p>
-                    <ol className="space-y-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">1</span>
-                        <span className="flex items-center gap-1.5">
-                          Tap the <span className="bg-white dark:bg-slate-950 p-1 rounded-md border border-slate-200 dark:border-slate-800 flex inline-flex items-center"><Share className="w-3.5 h-3.5 text-[#0D5BFF]" /> share button</span> in the Safari browser.
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">2</span>
-                        <span>Scroll down the share menu list.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">3</span>
-                        <span className="flex items-center gap-1.5">
-                          Tap <span className="font-bold text-[#0B132B] dark:text-white bg-slate-100 dark:bg-slate-900 p-1 px-1.5 rounded-md flex items-center gap-1"><PlusSquare className="w-3.5 h-3.5 text-[#0D5BFF]" /> "Add to Home Screen"</span>.
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">4</span>
-                        <span>Confirm by tapping "Add" in the top-right corner.</span>
-                      </li>
-                    </ol>
-                  </div>
-                ) : (
-                  // Android / Desktop Guide
-                  <div className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Android / Desktop Instructions:</p>
-                    <ol className="space-y-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">1</span>
-                        <span>Tap the <b>three dots menu (⋮)</b> in the top right of your browser.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">2</span>
-                        <span className="flex items-center gap-1">
-                          Select <span className="font-bold text-[#0B132B] dark:text-white bg-slate-100 dark:bg-slate-900 p-1 px-1.5 rounded-md">"Install App"</span> or <span className="font-bold text-[#0B132B] dark:text-white bg-slate-100 dark:bg-slate-900 p-1 px-1.5 rounded-md">"Add to Home screen"</span>.
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-lg w-5 h-5 flex items-center justify-center shrink-0">3</span>
-                        <span>Accept the system prompt to install EduTrack on your device!</span>
-                      </li>
-                    </ol>
-                  </div>
-                )}
-
-                <div className="flex gap-2.5 bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100/30 dark:border-blue-900/30">
-                  <Info className="w-4 h-4 text-[#0D5BFF] shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#0D5BFF] leading-snug">
-                    Installing the application takes under 50KB of storage and lets you open EduTrack instantly from your home screen or dock without typing the URL.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowManualModal(false)}
-                className="w-full py-3 bg-[#0D5BFF] hover:bg-blue-600 active:scale-[0.98] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
-              >
-                GOT IT, CLOSING
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Footer Section */}
-      <footer className="relative bg-slate-50 dark:bg-[#0B132B] border-t border-slate-200/50 dark:border-slate-800/60 pt-20 pb-12 px-4 md:px-8 transition-colors duration-300 overflow-hidden">
-        {/* Background Decorative Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a08_1px,transparent_1px),linear-gradient(to_bottom,#0f172a08_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:32px_32px] opacity-100 pointer-events-none" />
-        <div className="absolute -top-48 left-1/3 w-[500px] h-[500px] bg-blue-500/5 dark:bg-[#0D5BFF]/5 rounded-full blur-[120px] pointer-events-none" />
+      <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+          <div className="col-span-1 md:col-span-2">
+            <h4 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-6">EduTrack</h4>
+            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm leading-relaxed mb-6">
+              The premier platform for secure, verified home tutoring in Bangladesh. Built with safety and excellence at its core.
+            </p>
+            <div className="flex gap-4">
+              <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Quick Links</h5>
+            <ul className="space-y-4">
+              <li><Link to="/signup" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
+              <li><Link to="/signup" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
+              <li><Link to="/login" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Contact</h5>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase mb-2">Chattogram, Bangladesh</p>
+            <p className="text-[#0D5BFF] text-sm font-bold uppercase">m13hmahadi@gmail.com</p>
+          </div>
+        </div>
         
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 pb-16 border-b border-slate-200/60 dark:border-slate-800/60">
-            
-            {/* Column 1: Brand & Socials (Col Span 4) */}
-            <div className="lg:col-span-4 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-xl flex items-center justify-center text-white text-lg font-black italic shadow-lg shadow-blue-500/10">
-                  ET
-                </div>
-                <div>
-                  <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic tracking-tight leading-none">EduTrack</h4>
-                  <span className="text-[8px] font-black tracking-[0.25em] text-[#0D5BFF] uppercase block mt-1">SECURITY-FIRST TUTORING</span>
-                </div>
-              </div>
-              
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-xs leading-relaxed max-w-sm">
-                The premier platform for secure, verified home tutoring in Bangladesh. Connecting dedicated tutors with ambitious students safely, transparently, and effectively.
-              </p>
-
-              {/* Enhanced Social Links */}
-              <div className="space-y-3">
-                <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Connect With Us</span>
-                <div className="flex gap-3">
-                  <a 
-                    href="https://facebook.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#1877F2] hover:border-[#1877F2] dark:hover:border-[#1877F2] transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                  >
-                    <Facebook className="w-4 h-4" />
-                  </a>
-                  <a 
-                    href="https://linkedin.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#0A66C2] hover:border-[#0A66C2] dark:hover:border-[#0A66C2] transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                  >
-                    <Linkedin className="w-4 h-4" />
-                  </a>
-                  <a 
-                    href="https://twitter.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#1DA1F2] hover:border-[#1DA1F2] dark:hover:border-[#1DA1F2] transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                  >
-                    <Twitter className="w-4 h-4" />
-                  </a>
-                  <a 
-                    href="https://instagram.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#E4405F] hover:border-[#E4405F] dark:hover:border-[#E4405F] transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                  >
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 2: Quick Links (Col Span 2) */}
-            <div className="lg:col-span-2 space-y-6">
-              <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] relative inline-block">
-                Quick Navigation
-                <span className="absolute bottom-[-6px] left-0 w-8 h-[2px] bg-[#0D5BFF] rounded-full" />
-              </h5>
-              <ul className="space-y-3.5">
-                <li>
-                  <Link 
-                    to="/signup" 
-                    className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] dark:hover:text-[#0D5BFF] transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 group"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -ml-3.5 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-[#0D5BFF]" />
-                    <span>Find a Tutor</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/signup" 
-                    className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] dark:hover:text-[#0D5BFF] transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 group"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -ml-3.5 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-[#0D5BFF]" />
-                    <span>Join as Tutor</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/login" 
-                    className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] dark:hover:text-[#0D5BFF] transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 group"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -ml-3.5 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-[#0D5BFF]" />
-                    <span>Login Portal</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/signup" 
-                    className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] dark:hover:text-[#0D5BFF] transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 group"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -ml-3.5 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-[#0D5BFF]" />
-                    <span>Create Account</span>
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 3: Contact & Support (Col Span 3) */}
-            <div className="lg:col-span-3 space-y-6">
-              <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] relative inline-block">
-                Contact & Support
-                <span className="absolute bottom-[-6px] left-0 w-8 h-[2px] bg-[#0D5BFF] rounded-full" />
-              </h5>
-              <div className="space-y-4 text-xs font-medium">
-                {/* Office Location */}
-                <div className="flex gap-3">
-                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/50 dark:border-slate-700/50 text-[#0D5BFF] flex-shrink-0 h-8 w-8 flex items-center justify-center">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">Bangladesh HQ</p>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] leading-tight mt-0.5">Chattogram, Bangladesh</p>
-                  </div>
-                </div>
-
-                {/* Email Address */}
-                <div className="flex gap-3">
-                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/50 dark:border-slate-700/50 text-[#0D5BFF] flex-shrink-0 h-8 w-8 flex items-center justify-center">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">Email Support</p>
-                    <a href="mailto:m13hmahadi.personal@gmail.com" className="text-[#0D5BFF] hover:underline font-bold text-[10px] mt-0.5 block break-all uppercase tracking-wider">
-                      m13hmahadi@gmail.com
-                    </a>
-                  </div>
-                </div>
-
-                {/* Response Hours */}
-                <div className="flex gap-3">
-                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/50 dark:border-slate-700/50 text-[#0D5BFF] flex-shrink-0 h-8 w-8 flex items-center justify-center">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">Service Hours</p>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] leading-tight mt-0.5">Sat - Thu: 9 AM - 8 PM (GMT+6)</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 4: Newsletter Form (Col Span 3) */}
-            <div className="lg:col-span-3 space-y-6">
-              <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] relative inline-block">
-                Stay Updated
-                <span className="absolute bottom-[-6px] left-0 w-8 h-[2px] bg-[#0D5BFF] rounded-full" />
-              </h5>
-              
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-xs leading-normal">
-                Subscribe to receive security reports, educational insights, and top tutor recommendations directly to your inbox.
-              </p>
-
-              <div className="relative">
-                <AnimatePresence mode="wait">
-                  {!newsletterSubscribed ? (
-                    <motion.form 
-                      initial={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (newsletterEmail.trim()) {
-                          setNewsletterSubscribed(true);
-                        }
-                      }}
-                      className="space-y-2"
-                    >
-                      <div className="relative flex items-center">
-                        <input 
-                          type="email"
-                          required
-                          placeholder="Your email address"
-                          value={newsletterEmail}
-                          onChange={(e) => setNewsletterEmail(e.target.value)}
-                          className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0D5BFF] focus:ring-1 focus:ring-[#0D5BFF] transition-all dark:text-white text-slate-900"
-                        />
-                        <button 
-                          type="submit"
-                          className="absolute right-1 p-2 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                        >
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-snug">
-                        By subscribing, you agree to our privacy policies and guidelines. Under 50KB data usage.
-                      </p>
-                    </motion.form>
-                  ) : (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 rounded-2xl"
-                    >
-                      <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 uppercase tracking-wide">
-                        <CheckCircle className="w-4 h-4" />
-                        Successfully Subscribed!
-                      </p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1 uppercase leading-snug">
-                        Thank you for subscribing with <b>{newsletterEmail}</b>. You will now receive secure platform updates!
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Bottom Bar: Copyright, Verification & Developer Attribution */}
-          <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                © {new Date().getFullYear()} EduTrack. All rights reserved.
-              </p>
-              <div className="hidden md:block w-1.5 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full" />
-              <div className="flex items-center gap-1 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/30 dark:border-blue-900/30 px-3 py-1 rounded-full text-[#0D5BFF] font-black text-[8px] uppercase tracking-widest">
-                <ShieldCheck className="w-3 h-3 text-[#0D5BFF] fill-current/10" />
-                <span>SSL Encrypted Connection</span>
-              </div>
-            </div>
-
-            {/* Elegant Creator Attribution */}
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 100, delay: 0.2 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              className="flex items-center gap-2.5 group cursor-pointer bg-white dark:bg-[#1E293B]/40 px-5 py-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 hover:border-[#0D5BFF]/30 hover:bg-slate-50 dark:hover:bg-[#1E293B]/60 hover:shadow-xl hover:shadow-[#0D5BFF]/5 transition-all duration-300"
-            >
-              <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-300">
-                Designed & Built by
+        <div className="max-w-7xl mx-auto pt-8 border-t border-slate-50 dark:border-slate-850 flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+            © {new Date().getFullYear()} EduTrack. All rights reserved.
+          </p>
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ type: "spring", stiffness: 100, delay: 0.2 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            className="flex items-center gap-2.5 group cursor-pointer bg-slate-50/50 dark:bg-[#1E293B]/40 px-4 py-2 rounded-2xl border border-slate-100/50 dark:border-slate-800/50 hover:border-[#0D5BFF]/30 hover:bg-white dark:hover:bg-[#1E293B]/60 hover:shadow-xl hover:shadow-[#0D5BFF]/5 transition-all duration-300"
+          >
+            <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-300">
+              Designed & Built by
+            </span>
+            <div className="relative">
+              <span className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase italic tracking-wider group-hover:text-[#0D5BFF] transition-colors duration-300">
+                Mohammed Mahadi Hossain
               </span>
-              <div className="relative">
-                <span className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase italic tracking-wider group-hover:text-[#0D5BFF] transition-colors duration-300">
-                  Mohammed Mahadi Hossain
-                </span>
-                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-[#0D5BFF] to-[#1EA5FC] group-hover:w-full transition-all duration-300 rounded-full" />
-              </div>
-            </motion.div>
-          </div>
+              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-[#0D5BFF] to-[#1EA5FC] group-hover:w-full transition-all duration-300 rounded-full" />
+            </div>
+
+          </motion.div>
         </div>
       </footer>
       <AIChatWidget />

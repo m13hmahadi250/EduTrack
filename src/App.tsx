@@ -14,7 +14,6 @@ import PromotionalBanner from './components/PromotionalBanner';
 import DeadlineNotifier from './components/DeadlineNotifier';
 import MessageToastCenter from './components/MessageToastCenter';
 import GuidedTour from './components/GuidedTour';
-import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 import BeautifulSkeleton from './components/BeautifulSkeleton';
 
@@ -98,7 +97,6 @@ function LayoutWrapper() {
       <DeadlineNotifier />
       <MessageToastCenter />
       <GuidedTour />
-      <PWAInstallPrompt />
       {!isAuthPage && <PromotionalBanner />}
       {!isAuthPage && <Navbar />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">

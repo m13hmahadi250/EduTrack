@@ -20,8 +20,7 @@ import {
   GraduationCap,
   Briefcase,
   DollarSign,
-  Share2,
-  Heart
+  Share2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -72,7 +71,6 @@ export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const currentUser = useAppStore(state => state.currentUser);
-  const updateUser = useAppStore(state => state.updateUser);
   
   const [tutor, setTutor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -298,27 +296,6 @@ export default function TeacherProfile() {
             <span>EduTrack Directory</span>
           </Link>
           <div className="flex items-center gap-3">
-            {currentUser && currentUser.role === 'student' && (
-              <button
-                onClick={async () => {
-                  const currentSaved = currentUser.savedTutors || [];
-                  const isFav = currentSaved.includes(tutor.id);
-                  const newSaved = isFav 
-                    ? currentSaved.filter(id => id !== tutor.id)
-                    : [...currentSaved, tutor.id];
-                  await updateUser(currentUser.id, { savedTutors: newSaved });
-                }}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] border ${
-                  currentUser.savedTutors?.includes(tutor.id)
-                    ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 border-rose-200 dark:border-rose-900/30'
-                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                }`}
-                id="favorite-profile-header-btn"
-              >
-                <Heart className={`w-3.5 h-3.5 ${currentUser.savedTutors?.includes(tutor.id) ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
-                <span>{currentUser.savedTutors?.includes(tutor.id) ? 'Saved' : 'Save'}</span>
-              </button>
-            )}
             <button
               onClick={shareProfile}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
