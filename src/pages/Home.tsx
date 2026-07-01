@@ -20,12 +20,9 @@ import {
 import { motion } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
-import { getDocs, collection, query, where } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
   const location = useLocation();
 
   React.useEffect(() => {
@@ -52,7 +49,8 @@ export default function Home() {
     let active = true;
     const fetchTutors = async () => {
       try {
-        setIsLoading(true);
+        const { getDocs, collection, query, where } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
         const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
         const querySnapshot = await getDocs(q);
         if (active) {
@@ -63,10 +61,6 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error fetching tutors:", error);
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
       }
     };
     fetchTutors();
@@ -369,25 +363,7 @@ export default function Home() {
           </div>
 
           {/* Grid of Cards with Motion layout animation */}
-          {isLoading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="animate-pulse bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 space-y-6 h-[450px] flex flex-col justify-between">
-                  <div>
-                    <div className="h-64 bg-slate-200 dark:bg-slate-800/50 rounded-[2rem] mb-6"></div>
-                    <div className="px-2 space-y-3">
-                      <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800/50 rounded-lg"></div>
-                      <div className="h-3 w-1/2 bg-slate-200 dark:bg-slate-800/30 rounded-lg"></div>
-                      <div className="h-4 w-5/6 bg-slate-200 dark:bg-slate-800/30 rounded-lg mt-3"></div>
-                    </div>
-                  </div>
-                  <div className="px-2">
-                    <div className="h-10 bg-slate-200 dark:bg-slate-800/50 rounded-2xl w-full"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredTutors.length === 0 ? (
+          {filteredTutors.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -816,7 +792,7 @@ const TutorPreviewCard = React.memo(({
       <div>
         <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
           {img ? (
-            <img src={img} alt={name} className="w-full h-full object-cover blur-[3px] group-hover:blur-0 scale-100 group-hover:scale-105 transition-all duration-500" referrerPolicy="no-referrer" loading="eager" />
+            <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[12px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
               <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">

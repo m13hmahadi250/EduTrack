@@ -138,7 +138,6 @@ export default function StudentDashboard() {
   const [filterRating, setFilterRating] = useState(0);
   const [filterGender, setFilterGender] = useState('');
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
-  const [sortBy, setSortBy] = useState<'default' | 'location'>('default');
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const [showLocationDeniedModal, setShowLocationDeniedModal] = useState(false);
   const [locationErrorMessage, setLocationErrorMessage] = useState('');
@@ -413,7 +412,7 @@ export default function StudentDashboard() {
           useAppStore.getState().sendNotification(
             currentUser!.id,
             "Location Synchronized",
-            "Your current transit position has been successfully synchronized on the tracking radar with high GPS accuracy.",
+            "Your current transit position has been successfully synchronized on the tracking radar.",
             "success"
           );
         },
@@ -433,7 +432,7 @@ export default function StudentDashboard() {
             "info"
           );
         },
-        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 15000 : 25000, maximumAge: 0 }
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 15000, maximumAge: 60000 }
       );
     };
     tryGetPosition(true);
@@ -482,10 +481,10 @@ export default function StudentDashboard() {
                 // Clean fallback to center of Dhaka so dashboard layout stays perfectly functional
                 updateLocation(currentUser.id, 23.8103, 90.4125);
               },
-              { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
             );
           },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
         );
       } else {
         // Fallback for missing GPS
@@ -513,8 +512,7 @@ export default function StudentDashboard() {
     documents: currentUser?.documents || [],
     gender: currentUser?.gender || '',
     district: currentUser?.district || '',
-    thana: currentUser?.thana || '',
-    location: currentUser?.location || { lat: 23.8103, lng: 90.4125 }
+    thana: currentUser?.thana || ''
   });
 
   // Sync form state when currentUser changes or editing is toggled
@@ -532,8 +530,7 @@ export default function StudentDashboard() {
         documents: currentUser.documents || [],
         gender: currentUser.gender || '',
         district: currentUser.district || '',
-        thana: currentUser.thana || '',
-        location: currentUser.location || { lat: 23.8103, lng: 90.4125 }
+        thana: currentUser.thana || ''
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -585,35 +582,6 @@ export default function StudentDashboard() {
     }).forEach(u => unique.set(u.id, u));
     return Array.from(unique.values()) as User[];
   }, [users, debouncedSearch, filterSubjects, filterVersion, filterClass, filterArea, filterDistrict, filterThana, filterRating, filterGender]);
-
-  const getDistanceToTutor = (t: User) => {
-    if (!currentUser?.location) {
-      if (currentUser?.district || currentUser?.thana) {
-        const studentCoords = getCoordinatesForLocation(currentUser.district || '', currentUser.thana || '', currentUser.id);
-        if (studentCoords) {
-          const tutorCoords = getTutorLocation(t.id, t.location, studentCoords, t.district, t.thana);
-          if (tutorCoords) {
-            return getDistance(studentCoords[0], studentCoords[1], tutorCoords[0], tutorCoords[1]);
-          }
-        }
-      }
-      return Infinity;
-    }
-    const tutorCoords = getTutorLocation(t.id, t.location, [currentUser.location.lat, currentUser.location.lng], t.district, t.thana);
-    if (!tutorCoords) return Infinity;
-    return getDistance(currentUser.location.lat, currentUser.location.lng, tutorCoords[0], tutorCoords[1]);
-  };
-
-  const sortedTutors = useMemo(() => {
-    if (sortBy === 'location') {
-      return [...filteredTutors].sort((a, b) => {
-        const distA = getDistanceToTutor(a);
-        const distB = getDistanceToTutor(b);
-        return distA - distB;
-      });
-    }
-    return filteredTutors;
-  }, [filteredTutors, sortBy, currentUser]);
 
 
   
@@ -757,12 +725,7 @@ export default function StudentDashboard() {
     e.preventDefault();
     if (!currentUser) return;
     setIsUpdating(true);
-    let finalLocation = accountForm.location;
-    // If they haven't manually pinpointed or auto-detected and location is default/null, fall back to geocoding:
-    if (!finalLocation || (finalLocation.lat === 23.8103 && finalLocation.lng === 90.4125)) {
-      const coords = getCoordinatesForLocation(accountForm.district || '', accountForm.thana || '', currentUser.id);
-      finalLocation = { lat: coords[0], lng: coords[1] };
-    }
+    const coords = getCoordinatesForLocation(accountForm.district || '', accountForm.thana || '', currentUser.id);
     await useAppStore.getState().updateUser(currentUser.id, {
       name: accountForm.name,
       phone: accountForm.phone,
@@ -776,7 +739,7 @@ export default function StudentDashboard() {
       gender: accountForm.gender,
       district: accountForm.district,
       thana: accountForm.thana,
-      location: finalLocation
+      location: { lat: coords[0], lng: coords[1] }
     });
     setIsEditingAccount(false);
     setIsUpdating(false);
@@ -1617,29 +1580,6 @@ export default function StudentDashboard() {
                        <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
                     </div>
-
-                    {/* Sorting Controls */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-3xl border border-slate-100 dark:border-slate-800/80 mb-2">
-                      <div>
-                        <h3 className="text-[10px] font-black uppercase text-[#0B132B] dark:text-white tracking-wider">Expert Sorting</h3>
-                        <p className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">{sortedTutors.length} experts available</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Sort By:</span>
-                        <div className="relative">
-                          <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as any)}
-                            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] transition-all cursor-pointer appearance-none pr-8"
-                          >
-                            <option value="default">⭐ Highest Rating / Default</option>
-                            <option value="location">📍 Nearest Location first</option>
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500" />
-                        </div>
-                      </div>
-                    </div>
-
                     {debouncedSearch !== searchTerm ? (
                       Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className="p-6 rounded-[2.5rem] border-2 border-slate-50 bg-white">
@@ -1654,7 +1594,7 @@ export default function StudentDashboard() {
                       ))
                     ) : (
                       <AnimatePresence mode="popLayout" initial={false}>
-                        {sortedTutors.length === 0 ? (
+                        {filteredTutors.length === 0 ? (
                           <motion.div
                             key="no-tutors-found"
                             initial={{ opacity: 0, scale: 0.96, y: 10 }}
@@ -1672,7 +1612,7 @@ export default function StudentDashboard() {
                             </div>
                           </motion.div>
                         ) : (
-                          sortedTutors.map((tutor, index) => (
+                          filteredTutors.map((tutor, index) => (
                             <motion.div 
                               layout
                               initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -1732,25 +1672,6 @@ export default function StudentDashboard() {
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
                               {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/month` : 'N/A'} • {tutor.daysPerWeek || 3} Days/Wk
                             </p>
-                            {(() => {
-                              const dist = getDistanceToTutor(tutor);
-                              if (dist < Infinity) {
-                                return (
-                                  <div className="flex items-center gap-1.5 mt-2.5 text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] bg-[#0D5BFF]/5 px-2.5 py-1 rounded-xl w-fit">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    <span>{dist.toFixed(1)} km away</span>
-                                  </div>
-                                );
-                              } else if (tutor.thana || tutor.district) {
-                                return (
-                                  <div className="flex items-center gap-1.5 mt-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl w-fit">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    <span>{[tutor.thana, tutor.district].filter(Boolean).join(', ')}</span>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
                           </div>
                         </div>
                       </motion.div>
@@ -2928,16 +2849,7 @@ export default function StudentDashboard() {
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">District</label>
                        <select 
                          value={accountForm.district}
-                         onChange={e => {
-                           const newDistrict = e.target.value;
-                           const coords = getCoordinatesForLocation(newDistrict, '', currentUser.id);
-                           setAccountForm({
-                             ...accountForm, 
-                             district: newDistrict, 
-                             thana: '', 
-                             location: { lat: coords[0], lng: coords[1] }
-                           });
-                         }}
+                         onChange={e => setAccountForm({...accountForm, district: e.target.value, thana: ''})}
                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
                        >
                          <option value="">SELECT DISTRICT</option>
@@ -2951,15 +2863,7 @@ export default function StudentDashboard() {
                        <select 
                          value={accountForm.thana}
                          disabled={!accountForm.district}
-                         onChange={e => {
-                           const newThana = e.target.value;
-                           const coords = getCoordinatesForLocation(accountForm.district, newThana, currentUser.id);
-                           setAccountForm({
-                             ...accountForm, 
-                             thana: newThana, 
-                             location: { lat: coords[0], lng: coords[1] }
-                           });
-                         }}
+                         onChange={e => setAccountForm({...accountForm, thana: e.target.value})}
                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
                        >
                          <option value="">{accountForm.district ? 'SELECT THANA' : 'SELECT DISTRICT FIRST'}</option>
@@ -2975,78 +2879,8 @@ export default function StudentDashboard() {
                          onChange={e => setAccountForm({...accountForm, address: e.target.value})}
                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
                          placeholder="Enter full residential address"
-                        />
-                     </div>
-
-                     {/* GPS Coordinates Configuration */}
-                     <div className="md:col-span-2 space-y-3 bg-slate-100/50 dark:bg-slate-900/40 p-5 rounded-[2rem] border border-slate-200/60 dark:border-slate-800/80">
-                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                         <div>
-                           <h4 className="text-[10px] font-black uppercase text-[#0B132B] dark:text-white tracking-wider flex items-center gap-1.5">
-                             <MapPin className="w-4 h-4 text-[#0D5BFF]" />
-                             GPS Coordinates Accuracy Center
-                           </h4>
-                           <p className="text-[8px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold">100% correct user placement for radar & routing</p>
-                         </div>
-                         <button
-                           type="button"
-                           onClick={() => {
-                             if (!('geolocation' in navigator)) {
-                               alert("Geolocation is not supported by this browser.");
-                               return;
-                             }
-                             navigator.geolocation.getCurrentPosition(
-                               (pos) => {
-                                 setAccountForm(prev => ({
-                                   ...prev,
-                                   location: { lat: pos.coords.latitude, lng: pos.coords.longitude }
-                                 }));
-                               },
-                               (err) => {
-                                 console.error("Manual GPS request failed:", err);
-                                 alert("Failed to acquire exact location automatically. Please ensure location services and browser site permissions are granted.");
-                               },
-                               { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-                             );
-                           }}
-                           className="px-3.5 py-2 bg-[#0D5BFF] hover:bg-[#0D5BFF]/90 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all self-stretch sm:self-auto justify-center cursor-pointer"
-                         >
-                           <Compass className="w-3.5 h-3.5" />
-                           DETECT PRECISE GPS
-                         </button>
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-1">
-                           <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">Latitude</label>
-                           <input
-                             type="number"
-                             step="any"
-                             value={accountForm.location?.lat ?? 23.8103}
-                             onChange={e => setAccountForm(prev => ({
-                               ...prev,
-                               location: { lat: Number(e.target.value), lng: prev.location?.lng ?? 90.4125 }
-                             }))}
-                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl py-3 px-5 text-[11px] font-bold text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
-                           />
-                         </div>
-                         <div className="space-y-1">
-                           <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-2">Longitude</label>
-                           <input
-                             type="number"
-                             step="any"
-                             value={accountForm.location?.lng ?? 90.4125}
-                             onChange={e => setAccountForm(prev => ({
-                               ...prev,
-                               location: { lat: prev.location?.lat ?? 23.8103, lng: Number(e.target.value) }
-                             }))}
-                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl py-3 px-5 text-[11px] font-bold text-[#0B132B] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
-                           />
-                         </div>
-                       </div>
-                     </div>
-
-                     {/* hidden dummy element removed */}
+                       />
+                    </div>
                     <div className="md:col-span-2 space-y-2">
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Student Institution</label>
                        <input 

@@ -18,7 +18,7 @@ export default function PromotionalBanner() {
               </span>
               <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
                 <Gift className="w-4 h-4 text-emerald-400" />
-                 REGISTER NOW!
+                LIMITED TIME: FIRST DEMO SESSION COMPLETELY FREE FOR ALL STUDENTS!
                 <Shield className="w-4 h-4 text-[#0D5BFF]" />
               </span>
             </div>

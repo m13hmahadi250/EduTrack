@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, memo, useState, ErrorInfo, ReactNode } from 'react';
+import { useEffect, useMemo, memo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -20,69 +20,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: iconMarker,
   shadowUrl: iconShadow,
 });
-
-const isValidCoordinate = (coord: any): coord is [number, number] => {
-  return Array.isArray(coord) && 
-         coord.length === 2 && 
-         typeof coord[0] === 'number' && 
-         typeof coord[1] === 'number' && 
-         !isNaN(coord[0]) && 
-         !isNaN(coord[1]) &&
-         isFinite(coord[0]) &&
-         isFinite(coord[1]) &&
-         coord[0] >= -90 && coord[0] <= 90 &&
-         coord[1] >= -180 && coord[1] <= 180;
-};
-
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class MapErrorBoundary extends (React.Component as any) {
-  constructor(props: any) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
-  }
-
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("MapTracker boundary caught an error:", error, errorInfo);
-  }
-
-  public render() {
-    if (this.state.hasError) {
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
-          <span className="text-3xl mb-3">🗺️</span>
-          <h4 className="text-sm font-black uppercase tracking-widest leading-none text-red-400">Tracking Radar Error</h4>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-2 px-6 leading-normal max-w-sm">
-            The tracking radar failed to initialize. This can happen in restricted frames or with invalid location permissions.
-          </p>
-          <button 
-            type="button"
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="mt-4 px-4 py-2.5 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 leading-none"
-          >
-            Reset Map Radar
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 function MapEventsHandler({ active, onMapClick }: { active: boolean; onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -166,9 +103,7 @@ const createCustomMarker = (color: string, name: string, image?: string, isOnlin
 function MapRecenter({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
   useEffect(() => {
-    if (isValidCoordinate([lat, lng])) {
-      map.setView([lat, lng]);
-    }
+    map.setView([lat, lng]);
   }, [lat, lng, map]);
   return null;
 }
@@ -197,26 +132,24 @@ function CustomMapHUD({
   // Fit Bounds of all active markers
   const fitAllBounds = () => {
     const coords: [number, number][] = [];
-    if (isValidCoordinate(studentLocation)) coords.push(studentLocation);
-    if (isValidCoordinate(tutorLocation)) coords.push(tutorLocation);
+    if (studentLocation) coords.push(studentLocation);
+    if (tutorLocation) coords.push(tutorLocation);
     if (tutors) {
       tutors.forEach(t => {
-        if (isValidCoordinate(t.location)) coords.push(t.location);
+        if (t.location) coords.push(t.location);
       });
     }
     if (students) {
       students.forEach(s => {
-        if (isValidCoordinate(s.location)) coords.push(s.location);
+        if (s.location) coords.push(s.location);
       });
     }
     
     if (coords.length > 1) {
       map.fitBounds(coords, { padding: [50, 50], maxZoom: 15 });
     } else if (coords.length === 1) {
-      if (isValidCoordinate(coords[0])) {
-        map.setView(coords[0], 14);
-      }
-    } else if (isValidCoordinate(center)) {
+      map.setView(coords[0], 14);
+    } else if (center) {
       map.setView(center, 13);
     }
   };
@@ -299,7 +232,7 @@ function CustomMapHUD({
   );
 }
 
-const MapTrackerWrapped = memo(({ 
+const MapTracker = memo(({ 
   tutorLocation, 
   studentLocation, 
   tutorName, 
@@ -334,10 +267,9 @@ const MapTrackerWrapped = memo(({
   const selectedTutorObj = useMemo(() => {
     if (!selectedTutorId) return null;
     if (tutors) {
-      const found = tutors.find(t => t.id === selectedTutorId);
-      return found && isValidCoordinate(found.location) ? found : null;
+      return tutors.find(t => t.id === selectedTutorId) || null;
     }
-    if (isValidCoordinate(tutorLocation) && selectedTutorId === 'legacy_tutor') {
+    if (tutorLocation && selectedTutorId === 'legacy_tutor') {
       return {
         id: 'legacy_tutor',
         location: tutorLocation,
@@ -349,7 +281,7 @@ const MapTrackerWrapped = memo(({
   }, [selectedTutorId, tutors, tutorLocation, tutorName, tutorImage]);
 
   const calculatedDistanceStr = useMemo(() => {
-    if (!isValidCoordinate(studentLocation) || !selectedTutorObj || !isValidCoordinate(selectedTutorObj.location)) return null;
+    if (!studentLocation || !selectedTutorObj) return null;
     try {
       const p1 = L.latLng(studentLocation[0], studentLocation[1]);
       const p2 = L.latLng(selectedTutorObj.location[0], selectedTutorObj.location[1]);
@@ -365,17 +297,9 @@ const MapTrackerWrapped = memo(({
   }, [studentLocation, selectedTutorObj]);
 
   const center = useMemo<[number, number]>(() => {
-    if (tutors && tutors.length > 0) {
-      const firstTutorLoc = tutors[0].location;
-      if (isValidCoordinate(firstTutorLoc)) return firstTutorLoc;
-    }
-    if (students && students.length > 0) {
-      const firstStudentLoc = students[0].location;
-      if (isValidCoordinate(firstStudentLoc)) return firstStudentLoc;
-    }
-    if (isValidCoordinate(tutorLocation)) return tutorLocation;
-    if (isValidCoordinate(studentLocation)) return studentLocation;
-    return [23.8103, 90.4125];
+    if (tutors && tutors.length > 0) return tutors[0].location;
+    if (students && students.length > 0) return students[0].location;
+    return tutorLocation || studentLocation || [23.8103, 90.4125];
   }, [tutorLocation, studentLocation, tutors, students]);
 
   return (
@@ -391,7 +315,7 @@ const MapTrackerWrapped = memo(({
         />
         
         {/* Connection Polyline from Tutor to Student */}
-        {isValidCoordinate(tutorLocation) && isValidCoordinate(studentLocation) && (
+        {tutorLocation && studentLocation && (
           <Polyline 
             positions={[tutorLocation, studentLocation]} 
             pathOptions={{ 
@@ -404,7 +328,7 @@ const MapTrackerWrapped = memo(({
         )}
 
         {/* Connection Polylines for multiple student markers relative to single tutorLocation */}
-        {isValidCoordinate(tutorLocation) && students && students.filter(s => isValidCoordinate(s.location)).map(student => (
+        {tutorLocation && students && students.map(student => (
           <Polyline 
             key={`line-${student.id}`}
             positions={[tutorLocation, student.location]} 
@@ -418,7 +342,7 @@ const MapTrackerWrapped = memo(({
         ))}
 
         {/* Connection Polylines for multiple tutor markers relative to single studentLocation */}
-        {isValidCoordinate(studentLocation) && tutors && tutors.filter(t => isValidCoordinate(t.location)).map(tutor => (
+        {studentLocation && tutors && tutors.map(tutor => (
           <Polyline 
             key={`line-${tutor.id}`}
             positions={[studentLocation, tutor.location]} 
@@ -432,7 +356,7 @@ const MapTrackerWrapped = memo(({
         ))}
 
         {/* Animated Dashed Connection Path for Selected Tutor for Distance measurement */}
-        {isValidCoordinate(studentLocation) && selectedTutorObj && isValidCoordinate(selectedTutorObj.location) && (
+        {studentLocation && selectedTutorObj && (
           <Polyline 
             positions={[studentLocation, selectedTutorObj.location]} 
             pathOptions={{ 
@@ -445,7 +369,7 @@ const MapTrackerWrapped = memo(({
         )}
 
         {/* Legacy/Contextual single tutor */}
-        {!tutors && isValidCoordinate(tutorLocation) && (
+        {!tutors && tutorLocation && (
           <Marker position={tutorLocation} icon={createCustomMarker('rose-500', tutorName || 'T', tutorImage, true)}>
             <Popup>
               <div className="p-2 min-w-[120px]">
@@ -492,7 +416,7 @@ const MapTrackerWrapped = memo(({
         )}
 
         {/* Legacy/Contextual single student */}
-        {!students && isValidCoordinate(studentLocation) && (
+        {!students && studentLocation && (
           <Marker position={studentLocation} icon={createCustomMarker('blue-500', studentName || 'S', studentImage, true)}>
             <Popup>
               <div className="p-2 min-w-[120px]">
@@ -516,7 +440,7 @@ const MapTrackerWrapped = memo(({
         {/* Multiple tutors */}
         {tutors && tutors.length > 0 && (
           <MarkerClusterGroup>
-            {tutors.filter(t => isValidCoordinate(t.location)).map(tutor => (
+            {tutors.map(tutor => (
               <Marker 
                 key={tutor.id} 
                 position={tutor.location} 
@@ -576,7 +500,7 @@ const MapTrackerWrapped = memo(({
         )}
 
         {/* Multiple students */}
-        {students?.filter(s => isValidCoordinate(s.location)).map(student => (
+        {students?.map(student => (
           <Marker 
             key={student.id} 
             position={student.location} 
@@ -604,7 +528,7 @@ const MapTrackerWrapped = memo(({
           </Marker>
         ))}
 
-        {isValidCoordinate(center) && <MapRecenter lat={center[0]} lng={center[1]} />}
+        <MapRecenter lat={center[0]} lng={center[1]} />
         <MapEventsHandler active={isPinningMode} onMapClick={handleMapClick} />
         <CustomMapHUD 
           center={center} 
@@ -685,13 +609,5 @@ const MapTrackerWrapped = memo(({
     </div>
   );
 });
-
-const MapTracker = (props: MapTrackerProps) => {
-  return (
-    <MapErrorBoundary>
-      <MapTrackerWrapped {...props} />
-    </MapErrorBoundary>
-  );
-};
 
 export default MapTracker;

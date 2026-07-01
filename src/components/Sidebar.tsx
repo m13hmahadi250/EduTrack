@@ -62,7 +62,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         { id: 'withdrawals', label: 'Tutor Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
         { id: 'account', label: 'Admin Profile', icon: User, path: '/dashboard/account' },
     ] : []),
-    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/dashboard/messages', badge: totalUnreadMessages },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
   ];
 
   const isActive = (path: string) => location.pathname === path;
