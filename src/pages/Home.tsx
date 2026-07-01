@@ -15,7 +15,13 @@ import {
   Award,
   Search,
   ExternalLink,
-  Heart
+  Heart,
+  Download,
+  Smartphone,
+  Laptop,
+  X,
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
@@ -24,6 +30,107 @@ import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>([]);
   const location = useLocation();
+
+  // PWA states and event listeners for web app installation
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [isInstallable, setIsInstallable] = React.useState(false);
+  const [isInstalled, setIsInstalled] = React.useState(false);
+  const [showInstallGuide, setShowInstallGuide] = React.useState(false);
+  const [showFirstTimePopup, setShowFirstTimePopup] = React.useState(false);
+
+  const [installNotification, setInstallNotification] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Check if app is already running as standalone PWA
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsInstalled(true);
+    }
+
+    // Retrieve globally captured installation prompt if present
+    const capturedPrompt = (window as any).getDeferredPrompt ? (window as any).getDeferredPrompt() : null;
+    if (capturedPrompt) {
+      setDeferredPrompt(capturedPrompt);
+      setIsInstallable(true);
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    const handleGlobalInstallable = (e: any) => {
+      if (e.detail) {
+        setDeferredPrompt(e.detail);
+        setIsInstallable(true);
+      }
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      if ((window as any).clearDeferredPrompt) {
+        (window as any).clearDeferredPrompt();
+      }
+      setShowFirstTimePopup(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('pwa-installable', handleGlobalInstallable);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('pwa-installable', handleGlobalInstallable);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    // Show first-time install popup if not already dismissed and not installed
+    const dismissed = localStorage.getItem('edutrack_first_time_pwa_dismissed');
+    if (!dismissed && !isInstalled) {
+      const timer = setTimeout(() => {
+        setShowFirstTimePopup(true);
+      }, 4000); // 4 seconds delay
+      return () => clearTimeout(timer);
+    }
+  }, [isInstalled]);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try {
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+          setIsInstallable(false);
+          setDeferredPrompt(null);
+          if ((window as any).clearDeferredPrompt) {
+            (window as any).clearDeferredPrompt();
+          }
+          setShowFirstTimePopup(false);
+        }
+      } catch (err) {
+        console.error("Installation prompt failed:", err);
+      }
+    } else {
+      setInstallNotification("To install EduTrack, please use your browser menu and select 'Add to Home Screen' or 'Install App'.");
+      setTimeout(() => setInstallNotification(null), 5000);
+    }
+  };
+
+  const handleInstallFromPopup = () => {
+    localStorage.setItem('edutrack_first_time_pwa_dismissed', 'true');
+    setShowFirstTimePopup(false);
+    handleInstallClick();
+  };
+
+  const dismissFirstTimePopup = () => {
+    localStorage.setItem('edutrack_first_time_pwa_dismissed', 'true');
+    setShowFirstTimePopup(false);
+  };
 
   React.useEffect(() => {
     document.title = "EduTrack | Security-First Home Tutoring Platform in Bangladesh";
@@ -70,6 +177,15 @@ export default function Home() {
   }, []);
 
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const [selectedSubject, setSelectedSubject] = React.useState('All');
   const [selectedDistrict, setSelectedDistrict] = React.useState('All');
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
@@ -116,7 +232,7 @@ export default function Home() {
       const matchesFavorites = !showFavoritesOnly || favoriteIds.includes(t.id);
 
       // 1. Text Search query matching Name, University, or listed Subjects
-      const queryStr = searchQuery.toLowerCase().trim();
+      const queryStr = debouncedSearchQuery.toLowerCase().trim();
       const matchesSearch = 
         queryStr === '' ||
         (t.name && t.name.toLowerCase().includes(queryStr)) ||
@@ -142,7 +258,7 @@ export default function Home() {
 
       return matchesFavorites && matchesSearch && matchesSubject && matchesTags && matchesDistrict;
     });
-  }, [allTutors, searchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
+  }, [allTutors, debouncedSearchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
@@ -379,7 +495,6 @@ export default function Home() {
             </motion.div>
           ) : (
             <motion.div 
-              layout
               className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
             >
               {filteredTutors.map((t) => {
@@ -647,6 +762,224 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* PWA Download Section */}
+      <section className="py-16 bg-slate-50 dark:bg-[#111A2E]/20 border-t border-slate-100 dark:border-slate-800 transition-colors duration-300">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-8 sm:p-12 border border-slate-100 dark:border-slate-800/80 shadow-xl flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+            {/* Subtle floating glow background */}
+            <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-[#0D5BFF]/10 rounded-full blur-3xl"></div>
+            
+            <div className="relative z-10 max-w-xl text-center md:text-left">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/40 text-[10px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] dark:text-blue-400 rounded-full mb-4">
+                <Sparkles className="w-3 h-3 animate-spin" />
+                EduTrack Progressive App
+              </span>
+              <h3 className="text-2xl sm:text-3xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-tight">
+                Install EduTrack <span className="text-[#0D5BFF]">Web App</span>
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-3 leading-relaxed">
+                Enjoy instant access right from your mobile or desktop home screen! Supports faster loading speeds, smooth animations, offline features, and quick status tracking of your live tutor sessions.
+              </p>
+            </div>
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4 shrink-0 w-full md:w-auto">
+              {isInstalled ? (
+                <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-5 bg-emerald-500/10 text-emerald-500 font-black rounded-2xl text-xs uppercase tracking-wider border border-emerald-500/20">
+                  <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  <span>App Already Installed</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-[#0D5BFF] hover:bg-blue-700 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-blue-500/20 active:scale-[0.98] cursor-pointer"
+                >
+                  <Download className="w-4 h-4 animate-bounce" />
+                  <span>Download App</span>
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={() => setShowInstallGuide(true)}
+                className="w-full sm:w-auto px-8 py-5 bg-transparent border-2 border-[#0B132B]/10 dark:border-slate-800 text-[#0B132B] dark:text-slate-300 hover:bg-[#0B132B]/5 dark:hover:bg-slate-800/40 font-black rounded-2xl text-xs uppercase tracking-wider transition-all text-center cursor-pointer"
+              >
+                Installation Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Install Guide Modal */}
+      {showInstallGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B132B]/80 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 relative shadow-2xl transition-colors duration-300"
+          >
+            <button
+              type="button"
+              onClick={() => setShowInstallGuide(false)}
+              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-6">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/40 text-[9px] font-black uppercase tracking-[0.15em] text-[#0D5BFF] dark:text-blue-400 rounded-full mb-3">
+                <Info className="w-3.5 h-3.5" />
+                Step-by-Step Instructions
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-none">
+                Install EduTrack <span className="text-[#0D5BFF]">Guide</span>
+              </h3>
+              <p className="text-slate-400 text-xs mt-2 font-medium font-sans">
+                Install EduTrack on any device for a native-like desktop or mobile experience.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {/* iOS Guide */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0B132B]/50 rounded-2xl border border-slate-100/50 dark:border-slate-900/60 flex gap-4">
+                <div className="p-3 bg-blue-500/10 text-[#0D5BFF] rounded-xl self-start">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider mb-1">For iPhone & iPad (iOS Safari)</h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                    Tap the <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Share</strong> button (box with an arrow pointing up) at the bottom toolbar, scroll down, and select <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Add to Home Screen</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Android Guide */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0B132B]/50 rounded-2xl border border-slate-100/50 dark:border-slate-900/60 flex gap-4">
+                <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl self-start">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider mb-1">For Android (Chrome)</h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                    Tap the browser menu <strong className="text-[#0B132B] dark:text-white font-bold">(three dots)</strong> next to the address bar, and select <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Add to Home screen</strong> or <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Install App</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Desktop Guide */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0B132B]/50 rounded-2xl border border-slate-100/50 dark:border-slate-900/60 flex gap-4">
+                <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl self-start">
+                  <Laptop className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider mb-1">For Desktop (Chrome, Edge, Brave)</h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                    Look for the <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Install</strong> icon (computer screen with a down arrow) at the right end of the address bar, or open the browser settings menu and select <strong className="text-[#0D5BFF] dark:text-blue-400 font-bold">Install EduTrack...</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => setShowInstallGuide(false)}
+                className="w-full py-4 bg-[#0B132B] dark:bg-slate-800 text-white font-black rounded-2xl text-xs uppercase tracking-wider hover:bg-[#0D5BFF] hover:dark:bg-[#0D5BFF] transition-all text-center cursor-pointer"
+              >
+                Got It, Thanks!
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* First-time PWA Installation Popup */}
+      {showFirstTimePopup && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-[calc(100vw-3rem)]">
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ type: "spring", damping: 20, stiffness: 100 }}
+            className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-850 rounded-[2rem] p-6 shadow-2xl relative transition-colors duration-300"
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={dismissFirstTimePopup}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex gap-4 items-start">
+              <div className="p-3 bg-blue-500/10 text-[#0D5BFF] rounded-2xl shrink-0">
+                <Sparkles className="w-5 h-5 animate-pulse text-[#0D5BFF]" />
+              </div>
+              <div className="pr-4">
+                <span className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-[8px] font-black uppercase tracking-wider text-[#0D5BFF] dark:text-blue-400 rounded-full mb-1">
+                  App Available
+                </span>
+                <h4 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic leading-tight">
+                  Install EduTrack App
+                </h4>
+                <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-1.5 leading-relaxed">
+                  Add EduTrack to your home screen for instant access, native performance, and offline support.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleInstallFromPopup}
+                className="flex-1 py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white font-black rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 text-center cursor-pointer shadow-lg shadow-blue-500/10"
+              >
+                Install Now
+              </button>
+              <button
+                type="button"
+                onClick={dismissFirstTimePopup}
+                className="px-4 py-3 bg-slate-50 dark:bg-slate-800 text-[#0B132B] dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-black rounded-xl text-[10px] uppercase tracking-wider transition-all text-center cursor-pointer"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Fallback Install Notification Toast */}
+      {installNotification && (
+        <div className="fixed bottom-6 left-6 z-50 max-w-sm w-[calc(100vw-3rem)]">
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            className="bg-[#0B132B] dark:bg-[#111A2E] text-white border border-slate-100 dark:border-slate-800 rounded-[2rem] p-5 shadow-2xl flex items-start gap-4 relative transition-colors duration-300"
+          >
+            <div className="p-2.5 bg-blue-500/10 text-[#0D5BFF] rounded-xl shrink-0 mt-0.5">
+              <Info className="w-5 h-5 text-[#0D5BFF] animate-pulse" />
+            </div>
+            <div className="pr-6">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-300">How to Install</h4>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                {installNotification}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInstallNotification(null)}
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-white rounded-full cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       {/* Footer Section */}
       <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
