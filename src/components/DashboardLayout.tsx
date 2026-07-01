@@ -39,19 +39,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ...(isTutor ? [
       { label: 'Session', icon: Calendar, path: '/dashboard' },
       { label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
-      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
+      { label: 'Chat', icon: MessageSquare, path: '/dashboard/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isStudent ? [
       { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
       { label: 'Find Tutor', icon: Search, path: '/dashboard/search' },
-      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
+      { label: 'Chat', icon: MessageSquare, path: '/dashboard/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isAdmin ? [
       { label: 'Shield', icon: Shield, path: '/dashboard' },
       { label: 'Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
-      { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
+      { label: 'Chat', icon: MessageSquare, path: '/dashboard/messages', badge: totalUnreadMessages },
       { label: 'Revenue', icon: CreditCard, path: '/dashboard/payments' },
     ] : []),
   ];

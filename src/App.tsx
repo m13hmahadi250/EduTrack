@@ -115,11 +115,7 @@ function LayoutWrapper() {
                 <DashboardRouter />
               </ProtectedRoute>
             } />
-            <Route path="/messages" element={
-              <ProtectedRoute>
-                <Messages />
-              </ProtectedRoute>
-            } />
+            <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
           </Routes>
         </Suspense>
       </main>
