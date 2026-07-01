@@ -158,7 +158,7 @@ export default function TutorDashboard() {
   };
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
+  const activeTab = useMemo<
     | "my_session"
     | "balance"
     | "transit_mode"
@@ -167,7 +167,17 @@ export default function TutorDashboard() {
     | "messages"
     | "find_students"
     | "class_logs"
-  >("my_session");
+  >(() => {
+    const path = location.pathname;
+    if (path.endsWith("/balance")) return "balance";
+    if (path.endsWith("/transit")) return "transit_mode";
+    if (path.endsWith("/profile")) return "pro_profile";
+    if (path.endsWith("/availability")) return "availability";
+    if (path.endsWith("/messages")) return "messages";
+    if (path.endsWith("/find-students")) return "find_students";
+    if (path.endsWith("/class-logs")) return "class_logs";
+    return "my_session";
+  }, [location.pathname]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
     null,
   );
@@ -332,17 +342,7 @@ export default function TutorDashboard() {
     }
   };
 
-  useEffect(() => {
-    const path = location.pathname;
-    if (path.endsWith("/balance")) setActiveTab("balance");
-    else if (path.endsWith("/transit")) setActiveTab("transit_mode");
-    else if (path.endsWith("/profile")) setActiveTab("pro_profile");
-    else if (path.endsWith("/availability")) setActiveTab("availability");
-    else if (path.endsWith("/messages")) setActiveTab("messages");
-    else if (path.endsWith("/find-students")) setActiveTab("find_students");
-    else if (path.endsWith("/class-logs")) setActiveTab("class_logs");
-    else setActiveTab("my_session");
-  }, [location.pathname]);
+  // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
     tab:
@@ -1806,15 +1806,17 @@ export default function TutorDashboard() {
               <div className="lg:col-span-1 space-y-8">
                 <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-start md:items-center">
                   <div className="mb-8">
-                    <ImageUpload
-                      currentImageUrl={currentUser.profileImage}
-                      onUpload={(url) =>
-                        updateUser(currentUser.id, { profileImage: url })
-                      }
-                      onDelete={() =>
-                        updateUser(currentUser.id, { profileImage: "" })
-                      }
-                    />
+                    <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
+                      <ImageUpload
+                        currentImageUrl={currentUser.profileImage}
+                        onUpload={(url) =>
+                          updateUser(currentUser.id, { profileImage: url })
+                        }
+                        onDelete={() =>
+                          updateUser(currentUser.id, { profileImage: "" })
+                        }
+                      />
+                    </Suspense>
                   </div>
                   <h2 className="text-3xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2 text-left md:text-center w-full">
                     {currentUser.name}
@@ -2024,31 +2026,35 @@ export default function TutorDashboard() {
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
                             NID Front Image
                           </label>
-                          <FileUpload
-                            currentFileUrl={profileForm.nidFrontImg}
-                            onUpload={(url) =>
-                              setProfileForm({
-                                ...profileForm,
-                                nidFrontImg: url,
-                              })
-                            }
-                            label="Upload NID Front"
-                          />
+                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
+                            <FileUpload
+                              currentFileUrl={profileForm.nidFrontImg}
+                              onUpload={(url) =>
+                                setProfileForm({
+                                  ...profileForm,
+                                  nidFrontImg: url,
+                                })
+                              }
+                              label="Upload NID Front"
+                            />
+                          </Suspense>
                         </div>
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
                             NID Back Image
                           </label>
-                          <FileUpload
-                            currentFileUrl={profileForm.nidBackImg}
-                            onUpload={(url) =>
-                              setProfileForm({
-                                ...profileForm,
-                                nidBackImg: url,
-                              })
-                            }
-                            label="Upload NID Back"
-                          />
+                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
+                            <FileUpload
+                              currentFileUrl={profileForm.nidBackImg}
+                              onUpload={(url) =>
+                                setProfileForm({
+                                  ...profileForm,
+                                  nidBackImg: url,
+                                })
+                              }
+                              label="Upload NID Back"
+                            />
+                          </Suspense>
                         </div>
                       </div>
 
@@ -2093,16 +2099,18 @@ export default function TutorDashboard() {
                               </div>
                             </div>
                           ))}
-                          <FileUpload
-                            currentFileUrl=""
-                            onUpload={(url) =>
-                              setProfileForm({
-                                ...profileForm,
-                                documents: [...profileForm.documents, url],
-                              })
-                            }
-                            label="Add New Document (PDF/IMG)"
-                          />
+                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
+                            <FileUpload
+                              currentFileUrl=""
+                              onUpload={(url) =>
+                                setProfileForm({
+                                  ...profileForm,
+                                  documents: [...profileForm.documents, url],
+                                })
+                              }
+                              label="Add New Document (PDF/IMG)"
+                            />
+                          </Suspense>
                         </div>
                       </div>
 

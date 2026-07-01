@@ -53,9 +53,21 @@ export default function AdminDashboard() {
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab ] = useState<
+  const activeTab = useMemo<
     "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner"
-  >("users");
+  >(() => {
+    const path = location.pathname;
+    if (path.endsWith("/verifications")) return "verifications";
+    if (path.endsWith("/payments")) return "payments";
+    if (path.endsWith("/withdrawals")) return "withdrawals";
+    if (path.endsWith("/users")) return "users";
+    if (path.endsWith("/sessions")) return "sessions";
+    if (path.endsWith("/messages")) return "messages";
+    if (path.endsWith("/analytics")) return "analytics";
+    if (path.endsWith("/banner")) return "banner";
+    if (path.endsWith("/account") || path.endsWith("/profile")) return "account";
+    return "users";
+  }, [location.pathname]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [messagesSearch, setMessagesSearch] = useState("");
   const [selectedTutor, setSelectedTutor] = useState<User | null>(null);
@@ -147,19 +159,7 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    const path = location.pathname;
-    if (path.endsWith("/verifications")) setActiveTab("verifications");
-    else if (path.endsWith("/payments")) setActiveTab("payments");
-    else if (path.endsWith("/withdrawals")) setActiveTab("withdrawals");
-    else if (path.endsWith("/users")) setActiveTab("users");
-    else if (path.endsWith("/sessions")) setActiveTab("sessions");
-    else if (path.endsWith("/messages")) setActiveTab("messages");
-    else if (path.endsWith("/analytics")) setActiveTab("analytics");
-    else if (path.endsWith("/banner")) setActiveTab("banner");
-    else if (path.endsWith("/account") || path.endsWith("/profile")) setActiveTab("account");
-    else setActiveTab("users");
-  }, [location.pathname]);
+  // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
     tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner",

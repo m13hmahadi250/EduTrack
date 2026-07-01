@@ -143,7 +143,16 @@ export default function StudentDashboard() {
   const [locationErrorMessage, setLocationErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification'>('overview');
+  const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification'>(() => {
+    const path = location.pathname;
+    if (path.endsWith('/search')) return 'find';
+    if (path.endsWith('/activity')) return 'activity';
+    if (path.endsWith('/profile')) return 'account';
+    if (path.endsWith('/transit')) return 'transit';
+    if (path.endsWith('/messages')) return 'messages';
+    if (path.endsWith('/class-logs')) return 'class-verification';
+    return 'overview';
+  }, [location.pathname]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
@@ -438,16 +447,7 @@ export default function StudentDashboard() {
     tryGetPosition(true);
   };
 
-  useEffect(() => {
-    const path = location.pathname;
-    if (path.endsWith('/search')) setActiveTab('find');
-    else if (path.endsWith('/activity')) setActiveTab('activity');
-    else if (path.endsWith('/profile')) setActiveTab('account');
-    else if (path.endsWith('/transit')) setActiveTab('transit');
-    else if (path.endsWith('/messages')) setActiveTab('messages');
-    else if (path.endsWith('/class-logs')) setActiveTab('class-verification');
-    else setActiveTab('overview');
-  }, [location.pathname]);
+  // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification') => {
     const pathMap = {
@@ -2790,11 +2790,13 @@ export default function StudentDashboard() {
           >
              <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">
                 <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
-                   <ImageUpload 
-                     currentImageUrl={currentUser.profileImage} 
-                     onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
-                     onDelete={() => useAppStore.getState().updateUser(currentUser.id, { profileImage: "" })}
-                   />
+                   <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
+                     <ImageUpload 
+                       currentImageUrl={currentUser.profileImage} 
+                       onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
+                       onDelete={() => useAppStore.getState().updateUser(currentUser.id, { profileImage: "" })}
+                     />
+                   </Suspense>
                    <div>
                       <h3 className="text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">Account Sector</h3>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
