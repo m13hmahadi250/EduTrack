@@ -533,7 +533,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <div className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-1 flex-wrap">
                             <span className="truncate max-w-[120px]">{user.name || 'No Name'}</span>
                             {user.isVerified && (
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/15" title="Verified Badge User" />
+                              <span title="Verified Badge User" className="shrink-0 flex items-center"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/15" /></span>
                             )}
                             {isBlocked ? (
                               <span className="bg-rose-600 text-white text-[7px] font-black px-1 py-0.5 rounded tracking-wider uppercase">

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { useAppStore, Notification } from '../store';
 import { Bell, X, Info, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function NotificationCenter() {
+const NotificationCenter = memo(function NotificationCenter() {
   const { notifications, markAsRead } = useAppStore();
   const [showLatest, setShowLatest] = useState<Notification | null>(null);
 
@@ -72,7 +72,9 @@ export default function NotificationCenter() {
       </AnimatePresence>
     </div>
   );
-}
+})
+
+export default NotificationCenter;
 
 function NotificationIcon({ type }: { type: Notification['type'] }) {
   switch (type) {

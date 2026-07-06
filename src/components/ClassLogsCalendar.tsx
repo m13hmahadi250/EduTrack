@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppStore, ClassLog, User } from '../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -34,7 +34,7 @@ interface ClassLogsCalendarProps {
   role: 'student' | 'tutor';
 }
 
-export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
+const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
   const { 
     currentUser, 
     users, 
@@ -2372,7 +2372,7 @@ export default function ClassLogsCalendar({ role }: ClassLogsCalendarProps) {
       </AnimatePresence>
     </div>
   );
-}
+})
 
 function ConfirmRetractButton({ onConfirm }: { onConfirm: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
@@ -2411,3 +2411,5 @@ function ConfirmRetractButton({ onConfirm }: { onConfirm: () => Promise<void> })
     </button>
   );
 }
+
+export default ClassLogsCalendar;

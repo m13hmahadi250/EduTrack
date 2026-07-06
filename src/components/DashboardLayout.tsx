@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -20,7 +20,7 @@ import {
   Users
 } from 'lucide-react';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, theme, messages } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,9 +33,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isStudent = currentUser.role === 'student';
   const isAdmin = currentUser.role === 'admin';
 
-  const totalUnreadMessages = messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
+  const totalUnreadMessages = useMemo(() => 
+    messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length,
+    [messages, currentUser.id]
+  );
 
-  const navItems = [
+  const navItems = useMemo(() => [
     ...(isTutor ? [
       { label: 'Session', icon: Calendar, path: '/dashboard' },
       { label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
@@ -54,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
       { label: 'Revenue', icon: CreditCard, path: '/dashboard/payments' },
     ] : []),
-  ];
+  ], [isTutor, isStudent, isAdmin, totalUnreadMessages]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -173,7 +176,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </div>
   );
-}
+})
+
+export default DashboardLayout;
 
 const Wallet = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>

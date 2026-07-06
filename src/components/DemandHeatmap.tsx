@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -47,7 +47,7 @@ interface DemandHeatmapProps {
   sessions: Session[];
 }
 
-export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatmapProps) {
+const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }: DemandHeatmapProps) {
   const [hoveredCell, setHoveredCell] = useState<{ day: string; hour: string } | null>(null);
 
   // 1. Calculate booking demand from systemic session history combined with organic peak values
@@ -406,4 +406,6 @@ export default function DemandHeatmap({ slots, onChange, sessions }: DemandHeatm
       </div>
     </div>
   );
-}
+})
+
+export default DemandHeatmap;

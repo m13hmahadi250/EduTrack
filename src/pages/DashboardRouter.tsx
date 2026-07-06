@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, memo } from 'react';
 import { useAppStore } from '../store';
 import { ShieldAlert, LogOut } from 'lucide-react';
 
@@ -44,7 +44,7 @@ const BlockedScreen = () => {
   );
 };
 
-export default function DashboardRouter() {
+const DashboardRouter = memo(function DashboardRouter() {
   const currentUser = useAppStore(state => state.currentUser);
   const role = currentUser?.role;
 
@@ -70,4 +70,6 @@ export default function DashboardRouter() {
       })()}
     </Suspense>
   );
-}
+})
+
+export default DashboardRouter;

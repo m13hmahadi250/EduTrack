@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } from 'react';
+// @ts-ignore
+import { List } from 'react-window';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -62,6 +64,77 @@ import { MetricCard, FilterGroup, DashboardInput } from '../../components/Dashbo
 import { Skeleton } from '../../components/Skeleton';
 
 import { jsPDF } from 'jspdf';
+
+const TutorRow = ({ index, style, rowProps }: any) => {
+  const { filteredTutors, selectedTutor, setSelectedTutor, getDayName } = rowProps;
+  const tutor = filteredTutors[index];
+  if (!tutor) return null;
+  return (
+    <div style={{ ...style, paddingBottom: 16, paddingRight: 8 }}>
+      <motion.div 
+        layout
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97, y: -8 }}
+        transition={{ 
+          duration: 0.28,
+          ease: [0.16, 1, 0.3, 1],
+          delay: Math.min(index * 0.03, 0.15)
+        }}
+        id={`tutor-card-${tutor.id}`}
+        onClick={() => setSelectedTutor(tutor)}
+        className={`tutor-card h-full p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+          selectedTutor?.id === tutor.id 
+          ? 'border-[#0D5BFF] bg-blue-50/30' 
+          : 'border-slate-100 bg-white hover:border-slate-200'
+        }`}
+      >
+        <div className="flex items-center gap-4 relative z-10 h-full">
+          {tutor.profileImage ? (
+            <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
+          ) : (
+            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-lg font-black italic text-[#0D5BFF] border border-slate-100">
+               {tutor.name.charAt(0)}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center gap-2">
+              <h3 className="text-sm font-black text-[#0B132B] flex items-center gap-1.5 uppercase italic group-hover:text-[#0D5BFF] transition-colors truncate">
+                <span className="truncate">{tutor.name}</span>
+                {tutor.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-3.5 h-3.5 text-sky-500 font-bold" /></span>}
+                {tutor.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-3.5 h-3.5 text-rose-500 font-bold" /></span>}
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              </h3>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
+                   <div className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
+                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-[7px] font-black uppercase tracking-widest">Active Today</span>
+                   </div>
+                )}
+                {tutor.rating && (
+                   <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                     <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                     <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
+                   </div>
+                )}
+                {tutor.isTrackingOn && (
+                  <span className="flex h-2.5 w-2.5 relative">
+                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">
+              {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/month` : 'N/A'} • {tutor.daysPerWeek || 3} Days/Wk
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const MapLoading = () => (
    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
@@ -1575,111 +1648,60 @@ export default function StudentDashboard() {
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Tutor Selection Panel */}
                 {(!selectedTutor || windowWidth > 1024) && (
-                  <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar lg:sticky lg:top-4">
-                    <div className="lg:hidden mb-6">
+                  <div className="space-y-4 max-h-[800px] pr-2 lg:sticky lg:top-4 flex flex-col">
+                    <div className="lg:hidden mb-6 flex-shrink-0">
                        <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
                     </div>
                     {debouncedSearch !== searchTerm ? (
-                      Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="p-6 rounded-[2.5rem] border-2 border-slate-50 bg-white">
-                          <div className="flex items-center gap-4">
-                            <Skeleton className="w-12 h-12 rounded-2xl" />
-                            <div className="flex-1 space-y-2">
-                              <Skeleton className="h-4 w-1/3 rounded-lg" />
-                              <Skeleton className="h-3 w-1/2 rounded-lg" />
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        {filteredTutors.length === 0 ? (
-                          <motion.div
-                            key="no-tutors-found"
-                            initial={{ opacity: 0, scale: 0.96, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: -10 }}
-                            transition={{ duration: 0.25, ease: "easeOut" }}
-                            className="w-full text-center py-14 p-8 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-3"
-                          >
-                            <Users className="w-8 h-8 text-[#0D5BFF] animate-pulse" />
-                            <div>
-                              <h4 className="text-xs font-black uppercase tracking-widest text-[#0B132B] italic">No Mentors Found</h4>
-                              <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 max-w-[240px] leading-relaxed mx-auto">
-                                We couldn't find matches in this sector. Try shifting your filters or widening your area parameters.
-                              </p>
-                            </div>
-                          </motion.div>
-                        ) : (
-                          filteredTutors.map((tutor, index) => (
-                            <motion.div 
-                              layout
-                              initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.97, y: -8 }}
-                              transition={{ 
-                                duration: 0.28,
-                                ease: [0.16, 1, 0.3, 1],
-                                delay: Math.min(index * 0.03, 0.15)
-                              }}
-                              key={tutor.id} 
-                              id={`tutor-card-${tutor.id}`}
-                              onClick={() => setSelectedTutor(tutor)}
-                              className={`tutor-card p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                                selectedTutor?.id === tutor.id 
-                                ? 'border-[#0D5BFF] bg-blue-50/30' 
-                                : 'border-slate-100 bg-white hover:border-slate-200'
-                              }`}
-                            >
-                        <div className="flex items-center gap-4 relative z-10">
-                          {tutor.profileImage ? (
-                            <img src={tutor.profileImage} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" referrerPolicy="no-referrer" loading="lazy" />
-                          ) : (
-                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-lg font-black italic text-[#0D5BFF] border border-slate-100">
-                               {tutor.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center">
-                              <h3 className="text-sm font-black text-[#0B132B] flex items-center gap-1.5 uppercase italic group-hover:text-[#0D5BFF] transition-colors">
-                                <span className="truncate">{tutor.name}</span>
-                                {tutor.gender === 'Male' && <Mars className="w-3.5 h-3.5 text-sky-500 font-bold shrink-0" title="Male" />}
-                                {tutor.gender === 'Female' && <Venus className="w-3.5 h-3.5 text-rose-500 font-bold shrink-0" title="Female" />}
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              </h3>
-                              <div className="flex items-center gap-1.5">
-                                {tutor.availabilitySlots && tutor.availabilitySlots[getDayName(new Date().toISOString())]?.length > 0 && (
-                                   <div className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1">
-                                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
-                                      <span className="text-[7px] font-black uppercase tracking-widest">Active Today</span>
-                                   </div>
-                                )}
-                                {tutor.rating && (
-                                   <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                     <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                     <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
-                                   </div>
-                                )}
-                                {tutor.isTrackingOn && (
-                                  <span className="flex h-2.5 w-2.5 relative">
-                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-200"></span>
-                                  </span>
-                                )}
+                      <div className="space-y-4 flex-1">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="p-6 rounded-[2.5rem] border-2 border-slate-50 bg-white">
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="w-12 h-12 rounded-2xl" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-1/3 rounded-lg" />
+                                <Skeleton className="h-3 w-1/2 rounded-lg" />
                               </div>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                              {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/month` : 'N/A'} • {tutor.daysPerWeek || 3} Days/Wk
-                            </p>
                           </div>
-                        </div>
-                      </motion.div>
-                     )))}
-                      </AnimatePresence>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-h-[400px]">
+                        {filteredTutors.length === 0 ? (
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            <motion.div
+                              key="no-tutors-found"
+                              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.96, y: -10 }}
+                              transition={{ duration: 0.25, ease: "easeOut" }}
+                              className="w-full text-center py-14 p-8 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-3"
+                            >
+                              <Users className="w-8 h-8 text-[#0D5BFF] animate-pulse" />
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-widest text-[#0B132B] italic">No Mentors Found</h4>
+                                <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 max-w-[240px] leading-relaxed mx-auto">
+                                  We couldn't find matches in this sector. Try shifting your filters or widening your area parameters.
+                                </p>
+                              </div>
+                            </motion.div>
+                          </AnimatePresence>
+                        ) : (
+                          <List
+                            style={{ height: Math.min(720, filteredTutors.length * 132) }}
+                            rowCount={filteredTutors.length}
+                            rowHeight={132}
+                            rowComponent={TutorRow as any}
+                            rowProps={{ filteredTutors, selectedTutor, setSelectedTutor, getDayName }}
+                            className="custom-scrollbar"
+                          />
+                        )}
+                      </div>
                     )}
-                </div>
-              )}
+                  </div>
+                )}
 
                 {/* Tutor Details & Booking */}
                 {(selectedTutor || windowWidth > 1024) && (

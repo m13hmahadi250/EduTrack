@@ -2972,8 +2972,8 @@ export default function TutorDashboard() {
                                 <div className="min-w-0 flex-1">
                                   <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
                                     <span className="truncate">{student.name}</span>
-                                    {student.gender === 'Male' && <Mars className="w-4 h-4 text-sky-500 font-bold shrink-0" title="Male" />}
-                                    {student.gender === 'Female' && <Venus className="w-4 h-4 text-rose-500 font-bold shrink-0" title="Female" />}
+                                    {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
+                                    {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
                                   </h4>
                                   <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
                                     {student.school || "Autonomous Learner"}
