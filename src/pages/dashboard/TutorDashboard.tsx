@@ -103,6 +103,20 @@ const MapLoading = () => (
   </div>
 );
 
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
 export default function TutorDashboard() {
   const {
     currentUser,
@@ -224,9 +238,21 @@ export default function TutorDashboard() {
   const [filterStudentSubject, setFilterStudentSubject] = useState('');
   const [filterStudentAddress, setFilterStudentAddress] = useState('');
   const [filterStudentGender, setFilterStudentGender] = useState('');
+  const [sortStudentByLocation, setSortStudentByLocation] = useState(true);
+
+  const tutorCoords = useMemo(() => {
+    if (!currentUser) return null;
+    if (currentUser.location?.lat && currentUser.location?.lng) {
+      return [currentUser.location.lat, currentUser.location.lng] as [number, number];
+    }
+    if (currentUser.district) {
+      return getCoordinatesForLocation(currentUser.district, currentUser.thana, currentUser.id);
+    }
+    return null;
+  }, [currentUser]);
 
   const filteredStudents = useMemo(() => {
-    return users.filter(user => {
+    const list = users.filter(user => {
       if (user.role !== "student") return false;
       
       const matchesSearch = !studentSearchTerm || 
@@ -252,7 +278,29 @@ export default function TutorDashboard() {
         
       return matchesSearch && matchesClass && matchesSubject && matchesAddress && matchesGender;
     });
-  }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress, filterStudentGender]);
+
+    if (sortStudentByLocation && tutorCoords) {
+      return [...list].sort((a, b) => {
+        const aCoords = a.location?.lat && a.location?.lng 
+          ? [a.location.lat, a.location.lng] as [number, number]
+          : (a.district ? getCoordinatesForLocation(a.district, a.thana, a.id) : null);
+        const bCoords = b.location?.lat && b.location?.lng 
+          ? [b.location.lat, b.location.lng] as [number, number]
+          : (b.district ? getCoordinatesForLocation(b.district, b.thana, b.id) : null);
+
+        if (!aCoords && !bCoords) return 0;
+        if (!aCoords) return 1;
+        if (!bCoords) return -1;
+
+        const distA = getDistance(tutorCoords[0], tutorCoords[1], aCoords[0], aCoords[1]);
+        const distB = getDistance(tutorCoords[0], tutorCoords[1], bCoords[0], bCoords[1]);
+
+        return distA - distB;
+      });
+    }
+
+    return list;
+  }, [users, studentSearchTerm, filterStudentClass, filterStudentSubject, filterStudentAddress, filterStudentGender, sortStudentByLocation, tutorCoords]);
   const [selectedStudentForProposal, setSelectedStudentForProposal] = useState<User | null>(null);
   const [proposalDate, setProposalDate] = useState(new Date().toISOString().split("T")[0]);
   const [proposalSlot, setProposalSlot] = useState("04:00 PM");
@@ -2934,6 +2982,33 @@ export default function TutorDashboard() {
                         <option value="Female">FEMALE</option>
                       </select>
                     </div>
+
+                    <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                          Sort by Proximity
+                        </label>
+                        <span className="text-[8px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded uppercase">
+                          Closer Top
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSortStudentByLocation(!sortStudentByLocation)}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-black transition-all ${
+                          sortStudentByLocation
+                            ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 text-[#0D5BFF]'
+                            : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        <span className="uppercase text-[10px]">
+                          {sortStudentByLocation ? "Enabled (Closest Top)" : "Disabled (Default)"}
+                        </span>
+                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${sortStudentByLocation ? 'bg-[#0D5BFF]' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                          <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-250 ${sortStudentByLocation ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2959,47 +3034,68 @@ export default function TutorDashboard() {
 
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {filtered.map(student => (
-                          <div
-                            key={student.id}
-                            className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
-                          >
-                            <div>
-                              <div className="flex items-center space-x-4 mb-6">
-                                <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950/40 rounded-[1.5rem] flex items-center justify-center text-lg font-black italic text-[#0D5BFF] uppercase group-hover:bg-[#0D5BFF] group-hover:text-white transition-colors duration-300">
-                                  {student.name.charAt(0)}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
-                                    <span className="truncate">{student.name}</span>
-                                    {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
-                                    {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
-                                  </h4>
-                                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
-                                    {student.school || "Autonomous Learner"}
-                                  </p>
-                                </div>
-                              </div>
+                        {filtered.map(student => {
+                          const distance = (() => {
+                            if (!tutorCoords) return null;
+                            const sCoords = student.location?.lat && student.location?.lng 
+                              ? [student.location.lat, student.location.lng] as [number, number]
+                              : (student.district ? getCoordinatesForLocation(student.district, student.thana, student.id) : null);
+                            if (!sCoords) return null;
+                            return getDistance(tutorCoords[0], tutorCoords[1], sCoords[0], sCoords[1]);
+                          })();
 
-                              <div className="space-y-4 mb-6 border-b border-slate-50 dark:border-slate-800/50 pb-6">
-                                <div className="flex justify-between items-center text-xs">
-                                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                    Class / Level
-                                  </span>
-                                  <span className="font-bold text-[#0B132B] dark:text-white uppercase">
-                                    {student.studentClass || "Not Specified"}
-                                  </span>
+                          return (
+                            <div
+                              key={student.id}
+                              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
+                            >
+                              <div>
+                                <div className="flex items-center space-x-4 mb-6">
+                                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950/40 rounded-[1.5rem] flex items-center justify-center text-lg font-black italic text-[#0D5BFF] uppercase group-hover:bg-[#0D5BFF] group-hover:text-white transition-colors duration-300">
+                                    {student.name.charAt(0)}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
+                                      <span className="truncate">{student.name}</span>
+                                      {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
+                                      {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
+                                    </h4>
+                                    <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
+                                      {student.school || "Autonomous Learner"}
+                                    </p>
+                                  </div>
                                 </div>
 
-                                <div className="flex justify-between items-start text-xs">
-                                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
-                                    Inbound Location
-                                  </span>
-                                  <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
-                                    {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
-                                  </span>
+                                <div className="space-y-4 mb-6 border-b border-slate-50 dark:border-slate-800/50 pb-6">
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                      Class / Level
+                                    </span>
+                                    <span className="font-bold text-[#0B132B] dark:text-white uppercase">
+                                      {student.studentClass || "Not Specified"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex justify-between items-start text-xs">
+                                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
+                                      Inbound Location
+                                    </span>
+                                    <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
+                                      {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
+                                    </span>
+                                  </div>
+
+                                  {distance !== null && (
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                        Proximity (Distance)
+                                      </span>
+                                      <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest">
+                                        {distance.toFixed(1)} KM AWAY
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
 
                               <div className="space-y-2 mb-8">
                                 <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
@@ -3056,7 +3152,8 @@ export default function TutorDashboard() {
                               </button>
                             </div>
                           </div>
-                        ))}
+                        );
+                      })}
                       </div>
                     );
                   })()}
