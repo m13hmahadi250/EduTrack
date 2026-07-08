@@ -197,11 +197,37 @@ export default function StudentDashboard() {
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('recent_searches');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
   
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const query = debouncedSearch.trim();
+    if (!query) return;
+
+    setRecentSearches(prev => {
+      const filtered = prev.filter(q => q.toLowerCase() !== query.toLowerCase());
+      const updated = [query, ...filtered].slice(0, 5);
+      try {
+        localStorage.setItem('recent_searches', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  }, [debouncedSearch]);
   const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
   const [filterVersion, setFilterVersion] = useState('');
   const [filterClass, setFilterClass] = useState('');
@@ -1433,6 +1459,38 @@ export default function StudentDashboard() {
                 
                 <div className="space-y-6">
                   <FilterGroup label="Direct Query">
+                    {recentSearches.length > 0 && (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1.5 px-1">
+                          <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                            Recent Searches
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecentSearches([]);
+                              localStorage.removeItem('recent_searches');
+                            }}
+                            className="text-[7px] font-black uppercase tracking-wider text-rose-500 hover:underline hover:cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {recentSearches.map((query, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => setSearchTerm(query)}
+                              className="px-2 py-0.5 rounded-md text-[7px] font-bold bg-slate-50 hover:bg-slate-100 border border-slate-100 dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-all uppercase tracking-wider truncate max-w-[100px] hover:cursor-pointer"
+                              title={query}
+                            >
+                              {query}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="relative">
                       <input
                         type="text"

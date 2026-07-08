@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import AIChatWidget from '../components/AIChatWidget';
+import Logo from '../components/Logo';
 import { 
   ShieldCheck, 
   Users, 
@@ -652,17 +653,40 @@ export default function Home() {
       <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <h4 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-6">EduTrack</h4>
-            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm leading-relaxed mb-6">
-              The premier platform for secure, verified home tutoring in Bangladesh. Built with safety and excellence at its core.
+            <div className="flex items-center gap-3 mb-6 select-none cursor-default">
+              <Logo className="w-10 h-10 sm:w-11 sm:h-11 hover:rotate-6 transition-transform duration-300" />
+              <h4 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic flex">
+                {"EduTrack".split("").map((char, index) => (
+                  <span
+                    key={index}
+                    className="inline-block origin-bottom animate-logo-letter"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </h4>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm leading-relaxed mb-6 text-sm">
+              The premier platform for secure, verified home tutoring in Bangladesh. Built with safety, trust, and academic excellence at its core.
             </p>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+            <div className="flex gap-3.5">
+              <motion.div 
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
+                title="Trending Tutors"
+              >
                 <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] transition-all cursor-pointer">
+              </motion.div>
+              <motion.div 
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
+                title="Community Directory"
+              >
                 <Users className="w-5 h-5" />
-              </div>
+              </motion.div>
             </div>
           </div>
           

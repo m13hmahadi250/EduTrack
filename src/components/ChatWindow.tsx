@@ -3,6 +3,7 @@ import { useAppStore, Message, User } from '../store';
 import { useShallow } from 'zustand/react/shallow';
 import { Send, User as UserIcon, ShieldAlert, Check, CheckCheck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { usePersistentInput } from '../hooks/usePersistentInput';
 
 interface ChatWindowProps {
   recipientId: string;
@@ -19,7 +20,8 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
     typingStatus: state.typingStatus,
     setTyping: state.setTyping
   })));
-  const [content, setContent] = useState('');
+  const draftKey = currentUser ? `chat_draft_${currentUser.id}_${recipientId}` : '';
+  const [content, setContent] = usePersistentInput(draftKey, '');
   const [isTypingLocal, setIsTypingLocal] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);

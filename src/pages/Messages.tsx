@@ -16,13 +16,15 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { usePersistentInput } from '../hooks/usePersistentInput';
 
 export default function Messages() {
   const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
   const [searchParams] = useSearchParams();
   const targetTId = searchParams.get('tId');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [inputText, setInputText] = useState('');
+  const draftKey = currentUser && selectedUserId ? `chat_draft_${currentUser.id}_${selectedUserId}` : '';
+  const [inputText, setInputText] = usePersistentInput(draftKey, '');
   const [searchTerm, setSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
