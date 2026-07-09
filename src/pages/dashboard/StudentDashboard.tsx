@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } from 'react';
-// @ts-ignore
-import { List } from 'react-window';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -1876,14 +1874,19 @@ export default function StudentDashboard() {
                             </motion.div>
                           </AnimatePresence>
                         ) : (
-                          <List
-                            style={{ height: Math.min(720, filteredTutors.length * 132) }}
-                            rowCount={filteredTutors.length}
-                            rowHeight={132}
-                            rowComponent={TutorRow as any}
-                            rowProps={{ filteredTutors, selectedTutor, setSelectedTutor, getDayName }}
-                            className="custom-scrollbar"
-                          />
+                          <div 
+                            className="overflow-y-auto custom-scrollbar flex flex-col pr-1"
+                            style={{ maxHeight: '720px' }}
+                          >
+                            {filteredTutors.map((tutor, index) => (
+                              <TutorRow
+                                key={tutor.id}
+                                index={index}
+                                style={{}}
+                                rowProps={{ filteredTutors, selectedTutor, setSelectedTutor, getDayName }}
+                              />
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
