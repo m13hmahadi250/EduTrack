@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
-import { Gift, Copy, Check, Users, Mail, Award, Sparkles, Share2, Send, Ticket, ArrowRight, UserCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Gift, Copy, Check, Users, Award, Sparkles, Share2, UserCheck } from 'lucide-react';
 
 export default function ReferralsTab() {
   const currentUser = useAppStore(state => state.currentUser);
   const referrals = useAppStore(state => state.referrals);
-  const createReferralInvite = useAppStore(state => state.createReferralInvite);
   const fetchReferrals = useAppStore(state => state.fetchReferrals);
 
-  const [inviteName, setInviteName] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'student' | 'tutor'>('student');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -39,29 +30,6 @@ export default function ReferralsTab() {
     navigator.clipboard.writeText(referralLink);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  const handleSendInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    
-    if (!inviteName.trim() || !inviteEmail.trim()) {
-      setErrorMessage('Please fill out all fields.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await createReferralInvite(inviteName, inviteEmail, inviteRole);
-      setSuccessMessage(`Invitation successfully registered for ${inviteName}!`);
-      setInviteName('');
-      setInviteEmail('');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to register invitation.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // Stats calculation
@@ -114,14 +82,14 @@ export default function ReferralsTab() {
       </div>
 
       {/* Referral Link & Sharing Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white dark:bg-[#111A2E] rounded-[2rem] p-8 border border-slate-100 dark:border-slate-800/80 shadow-md">
-          <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-wider flex items-center gap-2 mb-6 italic">
-            <Share2 className="w-5 h-5 text-blue-500" />
-            Your Referral Identity
-          </h2>
-          
-          <div className="space-y-6">
+      <div className="bg-white dark:bg-[#111A2E] rounded-[2rem] p-8 border border-slate-100 dark:border-slate-800/80 shadow-md">
+        <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-wider flex items-center gap-2 mb-6 italic">
+          <Share2 className="w-5 h-5 text-blue-500" />
+          Your Referral Identity
+        </h2>
+        
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Referral Code Box */}
             <div>
               <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 tracking-widest block mb-2 uppercase">
@@ -159,110 +127,20 @@ export default function ReferralsTab() {
                 </button>
               </div>
             </div>
-
-            {/* Reward Information Callout */}
-            <div className="bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/15 p-5 rounded-2xl">
-              <h4 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
-                <Gift className="w-4 h-4" />
-                Active Reward Tier:
-              </h4>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wider">
-                {currentUser.role === 'tutor' 
-                  ? "Tutors get +15 featured points per join! Points boost search results, increasing direct booking requests by up to 250%!"
-                  : "Students earn a 10% discount on their next platform transaction or lesson fee per join! Save more as you share!"}
-              </p>
-            </div>
           </div>
-        </div>
 
-        {/* Invite Form Panel */}
-        <div className="bg-white dark:bg-[#111A2E] rounded-[2rem] p-8 border border-slate-100 dark:border-slate-800/80 shadow-md">
-          <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-wider flex items-center gap-2 mb-6 italic">
-            <Mail className="w-5 h-5 text-amber-500 animate-pulse" />
-            Send invitation
-          </h2>
-
-          <form onSubmit={handleSendInvite} className="space-y-4">
-            <div>
-              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 tracking-widest block mb-2 uppercase">
-                Colleague / Friend Name
-              </label>
-              <input
-                type="text"
-                placeholder="Enter their full name"
-                value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 focus:border-amber-500 focus:outline-none rounded-xl text-xs font-bold text-slate-800 dark:text-white tracking-wide uppercase transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 tracking-widest block mb-2 uppercase">
-                Email Address
-              </label>
-              <input
-                type="email"
-                placeholder="friend@email.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 focus:border-amber-500 focus:outline-none rounded-xl text-xs font-medium text-slate-800 dark:text-white tracking-wide normal-case transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 tracking-widest block mb-2 uppercase">
-                Target Role
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setInviteRole('student')}
-                  className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all cursor-pointer ${inviteRole === 'student' ? 'bg-blue-500/10 border-blue-500 text-blue-500' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}
-                >
-                  Student / Parent
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInviteRole('tutor')}
-                  className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all cursor-pointer ${inviteRole === 'tutor' ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}
-                >
-                  Tutor / Teacher
-                </button>
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {successMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/15 p-3.5 rounded-xl text-[10px] font-bold text-center tracking-wider"
-                >
-                  {successMessage}
-                </motion.div>
-              )}
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-red-500/10 text-red-500 border border-red-500/15 p-3.5 rounded-xl text-[10px] font-bold text-center tracking-wider"
-                >
-                  {errorMessage}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-4 bg-slate-900 dark:bg-[#0D5BFF] hover:bg-slate-800 dark:hover:bg-blue-600 text-white rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-              {isSubmitting ? 'Registering...' : 'Register invitation'}
-            </button>
-          </form>
+          {/* Reward Information Callout */}
+          <div className="bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/15 p-5 rounded-2xl">
+            <h4 className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
+              <Gift className="w-4 h-4" />
+              Active Reward Tier:
+            </h4>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wider">
+              {currentUser.role === 'tutor' 
+                ? "Tutors get +15 featured points per join! Points boost search results, increasing direct booking requests by up to 250%!"
+                : "Students earn a 10% discount on their next platform transaction or lesson fee per join! Save more as you share!"}
+            </p>
+          </div>
         </div>
       </div>
 
