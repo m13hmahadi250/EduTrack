@@ -8,6 +8,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { generateSitemap } from "./sitemap.js";
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -68,6 +69,8 @@ console.log("- R2_BUCKET_NAME:", process.env.R2_BUCKET_NAME ? "Set" : "MISSING")
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV, cloud: !!process.env.VERCEL });
 });
+
+app.get("/sitemap.xml", generateSitemap);
 
 /**
  * Modern Server-side Image Upload & Compression Endpoint

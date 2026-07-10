@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 
@@ -12,6 +12,8 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [searchParams] = useSearchParams();
+  const [referralCodeInput, setReferralCodeInput] = useState(searchParams.get('ref') || '');
   
   const signup = useAppStore(state => state.signup);
   const navigate = useNavigate();
@@ -129,7 +131,7 @@ export default function Signup() {
       const data = { ...formData };
       delete data.password;
       
-      await signup({ ...data, role }, password);
+      await signup({ ...data, role }, password, referralCodeInput);
       navigate('/dashboard');
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -623,6 +625,31 @@ export default function Signup() {
                     />
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+
+          {/* Referral Option */}
+          <div className="border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white flex items-center gap-2 mb-2 italic">
+              <Award className="w-4 h-4 text-emerald-500 animate-pulse" />
+              Referral Code (Optional)
+            </h3>
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+              Were you invited by a friend or colleague? Enter their referral code or ID to reward them with exclusive badge points or service discounts!
+            </p>
+            <div className="relative group">
+              <input
+                type="text"
+                placeholder="e.g. EDU-NAME-XXXX"
+                value={referralCodeInput}
+                onChange={(e) => setReferralCodeInput(e.target.value)}
+                className="w-full px-5 py-3.5 bg-white dark:bg-[#1A233A] border-2 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white focus:outline-none transition-all duration-300 focus:border-emerald-500"
+              />
+              {referralCodeInput && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-emerald-500 font-bold uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-md">
+                  Applied
+                </div>
               )}
             </div>
           </div>

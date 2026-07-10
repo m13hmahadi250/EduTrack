@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
+import { prefetchPage } from '../utils/prefetch';
 import { 
   BarChart3, 
   Calendar, 
@@ -45,7 +46,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
     ...(isTutor ? [
       { id: 'my_session', label: 'My Session', icon: Clock, path: '/dashboard' },
       { id: 'find_students', label: 'Find Students', icon: Search, path: '/dashboard/find-students' },
-      { id: 'balance', label: 'Balance', icon: CreditCard, path: '/dashboard/balance' },
+      { id: 'balance', label: 'Pay', icon: CreditCard, path: '/dashboard/balance' },
       { id: 'transit_mode', label: 'Location Track', icon: MapPin, path: '/dashboard/transit' },
       { id: 'pro_profile', label: 'Pro Profile', icon: Award, path: '/dashboard/profile' },
     ] : []),
@@ -99,6 +100,26 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
               onClick={() => {
                 navigate(item.path);
                 onClose?.();
+              }}
+              onMouseEnter={() => {
+                if (item.path === '/messages') {
+                  prefetchPage('Messages');
+                } else if (item.path.startsWith('/dashboard')) {
+                  prefetchPage('DashboardRouter');
+                  if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                  else if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                  else if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                }
+              }}
+              onFocus={() => {
+                if (item.path === '/messages') {
+                  prefetchPage('Messages');
+                } else if (item.path.startsWith('/dashboard')) {
+                  prefetchPage('DashboardRouter');
+                  if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                  else if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                  else if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                }
               }}
               className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
                 isActive(item.path) 

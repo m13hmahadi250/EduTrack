@@ -53,6 +53,7 @@ const ImageUpload = lazy(() => import('../../components/ImageUpload'));
 const FileUpload = lazy(() => import('../../components/FileUpload'));
 const RatingModal = lazy(() => import('../../components/RatingModal'));
 const ChatWindow = lazy(() => import('../../components/ChatWindow'));
+import ReferralsTab from '../../components/ReferralsTab';
 import ClassLogsCalendar from '../../components/ClassLogsCalendar';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
@@ -256,7 +257,7 @@ export default function StudentDashboard() {
   const [locationErrorMessage, setLocationErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification'>(() => {
+  const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'referrals'>(() => {
     const path = location.pathname;
     if (path.endsWith('/search')) return 'find';
     if (path.endsWith('/activity')) return 'activity';
@@ -264,6 +265,7 @@ export default function StudentDashboard() {
     if (path.endsWith('/transit')) return 'transit';
     if (path.endsWith('/messages')) return 'messages';
     if (path.endsWith('/class-logs')) return 'class-verification';
+    if (path.endsWith('/referrals')) return 'referrals';
     return 'overview';
   }, [location.pathname]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
@@ -562,7 +564,7 @@ export default function StudentDashboard() {
 
   // Active tab is derived directly from route location to avoid double-rendering delays
 
-  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification') => {
+  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'referrals') => {
     const pathMap = {
       overview: '/dashboard',
       find: '/dashboard/search',
@@ -570,7 +572,8 @@ export default function StudentDashboard() {
       account: '/dashboard/profile',
       transit: '/dashboard/transit',
       messages: '/dashboard/messages',
-      'class-verification': '/dashboard/class-logs'
+      'class-verification': '/dashboard/class-logs',
+      referrals: '/dashboard/referrals'
     };
     navigate(pathMap[tab]);
   };
@@ -909,7 +912,8 @@ export default function StudentDashboard() {
             { id: 'class-verification', label: 'Class Cal', icon: Calendar },
             { id: 'transit', label: 'Transit Tracker', icon: MapPin },
             { id: 'messages', label: 'Messages', icon: MessageSquare },
-            { id: 'account', label: 'My Account', icon: Award }
+            { id: 'account', label: 'My Account', icon: Award },
+            { id: 'referrals', label: 'Referrals', icon: Sparkles }
           ].map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
@@ -956,7 +960,8 @@ export default function StudentDashboard() {
           { id: 'class-verification', label: 'Class Cal' },
           { id: 'transit', label: 'Transit Tracker' },
           { id: 'messages', label: 'Messages' },
-          { id: 'account', label: 'My Account' }
+          { id: 'account', label: 'My Account' },
+          { id: 'referrals', label: 'Referrals' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -3231,6 +3236,18 @@ export default function StudentDashboard() {
                   </div>
                 </div>
               )}
+          </motion.div>
+        )}
+
+        {activeTab === 'referrals' && (
+          <motion.div
+            key="referrals"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+          >
+            <ReferralsTab />
           </motion.div>
         )}
       </AnimatePresence>

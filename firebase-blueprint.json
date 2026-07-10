@@ -145,12 +145,52 @@
         "tutorNotes": { "type": "string" }
       },
       "required": ["id", "studentId", "tutorId", "date", "status", "subject", "loggedAt"]
+    },
+    "ErrorLog": {
+      "title": "ErrorLog",
+      "description": "A secure record of runtime/global errors occurring on the client-side.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "message": { "type": "string" },
+        "stack": { "type": "string" },
+        "url": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "message", "stack", "url", "timestamp", "userAgent"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Records user referrals, referee profiles, and reward allocations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrerId": { "type": "string" },
+        "referrerName": { "type": "string" },
+        "referrerRole": { "type": "string", "enum": ["student", "tutor"] },
+        "refereeId": { "type": "string" },
+        "refereeName": { "type": "string" },
+        "refereeEmail": { "type": "string" },
+        "refereeRole": { "type": "string", "enum": ["student", "tutor"] },
+        "status": { "type": "string", "enum": ["pending", "joined", "rewarded"] },
+        "rewardType": { "type": "string", "enum": ["badge_points", "service_discount", "none"] },
+        "rewardValue": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "rewardedAt": { "type": "string" }
+      },
+      "required": ["id", "referrerId", "referrerName", "referrerRole", "refereeName", "refereeEmail", "status", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"
+    },
+    "/referrals/{referralId}": {
+      "schema": "Referral",
+      "description": "User referrals logs"
     },
     "/payments/{paymentId}": {
       "schema": "Payment",
@@ -175,6 +215,10 @@
     "/class_logs/{classLogId}": {
       "schema": "ClassLog",
       "description": "Class date verification logs"
+    },
+    "/error_logs/{errorId}": {
+      "schema": "ErrorLog",
+      "description": "Secure client error logs"
     }
   }
 }

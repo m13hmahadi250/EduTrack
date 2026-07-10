@@ -20,7 +20,8 @@ import {
   updateDoc,
   deleteDoc,
   increment,
-  Timestamp
+  Timestamp,
+  getDocs
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 
@@ -89,6 +90,25 @@ export interface User {
   isOnline?: boolean;
   createdAt?: string;
   savedTutors?: string[];
+  referralCode?: string;
+  referralPoints?: number;
+  serviceDiscounts?: number;
+}
+
+export interface Referral {
+  id: string;
+  referrerId: string;
+  referrerName: string;
+  referrerRole: 'student' | 'tutor';
+  refereeId?: string;
+  refereeName: string;
+  refereeEmail: string;
+  refereeRole: 'student' | 'tutor';
+  status: 'pending' | 'joined' | 'rewarded';
+  rewardType: 'badge_points' | 'service_discount' | 'none';
+  rewardValue: number;
+  createdAt: string;
+  rewardedAt?: string;
 }
 
 export interface Session {
@@ -172,6 +192,7 @@ interface AppState {
   messages: Message[];
   notifications: Notification[];
   classLogs: ClassLog[];
+  referrals: Referral[];
   isLoading: boolean;
   isInitialized: boolean;
   isLoggingOut: boolean;
@@ -182,7 +203,7 @@ interface AppState {
   loginWithGoogle: (requestedRole?: Role, additionalUserData?: Partial<User>) => Promise<void>;
   loginAsDemo: (role: Role) => Promise<void>;
   logout: () => Promise<void>;
-  signup: (userData: Partial<User>, password: string) => Promise<void>;
+  signup: (userData: Partial<User>, password: string, referredByCode?: string) => Promise<void>;
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   updateLocation: (id: string, lat: number, lng: number) => Promise<void>;
@@ -234,6 +255,11 @@ interface AppState {
   // Promotional banner settings
   promotionalBannerText: string;
   updatePromotionalBannerText: (text: string) => Promise<void>;
+
+  // Referral actions
+  fetchReferrals: () => Promise<void>;
+  createReferralInvite: (name: string, email: string, refereeRole: 'student' | 'tutor') => Promise<void>;
+  processReferralSignUp: (refereeId: string, refereeName: string, refereeEmail: string, refereeRole: 'student' | 'tutor', referrerCodeOrId: string) => Promise<void>;
   
   // Internal sync
   setLoading: (loading: boolean) => void;
@@ -361,6 +387,7 @@ export const useAppStore = create<AppState>((set, get) => {
     messages: [],
     notifications: [],
     classLogs: [],
+    referrals: [],
     isLoading: true,
     isInitialized: false,
     isLoggingOut: false,
@@ -389,6 +416,170 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       }
       set({ theme: nextTheme });
+    },
+
+    fetchReferrals: async () => {
+      const currentUser = get().currentUser;
+      if (!currentUser) return;
+      try {
+        let q;
+        if (currentUser.role === 'admin') {
+          q = query(collection(db, 'referrals'));
+        } else {
+          q = query(collection(db, 'referrals'), where('referrerId', '==', currentUser.id));
+        }
+        const snapshot = await getDocs(q);
+        const referrals = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Referral));
+        set({ referrals });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'referrals');
+      }
+    },
+
+    createReferralInvite: async (name: string, email: string, refereeRole: 'student' | 'tutor') => {
+      const currentUser = get().currentUser;
+      if (!currentUser) throw new Error("Must be logged in to invite colleagues");
+      
+      const referralId = `ref_invite_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const referralData: Referral = {
+        id: referralId,
+        referrerId: currentUser.id,
+        referrerName: currentUser.name,
+        referrerRole: currentUser.role as 'student' | 'tutor',
+        refereeName: name,
+        refereeEmail: email.trim().toLowerCase(),
+        refereeRole,
+        status: 'pending',
+        rewardType: 'none',
+        rewardValue: 0,
+        createdAt: new Date().toISOString()
+      };
+      
+      try {
+        await setDoc(doc(db, 'referrals', referralId), referralData);
+        
+        await get().sendNotification(
+          currentUser.id,
+          'Referral Invitation Created',
+          `You've sent an invitation to ${name} (${email}). You'll get rewarded once they sign up!`,
+          'success'
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `referrals/${referralId}`);
+      }
+    },
+
+    processReferralSignUp: async (refereeId: string, refereeName: string, refereeEmail: string, refereeRole: 'student' | 'tutor', referrerCodeOrId: string) => {
+      if (!referrerCodeOrId) return;
+      
+      try {
+        let referrerUser: User | null = null;
+        
+        const directDoc = await getDoc(doc(db, 'users', referrerCodeOrId));
+        if (directDoc.exists()) {
+          referrerUser = { id: directDoc.id, ...directDoc.data() } as User;
+        } else {
+          const cleanCode = referrerCodeOrId.trim();
+          const usersQuery = query(collection(db, 'users'), where('referralCode', '==', cleanCode));
+          const usersSnap = await getDocs(usersQuery);
+          if (!usersSnap.empty) {
+            referrerUser = { id: usersSnap.docs[0].id, ...usersSnap.docs[0].data() } as User;
+          } else {
+            const allUsersSnap = await getDocs(collection(db, 'users'));
+            for (const d of allUsersSnap.docs) {
+              const u = d.data() as User;
+              const generatedCode = `EDU-${u.name ? u.name.split(' ')[0].toUpperCase() : 'USER'}-${d.id.substring(0, 4).toUpperCase()}`;
+              if (generatedCode === cleanCode) {
+                referrerUser = { id: d.id, ...u } as User;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (!referrerUser) {
+          console.warn("No referrer found matching:", referrerCodeOrId);
+          return;
+        }
+        
+        if (referrerUser.id === refereeId) {
+          console.warn("Self referral is not allowed");
+          return;
+        }
+
+        const cleanEmail = refereeEmail.trim().toLowerCase();
+        const existingInvitesQuery = query(
+          collection(db, 'referrals'),
+          where('referrerId', '==', referrerUser.id),
+          where('refereeEmail', '==', cleanEmail)
+        );
+        const invitesSnap = await getDocs(existingInvitesQuery);
+        
+        let referralId = `ref_join_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        let referralData: Referral;
+        
+        const rewardType = referrerUser.role === 'tutor' ? 'badge_points' : 'service_discount';
+        const rewardValue = referrerUser.role === 'tutor' ? 15 : 1;
+        
+        if (!invitesSnap.empty) {
+          const inviteDoc = invitesSnap.docs[0];
+          referralId = inviteDoc.id;
+          const originalData = inviteDoc.data() as Referral;
+          
+          referralData = {
+            ...originalData,
+            refereeId,
+            status: 'rewarded',
+            rewardType,
+            rewardValue,
+            rewardedAt: new Date().toISOString()
+          };
+        } else {
+          referralData = {
+            id: referralId,
+            referrerId: referrerUser.id,
+            referrerName: referrerUser.name,
+            referrerRole: referrerUser.role as 'student' | 'tutor',
+            refereeId,
+            refereeName,
+            refereeEmail: cleanEmail,
+            refereeRole,
+            status: 'rewarded',
+            rewardType,
+            rewardValue,
+            createdAt: new Date().toISOString(),
+            rewardedAt: new Date().toISOString()
+          };
+        }
+        
+        await setDoc(doc(db, 'referrals', referralId), referralData);
+        
+        if (referrerUser.role === 'tutor') {
+          const currentPoints = referrerUser.referralPoints || 0;
+          await updateDoc(doc(db, 'users', referrerUser.id), {
+            referralPoints: currentPoints + rewardValue
+          });
+        } else if (referrerUser.role === 'student') {
+          const currentDiscounts = referrerUser.serviceDiscounts || 0;
+          await updateDoc(doc(db, 'users', referrerUser.id), {
+            serviceDiscounts: currentDiscounts + rewardValue
+          });
+        }
+        
+        const rewardMessage = referrerUser.role === 'tutor' 
+          ? `Congrats! Your friend ${refereeName} joined EduTrack. You've been rewarded with ${rewardValue} Featured Tutor points!`
+          : `Congrats! Your friend ${refereeName} joined EduTrack. You've earned a 10% Service Discount coupon code!`;
+          
+        await get().sendNotification(
+          referrerUser.id,
+          'Referral Reward Earned! 🎉',
+          rewardMessage,
+          'success'
+        );
+        
+      } catch (error) {
+        console.error("Error processing referral signup:", error);
+      }
     },
 
     setLoading: (loading) => set({ isLoading: loading }),
@@ -548,7 +739,7 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ isLoggingOut: false });
     },
 
-    signup: async (userData, password) => {
+    signup: async (userData, password, referredByCode) => {
       set({ isLoading: true });
       try {
         // Create auth user
@@ -562,6 +753,8 @@ export const useAppStore = create<AppState>((set, get) => {
           finalRole = 'admin';
         }
 
+        const referralCode = `EDU-${userData.name ? userData.name.split(' ')[0].toUpperCase() : 'USER'}-${uid.substring(0, 4).toUpperCase()}`;
+
         const newUser: User = {
           ...userData,
           id: uid,
@@ -572,12 +765,23 @@ export const useAppStore = create<AppState>((set, get) => {
           rating: 0,
           showTour: true,
           createdAt: new Date().toISOString(),
-          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || '')
+          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || ''),
+          referralCode,
+          referralPoints: finalRole === 'tutor' ? 0 : undefined,
+          serviceDiscounts: finalRole === 'student' ? 0 : undefined
         } as User;
 
         // Save to Firestore
         await setDoc(doc(db, 'users', uid), newUser);
         set({ currentUser: newUser });
+
+        if (referredByCode) {
+          try {
+            await get().processReferralSignUp(uid, newUser.name, newUser.email, newUser.role as 'student' | 'tutor', referredByCode);
+          } catch (refErr) {
+            console.error("Non-blocking referral signup processing failed:", refErr);
+          }
+        }
       } catch (error) {
         set({ isLoading: false });
         if (error instanceof Error && !error.message.includes('users/')) {
@@ -1294,4 +1498,19 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     set({ typingStatus });
   });
   activeUnsubscribes.push(unsubTyping);
+
+  // Listen to referrals
+  let referralsQuery;
+  if (role === 'admin') {
+    referralsQuery = query(collection(db, 'referrals'));
+  } else {
+    referralsQuery = query(collection(db, 'referrals'), where('referrerId', '==', uid));
+  }
+  const unsubReferrals = onSnapshot(referralsQuery, (snapshot) => {
+    const referrals = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Referral));
+    set({ referrals });
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'referrals');
+  });
+  activeUnsubscribes.push(unsubReferrals);
 }

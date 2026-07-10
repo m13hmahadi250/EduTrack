@@ -276,5 +276,57 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // --- Error Logs Collection ---
+    match /error_logs/{errorId} {
+      function isValidErrorLog(data) {
+        return data.keys().hasAll(['id', 'message', 'stack', 'url', 'timestamp', 'userAgent']) &&
+               data.id == errorId &&
+               data.message is string && data.message.size() <= 4096 &&
+               data.stack is string && data.stack.size() <= 12288 &&
+               data.url is string && data.url.size() <= 2048 &&
+               data.timestamp is string &&
+               data.userAgent is string && data.userAgent.size() <= 1024 &&
+               (data.get('userId', null) == null || data.userId is string);
+      }
+
+      allow list, get: if isAdmin();
+      allow create: if isValidId(errorId) && isValidErrorLog(incoming());
+      allow update, delete: if false;
+    }
+
+    // --- Referrals Collection ---
+    match /referrals/{referralId} {
+      function isValidReferral(data) {
+        return data.keys().hasAll(['id', 'referrerId', 'referrerName', 'referrerRole', 'refereeName', 'refereeEmail', 'status', 'createdAt']) &&
+               data.id == referralId &&
+               data.referrerId is string && data.referrerId.size() <= 128 &&
+               data.referrerName is string && data.referrerName.size() <= 128 &&
+               data.referrerRole in ['student', 'tutor', 'admin'] &&
+               data.refereeName is string && data.refereeName.size() <= 128 &&
+               data.refereeEmail is string && data.refereeEmail.size() <= 128 &&
+               data.status in ['pending', 'joined', 'rewarded'] &&
+               data.createdAt is string &&
+               (data.get('refereeId', null) == null || (data.refereeId is string && data.refereeId.size() <= 128)) &&
+               (data.get('rewardType', null) == null || data.rewardType in ['badge_points', 'service_discount', 'none']) &&
+               (data.get('rewardValue', null) == null || data.rewardValue is number) &&
+               (data.get('rewardedAt', null) == null || data.rewardedAt is string);
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && resource.data.referrerId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.referrerId == request.auth.uid);
+      
+      allow create: if isSignedIn() && isValidId(referralId) && isValidReferral(incoming()) && 
+                    (incoming().referrerId == request.auth.uid);
+                    
+      allow update: if isAdmin() || (
+        isSignedIn() && isValidReferral(incoming()) && 
+        incoming().referrerId == request.auth.uid && 
+        incoming().referrerId == existing().referrerId &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['refereeId', 'status', 'rewardType', 'rewardValue', 'rewardedAt'])
+      );
+      
+      allow delete: if isAdmin();
+    }
   }
 }

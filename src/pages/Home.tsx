@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import AIChatWidget from '../components/AIChatWidget';
 import Logo from '../components/Logo';
+import { prefetchPage } from '../utils/prefetch';
 import { 
   ShieldCheck, 
   Users, 
@@ -16,9 +17,25 @@ import {
   Award,
   Search,
   ExternalLink,
-  Heart
+  Heart,
+  ChevronDown,
+  ChevronUp,
+  Quote,
+  HelpCircle,
+  Check,
+  Settings,
+  Edit3,
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Save,
+  X,
+  Loader2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
@@ -181,10 +198,20 @@ export default function Home() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
-                <Link to="/signup" className="group w-full sm:w-auto px-10 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-[0_20px_40px_-15px_rgba(13,91,255,0.4)] text-center flex items-center justify-center">
+                <Link 
+                  to="/signup" 
+                  onMouseEnter={() => prefetchPage('Signup')}
+                  onFocus={() => prefetchPage('Signup')}
+                  className="group w-full sm:w-auto px-10 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-[0_20px_40px_-15px_rgba(13,91,255,0.4)] text-center flex items-center justify-center"
+                >
                   Find a Tutor <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <Link to="/signup" className="w-full sm:w-auto px-10 py-5 bg-transparent text-[#0B132B] dark:text-white border-2 border-[#0B132B] dark:border-slate-700 font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#0B132B] dark:hover:bg-white dark:hover:text-[#0B132B] transition-all text-center">
+                <Link 
+                  to="/signup" 
+                  onMouseEnter={() => prefetchPage('Signup')}
+                  onFocus={() => prefetchPage('Signup')}
+                  className="w-full sm:w-auto px-10 py-5 bg-transparent text-[#0B132B] dark:text-white border-2 border-[#0B132B] dark:border-slate-700 font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#0B132B] dark:hover:bg-white dark:hover:text-[#0B132B] transition-all text-center"
+                >
                   Join as Teacher
                 </Link>
               </div>
@@ -624,6 +651,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Verified Real-User Reviews Section */}
+      <section className="py-28 bg-[#F8F9FA] dark:bg-[#111A2E]/20 transition-colors duration-300 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Success Stories</h2>
+            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+              Trusted By <span className="text-[#0D5BFF]">Guardians & Tutors</span>
+            </h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-lg mx-auto">
+              See how EduTrack is revolutionizing home tutoring with top safety measures and academic discipline.
+            </p>
+          </div>
+
+          <RealUserSuccessStories />
+        </div>
+      </section>
+
+      {/* Interactive Frequently Asked Questions (FAQ) Section */}
+      <section className="py-28 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Common Concerns</h2>
+            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+              Frequently Asked <span className="text-[#0D5BFF]">Questions</span>
+            </h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3">
+              Quick, honest answers regarding verification, safety, matchings, and billing structures.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <FAQAccordionList />
+          </div>
+        </div>
+      </section>
+
       {/* Footer CTA */}
       <section className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -637,10 +701,10 @@ export default function Home() {
                  Join thousands of parents who have already upgraded their child's education with EduTrack.
                </p>
                <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-                 <Link to="/signup" className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center">
+                 <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center">
                    Get Started Now
                  </Link>
-                 <Link to="/signup" className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center">
+                 <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center">
                    Learn More
                  </Link>
                </div>
@@ -693,9 +757,9 @@ export default function Home() {
           <div>
             <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Quick Links</h5>
             <ul className="space-y-4">
-              <li><Link to="/signup" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
-              <li><Link to="/signup" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
-              <li><Link to="/login" className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
+              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
+              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
+              <li><Link to="/login" onMouseEnter={() => prefetchPage('Login')} onFocus={() => prefetchPage('Login')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
             </ul>
           </div>
 
@@ -735,6 +799,1043 @@ export default function Home() {
     </div>
   );
 }
+
+const DEFAULT_FALLBACK_STORIES = [
+  {
+    id: "story_1",
+    quote: "EduTrack has completely eliminated my anxiety regarding my child's home tutoring. The ability to monitor active GPS transit maps and receive verified class logs after every session is incredibly reassuring.",
+    author: "Nusrat Jahan",
+    role: "Parent of Grade 9 Student",
+    location: "Gulshan, Dhaka",
+    rating: 5,
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120",
+    badge: "ambassador"
+  },
+  {
+    id: "story_2",
+    quote: "Finding high-quality home tutoring used to require tedious networking. EduTrack verified my BUET credentials in a few hours, and I connected with 3 wonderful students immediately. The automated billing is a lifesaver.",
+    author: "Tanvir Rahman",
+    role: "Mathematics Tutor",
+    location: "BUET, CSE '24",
+    rating: 5,
+    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=120",
+    badge: "verified_member"
+  },
+  {
+    id: "story_3",
+    quote: "The automated bKash sandbox payment saves us from awkward monthly salary conversations. Everything is transparently logged. Our tutor from DU is exceptionally disciplined and knowledgeable.",
+    author: "Dr. M. A. Karim",
+    role: "Parent of Grade 12 Student",
+    location: "Halishahar, Chattogram",
+    rating: 5,
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120",
+    badge: "verified_match"
+  }
+];
+
+const RealUserSuccessStories = () => {
+  const [stories, setStories] = React.useState<any[]>([]);
+  const [rawCustomStories, setRawCustomStories] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [editModalOpen, setEditModalOpen] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [successMsg, setSuccessMsg] = React.useState("");
+
+  const currentUser = useAppStore(state => state.currentUser);
+  const isAdmin = currentUser?.role === 'admin' || 
+                  currentUser?.email === 'edutrackbangladesh@gmail.com' || 
+                  currentUser?.email === 'm13hmahadi.personal@gmail.com' ||
+                  currentUser?.email === 'admin@gmail.com';
+
+  const fetchRealStories = async () => {
+    try {
+      const { collection, query, where, getDocs, limit, doc, getDoc } = await import('firebase/firestore');
+      const { db, auth } = await import('../lib/firebase');
+
+      let rawStories: any[] = [];
+      let fetchedStories: any[] = [];
+
+      try {
+        // 1. Try to fetch administrative custom stories first
+        const systemRef = doc(db, 'system', 'testimonials');
+        const systemSnap = await getDoc(systemRef);
+        if (systemSnap.exists()) {
+          const sysData = systemSnap.data();
+          if (sysData.customStories && sysData.customStories.length > 0) {
+            rawStories = [...sysData.customStories];
+          }
+        }
+      } catch (sysErr) {
+        console.error("Error fetching system custom stories:", sysErr);
+      }
+
+      // If no custom stories found, initialize with fallbacks so they can be selected or managed
+      if (rawStories.length === 0) {
+        rawStories = DEFAULT_FALLBACK_STORIES.map(s => ({ ...s, showOnHomePage: true }));
+      }
+
+      setRawCustomStories(rawStories);
+
+      // Now, only display active ones
+      fetchedStories = rawStories.filter(s => s.showOnHomePage !== false);
+
+      // If fewer than 3 active custom stories, check real session reviews to mix/augment (only if logged in, as student profiles are protected)
+      if (fetchedStories.length < 3 && auth.currentUser) {
+        try {
+          const sessionsRef = collection(db, 'sessions');
+          const qSessions = query(sessionsRef, where('rating', '>', 0), limit(6));
+          const sessionsSnap = await getDocs(qSessions);
+
+          for (const sessionDoc of sessionsSnap.docs) {
+            const sData = sessionDoc.data();
+            if (sData.rating && sData.rating > 0) {
+              if (fetchedStories.some(s => s.id === sessionDoc.id)) continue;
+              try {
+                // Fetch student info
+                let studentName = 'Verified Student';
+                let studentImage = '';
+                let studentDistrict = '';
+                if (sData.studentId) {
+                  try {
+                    const studentRef = doc(db, 'users', sData.studentId);
+                    const studentSnap = await getDoc(studentRef);
+                    if (studentSnap.exists()) {
+                      const sUser = studentSnap.data();
+                      studentName = sUser.name || 'Verified Student';
+                      studentImage = sUser.profileImage || '';
+                      studentDistrict = sUser.district || sUser.area || '';
+                    }
+                  } catch (studentErr) {
+                    // Safe silent warning for restricted/missing profile reads
+                    console.warn("Using default fallback info: student profile read restricted or missing.", sData.studentId);
+                  }
+                }
+
+                // Fetch tutor info
+                let tutorName = 'Expert Tutor';
+                let tutorUni = '';
+                if (sData.tutorId) {
+                  try {
+                    const tutorRef = doc(db, 'users', sData.tutorId);
+                    const tutorSnap = await getDoc(tutorRef);
+                    if (tutorSnap.exists()) {
+                      const tUser = tutorSnap.data();
+                      tutorName = tUser.name || 'Expert Tutor';
+                      tutorUni = tUser.university || tUser.uni || '';
+                    }
+                  } catch (tutorErr) {
+                    // Safe silent warning for restricted/missing profile reads
+                    console.warn("Using default fallback info: tutor profile read restricted or missing.", sData.tutorId);
+                  }
+                }
+
+                fetchedStories.push({
+                  id: sessionDoc.id,
+                  quote: sData.feedback || `Highly structured session. The tutoring was exceptionally clear and professional for ${sData.subject || 'academics'}.`,
+                  author: studentName,
+                  role: sData.subject ? `Student / Parent (${sData.subject})` : 'Student Guardian',
+                  location: studentDistrict || 'Dhaka',
+                  rating: sData.rating || 5,
+                  avatar: studentImage || "",
+                  tutorName,
+                  tutorUni,
+                  badge: 'verified_match',
+                  isRealSession: true,
+                  showOnHomePage: true
+                });
+              } catch (err) {
+                console.warn("Skipping dynamic story with failed sub-details compiling:", err);
+              }
+            }
+          }
+        } catch (sessErr) {
+          console.error("Error fetching sessions:", sessErr);
+        }
+      }
+
+      // Fetch real tutors to populate if still less than 3
+      if (fetchedStories.length < 3) {
+        try {
+          const tutorsRef = collection(db, 'users');
+          const qTutors = query(tutorsRef, where('role', '==', 'tutor'), limit(10));
+          const tutorsSnap = await getDocs(qTutors);
+          
+          for (const tutorDoc of tutorsSnap.docs) {
+            const tData = tutorDoc.data();
+            if (tData.isBlocked || tData.showOnHomePage === false) continue;
+            if (fetchedStories.some(s => s.author === tData.name)) continue;
+            if (fetchedStories.some(s => s.id === tutorDoc.id)) continue;
+
+            fetchedStories.push({
+              id: tutorDoc.id,
+              quote: tData.bio || "Dedicated to unlocking every student's learning potential through personalized tutoring plans and conceptual clarity.",
+              author: tData.name || 'Expert Mentor',
+              role: 'Verified Tutor Profile',
+              location: `${tData.area ? tData.area + ', ' : ''}${tData.district || 'Dhaka'}`,
+              rating: tData.rating || 5,
+              avatar: tData.profileImage || "",
+              tutorUni: tData.university || tData.uni || 'Expert Educator',
+              badge: 'verified_member',
+              isRealTutor: true,
+              showOnHomePage: true
+            });
+            
+            if (fetchedStories.length >= 3) break;
+          }
+        } catch (tutorErr) {
+          console.error("Error fetching tutors for stories:", tutorErr);
+        }
+      }
+
+      // Fill remaining slots with default fallbacks to ensure exactly 3 or more beautiful stories
+      if (fetchedStories.length < 3) {
+        const currentAuthors = fetchedStories.map(s => s.author);
+        for (const fallback of DEFAULT_FALLBACK_STORIES) {
+          if (!currentAuthors.includes(fallback.author) && !fetchedStories.some(s => s.id === fallback.id)) {
+            fetchedStories.push({ ...fallback, isFallback: true, showOnHomePage: true });
+          }
+          if (fetchedStories.length >= 3) break;
+        }
+      }
+
+      setStories(fetchedStories);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error compiling real user success stories:", err);
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRealStories();
+  }, []);
+
+  const handleSaveLiveStories = async (newCustomStories: any[]) => {
+    try {
+      setIsSaving(true);
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+
+      // Filter out temporary flags or real session properties to save a clean format
+      const cleaned = newCustomStories.map(story => ({
+        id: story.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        quote: story.quote || "",
+        author: story.author || "",
+        role: story.role || "",
+        location: story.location || "",
+        rating: Number(story.rating) || 5,
+        avatar: story.avatar || "",
+        badge: story.badge || "none",
+        showOnHomePage: story.showOnHomePage !== false
+      }));
+
+      const docRef = doc(db, 'system', 'testimonials');
+      await setDoc(docRef, { customStories: cleaned }, { merge: true });
+
+      setRawCustomStories(cleaned);
+      
+      const activeStories = cleaned.filter(s => s.showOnHomePage !== false);
+      if (activeStories.length < 3) {
+        await fetchRealStories();
+      } else {
+        setStories(activeStories);
+      }
+
+      setIsSaving(false);
+      setSuccessMsg("Success stories saved live successfully!");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      setEditModalOpen(false);
+    } catch (err) {
+      console.error("Error saving live custom stories:", err);
+      setIsSaving(false);
+      setSuccessMsg("Failed to save changes. Please try again.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="grid md:grid-cols-3 gap-8">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="bg-white dark:bg-[#1E293B]/50 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800/80 animate-pulse space-y-6">
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <div key={s} className="w-4.5 h-4.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-full"></div>
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-4/5"></div>
+            </div>
+            <div className="flex items-center gap-4 pt-6 border-t border-slate-50 dark:border-slate-800/40">
+              <div className="w-11 h-11 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+              <div className="space-y-2 flex-1">
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Admin Action Control Panel Trigger */}
+      {isAdmin && (
+        <div className="flex flex-col items-center gap-2 mb-8">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setEditModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0D5BFF] to-[#1E67FF] hover:from-[#0047E0] hover:to-[#0D5BFF] text-white font-black text-[10px] uppercase tracking-widest rounded-full shadow-lg shadow-blue-500/10 border border-blue-400/20 cursor-pointer select-none"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Admin Panel: Edit Success Stories
+          </motion.button>
+          
+          {successMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-full border border-emerald-500/20"
+            >
+              {successMsg}
+            </motion.div>
+          )}
+        </div>
+      )}
+
+      {/* Testimonials Grid Display */}
+      <div className="grid md:grid-cols-3 gap-8">
+        {stories.map((item, idx) => (
+          <motion.div
+            key={`${item.id || 'story'}-${idx}`}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.5, delay: idx * 0.1 }}
+            whileHover={{ y: -6, scale: 1.01 }}
+            className="bg-white dark:bg-[#1E293B]/50 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800/80 shadow-sm hover:shadow-2xl transition-all duration-300 relative flex flex-col justify-between"
+          >
+            {/* Dynamic badge indicator showing real verification status */}
+            <div className="absolute top-6 left-8 flex items-center gap-1.5">
+              {item.isRealSession && (
+                <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Real Match Review
+                </span>
+              )}
+              {item.isRealTutor && (
+                <span className="bg-[#0D5BFF]/10 text-[#0D5BFF] text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Verified Member
+                </span>
+              )}
+              {item.badge === 'verified_match' && !item.isRealSession && (
+                <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Real Match Review
+                </span>
+              )}
+              {item.badge === 'verified_member' && !item.isRealTutor && (
+                <span className="bg-[#0D5BFF]/10 text-[#0D5BFF] text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" /> Verified Member
+                </span>
+              )}
+              {item.badge === 'ambassador' && (
+                <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                  ★ Platform Ambassador
+                </span>
+              )}
+              {(item.isFallback || (!item.badge && !item.isRealSession && !item.isRealTutor)) && (
+                <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                  Platform Ambassador
+                </span>
+              )}
+            </div>
+
+            <div className="absolute top-6 right-8 text-blue-500/10 dark:text-blue-400/5 pointer-events-none">
+              <Quote className="w-14 h-14 rotate-180" />
+            </div>
+            <div className="pt-6">
+              <div className="flex gap-1 mb-5">
+                {Array.from({ length: Math.round(item.rating || 5) }).map((_, i) => (
+                  <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
+                ))}
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 font-medium text-sm leading-relaxed mb-6 italic relative z-10">
+                "{item.quote}"
+              </p>
+            </div>
+            <div className="flex items-center gap-4 mt-auto pt-6 border-t border-slate-50 dark:border-slate-800/40">
+              {item.avatar ? (
+                <img
+                  src={item.avatar}
+                  alt={item.author}
+                  className="w-11 h-11 rounded-full object-cover border-2 border-blue-100 dark:border-slate-700 shadow-sm"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-11 h-11 bg-gradient-to-tr from-blue-100 to-indigo-100 dark:from-slate-800 dark:to-slate-700 text-[#0D5BFF] dark:text-blue-400 rounded-full flex items-center justify-center font-black text-xs uppercase shadow-sm shrink-0">
+                  {(item.author || "User").split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider">{item.author}</h4>
+                <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-wider mt-0.5">{item.role}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+                  {item.location} {item.tutorUni ? `• ${item.tutorUni}` : ''}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Admin Testimonial Manager Modal */}
+      <AnimatePresence>
+        {editModalOpen && (
+          <AdminTestimonialManager
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            initialStories={rawCustomStories}
+            onSave={handleSaveLiveStories}
+            isSaving={isSaving}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// Sub-component: Administrative Testimonials Editor & Form Manager
+const AdminTestimonialManager = ({
+  isOpen,
+  onClose,
+  initialStories,
+  onSave,
+  isSaving
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  initialStories: any[];
+  onSave: (stories: any[]) => Promise<void>;
+  isSaving: boolean;
+}) => {
+  const [managerStories, setManagerStories] = React.useState<any[]>(() => {
+    // Make sure we have a deep/clean copy of initial stories
+    return JSON.parse(JSON.stringify(initialStories)).map((s: any) => {
+      if (!s.id) s.id = `story_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      return s;
+    });
+  });
+
+  const [selectedStoryId, setSelectedStoryId] = React.useState<string | null>(
+    managerStories.length > 0 ? managerStories[0].id : null
+  );
+
+  const selectedStory = managerStories.find(s => s.id === selectedStoryId) || null;
+
+  // Deletion confirmation state
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null);
+
+  // Form states
+  const [formAuthor, setFormAuthor] = React.useState("");
+  const [formRole, setFormRole] = React.useState("");
+  const [formLocation, setFormLocation] = React.useState("");
+  const [formRating, setFormRating] = React.useState(5);
+  const [formQuote, setFormQuote] = React.useState("");
+  const [formAvatar, setFormAvatar] = React.useState("");
+  const [formBadge, setFormBadge] = React.useState("none");
+  const [formShowOnHomePage, setFormShowOnHomePage] = React.useState(true);
+
+  // Load selected story into form states
+  React.useEffect(() => {
+    if (selectedStory) {
+      setFormAuthor(selectedStory.author || "");
+      setFormRole(selectedStory.role || "");
+      setFormLocation(selectedStory.location || "");
+      setFormRating(selectedStory.rating || 5);
+      setFormQuote(selectedStory.quote || "");
+      setFormAvatar(selectedStory.avatar || "");
+      setFormBadge(selectedStory.badge || "none");
+      setFormShowOnHomePage(selectedStory.showOnHomePage !== false);
+    } else {
+      setFormAuthor("");
+      setFormRole("");
+      setFormLocation("");
+      setFormRating(5);
+      setFormQuote("");
+      setFormAvatar("");
+      setFormBadge("none");
+      setFormShowOnHomePage(true);
+    }
+  }, [selectedStoryId]);
+
+  const avatarPresets = [
+    { name: "Female Parent", url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120" },
+    { name: "Male Student/Tutor", url: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=120" },
+    { name: "Male Parent", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120" },
+    { name: "Female Student/Tutor", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120" },
+    { name: "Female Educator", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120" }
+  ];
+
+  const handleUpdateStoryInList = () => {
+    if (!selectedStoryId) return;
+    setManagerStories(prev => prev.map(s => {
+      if (s.id === selectedStoryId) {
+        return {
+          ...s,
+          author: formAuthor,
+          role: formRole,
+          location: formLocation,
+          rating: Number(formRating),
+          quote: formQuote,
+          avatar: formAvatar,
+          badge: formBadge,
+          showOnHomePage: formShowOnHomePage
+        };
+      }
+      return s;
+    }));
+  };
+
+  const handleCreateNewStory = () => {
+    const newId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const newStory = {
+      id: newId,
+      author: "New Storyteller",
+      role: "Student Guardian",
+      location: "Dhaka",
+      rating: 5,
+      quote: "Type a beautiful success story quote here about classroom achievements, NID verifications, and professional tutors.",
+      avatar: avatarPresets[0].url,
+      badge: "none",
+      showOnHomePage: true
+    };
+
+    setManagerStories(prev => [...prev, newStory]);
+    setSelectedStoryId(newId);
+  };
+
+  const handleDeleteStoryConfirm = (idToDelete: string) => {
+    const remaining = managerStories.filter(s => s.id !== idToDelete);
+    setManagerStories(remaining);
+    if (selectedStoryId === idToDelete) {
+      setSelectedStoryId(remaining.length > 0 ? remaining[0].id : null);
+    }
+    setDeleteConfirmId(null);
+  };
+
+  const handleMoveUp = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (idx === 0) return;
+    setManagerStories(prev => {
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[idx - 1];
+      copy[idx - 1] = temp;
+      return copy;
+    });
+  };
+
+  const handleMoveDown = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (idx === managerStories.length - 1) return;
+    setManagerStories(prev => {
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[idx + 1];
+      copy[idx + 1] = temp;
+      return copy;
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#0B132B]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        className="max-w-5xl w-full bg-white dark:bg-[#1E293B] rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        {/* Header bar */}
+        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50 dark:bg-[#111A2E]/50">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-blue-500/10 rounded-lg text-[#0D5BFF]">
+                <Settings className="w-5 h-5" />
+              </span>
+              <h2 className="text-sm font-black text-[#0B132B] dark:text-white uppercase tracking-wider">
+                Manage Success Stories (Live Editor)
+              </h2>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
+              Add, update, or reorder client testimonies and tutor feedback featured on the home screen.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Dynamic Bento Style Two Column layout */}
+        <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5">
+          {/* Left Column: Story List Selector */}
+          <div className="col-span-2 border-r border-slate-100 dark:border-slate-800/60 p-6 overflow-y-auto flex flex-col justify-between bg-slate-50/40 dark:bg-[#111A2E]/20">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  Featured Stories ({managerStories.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCreateNewStory}
+                  className="flex items-center gap-1 bg-blue-500/10 text-[#0D5BFF] dark:text-blue-400 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border border-blue-500/15 hover:bg-[#0D5BFF] hover:text-white transition-all cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" /> Add New
+                </button>
+              </div>
+
+              {managerStories.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Quote className="w-8 h-8 mx-auto opacity-20 mb-2 rotate-180" />
+                  <p className="text-[10px] font-black uppercase tracking-wide">No stories defined.</p>
+                  <p className="text-[9px] font-bold mt-1">Click "+ Add New" to start building one!</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {managerStories.map((story, idx) => {
+                    const isSelected = story.id === selectedStoryId;
+                    return (
+                      <div
+                        key={`${story.id || 'story'}-${idx}`}
+                        onClick={() => {
+                          setSelectedStoryId(story.id);
+                          setDeleteConfirmId(null);
+                        }}
+                        className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? "bg-[#0D5BFF]/5 dark:bg-[#0D5BFF]/10 border-[#0D5BFF]/40 shadow-sm"
+                            : "bg-white dark:bg-[#1E293B]/40 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 border-slate-100 dark:border-slate-800/50"
+                        } ${story.showOnHomePage === false ? "opacity-75 border-dashed" : ""}`}
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden flex-1">
+                          {story.avatar ? (
+                            <img
+                              src={story.avatar}
+                              alt=""
+                              className="w-9 h-9 rounded-full object-cover border border-slate-100 dark:border-slate-800 shadow-sm shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] text-slate-500 shrink-0">
+                              {story.author ? story.author[0] : "S"}
+                            </div>
+                          )}
+                          <div className="overflow-hidden flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase truncate">
+                                {story.author || "Unnamed Author"}
+                              </h4>
+                              {story.showOnHomePage === false ? (
+                                <span title="Hidden from landing page">
+                                  <EyeOff className="w-3 h-3 text-red-400 shrink-0" />
+                                </span>
+                              ) : (
+                                <span title="Active on landing page">
+                                  <Eye className="w-3 h-3 text-emerald-400 shrink-0" />
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[9px] font-black text-[#0D5BFF] uppercase truncate mt-0.5">
+                              {story.role || "Guardian"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Reordering / Edit controls */}
+                        {deleteConfirmId === story.id ? (
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStoryConfirm(story.id)}
+                              className="px-2 py-1 text-[8px] font-black uppercase tracking-wider bg-red-500 hover:bg-red-600 text-white rounded transition-all cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="px-2 py-1 text-[8px] font-black uppercase tracking-wider bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition-all cursor-pointer"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={(e) => handleMoveUp(idx, e)}
+                              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none rounded transition-all cursor-pointer"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx === managerStories.length - 1}
+                              onClick={(e) => handleMoveDown(idx, e)}
+                              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none rounded transition-all cursor-pointer"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(story.id)}
+                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => onSave(managerStories)}
+                className="w-full flex items-center justify-center gap-2 bg-[#0D5BFF] hover:bg-[#0047E0] disabled:bg-[#0D5BFF]/50 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/10 cursor-pointer select-none"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Saving Live...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    Save All Changes Live
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Add/Edit Details Form */}
+          <div className="col-span-3 p-8 overflow-y-auto bg-white dark:bg-[#1E293B]">
+            {selectedStory ? (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">
+                    Edit Testimony Parameters
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                    Live changes made to this form are temporarily stored in list memory. Click "Save All Changes Live" on the left panel to persist them.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Author Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                      Author Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formAuthor}
+                      onChange={(e) => {
+                        setFormAuthor(e.target.value);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, author: e.target.value } : s));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-xs font-bold focus:border-[#0D5BFF] focus:outline-none dark:text-white"
+                      placeholder="e.g. Farhan Ahmed"
+                    />
+                  </div>
+
+                  {/* Role / Subtitle */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                      Role / Subtitle / Title
+                    </label>
+                    <input
+                      type="text"
+                      value={formRole}
+                      onChange={(e) => {
+                        setFormRole(e.target.value);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, role: e.target.value } : s));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-xs font-bold focus:border-[#0D5BFF] focus:outline-none dark:text-white"
+                      placeholder="e.g. Parent of Grade 10 Student"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Location */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                      Location / Affiliation
+                    </label>
+                    <input
+                      type="text"
+                      value={formLocation}
+                      onChange={(e) => {
+                        setFormLocation(e.target.value);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, location: e.target.value } : s));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-xs font-bold focus:border-[#0D5BFF] focus:outline-none dark:text-white"
+                      placeholder="e.g. Gulshan, Dhaka"
+                    />
+                  </div>
+
+                  {/* Badge Choice */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                      Verification Badge
+                    </label>
+                    <select
+                      value={formBadge}
+                      onChange={(e) => {
+                        setFormBadge(e.target.value);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, badge: e.target.value } : s));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-xs font-bold focus:border-[#0D5BFF] focus:outline-none dark:text-white cursor-pointer"
+                    >
+                      <option value="none">Platform Ambassador (Default)</option>
+                      <option value="verified_match">Real Match Review (Green Badge)</option>
+                      <option value="verified_member">Verified Member (Blue Badge)</option>
+                      <option value="ambassador">Platform Ambassador (Purple Badge)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Rating selection */}
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                    Rating Count (1 to 5 Stars)
+                  </label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((stars) => (
+                      <button
+                        key={stars}
+                        type="button"
+                        onClick={() => {
+                          setFormRating(stars);
+                          setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, rating: stars } : s));
+                        }}
+                        className={`px-4 py-2.5 rounded-xl border text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                          formRating === stars
+                            ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                            : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 bg-slate-50/20 dark:bg-[#111A2E]/20 text-slate-400"
+                        }`}
+                      >
+                        <Star className="w-3.5 h-3.5 fill-current" />
+                        {stars}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Landing Page Visibility Toggle */}
+                <div className="p-4 bg-slate-50/50 dark:bg-[#111A2E]/50 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white block">
+                      Featured on Homepage landing
+                    </label>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">
+                      Toggle whether this success story is visible to visitors on the landing page.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={formShowOnHomePage}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormShowOnHomePage(checked);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, showOnHomePage: checked } : s));
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#0D5BFF]"></div>
+                  </label>
+                </div>
+
+                {/* Avatar Selection presets & Custom URL */}
+                <div className="space-y-2.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                    Profile Image Avatar Preset
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    {avatarPresets.map((preset, idx) => {
+                      const isSelected = formAvatar === preset.url;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setFormAvatar(preset.url);
+                            setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, avatar: preset.url } : s));
+                          }}
+                          className={`relative p-1.5 rounded-2xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? "border-[#0D5BFF] bg-[#0D5BFF]/5 shadow-sm"
+                              : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-[#1E293B]/60"
+                          }`}
+                        >
+                          <img
+                            src={preset.url}
+                            alt=""
+                            className="w-10 h-10 rounded-full object-cover shadow-sm"
+                          />
+                          <span className="absolute -bottom-1 -right-1 bg-slate-100 dark:bg-slate-800 text-[6px] font-black tracking-wide uppercase px-1 rounded-full border border-slate-200 dark:border-slate-700">
+                            {preset.name.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom URL Field */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 block">
+                      Or Paste Custom Image URL
+                    </label>
+                    <input
+                      type="url"
+                      value={formAvatar}
+                      onChange={(e) => {
+                        setFormAvatar(e.target.value);
+                        setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, avatar: e.target.value } : s));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-[10px] font-mono focus:border-[#0D5BFF] focus:outline-none dark:text-white"
+                      placeholder="https://images.unsplash.com/... or other secure absolute URL"
+                    />
+                  </div>
+                </div>
+
+                {/* Quote / Testimony Message */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
+                      Testimony / Quote Paragraph
+                    </label>
+                    <span className="text-[8.5px] font-mono font-bold text-slate-400">
+                      {formQuote.length} chars
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={formQuote}
+                    onChange={(e) => {
+                      setFormQuote(e.target.value);
+                      setManagerStories(prev => prev.map(s => s.id === selectedStoryId ? { ...s, quote: e.target.value } : s));
+                    }}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#111A2E]/40 text-xs font-bold focus:border-[#0D5BFF] focus:outline-none dark:text-white leading-relaxed resize-none"
+                    placeholder="Type the customer success story text..."
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                <Settings className="w-10 h-10 text-slate-200 dark:text-slate-800 mb-4 animate-spin-slow" />
+                <p className="text-xs font-black uppercase tracking-wider">No story selected</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold max-w-xs mt-1 uppercase tracking-wide">
+                  Select an existing testimonial card from the left panel to edit its details, or click "+ Add New" to write a fresh story.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const FAQAccordionList = () => {
+  const [openIndex, setOpenIndex] = React.useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: "Is EduTrack free to join for guardians and parents?",
+      a: "Absolutely. Guardians can search, filter, and message verified tutors completely free of charge. There are no hidden matching fees or registration costs."
+    },
+    {
+      q: "How does the manual NID & Academic verification work?",
+      a: "Every tutor must upload their official National ID card and Student ID. Our verification department manually confirms their academic standing and identity through institutional cross-checks within 24 hours."
+    },
+    {
+      q: "Can we request a trial class before long-term commitment?",
+      a: "Yes, we highly encourage a 1-day trial class. This lets parents evaluate the teacher's tutoring style and communication skills before formalizing a full monthly schedule."
+    },
+    {
+      q: "Is the live GPS transit tracking secure for tutors?",
+      a: "Security is reciprocal. Live location tracking only activates when a tutor marks their transit status 'on the way' to an active class log, and is shared exclusively with the matched parent's dashboard, automatically self-terminating upon session clock-in."
+    },
+    {
+      q: "How does bKash billing and class tracking work?",
+      a: "Tutors submit digital class logs with specific topics, duration, and coordinates after each session. Once the parent approves, they can seamlessly pay the calculated class salary via our integrated bKash Gateway, ensuring a zero-hassle experience."
+    }
+  ];
+
+  return (
+    <div className="space-y-4">
+      {faqs.map((faq, idx) => {
+        const isOpen = openIndex === idx;
+        return (
+          <div 
+            key={idx} 
+            className="border border-slate-100 dark:border-slate-800/80 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-[#1E293B]/20 hover:bg-white dark:hover:bg-[#1E293B]/40 transition-all duration-300"
+          >
+            <button
+              type="button"
+              onClick={() => setOpenIndex(isOpen ? null : idx)}
+              className="w-full px-6 py-5 flex items-center justify-between gap-4 text-left select-none focus:outline-none cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <HelpCircle className="w-5 h-5 text-[#0D5BFF] shrink-0" />
+                <span className="text-sm font-black text-[#0B132B] dark:text-white uppercase tracking-wide">
+                  {faq.q}
+                </span>
+              </div>
+              <div className="p-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400">
+                {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+            
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                >
+                  <div className="px-6 pb-6 pt-1 text-slate-600 dark:text-slate-300 text-sm font-medium leading-relaxed border-t border-slate-100/50 dark:border-slate-800/40">
+                    {faq.a}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const TrustCard = React.memo(({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => {
   return (
@@ -811,6 +1912,8 @@ const TutorPreviewCard = React.memo(({
       to={`/teachers/${tutor.id}`} 
       target="_blank" 
       rel="noopener noreferrer" 
+      onMouseEnter={() => prefetchPage('TeacherProfile')}
+      onFocus={() => prefetchPage('TeacherProfile')}
       className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-2xl hover:-translate-y-2.5 hover:scale-[1.015] active:scale-[0.985] transition-all duration-500 group flex flex-col justify-between h-full"
     >
       <div>

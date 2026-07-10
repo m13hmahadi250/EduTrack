@@ -55,6 +55,7 @@ import {
   Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import ReferralsTab from "../../components/ReferralsTab";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import { getCoordinatesForLocation } from "../../utils/geocoding";
 import {
@@ -181,6 +182,7 @@ export default function TutorDashboard() {
     | "messages"
     | "find_students"
     | "class_logs"
+    | "referrals"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/balance")) return "balance";
@@ -190,6 +192,7 @@ export default function TutorDashboard() {
     if (path.endsWith("/messages")) return "messages";
     if (path.endsWith("/find-students")) return "find_students";
     if (path.endsWith("/class-logs")) return "class_logs";
+    if (path.endsWith("/referrals")) return "referrals";
     return "my_session";
   }, [location.pathname]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
@@ -401,7 +404,8 @@ export default function TutorDashboard() {
       | "availability"
       | "messages"
       | "find_students"
-      | "class_logs",
+      | "class_logs"
+      | "referrals",
   ) => {
     const pathMap = {
       my_session: "/dashboard",
@@ -412,6 +416,7 @@ export default function TutorDashboard() {
       messages: "/dashboard/messages",
       find_students: "/dashboard/find-students",
       class_logs: "/dashboard/class-logs",
+      referrals: "/dashboard/referrals",
     };
     navigate(pathMap[tab]);
   };
@@ -724,10 +729,11 @@ export default function TutorDashboard() {
             { id: "my_session", label: "My Session", icon: Clock },
             { id: "find_students", label: "Find Students", icon: Search },
             { id: "class_logs", label: "Class Cal", icon: Calendar },
-            { id: "balance", label: "Balance", icon: CreditCard },
+            { id: "balance", label: "Pay", icon: CreditCard },
             { id: "transit_mode", label: "Location Track", icon: MapPin },
             { id: "messages", label: "Messages", icon: MessageSquare },
             { id: "pro_profile", label: "Pro Profile", icon: Award },
+            { id: "referrals", label: "Referrals", icon: Sparkles },
           ].map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
@@ -785,10 +791,11 @@ export default function TutorDashboard() {
             { id: "my_session", label: "My Session" },
             { id: "find_students", label: "Find Students" },
             { id: "class_logs", label: "Class Cal" },
-            { id: "balance", label: "Balance" },
+            { id: "balance", label: "Pay" },
             { id: "transit_mode", label: "Location Track" },
             { id: "messages", label: "Messages" },
             { id: "pro_profile", label: "Pro Profile" },
+            { id: "referrals", label: "Referrals" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -3342,6 +3349,18 @@ export default function TutorDashboard() {
                   </motion.div>
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {activeTab === "referrals" && (
+            <motion.div
+              key="referrals"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8 text-left"
+            >
+              <ReferralsTab />
             </motion.div>
           )}
         </motion.div>

@@ -4,6 +4,7 @@ import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
+import { prefetchPage } from '../utils/prefetch';
 
 const getFormattedName = (fullName: string) => {
   if (!fullName) return '';
@@ -105,8 +106,10 @@ const Navbar = memo(() => {
                     <Moon className="h-3.5 w-3.5 text-[#0D5BFF]" />
                   )}
                 </button>
-                <Link 
+                 <Link 
                   to="/messages" 
+                  onMouseEnter={() => prefetchPage('Messages')}
+                  onFocus={() => prefetchPage('Messages')}
                   className="p-1.5 sm:p-2 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
                   title="Messages"
                 >
@@ -114,12 +117,36 @@ const Navbar = memo(() => {
                 </Link>
                 <Link 
                   to="/dashboard" 
+                  onMouseEnter={() => {
+                    prefetchPage('DashboardRouter');
+                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                  }}
+                  onFocus={() => {
+                    prefetchPage('DashboardRouter');
+                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                  }}
                   className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white hover:text-white dark:hover:text-white hover:bg-[#0D5BFF] dark:hover:bg-[#0D5BFF] bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/30 dark:border-slate-700/30 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-xl transition-all duration-200 inline-block"
                 >
                   Dashboard
                 </Link>
                 <Link 
                   to="/dashboard"
+                  onMouseEnter={() => {
+                    prefetchPage('DashboardRouter');
+                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                  }}
+                  onFocus={() => {
+                    prefetchPage('DashboardRouter');
+                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
+                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
+                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
+                  }}
                   className="flex items-center space-x-1 sm:space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/85 dark:border-slate-800 pl-2 sm:pl-3.5 ml-0.5 shrink-0 hover:opacity-85 transition-opacity cursor-pointer"
                 >
                   <div className="p-0.5 rounded-full bg-gradient-to-tr from-[#0D5BFF] to-blue-400 overflow-hidden shadow-sm flex-shrink-0">
@@ -158,6 +185,8 @@ const Navbar = memo(() => {
                 <Link
                   id="sign-in-button"
                   to="/login"
+                  onMouseEnter={() => prefetchPage('Login')}
+                  onFocus={() => prefetchPage('Login')}
                   className="bg-[#0B132B] dark:bg-[#0D5BFF] text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-blue-600 transition-all duration-250 shadow-md shadow-blue-500/10 active:scale-[0.98]"
                 >
                   Sign In
