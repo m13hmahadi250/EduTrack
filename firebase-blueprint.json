@@ -181,9 +181,28 @@
         "rewardedAt": { "type": "string" }
       },
       "required": ["id", "referrerId", "referrerName", "referrerRole", "refereeName", "refereeEmail", "status", "createdAt"]
+    },
+    "DownloadAttempt": {
+      "title": "DownloadAttempt",
+      "description": "A record of an Android app download attempt.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "platform": { "type": "string" },
+        "source": { "type": "string" },
+        "userAgent": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "platform", "source"]
     }
   },
   "firestore": {
+    "/download_attempts/{attemptId}": {
+      "schema": "DownloadAttempt",
+      "description": "Records of Android APK download attempts"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"

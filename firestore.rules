@@ -329,6 +329,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // --- Download Attempts Collection ---
+    match /download_attempts/{attemptId} {
+      function isValidDownloadAttempt(data) {
+        return data.keys().hasAll(['id', 'timestamp', 'platform', 'source']) &&
+               data.id == attemptId &&
+               data.timestamp is string && data.timestamp.size() <= 128 &&
+               data.platform is string && data.platform.size() <= 128 &&
+               data.source is string && data.source.size() <= 128 &&
+               (data.get('userId', null) == null || (data.userId is string && data.userId.size() <= 128)) &&
+               (data.get('userEmail', null) == null || (data.userEmail is string && data.userEmail.size() <= 128)) &&
+               (data.get('userAgent', null) == null || (data.userAgent is string && data.userAgent.size() <= 2048));
+      }
+
+      allow list, get: if isAdmin();
+      allow create: if isValidId(attemptId) && isValidDownloadAttempt(incoming());
+      allow update, delete: if false;
+    }
+
     // --- Reviews Collection ---
     match /reviews/{reviewId} {
       allow read: if true;

@@ -20,6 +20,8 @@ import {
   MessageSquare,
   User as UserIcon,
   Megaphone,
+  Smartphone,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -54,7 +56,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = useMemo<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/verifications")) return "verifications";
@@ -65,6 +67,7 @@ export default function AdminDashboard() {
     if (path.endsWith("/messages")) return "messages";
     if (path.endsWith("/analytics")) return "analytics";
     if (path.endsWith("/banner")) return "banner";
+    if (path.endsWith("/downloads")) return "downloads";
     if (path.endsWith("/account") || path.endsWith("/profile")) return "account";
     return "users";
   }, [location.pathname]);
@@ -76,6 +79,42 @@ export default function AdminDashboard() {
   }>({ type: null });
   const [activeDocTab, setActiveDocTab] = useState<"nid" | "academic">("nid");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  const [downloadAttempts, setDownloadAttempts] = useState<any[]>([]);
+  const [downloadsLoading, setDownloadsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "downloads") return;
+
+    let unsubscribe = () => {};
+
+    const loadAttempts = async () => {
+      setDownloadsLoading(true);
+      try {
+        const { collection, query, orderBy, onSnapshot } = await import("firebase/firestore");
+        const { db } = await import("../../lib/firebase");
+        
+        const q = query(collection(db, "download_attempts"), orderBy("timestamp", "desc"));
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const list: any[] = [];
+          snapshot.forEach((doc) => {
+            list.push({ id: doc.id, ...doc.data() });
+          });
+          setDownloadAttempts(list);
+          setDownloadsLoading(false);
+        }, (error) => {
+          console.error("Error subscribing to download attempts:", error);
+          setDownloadsLoading(false);
+        });
+      } catch (error) {
+        console.error("Failed to load firestore SDK for download attempts:", error);
+        setDownloadsLoading(false);
+      }
+    };
+
+    loadAttempts();
+    return () => unsubscribe();
+  }, [activeTab]);
 
   const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -162,7 +201,7 @@ export default function AdminDashboard() {
   // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads",
   ) => {
     setSelectedTutorIds([]);
     const pathMap = {
@@ -175,6 +214,7 @@ export default function AdminDashboard() {
       messages: "/dashboard/messages",
       account: "/dashboard/account",
       banner: "/dashboard/banner",
+      downloads: "/dashboard/downloads",
     };
     navigate(pathMap[tab]);
   };
@@ -370,6 +410,7 @@ export default function AdminDashboard() {
             { id: "sessions", label: "Session audits", icon: History },
             { id: "messages", label: "Secure messages", icon: MessageSquare },
             { id: "banner", label: "Promo Banner", icon: Megaphone },
+            { id: "downloads", label: "App Downloads", icon: Smartphone },
             { id: "account", label: "Admin profile", icon: UserIcon },
           ].map((tab) => {
             const IconComponent = tab.icon;
@@ -419,6 +460,7 @@ export default function AdminDashboard() {
           { id: "sessions", label: "Session audits" },
           { id: "messages", label: "Secure messages" },
           { id: "banner", label: "Promo Banner" },
+          { id: "downloads", label: "App Downloads" },
           { id: "account", label: "Admin profile" },
         ].map((tab) => (
           <button
@@ -1116,6 +1158,197 @@ export default function AdminDashboard() {
               currentText={promotionalBannerText} 
               onSave={updatePromotionalBannerText} 
             />
+          </motion.div>
+        )}
+
+        {activeTab === "downloads" && (
+          <motion.div
+            key="downloads"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+            className="space-y-8"
+          >
+            {/* Download Analytics Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm relative overflow-hidden transition-all">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-bl-[2.5rem] flex items-center justify-center -mr-2 -mt-2">
+                  <Download className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                    Total Downloads
+                  </p>
+                  <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
+                    {downloadAttempts.length}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest italic">
+                  APK Clicks Recorded
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm relative overflow-hidden transition-all">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 dark:bg-blue-950/20 rounded-bl-[2.5rem] flex items-center justify-center -mr-2 -mt-2">
+                  <Smartphone className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                    Promo Popup Clicks
+                  </p>
+                  <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
+                    {downloadAttempts.filter(d => d.source === 'popup').length}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest italic">
+                  Dismissible Lightbox conversion
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm relative overflow-hidden transition-all">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 dark:bg-amber-950/20 rounded-bl-[2.5rem] flex items-center justify-center -mr-2 -mt-2">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                    Footer Banner Clicks
+                  </p>
+                  <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
+                    {downloadAttempts.filter(d => d.source === 'footer').length}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest italic">
+                  Static placement interaction
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm relative overflow-hidden transition-all">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 dark:bg-purple-950/20 rounded-bl-[2.5rem] flex items-center justify-center -mr-2 -mt-2">
+                  <Sparkles className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                    Footer Hero CTA Clicks
+                  </p>
+                  <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
+                    {downloadAttempts.filter(d => d.source === 'footer_cta').length}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-black text-purple-500 uppercase tracking-widest italic">
+                  Primary layout banner
+                </p>
+              </div>
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 sm:p-10 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                <div>
+                  <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block mb-1">Live Acquisition Channel Logs</span>
+                  <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic tracking-wider">
+                    APK Download Ledger
+                  </h3>
+                </div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-xl">
+                  Real-time Listening Active
+                </div>
+              </div>
+
+              {downloadsLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                  <div className="w-10 h-10 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    Synchronizing acquisition database...
+                  </p>
+                </div>
+              ) : downloadAttempts.length === 0 ? (
+                <div className="py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem] text-center">
+                  <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Smartphone className="w-6 h-6 text-slate-300 dark:text-slate-600" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                    No Downloads Recorded
+                  </h4>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-2">
+                    App download logs will automatically show up here as clients interact with CTA buttons.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto hide-scrollbar">
+                  <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800">
+                    <thead>
+                      <tr>
+                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          Timestamp
+                        </th>
+                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          User Ident
+                        </th>
+                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          Location Hook
+                        </th>
+                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          Platform / Client
+                        </th>
+                        <th className="py-4 text-right text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          Attempt Identifier
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {downloadAttempts.map((attempt) => (
+                        <tr key={attempt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
+                          <td className="py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 font-mono">
+                            {new Date(attempt.timestamp).toLocaleString()}
+                          </td>
+                          <td className="py-4">
+                            {attempt.userEmail ? (
+                              <div className="flex flex-col">
+                                <span className="text-[11px] font-black text-[#0B132B] dark:text-white">
+                                  {attempt.userEmail}
+                                </span>
+                                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 font-mono">
+                                  UID: {attempt.userId}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="px-3 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-full text-[8.5px] font-black text-slate-400 uppercase tracking-wider">
+                                Anonymous Guest
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4">
+                            <span className={`px-3 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest border shadow-sm ${
+                              attempt.source === 'popup' 
+                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 border-blue-100 dark:border-blue-900/30'
+                                : attempt.source === 'footer_cta'
+                                ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400 border-purple-100 dark:border-purple-900/30'
+                                : 'bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-slate-400 border-slate-100 dark:border-slate-800'
+                            }`}>
+                              {attempt.source}
+                            </span>
+                          </td>
+                          <td className="py-4 max-w-[250px]">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                                {attempt.platform}
+                              </span>
+                              <span className="text-[8.5px] text-slate-400 dark:text-slate-500 font-semibold truncate hover:text-clip" title={attempt.userAgent}>
+                                {attempt.userAgent || 'No Client Agent Header'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 text-right font-mono text-[9px] text-[#0D5BFF] dark:text-blue-400 font-black">
+                            {attempt.id}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 

@@ -33,7 +33,9 @@ import {
   X,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
@@ -122,6 +124,59 @@ export default function Home() {
   };
 
   // Unified list of available tutors (Firestore Real)
+  const [showDownloadPopup, setShowDownloadPopup] = React.useState(false);
+
+  React.useEffect(() => {
+    const dismissed = localStorage.getItem('edutrack_app_download_dismissed');
+    if (!dismissed) {
+      const timer = setTimeout(() => {
+        setShowDownloadPopup(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleDismissPopup = () => {
+    localStorage.setItem('edutrack_app_download_dismissed', 'true');
+    setShowDownloadPopup(false);
+  };
+
+  const logDownloadAttempt = async (source: string) => {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const attemptId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      
+      const payload = {
+        id: attemptId,
+        timestamp: new Date().toISOString(),
+        platform: 'android',
+        source,
+        userId: currentUser?.id || null,
+        userEmail: currentUser?.email || null,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+      };
+
+      try {
+        await setDoc(doc(db, 'download_attempts', attemptId), payload);
+      } catch (error) {
+        const errInfo = {
+          error: error instanceof Error ? error.message : String(error),
+          authInfo: {
+            userId: currentUser?.id || null,
+            email: currentUser?.email || null,
+          },
+          operationType: 'create',
+          path: `download_attempts/${attemptId}`
+        };
+        console.error('Firestore Error: ', JSON.stringify(errInfo));
+        throw new Error(JSON.stringify(errInfo));
+      }
+    } catch (error) {
+      console.error('Error logging download attempt:', error);
+    }
+  };
+
   const allTutors = React.useMemo(() => {
     return realTutors;
   }, [realTutors]);
@@ -704,6 +759,16 @@ export default function Home() {
                  <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center">
                    Get Started Now
                  </Link>
+                 <a 
+                   href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk" 
+                   target="_blank" 
+                   rel="noopener noreferrer" 
+                   onClick={() => logDownloadAttempt('footer_cta')}
+                   className="w-full sm:w-auto px-12 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
+                 >
+                   <Smartphone className="w-4.5 h-4.5" />
+                   Download APK
+                 </a>
                  <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center">
                    Learn More
                  </Link>
@@ -715,7 +780,7 @@ export default function Home() {
 
       {/* Footer Section */}
       <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-3 mb-6 select-none cursor-default">
               <Logo className="w-10 h-10 sm:w-11 sm:h-11 hover:rotate-6 transition-transform duration-300" />
@@ -768,6 +833,23 @@ export default function Home() {
             <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase mb-2">Chattogram, Bangladesh</p>
             <p className="text-[#0D5BFF] text-sm font-bold uppercase">m13hmahadi@gmail.com</p>
           </div>
+
+          <div>
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Android App</h5>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold leading-relaxed mb-4">
+              Download our official mobile app for real-time tracking, alerts, and more.
+            </p>
+            <a 
+              href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              onClick={() => logDownloadAttempt('footer')}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-md shadow-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/20 cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4" />
+              Download APK
+            </a>
+          </div>
         </div>
         
         <div className="max-w-7xl mx-auto pt-8 border-t border-slate-50 dark:border-slate-850 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -796,6 +878,75 @@ export default function Home() {
         </div>
       </footer>
       <AIChatWidget />
+
+      {/* One-time Android App Download Popup */}
+      <AnimatePresence>
+        {showDownloadPopup && (
+          <div className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center overflow-hidden"
+            >
+              {/* Decorative Background Glows */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#0D5BFF]/5 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Close Button */}
+              <button
+                onClick={handleDismissPopup}
+                className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1E293B]/60 cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Icon Container */}
+              <div className="mx-auto w-16 h-16 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center text-white mb-6 shadow-xl shadow-emerald-500/20 relative group">
+                <Smartphone className="w-8 h-8" />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#0D5BFF] rounded-lg flex items-center justify-center text-white border-2 border-white dark:border-[#111A2E] shadow-md">
+                  <Download className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Headings */}
+              <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider mb-2">
+                EduTrack Bangladesh
+              </h3>
+              <p className="text-xs font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-widest mb-4">
+                Official Android App
+              </p>
+
+              {/* Description */}
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed mb-6">
+                Take tracking and tutor coordination with you on the go! Experience real-time GPS updates, NID verification checking, and instant class scheduling directly from your smartphone.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3">
+                <a
+                  href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => { logDownloadAttempt('popup'); handleDismissPopup(); }}
+                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  Download APK
+                </a>
+                <button
+                  onClick={handleDismissPopup}
+                  className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#1E293B]/50 dark:hover:bg-[#1E293B]/80 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-bold rounded-2xl text-xs uppercase tracking-widest transition-all cursor-pointer"
+                >
+                  No thanks, maybe later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
