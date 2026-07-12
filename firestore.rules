@@ -328,5 +328,11 @@ service cloud.firestore {
       
       allow delete: if isAdmin();
     }
+
+    // --- Reviews Collection ---
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
