@@ -71,22 +71,12 @@ export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const currentUser = useAppStore(state => state.currentUser);
-  const sessions = useAppStore(state => state.sessions);
   
   const [tutor, setTutor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
-
-  // Check if there is an active/confirmed tuition session between current user and this tutor
-  const hasConfirmedTuition = React.useMemo(() => {
-    if (!currentUser || !id) return false;
-    return sessions.some(s => 
-      ((s.studentId === currentUser.id && s.tutorId === id) || (s.tutorId === currentUser.id && s.studentId === id)) &&
-      (s.status === 'scheduled' || s.status === 'active' || s.status === 'completed')
-    );
-  }, [sessions, currentUser, id]);
 
   // Check if current reader is a verified student
   // Active/valid student means roles includes 'student' (or we check if currentUser exists and is any student role)

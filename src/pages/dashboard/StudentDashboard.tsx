@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
 import { 
@@ -1298,78 +1298,108 @@ export default function StudentDashboard() {
 
             <div className="grid lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
-                <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Upcoming Engagements</h3>
+                <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Accepted Tuitions & Engagements</h3>
                 <div className="space-y-4">
-                  {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').slice(0, 3).map(sess => {
-                    const tutor = users.find(u => u.id === sess.tutorId);
-                    return (
-                      <div key={sess.id} className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex items-center justify-between group">
-                        <div className="flex items-center space-x-6">
-                           <div className="relative">
-                             {tutor?.profileImage ? (
-                               <img 
-                                 src={tutor.profileImage} 
-                                 alt={tutor.name} 
-                                 className="w-14 h-14 rounded-[1.2rem] object-cover border border-slate-100"
-                                 referrerPolicy="no-referrer"
-                               />
-                             ) : (
-                               <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center text-[#0D5BFF] transition-colors border ${sess.status === 'active' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-                                 {sess.status === 'active' ? <Zap className="w-6 h-6 text-rose-500" /> : <Calendar className="w-6 h-6" />}
-                               </div>
-                             )}
-                             {sess.status === 'active' && (
-                               <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 border-2 border-white rounded-full animate-pulse" />
-                             )}
-                           </div>
-                           <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-lg font-black text-[#0B132B] uppercase italic">{tutor?.name}</h4>
-                                {tutor?.rating && (
-                                  <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                    <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject} • {new Date(sess.scheduledTime).toLocaleString()}</p>
-                                {sess.status === 'scheduled' && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) <= 24 * 60 * 60 * 1000 && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) > 0 && (
-                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-md animate-pulse">Starts in &lt;24h</span>
-                                )}
-                              </div>
-                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {tutor && (tutor.whatsappNumber || tutor.phone) && (
-                            <a 
-                              href={`https://wa.me/${(() => {
-                                const num = tutor.whatsappNumber || tutor.phone || '';
-                                let clean = num.replace(/\D/g, '');
-                                if (clean.startsWith('01') && clean.length === 11) {
-                                  clean = '88' + clean;
-                                } else if (clean.startsWith('1') && clean.length === 10) {
-                                  clean = '880' + clean;
-                                }
-                                return clean;
-                              })()}?text=${encodeURIComponent(`Hello! I am ${currentUser?.name || "a student"} from EduTrack Bangladesh. I am happy that our tuition connection has been confirmed! Let's discuss our schedule and classes.`)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-[#25D366]/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageSquare className="w-3 h-3" />
-                              <span>WhatsApp</span>
-                            </a>
-                          )}
-                          <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest ${sess.status === 'active' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {sess.status}
-                          </span>
-                        </div>
+                  {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').length === 0 ? (
+                    <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 text-center space-y-4">
+                      <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+                      <div>
+                        <p className="text-xs font-black text-slate-800 uppercase tracking-wider">No Accepted Tuitions Found</p>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-1">
+                          You don't have any accepted/confirmed tuition connections yet.
+                        </p>
                       </div>
-                    );
-                  })}
+                      <button
+                        onClick={() => handleTabChange('find')}
+                        className="px-6 py-3 bg-[#0B132B] hover:bg-[#0D5BFF] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-md"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Find an Expert Tutor</span>
+                      </button>
+                    </div>
+                  ) : (
+                    mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').slice(0, 10).map(sess => {
+                      const tutor = users.find(u => u.id === sess.tutorId);
+                      return (
+                        <div key={sess.id} className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 group">
+                          <div className="flex items-center space-x-6">
+                             <div className="relative">
+                               {tutor?.profileImage ? (
+                                 <img 
+                                   src={tutor.profileImage} 
+                                   alt={tutor.name} 
+                                   className="w-14 h-14 rounded-[1.2rem] object-cover border border-slate-100"
+                                   referrerPolicy="no-referrer"
+                                 />
+                               ) : (
+                                 <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center text-[#0D5BFF] transition-colors border ${sess.status === 'active' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                                   {sess.status === 'active' ? <Zap className="w-6 h-6 text-rose-500" /> : <Calendar className="w-6 h-6" />}
+                                 </div>
+                               )}
+                               {sess.status === 'active' && (
+                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 border-2 border-white rounded-full animate-pulse" />
+                               )}
+                             </div>
+                             <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="text-lg font-black text-[#0B132B] uppercase italic">{tutor?.name}</h4>
+                                  {tutor?.rating && (
+                                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                      <span className="text-[9px] font-black text-amber-700">{tutor.rating.toFixed(1)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest">{sess.subject} • {new Date(sess.scheduledTime).toLocaleString()}</p>
+                                  {sess.status === 'scheduled' && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) <= 24 * 60 * 60 * 1000 && (new Date(sess.scheduledTime).getTime() - new Date().getTime()) > 0 && (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-md animate-pulse">Starts in &lt;24h</span>
+                                  )}
+                                </div>
+                             </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                            {tutor && (
+                              <Link
+                                to={`/teachers/${tutor.id}`}
+                                className="px-4 py-2 bg-[#0B132B] hover:bg-[#0D5BFF] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-slate-950/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex"
+                                title="View Tutor Profile"
+                              >
+                                <Users className="w-3 h-3" />
+                                <span>View Profile</span>
+                              </Link>
+                            )}
+                            {tutor && (tutor.whatsappNumber || tutor.phone) && (
+                              <a 
+                                href={`https://wa.me/${(() => {
+                                  const num = tutor.whatsappNumber || tutor.phone || '';
+                                  let clean = num.replace(/\D/g, '');
+                                  if (clean.startsWith('01') && clean.length === 11) {
+                                    clean = '88' + clean;
+                                  } else if (clean.startsWith('1') && clean.length === 10) {
+                                    clean = '880' + clean;
+                                  }
+                                  return clean;
+                                })()}?text=${encodeURIComponent(`Hello! I am ${currentUser?.name || "a student"} from EduTrack Bangladesh. I am happy that our tuition connection has been confirmed! Let's discuss our schedule and classes.`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-[#25D366]/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex animate-fade-in"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>WhatsApp</span>
+                              </a>
+                            )}
+                            <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest ${sess.status === 'active' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {sess.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+              </div>
                            <div className="space-y-6">
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Expert Radius</h3>
                  <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
@@ -1433,7 +1463,7 @@ export default function StudentDashboard() {
                      </div>
                     )}
                 </div>
-              </div>  </div>
+              </div>
             </div>
           </motion.div>
         )}
