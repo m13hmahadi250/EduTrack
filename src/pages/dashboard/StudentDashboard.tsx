@@ -1360,14 +1360,17 @@ export default function StudentDashboard() {
                           </div>
                           <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
                             {tutor && (
-                              <Link
-                                to={`/teachers/${tutor.id}`}
+                              <button
+                                onClick={() => {
+                                  setViewingProfileUser(tutor);
+                                  setViewingProfileSession(sess);
+                                }}
                                 className="px-4 py-2 bg-[#0B132B] hover:bg-[#0D5BFF] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-slate-950/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex"
                                 title="View Tutor Profile"
                               >
                                 <Users className="w-3 h-3" />
                                 <span>View Profile</span>
-                              </Link>
+                              </button>
                             )}
                             {tutor && (tutor.whatsappNumber || tutor.phone) && (
                               <a 
@@ -3544,12 +3547,39 @@ export default function StudentDashboard() {
                       Decline Offer
                     </button>
                   </>
+                ) : viewingProfileSession.status === 'active' || viewingProfileSession.status === 'scheduled' ? (
+                  <div className="w-full sm:flex-1 text-center text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 uppercase tracking-widest py-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/60 flex items-center justify-center gap-2">
+                    <Check className="w-4 h-4" />
+                    <span>Tuition Active & Confirmed</span>
+                  </div>
                 ) : (
-                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800">
                     Awaiting response from {viewingProfileUser.name}
                   </div>
                 )}
                 
+                {viewingProfileUser && (viewingProfileUser.whatsappNumber || viewingProfileUser.phone) && (
+                  <a 
+                    href={`https://wa.me/${(() => {
+                      const num = viewingProfileUser.whatsappNumber || viewingProfileUser.phone || '';
+                      let clean = num.replace(/\D/g, '');
+                      if (clean.startsWith('01') && clean.length === 11) {
+                        clean = '88' + clean;
+                      } else if (clean.startsWith('1') && clean.length === 10) {
+                        clean = '880' + clean;
+                      }
+                      return clean;
+                    })()}?text=${encodeURIComponent(`Hello! I am ${currentUser?.name || "a student"} from EduTrack Bangladesh. I am happy that our tuition connection has been confirmed! Let's discuss our schedule and classes.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto px-6 py-4 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#25D366]/10"
+                    title="Chat on WhatsApp"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>WhatsApp</span>
+                  </a>
+                )}
+
                 <button
                   onClick={() => {
                     setSelectedRecipientId(viewingProfileUser.id);
@@ -3557,7 +3587,7 @@ export default function StudentDashboard() {
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}
-                  className="w-full sm:w-auto px-6 py-4 bg-slate-200 hover:bg-slate-350 text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-4 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Message
