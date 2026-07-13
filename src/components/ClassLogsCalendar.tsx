@@ -26,9 +26,24 @@ import {
   Users,
   Download,
   ArrowUpRight,
-  PieChart
+  PieChart,
+  Pin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+const AnimatingCount = memo(function AnimatingCount({ value, className = '' }: { value: number | string; className?: string }) {
+  return (
+    <motion.span
+      key={value}
+      initial={{ scale: 0.8, opacity: 0.5, y: -2 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 14 }}
+      className={`inline-block ${className}`}
+    >
+      {value}
+    </motion.span>
+  );
+});
 
 interface ClassLogsCalendarProps {
   role: 'student' | 'tutor';
@@ -71,6 +86,34 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
 
   // Verification notes for Tutor actions
   const [tutorReplyNotes, setTutorReplyNotes] = useState('');
+
+  const [isPinned, setIsPinned] = useState(() => {
+    return localStorage.getItem('edutrack_pin_class_cal') === 'true';
+  });
+
+  const togglePin = () => {
+    const nextVal = !isPinned;
+    setIsPinned(nextVal);
+    if (nextVal) {
+      localStorage.setItem('edutrack_pin_class_cal', 'true');
+      useAppStore.getState().sendNotification(
+        currentUser?.id || 'anon',
+        'Class Cal Pinned 📌',
+        'Class Calculator is now set as your primary landing page when entering the site!',
+        'success'
+      );
+    } else {
+      localStorage.removeItem('edutrack_pin_class_cal');
+      useAppStore.getState().sendNotification(
+        currentUser?.id || 'anon',
+        'Class Cal Unpinned 📌',
+        'Default overview dashboard restored as your landing page.',
+        'info'
+      );
+    }
+    // Sync immediately with the tab bar in parent components
+    window.dispatchEvent(new Event('class_cal_pin_changed'));
+  };
 
   // Analytics and Monthly Reports states
   const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'byTutor' | 'byMonth' | 'allYearMonthLog'>('byTutor');
@@ -1088,13 +1131,53 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-[#0B132B]" id="class-verification-tab-container">
+      {/* 0. Pin Status Panel */}
+      <div className="col-span-12">
+        <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-[#0D5BFF]/5 dark:to-[#1e293b]/20 border border-blue-100/60 dark:border-[#0D5BFF]/10 rounded-3xl p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border transition-all ${isPinned ? 'bg-blue-600 border-blue-700 text-white shadow-md shadow-blue-500/10' : 'bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-400 dark:text-slate-300'}`}>
+              <Pin className="w-5 h-5 rotate-[45deg]" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                  Class Calculator Pinning Engine
+                </h3>
+                {isPinned && (
+                  <span className="text-[8px] font-black tracking-widest uppercase bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                    Active Landing Page
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {isPinned 
+                  ? "Class Calculator is currently pinned. Whenever you login or click Dashboard, you will bypass the overview and land directly here."
+                  : "Pin this view to bypass the default landing page. You'll instantly see Class Calculator whenever you open your dashboard."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={togglePin}
+            className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
+              isPinned
+                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/10 border border-amber-600/10"
+                : "bg-[#0D5BFF] hover:bg-blue-600 text-white shadow-md shadow-blue-500/15"
+            }`}
+          >
+            <Pin className={`w-3.5 h-3.5 ${isPinned ? 'fill-current' : 'rotate-[45deg]'}`} />
+            {isPinned ? "Unpin View" : "Pin Class Calculator"}
+          </button>
+        </div>
+      </div>
+
       {/* 1. Header Metrics Panel */}
       <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Month Classes</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-slate-800 dark:text-white">
-              {stats.total} Classes
+            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-slate-800 dark:text-white flex items-baseline gap-1">
+              <AnimatingCount value={stats.total} />
+              <span className="text-sm font-bold text-slate-400 dark:text-slate-500 lowercase not-italic ml-1">Classes</span>
             </h4>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
@@ -1105,8 +1188,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Verified Classes</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">
-              {stats.verified} Verified
+            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500 flex items-baseline gap-1">
+              <AnimatingCount value={stats.verified} />
+              <span className="text-sm font-bold text-emerald-500/80 dark:text-emerald-400/80 lowercase not-italic ml-1">Verified</span>
             </h4>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-500">
@@ -1117,8 +1201,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Pending Review</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-amber-500">
-              {stats.pending} Pending
+            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-amber-500 flex items-baseline gap-1">
+              <AnimatingCount value={stats.pending} />
+              <span className="text-sm font-bold text-amber-500/80 dark:text-amber-400/80 lowercase not-italic ml-1">Pending</span>
             </h4>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center text-amber-500 animate-pulse">
@@ -1129,8 +1214,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-rose-500">Disputed Entries</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-rose-500">
-              {stats.disputed} Disputed
+            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-rose-500 flex items-baseline gap-1">
+              <AnimatingCount value={stats.disputed} />
+              <span className="text-sm font-bold text-rose-500/80 dark:text-rose-400/80 lowercase not-italic ml-1">Disputed</span>
             </h4>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center text-rose-500">
@@ -2062,7 +2148,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
                             <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 dark:from-indigo-950/20 dark:to-slate-900 border border-indigo-100/50 dark:border-indigo-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                               <div className="space-y-1">
                                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Total Sessions</p>
-                                <h4 className="text-2xl font-black text-slate-800 dark:text-white leading-none">{mData.total}</h4>
+                                <h4 className="text-2xl font-black text-slate-800 dark:text-white leading-none">
+                                  <AnimatingCount value={mData.total} />
+                                </h4>
                                 <p className="text-[9px] font-medium text-slate-400">Classes Taught</p>
                               </div>
                               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-455 flex items-center justify-center font-black text-lg">
@@ -2074,7 +2162,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
                             <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/30 dark:from-emerald-950/20 dark:to-slate-900 border border-emerald-100/50 dark:border-emerald-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                               <div className="space-y-1">
                                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Verified OK</p>
-                                <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{mData.verified}</h4>
+                                <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                                  <AnimatingCount value={mData.verified} />
+                                </h4>
                                 <p className="text-[9px] font-medium text-slate-400">Approved Logs</p>
                               </div>
                               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-455 flex items-center justify-center font-black text-lg">
@@ -2086,7 +2176,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
                             <div className="bg-gradient-to-br from-amber-50 to-amber-100/30 dark:from-amber-950/20 dark:to-slate-900 border border-amber-100/50 dark:border-amber-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                               <div className="space-y-1">
                                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">Pending Approval</p>
-                                <h4 className="text-2xl font-black text-amber-600 dark:text-amber-450 leading-none">{mData.pending}</h4>
+                                <h4 className="text-2xl font-black text-amber-600 dark:text-amber-450 leading-none">
+                                  <AnimatingCount value={mData.pending} />
+                                </h4>
                                 <p className="text-[9px] font-medium text-slate-400">Awaiting Signoff</p>
                               </div>
                               <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-455 flex items-center justify-center font-black text-lg">
@@ -2098,7 +2190,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
                             <div className="bg-gradient-to-br from-rose-50 to-rose-100/30 dark:from-rose-950/20 dark:to-slate-900 border border-rose-100/50 dark:border-rose-900/40 rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden group">
                               <div className="space-y-1">
                                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">Under Dispute</p>
-                                <h4 className="text-2xl font-black text-rose-600 dark:text-rose-400 leading-none">{mData.disputed}</h4>
+                                <h4 className="text-2xl font-black text-rose-600 dark:text-rose-400 leading-none">
+                                  <AnimatingCount value={mData.disputed} />
+                                </h4>
                                 <p className="text-[9px] font-medium text-slate-400">Needs Attention</p>
                               </div>
                               <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-455 flex items-center justify-center font-black text-lg">
@@ -2145,18 +2239,25 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
 
                                     {/* Metrics & Count block */}
                                     <div className="text-right shrink-0">
-                                      <span className="text-[10px] font-black uppercase bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-lg">
-                                        {partnerData.count} Classes
+                                      <span className="text-[10px] font-black uppercase bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-lg flex items-center justify-end gap-1">
+                                        <AnimatingCount value={partnerData.count} />
+                                        <span>Classes</span>
                                       </span>
                                       <div className="flex gap-1.5 justify-end mt-1.5 text-[7.5px] font-extrabold uppercase">
                                         {partnerData.verified > 0 && (
-                                          <span className="text-emerald-500 bg-emerald-500/10 px-1 py-0.5 rounded-md">{partnerData.verified} OK</span>
+                                          <span className="text-emerald-500 bg-emerald-500/10 px-1 py-0.5 rounded-md">
+                                            <AnimatingCount value={partnerData.verified} /> OK
+                                          </span>
                                         )}
                                         {partnerData.pending > 0 && (
-                                          <span className="text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded-md">{partnerData.pending} Wait</span>
+                                          <span className="text-amber-500 bg-amber-500/10 px-1 py-0.5 rounded-md">
+                                            <AnimatingCount value={partnerData.pending} /> Wait
+                                          </span>
                                         )}
                                         {partnerData.disputed > 0 && (
-                                          <span className="text-rose-500 bg-rose-500/10 px-1 py-0.5 rounded-md">{partnerData.disputed} Err</span>
+                                          <span className="text-rose-500 bg-rose-500/10 px-1 py-0.5 rounded-md">
+                                            <AnimatingCount value={partnerData.disputed} /> Err
+                                          </span>
                                         )}
                                       </div>
                                     </div>

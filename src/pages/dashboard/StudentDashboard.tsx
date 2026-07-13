@@ -46,7 +46,8 @@ import {
   DollarSign,
   Activity,
   Mars,
-  Venus
+  Venus,
+  Pin
 } from 'lucide-react';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
@@ -239,6 +240,22 @@ export default function StudentDashboard() {
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
   const subjectDropdownRef = useRef<HTMLDivElement>(null);
+  const desktopNavScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = desktopNavScrollRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -257,6 +274,29 @@ export default function StudentDashboard() {
   const [locationErrorMessage, setLocationErrorMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [isClassCalPinned, setIsClassCalPinned] = useState(() => localStorage.getItem('edutrack_pin_class_cal') === 'true');
+
+  useEffect(() => {
+    const handlePinChange = () => {
+      setIsClassCalPinned(localStorage.getItem('edutrack_pin_class_cal') === 'true');
+    };
+    window.addEventListener('class_cal_pin_changed', handlePinChange);
+    window.addEventListener('storage', handlePinChange);
+    return () => {
+      window.removeEventListener('class_cal_pin_changed', handlePinChange);
+      window.removeEventListener('storage', handlePinChange);
+    };
+  }, []);
+
+  // Redirect to pinned Class Calculator if enabled and they land on the root dashboard page
+  useEffect(() => {
+    const isPinned = localStorage.getItem('edutrack_pin_class_cal') === 'true';
+    if (isPinned && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
+      navigate('/dashboard/class-logs', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'referrals'>(() => {
     const path = location.pathname;
     if (path.endsWith('/search')) return 'find';
@@ -928,6 +968,9 @@ export default function StudentDashboard() {
                 }`}
                 id={`student-tab-btn-${tab.id}`}
               >
+                {tab.id === 'class-verification' && isClassCalPinned && (
+                  <Pin className="absolute top-2.5 right-2.5 w-3 h-3 text-amber-500 fill-amber-500 rotate-[45deg]" />
+                )}
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                     isActive
@@ -952,7 +995,10 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Navigation */}
-      <div className="lg:flex hidden space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar">
+      <div 
+        ref={desktopNavScrollRef}
+        className="lg:flex hidden space-x-8 border-b border-slate-100 pb-px overflow-x-auto custom-scrollbar-hide hide-scrollbar"
+      >
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'find', label: 'Find Tutor' },
@@ -970,7 +1016,12 @@ export default function StudentDashboard() {
               activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
             }`}
           >
-            {tab.label}
+            <span className="flex items-center gap-1.5">
+              {tab.label}
+              {tab.id === 'class-verification' && isClassCalPinned && (
+                <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 rotate-[45deg]" />
+              )}
+            </span>
             {activeTab === tab.id && (
               <motion.div layoutId="tabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-[#0D5BFF]" />
             )}
@@ -3433,16 +3484,16 @@ export default function StudentDashboard() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
             >
-              <div className="bg-gradient-to-r from-indigo-900 to-indigo-950 p-8 sm:p-10 text-white relative">
+              <div className="bg-gradient-to-r from-indigo-900 to-indigo-950 p-6 sm:p-10 text-white relative shrink-0">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <button
                   onClick={() => {
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}
-                  className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                  className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3450,18 +3501,18 @@ export default function StudentDashboard() {
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
                   Tutor Profile & Credentials
                 </span>
-                <div className="mt-6 flex items-center gap-6">
-                  <div className="w-20 h-20 bg-white/10 rounded-[1.5rem] border border-white/10 flex items-center justify-center text-3xl font-black italic text-indigo-200">
+                <div className="mt-4 sm:mt-6 flex items-center gap-4 sm:gap-6">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-[1.2rem] sm:rounded-[1.5rem] border border-white/10 flex items-center justify-center text-2xl sm:text-3xl font-black italic text-indigo-200 shrink-0">
                     {viewingProfileUser.name?.charAt(0) || 'T'}
                   </div>
-                  <div>
-                    <h3 className="text-3xl font-black uppercase italic leading-none">{viewingProfileUser.name}</h3>
-                    <p className="text-xs text-slate-300 font-medium mt-2">{viewingProfileUser.university || 'Verified Academic Institution'}</p>
+                  <div className="min-w-0">
+                    <h3 className="text-xl sm:text-3xl font-black uppercase italic leading-tight truncate">{viewingProfileUser.name}</h3>
+                    <p className="text-xs text-slate-300 font-medium mt-1 sm:mt-2 truncate">{viewingProfileUser.university || 'Verified Academic Institution'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
+              <div className="p-6 sm:p-10 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -3523,7 +3574,7 @@ export default function StudentDashboard() {
                 </div>
               </div>
 
-              <div className="p-8 sm:p-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950">
+              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-50 dark:bg-slate-950 shrink-0">
                 {viewingProfileSession.status === 'proposed_by_tutor' ? (
                   <>
                     <button

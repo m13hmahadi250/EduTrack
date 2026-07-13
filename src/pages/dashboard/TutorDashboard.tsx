@@ -53,6 +53,7 @@ import {
   Phone,
   Mail,
   Share2,
+  Pin,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReferralsTab from "../../components/ReferralsTab";
@@ -162,6 +163,21 @@ export default function TutorDashboard() {
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const tabsRef = React.useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   const scrollTabs = (direction: "left" | "right") => {
     if (tabsRef.current) {
       const scrollAmount = 150;
@@ -173,6 +189,29 @@ export default function TutorDashboard() {
   };
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [isClassCalPinned, setIsClassCalPinned] = useState(() => localStorage.getItem('edutrack_pin_class_cal') === 'true');
+
+  useEffect(() => {
+    const handlePinChange = () => {
+      setIsClassCalPinned(localStorage.getItem('edutrack_pin_class_cal') === 'true');
+    };
+    window.addEventListener('class_cal_pin_changed', handlePinChange);
+    window.addEventListener('storage', handlePinChange);
+    return () => {
+      window.removeEventListener('class_cal_pin_changed', handlePinChange);
+      window.removeEventListener('storage', handlePinChange);
+    };
+  }, []);
+
+  // Redirect to pinned Class Calculator if enabled and they land on the root dashboard page
+  useEffect(() => {
+    const isPinned = localStorage.getItem('edutrack_pin_class_cal') === 'true';
+    if (isPinned && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
+      navigate('/dashboard/class-logs', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   const activeTab = useMemo<
     | "my_session"
     | "balance"
@@ -750,6 +789,9 @@ export default function TutorDashboard() {
                 }`}
                 id={`tutor-tab-btn-${tab.id}`}
               >
+                {tab.id === 'class_logs' && isClassCalPinned && (
+                  <Pin className="absolute top-2.5 right-2.5 w-3 h-3 text-amber-500 fill-amber-500 rotate-[45deg]" />
+                )}
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                     isActive
@@ -808,7 +850,12 @@ export default function TutorDashboard() {
                   : "text-[#0B132B]/30 hover:text-[#0B132B]"
               }`}
             >
-              {tab.label}
+              <span className="flex items-center gap-1.5">
+                {tab.label}
+                {tab.id === 'class_logs' && isClassCalPinned && (
+                  <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 rotate-[45deg]" />
+                )}
+              </span>
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="tabUnderline"
@@ -3388,16 +3435,16 @@ export default function TutorDashboard() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
             >
-              <div className="bg-gradient-to-r from-[#0C1B33] to-[#0B132B] p-8 sm:p-10 text-white relative">
+              <div className="bg-gradient-to-r from-[#0C1B33] to-[#0B132B] p-6 sm:p-10 text-white relative shrink-0">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <button
                   onClick={() => {
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}
-                  className="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                  className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3405,20 +3452,20 @@ export default function TutorDashboard() {
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20 font-sans font-sans">
                   Student Profile & Academic details
                 </span>
-                <div className="mt-6 flex items-center gap-6">
-                  <div className="w-20 h-20 bg-white/10 rounded-[1.5rem] border border-white/10 flex items-center justify-center text-3xl font-black italic text-sky-200">
+                <div className="mt-4 sm:mt-6 flex items-center gap-4 sm:gap-6">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-[1.2rem] sm:rounded-[1.5rem] border border-white/10 flex items-center justify-center text-2xl sm:text-3xl font-black italic text-sky-200 shrink-0">
                     {viewingProfileUser.name?.charAt(0) || 'S'}
                   </div>
-                  <div>
-                    <h3 className="text-3xl font-black uppercase italic leading-none">{viewingProfileUser.name}</h3>
-                    <p className="text-xs text-slate-300 font-medium mt-2">
+                  <div className="min-w-0">
+                    <h3 className="text-xl sm:text-3xl font-black uppercase italic leading-tight truncate">{viewingProfileUser.name}</h3>
+                    <p className="text-xs text-slate-300 font-medium mt-1 sm:mt-2 truncate">
                       {viewingProfileUser.university || viewingProfileUser.studentClass ? `Class ${viewingProfileUser.studentClass} • ${viewingProfileUser.university || 'Verified School'}` : 'Academic Student'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 sm:p-10 space-y-6 max-h-[450px] overflow-y-auto custom-scrollbar">
+              <div className="p-6 sm:p-10 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
                 {/* Academics Section */}
                 <div>
                   <h4 className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-[0.15em] mb-3">Academic Parameters</h4>
@@ -3537,7 +3584,7 @@ export default function TutorDashboard() {
                 )}
               </div>
 
-              <div className="p-8 sm:p-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950">
+              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-50 dark:bg-slate-950 shrink-0">
                 {viewingProfileSession ? (
                   viewingProfileSession.status === 'requested_by_student' ? (
                     <>
@@ -3949,7 +3996,7 @@ const EarningsSummaryWidget = memo(
 
         {/* Chart Stage */}
         <div className="h-56 w-full select-none">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
