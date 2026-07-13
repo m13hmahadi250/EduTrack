@@ -1340,9 +1340,32 @@ export default function StudentDashboard() {
                               </div>
                            </div>
                         </div>
-                        <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest ${sess.status === 'active' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
-                          {sess.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {tutor && (tutor.whatsappNumber || tutor.phone) && (
+                            <a 
+                              href={`https://wa.me/${(() => {
+                                const num = tutor.whatsappNumber || tutor.phone || '';
+                                let clean = num.replace(/\D/g, '');
+                                if (clean.startsWith('01') && clean.length === 11) {
+                                  clean = '88' + clean;
+                                } else if (clean.startsWith('1') && clean.length === 10) {
+                                  clean = '880' + clean;
+                                }
+                                return clean;
+                              })()}?text=${encodeURIComponent(`Hello! I am ${currentUser?.name || "a student"} from EduTrack Bangladesh. I am happy that our tuition connection has been confirmed! Let's discuss our schedule and classes.`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-[#25D366]/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>WhatsApp</span>
+                            </a>
+                          )}
+                          <span className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest ${sess.status === 'active' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
+                            {sess.status}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
@@ -2834,11 +2857,34 @@ export default function StudentDashboard() {
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{sess.subject}</p>
                                    </div>
                                 </div>
-                                <div className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                  tutor?.isTrackingOn ? 'bg-emerald-50 text-emerald-600 animate-pulse' : 'bg-slate-200 text-slate-400'
-                                }`}>
-                                   {tutor?.isTrackingOn ? 'BROADCASTING' : 'OFFLINE'}
-                                </div>
+                                <div className="flex items-center gap-2">
+                                   {tutor && (tutor.whatsappNumber || tutor.phone) && (
+                                     <a 
+                                       href={`https://wa.me/${(() => {
+                                         const num = tutor.whatsappNumber || tutor.phone || '';
+                                         let clean = num.replace(/\D/g, '');
+                                         if (clean.startsWith('01') && clean.length === 11) {
+                                           clean = '88' + clean;
+                                         } else if (clean.startsWith('1') && clean.length === 10) {
+                                           clean = '880' + clean;
+                                         }
+                                         return clean;
+                                       })()}?text=${encodeURIComponent(`Hello! I am ${currentUser?.name || "a student"} from EduTrack Bangladesh. I am happy that our tuition connection has been confirmed! Let's discuss our schedule and classes.`)}`}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-[8px] font-black uppercase tracking-wider rounded-xl shadow-md shadow-[#25D366]/10 transition-all flex items-center gap-1.5 cursor-pointer inline-flex"
+                                       title="Chat on WhatsApp"
+                                     >
+                                       <MessageSquare className="w-3 h-3" />
+                                       <span>WhatsApp</span>
+                                     </a>
+                                   )}
+                                   <div className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                     tutor?.isTrackingOn ? 'bg-emerald-50 text-emerald-600 animate-pulse' : 'bg-slate-200 text-slate-400'
+                                   }`}>
+                                      {tutor?.isTrackingOn ? 'BROADCASTING' : 'OFFLINE'}
+                                   </div>
+                                 </div>
                              </div>
                              <p className="text-[10px] font-black text-slate-500 uppercase italic leading-loose tracking-tight px-2">
                                 {tutor?.isTrackingOn 

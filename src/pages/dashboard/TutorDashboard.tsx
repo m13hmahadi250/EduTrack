@@ -442,6 +442,7 @@ export default function TutorDashboard() {
     nidBackImg: currentUser?.nidBackImg || "",
     documents: currentUser?.documents || [],
     gender: currentUser?.gender || "",
+    whatsappNumber: currentUser?.whatsappNumber || "",
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -465,6 +466,7 @@ export default function TutorDashboard() {
         nidBackImg: currentUser.nidBackImg || "",
         documents: currentUser.documents || [],
         gender: currentUser.gender || "",
+        whatsappNumber: currentUser.whatsappNumber || "",
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -2320,7 +2322,7 @@ export default function TutorDashboard() {
                           ))}
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                         <ProfileField
                           label="Monthly Tutor Fee (৳)"
                           value={profileForm.hourlyRate}
@@ -2355,6 +2357,14 @@ export default function TutorDashboard() {
                             setProfileForm({ ...profileForm, experience: v })
                           }
                           placeholder="3+ Years in Academic Coaching"
+                        />
+                        <ProfileField
+                          label="WhatsApp Number"
+                          value={profileForm.whatsappNumber}
+                          onChange={(v) =>
+                            setProfileForm({ ...profileForm, whatsappNumber: v })
+                          }
+                          placeholder="e.g. 01712345678"
                         />
                       </div>
                       <div className="space-y-6">

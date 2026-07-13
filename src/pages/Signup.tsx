@@ -53,12 +53,18 @@ export default function Signup() {
         }
       });
     } else {
-      const tutorFields = ['university', 'course', 'year', 'semester'];
+      const tutorFields = ['university', 'course', 'year', 'semester', 'whatsappNumber'];
       tutorFields.forEach(field => {
         if (!formData[field] || !formData[field].trim()) {
           errs[field] = 'This field is required';
         }
       });
+      if (formData.whatsappNumber) {
+        const cleanWhatsapp = formData.whatsappNumber.trim().replace(/[\s-+]/g, '');
+        if (cleanWhatsapp.length < 11 || !/^\d+$/.test(cleanWhatsapp)) {
+          errs.whatsappNumber = 'Requires a valid mobile number (e.g. 01XXXXXXXXX)';
+        }
+      }
     }
 
     return errs;
@@ -92,7 +98,7 @@ export default function Signup() {
       errorMsg = 'Please enter a valid email address';
     } else if (name === 'password' && value.length < 8) {
       errorMsg = 'Password must be at least 8 characters';
-    } else if (name === 'phone') {
+    } else if (name === 'phone' || (name === 'whatsappNumber' && role === 'tutor')) {
       const cleanPhone = value.trim().replace(/[\s-+]/g, '');
       if (cleanPhone.length < 11 || !/^\d+$/.test(cleanPhone)) {
         errorMsg = 'Requires a valid 11-digit mobile number';
@@ -112,7 +118,7 @@ export default function Signup() {
       const allTouched: Record<string, boolean> = {};
       const fieldsToCheck = [
         'name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender',
-        ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
+        ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester', 'whatsappNumber'])
       ];
       fieldsToCheck.forEach(f => {
         allTouched[f] = true;
@@ -304,6 +310,21 @@ export default function Signup() {
                 accentColor={accentColor}
                 placeholder="e.g. 01712345678"
               />
+              {role === 'tutor' && (
+                <Input 
+                  label="WhatsApp Number" 
+                  type="tel" 
+                  name="whatsappNumber" 
+                  required 
+                  onChange={handleInputChange} 
+                  onBlur={handleBlur}
+                  error={touched.whatsappNumber ? errors.whatsappNumber : undefined}
+                  helperText="Required for students to contact you once tuition is confirmed"
+                  value={formData.whatsappNumber || ''}
+                  accentColor={accentColor}
+                  placeholder="e.g. 01712345678"
+                />
+              )}
               <div className="sm:col-span-2 space-y-1.5 w-full">
                 <div className="flex justify-between items-center px-0.5">
                   <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
@@ -696,7 +717,7 @@ export default function Signup() {
               const allTouched: Record<string, boolean> = {};
               const fieldsToCheck = [
                 'name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender',
-                ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester'])
+                ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester', 'whatsappNumber'])
               ];
               fieldsToCheck.forEach(f => {
                 allTouched[f] = true;
