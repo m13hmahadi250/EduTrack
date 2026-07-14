@@ -265,6 +265,45 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
 
+    // --- Homework Assignments Collection ---
+    match /homework_assignments/{assignmentId} {
+      function isValidHomework(data) {
+        return data.keys().hasAll(['id', 'tutorId', 'studentId', 'subject', 'title', 'text', 'status', 'createdAt']) &&
+               isValidId(data.id) &&
+               isValidId(data.tutorId) &&
+               isValidId(data.studentId) &&
+               data.subject is string && data.subject.size() <= 200 &&
+               data.title is string && data.title.size() <= 200 &&
+               data.text is string && data.text.size() <= 10000 &&
+               data.status in ['assigned', 'submitted', 'completed', 'revision'] &&
+               data.createdAt is string &&
+               (data.get('pdfUrl', null) == null || data.pdfUrl is string) &&
+               (data.get('dueDate', null) == null || data.dueDate is string) &&
+               (data.get('submissionNotes', null) == null || data.submissionNotes is string) &&
+               (data.get('submissionFileUrl', null) == null || data.submissionFileUrl is string) &&
+               (data.get('submittedAt', null) == null || data.submittedAt is string) &&
+               (data.get('feedback', null) == null || data.feedback is string) &&
+               (data.get('reviewedAt', null) == null || data.reviewedAt is string);
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.tutorId == request.auth.uid || resource.data.studentId == request.auth.uid));
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.tutorId == request.auth.uid || resource.data.studentId == request.auth.uid));
+
+      allow create: if isSignedIn() && isValidId(assignmentId) && isValidHomework(incoming()) &&
+                    incoming().tutorId == request.auth.uid;
+
+      allow update: if isAdmin() || (
+        isSignedIn() && isValidHomework(incoming()) && (
+          (resource.data.tutorId == request.auth.uid && incoming().tutorId == request.auth.uid) ||
+          (resource.data.studentId == request.auth.uid && 
+           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'submissionNotes', 'submissionFileUrl', 'submittedAt']) &&
+           incoming().status in ['submitted'])
+        )
+      );
+
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid);
+    }
+
     // --- Typing Indicators ---
     match /typing/{userId} {
       allow read: if isSignedIn();

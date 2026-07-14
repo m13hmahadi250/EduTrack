@@ -9,6 +9,8 @@ import React, {
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore, Session, Withdrawal, User } from "../../store";
 import { useShallow } from "zustand/react/shallow";
+import { calculateEarnedBadges } from '../../utils/badges';
+import BadgeDisplay from '../../components/BadgeDisplay';
 import {
   Bell,
   MapPin,
@@ -73,6 +75,7 @@ const ImageUpload = lazy(() => import("../../components/ImageUpload"));
 const FileUpload = lazy(() => import("../../components/FileUpload"));
 import DemandHeatmap from "../../components/DemandHeatmap";
 import ClassLogsCalendar from "../../components/ClassLogsCalendar";
+import HomeworkDashboard from "../../components/HomeworkDashboard";
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -212,6 +215,21 @@ export default function TutorDashboard() {
     }
   }, [location.pathname, navigate]);
 
+  // Synchronize badges in the database when new milestones are achieved
+  useEffect(() => {
+    if (currentUser && sessions && sessions.length > 0) {
+      const currentBadges = currentUser.badges || [];
+      const calculatedBadges = calculateEarnedBadges(currentUser, sessions);
+      
+      const hasChanges = calculatedBadges.length !== currentBadges.length || 
+        calculatedBadges.some(b => !currentBadges.includes(b));
+        
+      if (hasChanges && updateUser) {
+        updateUser(currentUser.id, { badges: calculatedBadges });
+      }
+    }
+  }, [currentUser, sessions, updateUser]);
+
   const activeTab = useMemo<
     | "my_session"
     | "balance"
@@ -221,6 +239,7 @@ export default function TutorDashboard() {
     | "messages"
     | "find_students"
     | "class_logs"
+    | "homework"
     | "referrals"
   >(() => {
     const path = location.pathname;
@@ -231,6 +250,7 @@ export default function TutorDashboard() {
     if (path.endsWith("/messages")) return "messages";
     if (path.endsWith("/find-students")) return "find_students";
     if (path.endsWith("/class-logs")) return "class_logs";
+    if (path.endsWith("/homework")) return "homework";
     if (path.endsWith("/referrals")) return "referrals";
     return "my_session";
   }, [location.pathname]);
@@ -444,6 +464,7 @@ export default function TutorDashboard() {
       | "messages"
       | "find_students"
       | "class_logs"
+      | "homework"
       | "referrals",
   ) => {
     const pathMap = {
@@ -455,6 +476,7 @@ export default function TutorDashboard() {
       messages: "/dashboard/messages",
       find_students: "/dashboard/find-students",
       class_logs: "/dashboard/class-logs",
+      homework: "/dashboard/homework",
       referrals: "/dashboard/referrals",
     };
     navigate(pathMap[tab]);
@@ -770,6 +792,7 @@ export default function TutorDashboard() {
             { id: "my_session", label: "My Session", icon: Clock },
             { id: "find_students", label: "Find Students", icon: Search },
             { id: "class_logs", label: "Class Cal", icon: Calendar },
+            { id: "homework", label: "Homework", icon: BookOpen },
             { id: "balance", label: "Pay", icon: CreditCard },
             { id: "transit_mode", label: "Location Track", icon: MapPin },
             { id: "messages", label: "Messages", icon: MessageSquare },
@@ -835,6 +858,7 @@ export default function TutorDashboard() {
             { id: "my_session", label: "My Session" },
             { id: "find_students", label: "Find Students" },
             { id: "class_logs", label: "Class Cal" },
+            { id: "homework", label: "Homework" },
             { id: "balance", label: "Pay" },
             { id: "transit_mode", label: "Location Track" },
             { id: "messages", label: "Messages" },
@@ -994,6 +1018,24 @@ export default function TutorDashboard() {
                     value={currentUser?.rating?.toFixed(1) || "0.0"}
                   />
                 </div>
+
+                {/* Achievements & Gamification Section */}
+                {currentUser && (
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-4 shadow-sm transition-colors">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                        <Award className="w-4 h-4 text-emerald-500 animate-pulse" />
+                        <span>My Achievements & Badges</span>
+                      </h3>
+                      {currentUser.badges && currentUser.badges.length > 0 && (
+                        <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                          {currentUser.badges.length} Unlocked
+                        </span>
+                      )}
+                    </div>
+                    <BadgeDisplay badgeIds={currentUser.badges || []} role="tutor" />
+                  </div>
+                )}
 
                 {sessions.find((s) => s.status === "active") && (
                   <motion.div
@@ -3418,6 +3460,18 @@ export default function TutorDashboard() {
               className="space-y-8 text-left"
             >
               <ReferralsTab />
+            </motion.div>
+          )}
+
+          {activeTab === "homework" && (
+            <motion.div
+              key="homework"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8 text-left"
+            >
+              <HomeworkDashboard />
             </motion.div>
           )}
         </motion.div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
+import BadgeDisplay from '../components/BadgeDisplay';
 import { 
   ArrowLeft, 
   Mail, 
@@ -438,6 +439,21 @@ export default function TeacherProfile() {
                   </div>
                 </div>
               )}
+            </motion.div>
+
+            {/* Segment: Achievements & Badges */}
+            <motion.div 
+              variants={cardVariants}
+              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4 transition-colors"
+            >
+              <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-500" />
+                <span>Verified Milestones & Badges</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                These gamified credentials verify live milestones, tutor ratings, and dedicated hours delivered securely on the platform.
+              </p>
+              <BadgeDisplay badgeIds={tutor.badges || []} role="tutor" />
             </motion.div>
 
             {/* Segment: Class & Subject expertise parameters */}

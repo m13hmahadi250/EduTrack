@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } fro
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
+import { calculateEarnedBadges } from '../../utils/badges';
+import BadgeDisplay from '../../components/BadgeDisplay';
 import { 
   Search, 
   MapPin, 
@@ -56,6 +58,7 @@ const RatingModal = lazy(() => import('../../components/RatingModal'));
 const ChatWindow = lazy(() => import('../../components/ChatWindow'));
 import ReferralsTab from '../../components/ReferralsTab';
 import ClassLogsCalendar from '../../components/ClassLogsCalendar';
+import HomeworkDashboard from '../../components/HomeworkDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
 import { getCoordinatesForLocation } from '../../utils/geocoding';
@@ -182,7 +185,8 @@ export default function StudentDashboard() {
     updateLocation, 
     messages,
     grantEndPermission,
-    endSession
+    endSession,
+    updateUser
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -193,7 +197,8 @@ export default function StudentDashboard() {
     updateLocation: state.updateLocation,
     messages: state.messages,
     grantEndPermission: state.grantEndPermission,
-    endSession: state.endSession
+    endSession: state.endSession,
+    updateUser: state.updateUser
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -297,7 +302,7 @@ export default function StudentDashboard() {
     }
   }, [location.pathname, navigate]);
 
-  const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'referrals'>(() => {
+  const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'homework' | 'referrals'>(() => {
     const path = location.pathname;
     if (path.endsWith('/search')) return 'find';
     if (path.endsWith('/activity')) return 'activity';
@@ -305,6 +310,7 @@ export default function StudentDashboard() {
     if (path.endsWith('/transit')) return 'transit';
     if (path.endsWith('/messages')) return 'messages';
     if (path.endsWith('/class-logs')) return 'class-verification';
+    if (path.endsWith('/homework')) return 'homework';
     if (path.endsWith('/referrals')) return 'referrals';
     return 'overview';
   }, [location.pathname]);
@@ -536,6 +542,20 @@ export default function StudentDashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (currentUser && sessions && sessions.length > 0) {
+      const currentBadges = currentUser.badges || [];
+      const calculatedBadges = calculateEarnedBadges(currentUser, sessions);
+      
+      const hasChanges = calculatedBadges.length !== currentBadges.length || 
+        calculatedBadges.some(b => !currentBadges.includes(b));
+        
+      if (hasChanges && updateUser) {
+        updateUser(currentUser.id, { badges: calculatedBadges });
+      }
+    }
+  }, [currentUser, sessions, updateUser]);
+
   const [pendingRatingSession, setPendingRatingSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -616,7 +636,7 @@ export default function StudentDashboard() {
 
   // Active tab is derived directly from route location to avoid double-rendering delays
 
-  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'referrals') => {
+  const handleTabChange = (tab: 'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'homework' | 'referrals') => {
     const pathMap = {
       overview: '/dashboard',
       find: '/dashboard/search',
@@ -625,6 +645,7 @@ export default function StudentDashboard() {
       transit: '/dashboard/transit',
       messages: '/dashboard/messages',
       'class-verification': '/dashboard/class-logs',
+      homework: '/dashboard/homework',
       referrals: '/dashboard/referrals'
     };
     navigate(pathMap[tab]);
@@ -962,6 +983,7 @@ export default function StudentDashboard() {
             { id: 'find', label: 'Find Tutor', icon: Search },
             { id: 'activity', label: 'Activity Log', icon: Activity },
             { id: 'class-verification', label: 'Class Cal', icon: Calendar },
+            { id: 'homework', label: 'Homework', icon: BookOpen },
             { id: 'transit', label: 'Transit Tracker', icon: MapPin },
             { id: 'messages', label: 'Messages', icon: MessageSquare },
             { id: 'account', label: 'My Account', icon: Award },
@@ -1016,6 +1038,7 @@ export default function StudentDashboard() {
           { id: 'find', label: 'Find Tutor' },
           { id: 'activity', label: 'Activity Log' },
           { id: 'class-verification', label: 'Class Cal' },
+          { id: 'homework', label: 'Homework' },
           { id: 'transit', label: 'Transit Tracker' },
           { id: 'messages', label: 'Messages' },
           { id: 'account', label: 'My Account' },
@@ -1166,6 +1189,22 @@ export default function StudentDashboard() {
               <MetricCard label="Sessions" value={mySessions.length.toString()} />
               <MetricCard label="Active Tutors" value={Array.from(new Set(mySessions.filter(s => s.status !== 'cancelled').map(s => s.tutorId))).length.toString()} />
               <MetricCard label="Completed Lessons" value={mySessions.filter(s => s.status === 'completed').length.toString()} />
+            </div>
+
+            {/* Achievements & Gamification Section */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-500 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-indigo-500 animate-pulse" />
+                  <span>My Badges & Academic Milestones</span>
+                </h3>
+                {currentUser.badges && currentUser.badges.length > 0 && (
+                  <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-950/20 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    {currentUser.badges.length} Unlocked
+                  </span>
+                )}
+              </div>
+              <BadgeDisplay badgeIds={currentUser.badges || []} role="student" />
             </div>
 
             {activeSession && (
@@ -3392,6 +3431,18 @@ export default function StudentDashboard() {
             <ReferralsTab />
           </motion.div>
         )}
+
+        {activeTab === 'homework' && (
+          <motion.div
+            key="homework"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+          >
+            <HomeworkDashboard />
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -3576,6 +3627,13 @@ export default function StudentDashboard() {
                     <p className="text-xs font-black text-[#0D5BFF]">৳{viewingProfileUser.hourlyRate || 'Consult'}/hour</p>
                   </div>
                 </div>
+
+                {viewingProfileUser.badges && viewingProfileUser.badges.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Unlocked Badges</span>
+                    <BadgeDisplay badgeIds={viewingProfileUser.badges} role="tutor" interactive={true} />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Professional Bio</span>

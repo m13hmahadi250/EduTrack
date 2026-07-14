@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, memo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppStore, ClassLog, User } from '../store';
 import { useShallow } from 'zustand/react/shallow';
@@ -27,7 +27,8 @@ import {
   Download,
   ArrowUpRight,
   PieChart,
-  Pin
+  Pin,
+  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -58,6 +59,7 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
     classLogs, 
     logClass, 
     verifyClass,
+    assignHomework,
     deleteClassLog
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
@@ -67,6 +69,7 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
     classLogs: state.classLogs || [],
     logClass: state.logClass,
     verifyClass: state.verifyClass,
+    assignHomework: state.assignHomework,
     deleteClassLog: state.deleteClassLog
   })));
 
@@ -75,6 +78,19 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [showLogModal, setShowLogModal] = useState(false);
   const [selectedClassLog, setSelectedClassLog] = useState<ClassLog | null>(null);
+
+  // Homework assignment states
+  const [homeworkText, setHomeworkText] = useState('');
+  const [showWatchHomeworkModal, setShowWatchHomeworkModal] = useState(false);
+  const [isSavingHomework, setIsSavingHomework] = useState(false);
+  const [homeworkSuccess, setHomeworkSuccess] = useState(false);
+
+  useEffect(() => {
+    if (selectedClassLog) {
+      setHomeworkText(selectedClassLog.homework || '');
+      setHomeworkSuccess(false);
+    }
+  }, [selectedClassLog?.id]);
 
   // Form states for Student marking a class
   const [formTutorId, setFormTutorId] = useState('');
@@ -176,6 +192,138 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const downloadHomeworkTXT = (log: ClassLog) => {
+    const student = users.find(u => u.id === log.studentId);
+    const tutor = users.find(u => u.id === log.tutorId);
+    const studentName = student?.name || 'Student';
+    const tutorName = tutor?.name || 'Tutor';
+    
+    const textContent = `================================================
+EDUTRACK ACADEMIC HOMEWORK SHEET
+================================================
+Subject: ${log.subject}
+Date: ${log.date}
+Tutor/Mentor: ${tutorName}
+Student Name: ${studentName}
+Logged At: ${new Date(log.loggedAt).toLocaleString()}
+------------------------------------------------
+HOMEWORK ASSIGNMENT / INSTRUCTIONS:
+------------------------------------------------
+${log.homework || 'No homework text provided.'}
+------------------------------------------------
+Please show this to your tutor during your live tuition.
+================================================`;
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `homework_${log.date}_${log.subject.replace(/\s+/g, '_')}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadHomeworkPDF = (log: ClassLog) => {
+    const doc = new jsPDF();
+    const margin = 20;
+    let y = 25;
+
+    const student = users.find(u => u.id === log.studentId);
+    const tutor = users.find(u => u.id === log.tutorId);
+    const studentName = student?.name || 'Academic Student';
+    const tutorName = tutor?.name || 'Academic Mentor';
+
+    // Stylish header banner
+    doc.setFillColor(11, 19, 43); // Deep midnight blue
+    doc.rect(0, 0, 220, 42, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('LIVE TUITION HOMEWORK SHEET', margin, 20);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text(`Official Homework Directives — Presentation Ready`, margin, 28);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 150, 20);
+
+    // Metadata
+    y = 55;
+    doc.setTextColor(30, 41, 59);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('LESSON DETAILS', margin, y);
+    
+    y += 5;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text(`Subject:`, margin, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(log.subject, margin + 25, y);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date:`, margin + 110, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(log.date, margin + 130, y);
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Student:`, margin, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(studentName, margin + 25, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Tutor:`, margin + 110, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(tutorName, margin + 130, y);
+
+    // Homework Text Section
+    y += 16;
+    doc.setTextColor(11, 19, 43);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('ASSIGNED HOMEWORK TASKS', margin, y);
+
+    y += 5;
+    doc.setDrawColor(11, 19, 43);
+    doc.setLineWidth(1);
+    doc.line(margin, y, 190, y);
+
+    y += 10;
+    doc.setFillColor(248, 250, 252); // slate-50
+    const hwContent = log.homework || 'No specific homework instructions have been provided.';
+    const splitHw = doc.splitTextToSize(hwContent, 160);
+    const boxHeight = Math.max(40, splitHw.length * 6 + 15);
+    doc.rect(margin, y, 170, boxHeight, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, y, 170, boxHeight, 'S');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(splitHw, margin + 8, y + 10);
+
+    // Submission statement / signature area
+    y += boxHeight + 15;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, 190, y);
+
+    y += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Please keep this sheet handy and show it to your tutor in your live tuition session.', margin, y);
+
+    doc.save(`homework_${log.date}_${log.subject.replace(/\s+/g, '_')}.pdf`);
   };
 
   const exportMonthToPDF = (mItem: any) => {
@@ -343,6 +491,83 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
 
       y += 8;
     });
+
+    // Append Detailed Class Diary Summaries & Assigned Homework
+    const activeDiaryLogs = monthLogs.filter(log => log.notes || log.tutorNotes);
+    if (activeDiaryLogs.length > 0) {
+      doc.addPage();
+      y = 20;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('MONTHLY CLASS DIARIES & HOMEWORK COMPENDIUM', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Detailed offline compilation of class summaries and instructor homework guidance.', margin, y);
+
+      y += 8;
+
+      activeDiaryLogs.forEach((log) => {
+        const partnerId = role === 'student' ? log.tutorId : log.studentId;
+        const partnerUser = users.find(u => u.id === partnerId);
+        const partnerName = partnerUser?.name || 'Academic Partner';
+
+        const logNotes = log.notes ? `"${log.notes}"` : 'No summary notes entered.';
+        const splitLogNotes = doc.splitTextToSize(logNotes, 165);
+        const tutorNotesText = log.tutorNotes ? log.tutorNotes : 'Please revise topics, solve practice questions, and refer to offline textbook exercises.';
+        const splitHwNotes = doc.splitTextToSize(tutorNotesText, 165);
+
+        // Calculate heights dynamically
+        const entryHeight = 12 + (splitLogNotes.length * 4.5) + 12 + (splitHwNotes.length * 4.5) + 8;
+
+        if (y + entryHeight > 275) {
+          doc.addPage();
+          y = 20;
+        }
+
+        // Draw bounding border
+        doc.setFillColor(252, 253, 254);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.rect(margin, y, 180, entryHeight, 'FD');
+
+        // Draw title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${log.date} • ${log.subject}`, margin + 6, y + 7);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Partner: ${partnerName}`, margin + 115, y + 7);
+
+        // Draw Discussion notes
+        let contentY = y + 14;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Class Discussion & Topic Overview:', margin + 6, contentY);
+        contentY += 4.5;
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(51, 65, 85);
+        doc.text(splitLogNotes, margin + 6, contentY);
+
+        // Draw Homework notes
+        contentY += (splitLogNotes.length * 4.5) + 4;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(161, 98, 7); // amber-700
+        doc.text('Assigned Homework Guidelines & Directives:', margin + 6, contentY);
+        contentY += 4.5;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(113, 63, 18);
+        doc.text(splitHwNotes, margin + 6, contentY);
+
+        y += entryHeight + 6;
+      });
+    }
 
     y += 12;
     if (y > 260) {
@@ -1533,6 +1758,151 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
                   </div>
                 </div>
 
+                {/* Homework System */}
+                {role === 'tutor' && (
+                  <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-400 text-[8.5px] font-black uppercase tracking-wider">
+                        <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Teacher's Homework Desk</span>
+                      </div>
+                      {selectedClassLog.homework && (
+                        <span className="bg-emerald-500/10 text-emerald-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+                          Active Homework
+                        </span>
+                      )}
+                    </div>
+                    
+                    <textarea
+                      id="tutor-homework-textarea"
+                      value={homeworkText}
+                      onChange={(e) => setHomeworkText(e.target.value)}
+                      placeholder="Assign offline practice tasks, exercises, or textbook guidelines for the student to show you during live tuition..."
+                      className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl p-3.5 text-xs font-semibold text-slate-800 dark:text-white leading-relaxed placeholder-slate-400 focus:outline-none transition min-h-[90px]"
+                    />
+
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        id="save-homework-button"
+                        onClick={async () => {
+                          setIsSavingHomework(true);
+                          await assignHomework(selectedClassLog.id, homeworkText);
+                          setIsSavingHomework(false);
+                          setHomeworkSuccess(true);
+                          setTimeout(() => setHomeworkSuccess(false), 3000);
+                        }}
+                        disabled={isSavingHomework}
+                        className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm hover:shadow transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingHomework ? 'Saving...' : 'Save & Assign Homework'}
+                      </button>
+
+                      {selectedClassLog.homework && (
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            title="Download PDF Copy"
+                            onClick={() => downloadHomeworkPDF(selectedClassLog)}
+                            className="p-2.5 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Download TXT Copy"
+                            onClick={() => downloadHomeworkTXT(selectedClassLog)}
+                            className="p-2.5 bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 rounded-xl transition cursor-pointer"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {homeworkSuccess && (
+                      <p className="text-[10px] font-black text-emerald-500 uppercase tracking-wider animate-pulse">
+                        ✓ Homework instructions updated & notified to student!
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {role === 'student' && (
+                  <div className="p-5 bg-gradient-to-br from-indigo-50/50 to-blue-50/20 dark:from-indigo-950/20 dark:to-blue-950/10 rounded-3xl border border-indigo-100/50 dark:border-indigo-900/40 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-indigo-500 dark:text-indigo-400 text-[8.5px] font-black uppercase tracking-wider">
+                        <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>My Homework Assignment</span>
+                      </div>
+                      
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        selectedClassLog.homework 
+                          ? 'bg-indigo-500/10 text-indigo-500 dark:bg-indigo-400/10 dark:text-indigo-400 animate-pulse'
+                          : 'bg-slate-400/10 text-slate-400'
+                      }`}>
+                        {selectedClassLog.homework ? 'Action Required' : 'No Tasks'}
+                      </span>
+                    </div>
+
+                    {selectedClassLog.homework ? (
+                      <div className="space-y-3.5">
+                        <div className="bg-white/80 dark:bg-slate-900/60 p-4 rounded-2xl border border-indigo-100/30 dark:border-indigo-900/30 shadow-xs">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-150 leading-relaxed whitespace-pre-wrap">
+                            {selectedClassLog.homework}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2.5">
+                          <button
+                            type="button"
+                            id="student-watch-homework"
+                            onClick={() => setShowWatchHomeworkModal(true)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-[11px] shadow-sm hover:shadow transition cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Watch / Present Homework</span>
+                          </button>
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              id="student-download-pdf-homework"
+                              onClick={() => downloadHomeworkPDF(selectedClassLog)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl font-bold text-[10px] transition cursor-pointer"
+                              title="Download PDF file"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>PDF</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              id="student-download-txt-homework"
+                              onClick={() => downloadHomeworkTXT(selectedClassLog)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-[10px] transition cursor-pointer"
+                              title="Download TXT file"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>TXT</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 text-center font-medium italic">
+                          💡 Open watch mode to present this homework on screen during live tuition.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          No homework instructions have been assigned for this class log.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Custom Notes Section */}
                 {selectedClassLog.notes && (
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -2281,6 +2651,105 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
           )}
         </div>
       </div>
+
+      {/* Homework Presentation Overlay (Watch Mode) */}
+      <AnimatePresence>
+        {showWatchHomeworkModal && selectedClassLog && (
+          <div className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="bg-indigo-900 dark:bg-indigo-950 px-8 py-6 flex items-center justify-between text-white border-b border-indigo-950/20">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300">Live Presentation Deck</span>
+                  <h3 className="text-base font-black uppercase tracking-tight mt-0.5">Tuition Homework Reader</h3>
+                </div>
+                <button 
+                  onClick={() => setShowWatchHomeworkModal(false)}
+                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-8 overflow-y-auto space-y-6 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
+                {/* Header Card */}
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xs flex flex-wrap gap-y-4">
+                  <div className="w-1/2">
+                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Course / Subject</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-white mt-0.5">{selectedClassLog.subject}</p>
+                  </div>
+                  <div className="w-1/2">
+                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Session Date</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-white mt-0.5">{selectedClassLog.date}</p>
+                  </div>
+                  <div className="w-1/2">
+                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Academic Mentor</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                      {users.find(u => u.id === selectedClassLog.tutorId)?.name || 'Your Mentor'}
+                    </p>
+                  </div>
+                  <div className="w-1/2">
+                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Student</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                      {users.find(u => u.id === selectedClassLog.studentId)?.name || 'Active Student'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Text Paper */}
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[1.8rem] border border-indigo-100 dark:border-slate-800 shadow-sm relative min-h-[220px]">
+                  {/* Visual binder decoration */}
+                  <div className="absolute top-4 right-4 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></span>
+                    <span>Screen Sharing Mode</span>
+                  </div>
+                  
+                  <h4 className="text-[9px] font-black uppercase text-indigo-500 tracking-wider mb-3">Homework Directives:</h4>
+                  <p className="font-mono text-base font-bold text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed select-all">
+                    {selectedClassLog.homework}
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-4 flex flex-wrap gap-3 items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 italic">
+                  Present this view during live tutoring session.
+                </span>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => downloadHomeworkPDF(selectedClassLog)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                  <button
+                    onClick={() => downloadHomeworkTXT(selectedClassLog)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download TXT</span>
+                  </button>
+                  <button
+                    onClick={() => setShowWatchHomeworkModal(false)}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 transition cursor-pointer"
+                  >
+                    Close View
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 5. Custom Student Mark-Class Interactive Overlay Modal (Editorial Brutalist Styling) */}
       <AnimatePresence>

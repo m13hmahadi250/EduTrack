@@ -45,7 +45,8 @@
         "ratingSum": { "type": "number" },
         "availabilitySlots": { "type": "object" },
         "showTour": { "type": "boolean" },
-        "whatsappNumber": { "type": "string" }
+        "whatsappNumber": { "type": "string" },
+        "badges": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "role", "name", "email"]
     },
@@ -147,6 +148,29 @@
       },
       "required": ["id", "studentId", "tutorId", "date", "status", "subject", "loggedAt"]
     },
+    "HomeworkAssignment": {
+      "title": "HomeworkAssignment",
+      "description": "Represents a homework assignment created by a tutor for a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "subject": { "type": "string" },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["assigned", "submitted", "completed", "revision"] },
+        "createdAt": { "type": "string" },
+        "submissionNotes": { "type": "string" },
+        "submissionFileUrl": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "feedback": { "type": "string" },
+        "reviewedAt": { "type": "string" }
+      },
+      "required": ["id", "tutorId", "studentId", "subject", "title", "text", "status", "createdAt"]
+    },
     "ErrorLog": {
       "title": "ErrorLog",
       "description": "A secure record of runtime/global errors occurring on the client-side.",
@@ -235,6 +259,10 @@
     "/class_logs/{classLogId}": {
       "schema": "ClassLog",
       "description": "Class date verification logs"
+    },
+    "/homework_assignments/{assignmentId}": {
+      "schema": "HomeworkAssignment",
+      "description": "Homework assignments and status tracking"
     },
     "/error_logs/{errorId}": {
       "schema": "ErrorLog",

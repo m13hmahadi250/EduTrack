@@ -95,6 +95,7 @@ export interface User {
   serviceDiscounts?: number;
   fcmToken?: string;
   whatsappNumber?: string;
+  badges?: string[];
 }
 
 export interface Referral {
@@ -183,6 +184,25 @@ export interface ClassLog {
   reviewedAt?: string;
   notes?: string;
   tutorNotes?: string;
+  homework?: string;
+}
+
+export interface HomeworkAssignment {
+  id: string;
+  tutorId: string;
+  studentId: string;
+  subject: string;
+  title: string;
+  text: string;
+  pdfUrl?: string;
+  dueDate?: string;
+  status: 'assigned' | 'submitted' | 'completed' | 'revision';
+  createdAt: string;
+  submissionNotes?: string;
+  submissionFileUrl?: string;
+  submittedAt?: string;
+  feedback?: string;
+  reviewedAt?: string;
 }
 
 interface AppState {
@@ -194,6 +214,7 @@ interface AppState {
   messages: Message[];
   notifications: Notification[];
   classLogs: ClassLog[];
+  homeworkAssignments: HomeworkAssignment[];
   referrals: Referral[];
   isLoading: boolean;
   isInitialized: boolean;
@@ -215,7 +236,14 @@ interface AppState {
   // Class verification actions
   logClass: (studentId: string, tutorId: string, subject: string, date: string, notes?: string) => Promise<void>;
   verifyClass: (classLogId: string, status: 'verified' | 'disputed', notes?: string) => Promise<void>;
+  assignHomework: (classLogId: string, homework: string) => Promise<void>;
   deleteClassLog: (classLogId: string) => Promise<void>;
+
+  // Homework Assignments actions
+  createHomeworkAssignment: (assignment: Omit<HomeworkAssignment, 'id' | 'status' | 'createdAt'>) => Promise<void>;
+  submitHomeworkCompletion: (assignmentId: string, submissionNotes: string, submissionFileUrl?: string) => Promise<void>;
+  reviewHomeworkAssignment: (assignmentId: string, status: 'completed' | 'revision', feedback?: string) => Promise<void>;
+  deleteHomeworkAssignment: (assignmentId: string) => Promise<void>;
   
   // Admin actions
   verifyTutor: (id: string, type: 'nid' | 'academic', status: 'approved' | 'rejected') => Promise<void>;
@@ -387,7 +415,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     } else {
       cleanupListeners();
-      set({ currentUser: null, users: [], payments: [], messages: [], isLoading: false, isInitialized: true });
+      set({ currentUser: null, users: [], payments: [], messages: [], homeworkAssignments: [], isLoading: false, isInitialized: true });
     }
   });
 
@@ -400,6 +428,7 @@ export const useAppStore = create<AppState>((set, get) => {
     messages: [],
     notifications: [],
     classLogs: [],
+    homeworkAssignments: [],
     referrals: [],
     isLoading: true,
     isInitialized: false,
@@ -1236,11 +1265,128 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
+    assignHomework: async (classLogId, homework) => {
+      try {
+        await updateDoc(doc(db, 'class_logs', classLogId), { homework });
+
+        const log = get().classLogs.find(l => l.id === classLogId);
+        if (log) {
+          const tutor = get().currentUser;
+          const tutorName = tutor?.name || 'Your tutor';
+          await get().sendNotification(
+            log.studentId,
+            'New Homework Assigned',
+            `${tutorName} has assigned homework for ${log.subject} on ${log.date}.`,
+            'info'
+          );
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `class_logs/${classLogId}`);
+      }
+    },
+
     deleteClassLog: async (classLogId) => {
       try {
         await deleteDoc(doc(db, 'class_logs', classLogId));
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, `class_logs/${classLogId}`);
+      }
+    },
+
+    createHomeworkAssignment: async (assignmentData) => {
+      try {
+        const id = `hw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const newAssignment: HomeworkAssignment = {
+          ...assignmentData,
+          id,
+          status: 'assigned',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'homework_assignments', id), newAssignment);
+
+        // Notify Student
+        const tutor = get().currentUser;
+        const tutorName = tutor?.name || 'Your tutor';
+        await get().sendNotification(
+          assignmentData.studentId,
+          'New Homework Assignment',
+          `${tutorName} has assigned you a new homework: "${assignmentData.title}".`,
+          'info'
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'homework_assignments');
+      }
+    },
+
+    submitHomeworkCompletion: async (assignmentId, submissionNotes, submissionFileUrl) => {
+      try {
+        const assignment = get().homeworkAssignments.find(h => h.id === assignmentId);
+        if (!assignment) throw new Error('Homework assignment not found');
+
+        const updates: Partial<HomeworkAssignment> = {
+          status: 'submitted',
+          submissionNotes,
+          submittedAt: new Date().toISOString()
+        };
+        if (submissionFileUrl !== undefined) {
+          updates.submissionFileUrl = submissionFileUrl;
+        }
+
+        await updateDoc(doc(db, 'homework_assignments', assignmentId), updates);
+
+        // Notify Tutor
+        const student = get().currentUser;
+        const studentName = student?.name || 'Your student';
+        await get().sendNotification(
+          assignment.tutorId,
+          'Homework Submitted',
+          `${studentName} has submitted completion report for: "${assignment.title}".`,
+          'success'
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `homework_assignments/${assignmentId}`);
+      }
+    },
+
+    reviewHomeworkAssignment: async (assignmentId, status, feedback) => {
+      try {
+        const assignment = get().homeworkAssignments.find(h => h.id === assignmentId);
+        if (!assignment) throw new Error('Homework assignment not found');
+
+        const updates: Partial<HomeworkAssignment> = {
+          status,
+          reviewedAt: new Date().toISOString()
+        };
+        if (feedback !== undefined) {
+          updates.feedback = feedback;
+        }
+
+        await updateDoc(doc(db, 'homework_assignments', assignmentId), updates);
+
+        // Notify Student
+        const tutor = get().currentUser;
+        const tutorName = tutor?.name || 'Your tutor';
+        const titleText = status === 'completed' ? 'Homework Completed' : 'Homework Needs Revision';
+        const bodyText = status === 'completed'
+          ? `${tutorName} marked your homework "${assignment.title}" as completed!`
+          : `${tutorName} requested revision for your homework "${assignment.title}".`;
+
+        await get().sendNotification(
+          assignment.studentId,
+          titleText,
+          bodyText,
+          status === 'completed' ? 'success' : 'warning'
+        );
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `homework_assignments/${assignmentId}`);
+      }
+    },
+
+    deleteHomeworkAssignment: async (assignmentId) => {
+      try {
+        await deleteDoc(doc(db, 'homework_assignments', assignmentId));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `homework_assignments/${assignmentId}`);
       }
     },
 
@@ -1509,6 +1655,23 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     handleFirestoreError(error, OperationType.LIST, 'class_logs');
   });
   activeUnsubscribes.push(unsubClassLogs);
+
+  // Listen to homework assignments
+  let homeworkQuery;
+  if (role === 'student') {
+    homeworkQuery = query(collection(db, 'homework_assignments'), where('studentId', '==', uid));
+  } else if (role === 'tutor') {
+    homeworkQuery = query(collection(db, 'homework_assignments'), where('tutorId', '==', uid));
+  } else {
+    homeworkQuery = query(collection(db, 'homework_assignments'));
+  }
+  const unsubHomework = onSnapshot(homeworkQuery, (snapshot) => {
+    const homeworkAssignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HomeworkAssignment));
+    set({ homeworkAssignments });
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'homework_assignments');
+  });
+  activeUnsubscribes.push(unsubHomework);
 
   // Listen to typing indicators
   const unsubTyping = onSnapshot(collection(db, 'typing'), (snapshot) => {
