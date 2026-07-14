@@ -32,6 +32,69 @@ export default function MessageToastCenter() {
   const notifiedNotifIdsRef = useRef<Set<string>>(new Set());
   const initialNotifsRegisteredRef = useRef(false);
 
+  // Helper to dispatch standard or Service Worker-driven native notifications (works on mobile PWA and PC)
+  const triggerNativeNotification = async (
+    title: string,
+    body: string,
+    options: {
+      icon?: string;
+      tag?: string;
+      onClickUrl?: string;
+      onClickAction?: () => void;
+    } = {}
+  ) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+
+    // Try service worker registration first (highest compatibility for mobile PWA and PC browsers)
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration && 'showNotification' in registration) {
+          const destinationUrl = options.onClickUrl 
+            ? new URL(options.onClickUrl, window.location.origin).href 
+            : window.location.origin + '/';
+
+          await registration.showNotification(title, {
+            body,
+            icon: options.icon || '/favicon.ico',
+            badge: '/favicon.ico',
+            tag: options.tag,
+            vibrate: [100, 50, 100],
+            data: destinationUrl
+          } as any);
+          return;
+        }
+      } catch (swErr) {
+        console.warn('Failed to dispatch notification via Service Worker, falling back to legacy constructor:', swErr);
+      }
+    }
+
+    // Fallback to legacy window.Notification constructor
+    try {
+      const legacyNotif = new window.Notification(title, {
+        body,
+        icon: options.icon || '/favicon.ico',
+        tag: options.tag,
+        silent: false,
+        requireInteraction: false
+      });
+
+      legacyNotif.onclick = () => {
+        window.focus();
+        if (options.onClickAction) {
+          options.onClickAction();
+        } else if (options.onClickUrl) {
+          navigate(options.onClickUrl);
+        }
+        legacyNotif.close();
+      };
+    } catch (err) {
+      console.warn('Failed to dispatch legacy desktop notification:', err);
+    }
+  };
+
   // Check notification permissions and prompt nicely on load
   useEffect(() => {
     if ('Notification' in window) {
@@ -57,10 +120,10 @@ export default function MessageToastCenter() {
         
         // Spawn a pilot transmission notification to confirm connectivity
         if (permission === 'granted') {
-          new window.Notification('System Alert', {
-            body: 'Desktop notifications successfully linked to your device.',
+          triggerNativeNotification('System Alert', 'Notifications successfully linked to your device.', {
             icon: '/favicon.ico',
-            tag: 'edutrack-confirm'
+            tag: 'edutrack-confirm',
+            onClickUrl: '/'
           });
         }
       } catch (err) {
@@ -168,26 +231,12 @@ export default function MessageToastCenter() {
             }
           ]);
 
-          // 2. Trigger native OS / desktop notification system
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              const nativeNotif = new window.Notification(`New Message from ${senderName}`, {
-                body: m.content,
-                icon: senderAvatar || '/favicon.ico',
-                tag: 'edutrack-msg-' + m.senderId,
-                silent: false,
-                requireInteraction: false
-              });
-
-              nativeNotif.onclick = () => {
-                window.focus();
-                navigate('/messages');
-                nativeNotif.close();
-              };
-            } catch (err) {
-              console.warn('Failed to dispatch native desktop notification:', err);
-            }
-          }
+          // 2. Trigger native OS / desktop / mobile notification system
+          triggerNativeNotification(`New Message from ${senderName}`, m.content, {
+            icon: senderAvatar || '/favicon.ico',
+            tag: 'edutrack-msg-' + m.senderId,
+            onClickUrl: '/messages'
+          });
 
           // Automatically clear this message toast after 6 seconds
           setTimeout(() => {
@@ -239,24 +288,11 @@ export default function MessageToastCenter() {
         ]);
 
         // 2. Trigger native OS / desktop / mobile notification system
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            const nativeNotif = new window.Notification(n.title || 'EduTrack System Alert', {
-              body: n.message,
-              icon: '/favicon.ico',
-              tag: 'edutrack-notif-' + n.id,
-              silent: false,
-              requireInteraction: false
-            });
-
-            nativeNotif.onclick = () => {
-              window.focus();
-              nativeNotif.close();
-            };
-          } catch (err) {
-            console.warn('Failed to dispatch native desktop notification:', err);
-          }
-        }
+        triggerNativeNotification(n.title || 'EduTrack System Alert', n.message, {
+          icon: '/favicon.ico',
+          tag: 'edutrack-notif-' + n.id,
+          onClickUrl: '/'
+        });
 
         // Automatically clear this general notification toast after 6 seconds
         setTimeout(() => {
