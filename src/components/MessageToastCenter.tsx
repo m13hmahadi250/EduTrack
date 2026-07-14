@@ -1,20 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useAppStore, Message } from '../store';
+import { useAppStore, Message, Notification as AppNotification } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, WifiOff, Wifi, ArrowRight, BellRing, Settings } from 'lucide-react';
 
 interface ActiveToast {
   id: string;
-  type: 'message' | 'online' | 'offline';
+  type: 'message' | 'online' | 'offline' | 'notification';
   title?: string;
   content: string;
   senderName: string;
   senderAvatar?: string;
+  notifType?: 'info' | 'success' | 'warning' | 'error';
 }
 
 export default function MessageToastCenter() {
-  const { messages, currentUser, users } = useAppStore();
+  const { messages, currentUser, users, notifications } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [toasts, setToasts] = useState<ActiveToast[]>([]);
@@ -28,6 +29,8 @@ export default function MessageToastCenter() {
   
   const initializedRef = useRef(false);
   const notifiedIdsRef = useRef<Set<string>>(new Set());
+  const notifiedNotifIdsRef = useRef<Set<string>>(new Set());
+  const initialNotifsRegisteredRef = useRef(false);
 
   // Check notification permissions and prompt nicely on load
   useEffect(() => {
@@ -195,6 +198,74 @@ export default function MessageToastCenter() {
     });
   }, [messages, currentUser, users, location.pathname, navigate]);
 
+  // Monitor incoming general notifications for Toast & Native trigger
+  useEffect(() => {
+    if (!currentUser) {
+      initialNotifsRegisteredRef.current = false;
+      notifiedNotifIdsRef.current.clear();
+      return;
+    }
+
+    // On initial mount or auth transition, register existing unread notifications to avoid duplicate spamming
+    if (!initialNotifsRegisteredRef.current) {
+      notifications.forEach(n => {
+        if (n.userId === currentUser.id && !n.isRead) {
+          notifiedNotifIdsRef.current.add(n.id);
+        }
+      });
+      initialNotifsRegisteredRef.current = true;
+      return;
+    }
+
+    notifications.forEach(n => {
+      // Condition check for qualifying notifications:
+      // - Belongs to current logged-in user
+      // - Unread
+      // - Not previously processed by this controller
+      if (n.userId === currentUser.id && !n.isRead && !notifiedNotifIdsRef.current.has(n.id)) {
+        notifiedNotifIdsRef.current.add(n.id);
+
+        // 1. Trigger in-app toast component
+        setToasts(prev => [
+          ...prev,
+          {
+            id: n.id,
+            type: 'notification',
+            title: n.title || 'System Notification',
+            content: n.message,
+            senderName: 'EduTrack Alert',
+            notifType: n.type
+          }
+        ]);
+
+        // 2. Trigger native OS / desktop / mobile notification system
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            const nativeNotif = new window.Notification(n.title || 'EduTrack System Alert', {
+              body: n.message,
+              icon: '/favicon.ico',
+              tag: 'edutrack-notif-' + n.id,
+              silent: false,
+              requireInteraction: false
+            });
+
+            nativeNotif.onclick = () => {
+              window.focus();
+              nativeNotif.close();
+            };
+          } catch (err) {
+            console.warn('Failed to dispatch native desktop notification:', err);
+          }
+        }
+
+        // Automatically clear this general notification toast after 6 seconds
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== n.id));
+        }, 6000);
+      }
+    });
+  }, [notifications, currentUser]);
+
   const handleDismiss = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -203,6 +274,9 @@ export default function MessageToastCenter() {
   const handleToastClick = (toast: ActiveToast) => {
     if (toast.type === 'message') {
       navigate('/messages');
+      setToasts(prev => prev.filter(t => t.id !== toast.id));
+    } else if (toast.type === 'notification') {
+      useAppStore.getState().markAsRead(toast.id);
       setToasts(prev => prev.filter(t => t.id !== toast.id));
     }
   };
@@ -259,6 +333,7 @@ export default function MessageToastCenter() {
           const isMsg = toast.type === 'message';
           const isOnlineToast = toast.type === 'online';
           const isOfflineToast = toast.type === 'offline';
+          const isNotif = toast.type === 'notification';
 
           return (
             <motion.div
@@ -269,18 +344,29 @@ export default function MessageToastCenter() {
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
               onClick={() => handleToastClick(toast)}
               className={`pointer-events-auto w-full border text-[#0B132B] dark:text-white p-5 rounded-[2rem] shadow-2xl relative overflow-hidden group transition-all duration-300 ${
-                isMsg ? 'cursor-pointer hover:translate-x-[-4px] hover:shadow-[#0D5BFF]/10' : ''
+                isMsg || isNotif ? 'cursor-pointer hover:translate-x-[-4px]' : ''
               } ${
                 isOnlineToast 
                   ? 'bg-emerald-50/90 dark:bg-emerald-950/90 border-emerald-500/20 shadow-emerald-500/5' 
                   : isOfflineToast 
                   ? 'bg-amber-50/90 dark:bg-amber-950/90 border-amber-500/20 shadow-amber-500/5' 
+                  : isNotif
+                  ? toast.notifType === 'success'
+                    ? 'bg-emerald-50/95 dark:bg-emerald-950/95 border-emerald-500/20 hover:shadow-emerald-500/10'
+                    : toast.notifType === 'error'
+                    ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-500/20 hover:shadow-rose-500/10'
+                    : toast.notifType === 'warning'
+                    ? 'bg-amber-50/95 dark:bg-amber-950/95 border-amber-500/20 hover:shadow-amber-500/10'
+                    : 'bg-indigo-50/95 dark:bg-indigo-950/95 border-indigo-500/20 hover:shadow-indigo-500/10'
                   : 'bg-white/95 dark:bg-[#0B132B]/95 border-slate-100 dark:border-slate-800/80'
               }`}
             >
               {/* Highlight background elements for visuals */}
               {isMsg && (
                 <div className="absolute top-0 right-0 w-24 h-24 bg-[#0D5BFF]/5 rounded-full blur-2xl group-hover:bg-[#0D5BFF]/10 transition-all duration-500"></div>
+              )}
+              {isNotif && (
+                <div className="absolute top-0 right-0 w-24 h-24 bg-current/5 rounded-full blur-2xl group-hover:bg-current/10 transition-all duration-500"></div>
               )}
 
               <div className="flex justify-between items-start gap-4 relative z-10">
@@ -291,6 +377,14 @@ export default function MessageToastCenter() {
                       ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/10' 
                       : isOfflineToast 
                       ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/10'
+                      : isNotif
+                      ? toast.notifType === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        : toast.notifType === 'error'
+                        ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                        : toast.notifType === 'warning'
+                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
                       : 'bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-[#0D5BFF]/20 border-transparent overflow-hidden'
                   }`}>
                     {isMsg ? (
@@ -303,6 +397,16 @@ export default function MessageToastCenter() {
                         />
                       ) : (
                         <span className="font-sans font-black italic text-sm">{toast.senderName.charAt(0).toUpperCase()}</span>
+                      )
+                    ) : isNotif ? (
+                      toast.notifType === 'success' ? (
+                        <span className="text-emerald-500 font-bold text-lg">✓</span>
+                      ) : toast.notifType === 'error' ? (
+                        <span className="text-rose-500 font-bold text-lg">✕</span>
+                      ) : toast.notifType === 'warning' ? (
+                        <span className="text-amber-500 font-bold text-lg">⚠️</span>
+                      ) : (
+                        <span className="text-indigo-500 font-bold text-lg">ℹ</span>
                       )
                     ) : isOnlineToast ? (
                       <Wifi className="w-5 h-5 animate-pulse" />
@@ -318,6 +422,14 @@ export default function MessageToastCenter() {
                         ? 'text-emerald-600 dark:text-emerald-400' 
                         : isOfflineToast 
                         ? 'text-amber-600 dark:text-amber-500' 
+                        : isNotif
+                        ? toast.notifType === 'success'
+                          ? 'text-emerald-600 dark:text-emerald-400 font-black'
+                          : toast.notifType === 'error'
+                          ? 'text-rose-600 dark:text-rose-400 font-black'
+                          : toast.notifType === 'warning'
+                          ? 'text-amber-600 dark:text-amber-400 font-black'
+                          : 'text-indigo-600 dark:text-indigo-400 font-black'
                         : 'text-[#0D5BFF]'
                     }`}>
                       {isMsg ? 'DECONSTRUCTING TRANSMISSION' : toast.title}
@@ -351,10 +463,10 @@ export default function MessageToastCenter() {
               </div>
 
               {/* Navigation CTA footer for actual messages */}
-              {isMsg && (
+              {(isMsg || isNotif) && (
                 <div className="mt-4 pt-3 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] relative z-10 group-hover:translate-x-1 transition-transform">
                   <span className="flex items-center gap-1.5 font-bold">
-                    View transmission in hull <ArrowRight className="w-3" />
+                    {isMsg ? 'View transmission in hull' : 'Mark as read'} <ArrowRight className="w-3" />
                   </span>
                   
                   {/* Subtle timer visual bar */}
