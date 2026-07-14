@@ -1302,7 +1302,13 @@ export const useAppStore = create<AppState>((set, get) => {
           status: 'assigned',
           createdAt: new Date().toISOString()
         };
-        await setDoc(doc(db, 'homework_assignments', id), newAssignment);
+        
+        // Remove undefined values to prevent Firestore validation failures
+        const cleanedAssignment = Object.fromEntries(
+          Object.entries(newAssignment).filter(([_, value]) => value !== undefined)
+        );
+
+        await setDoc(doc(db, 'homework_assignments', id), cleanedAssignment);
 
         // Notify Student
         const tutor = get().currentUser;
