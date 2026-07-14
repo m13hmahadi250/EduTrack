@@ -539,8 +539,20 @@ export default function StudentDashboard() {
   const [pendingRatingSession, setPendingRatingSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Look for completed sessions that haven't been rated yet
-    const completedUnrated = sessions.find(s => s.status === 'completed' && !s.rating && s.studentId === currentUser?.id);
+    // Look for completed sessions that haven't been rated yet and haven't been dismissed
+    let dismissed: string[] = [];
+    try {
+      dismissed = JSON.parse(localStorage.getItem('dismissed_ratings') || '[]');
+    } catch (e) {
+      console.warn('Failed to parse dismissed_ratings from localStorage:', e);
+    }
+
+    const completedUnrated = sessions.find(s => 
+      s.status === 'completed' && 
+      !s.rating && 
+      s.studentId === currentUser?.id &&
+      !dismissed.includes(s.id)
+    );
     if (completedUnrated) {
       setPendingRatingSession(completedUnrated);
     }
@@ -3388,7 +3400,20 @@ export default function StudentDashboard() {
             <RatingModal 
               sessionId={pendingRatingSession.id}
               tutorName={users.find(u => u.id === pendingRatingSession.tutorId)?.name || 'Your Tutor'}
-              onClose={() => setPendingRatingSession(null)}
+              onClose={() => {
+                if (pendingRatingSession) {
+                  try {
+                    const dismissed = JSON.parse(localStorage.getItem('dismissed_ratings') || '[]');
+                    if (!dismissed.includes(pendingRatingSession.id)) {
+                      dismissed.push(pendingRatingSession.id);
+                      localStorage.setItem('dismissed_ratings', JSON.stringify(dismissed));
+                    }
+                  } catch (e) {
+                    console.warn('Failed to save dismissed rating to localStorage:', e);
+                  }
+                }
+                setPendingRatingSession(null);
+              }}
             />
           </Suspense>
         )}

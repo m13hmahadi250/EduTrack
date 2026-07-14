@@ -95,7 +95,7 @@ export default function Home() {
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
 
-  const { currentUser, updateUser } = useAppStore();
+  const { currentUser, updateUser, androidAppLink } = useAppStore();
   const [localFavorites, setLocalFavorites] = React.useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('edutrack_saved_tutors');
@@ -760,7 +760,7 @@ export default function Home() {
                    Get Started Now
                  </Link>
                  <a 
-                   href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk" 
+                    href={androidAppLink}
                    target="_blank" 
                    rel="noopener noreferrer" 
                    onClick={() => logDownloadAttempt('footer_cta')}
@@ -840,7 +840,7 @@ export default function Home() {
               Download our official mobile app for real-time tracking, alerts, and more.
             </p>
             <a 
-              href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk" 
+              href={androidAppLink} 
               target="_blank" 
               rel="noopener noreferrer" 
               onClick={() => logDownloadAttempt('footer')}
@@ -927,7 +927,7 @@ export default function Home() {
               {/* Action Buttons */}
               <div className="flex flex-col gap-3">
                 <a
-                  href="https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk"
+                  href={androidAppLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => { logDownloadAttempt('popup'); handleDismissPopup(); }}

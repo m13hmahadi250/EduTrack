@@ -52,6 +52,8 @@ export default function AdminDashboard() {
     messages,
     promotionalBannerText,
     updatePromotionalBannerText,
+    androidAppLink,
+    updateAndroidAppLink,
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1117,47 +1119,71 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm max-w-4xl transition-colors mx-auto"
+            className="space-y-12 max-w-4xl mx-auto"
           >
-            <div className="mb-10">
-              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-2xl flex items-center justify-center mb-6 border border-amber-100 dark:border-amber-900/30">
-                <Megaphone className="w-6 h-6" />
+            {/* Promotional Ticker Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
+              <div className="mb-10">
+                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-2xl flex items-center justify-center mb-6 border border-amber-100 dark:border-amber-900/30">
+                  <Megaphone className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
+                  Promotional Banner Control
+                </h2>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                  Configure live scrolling ticker announcements broadcasted globally to all users.
+                </p>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
-                Promotional Banner Control
-              </h2>
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
-                Configure live scrolling ticker announcements broadcasted globally to all users.
-              </p>
-            </div>
 
-            {/* Live Ticker Mock Preview */}
-            <div className="mb-12">
-              <span className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-3">
-                Live Broadcast Ticker Preview
-              </span>
-              <div className="bg-[#0B132B] dark:bg-slate-950 text-white py-4 rounded-3xl overflow-hidden whitespace-nowrap border border-white/5 relative shadow-inner">
-                <div className="flex items-center">
-                  <div className="flex items-center space-x-12 px-12 animate-marquee">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="flex items-center space-x-8 flex-shrink-0">
-                        <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
-                          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                          {promotionalBannerText || "YOUR ANNOUNCEMENT WILL APPEAR HERE..."}
-                          <Zap className="w-4 h-4 text-[#0D5BFF] shrink-0" />
-                        </span>
-                      </div>
-                    ))}
+              {/* Live Ticker Mock Preview */}
+              <div className="mb-12">
+                <span className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-3">
+                  Live Broadcast Ticker Preview
+                </span>
+                <div className="bg-[#0B132B] dark:bg-slate-950 text-white py-4 rounded-3xl overflow-hidden whitespace-nowrap border border-white/5 relative shadow-inner">
+                  <div className="flex items-center">
+                    <div className="flex items-center space-x-12 px-12 animate-marquee">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="flex items-center space-x-8 flex-shrink-0">
+                          <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
+                            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                            {promotionalBannerText || "YOUR ANNOUNCEMENT WILL APPEAR HERE..."}
+                            <Zap className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Banner Editor Form */}
+              <BannerEditorForm 
+                currentText={promotionalBannerText} 
+                onSave={updatePromotionalBannerText} 
+              />
             </div>
 
-            {/* Banner Editor Form */}
-            <BannerEditorForm 
-              currentText={promotionalBannerText} 
-              onSave={updatePromotionalBannerText} 
-            />
+            {/* Android App Link Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
+              <div className="mb-10">
+                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 border border-emerald-100 dark:border-emerald-900/30">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
+                  Android Application Control
+                </h2>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                  Update and manage the official Android application package (.apk) link.
+                </p>
+              </div>
+
+              {/* App Link Editor Form */}
+              <AppLinkEditorForm 
+                currentLink={androidAppLink} 
+                onSave={updateAndroidAppLink} 
+              />
+            </div>
           </motion.div>
         )}
 
@@ -1239,6 +1265,27 @@ export default function AdminDashboard() {
                   Primary layout banner
                 </p>
               </div>
+            </div>
+
+            {/* Android App Link Card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 sm:p-10 md:p-12 shadow-sm transition-colors">
+              <div className="mb-8">
+                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 border border-emerald-100 dark:border-emerald-900/30">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
+                  Android Application Control
+                </h2>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                  Update and manage the official Android application package (.apk) link.
+                </p>
+              </div>
+
+              {/* App Link Editor Form */}
+              <AppLinkEditorForm 
+                currentLink={androidAppLink} 
+                onSave={updateAndroidAppLink} 
+              />
             </div>
 
             {/* Audit Log Table */}
@@ -2174,6 +2221,87 @@ function BannerEditorForm({ currentText, onSave }: BannerEditorFormProps) {
           className="px-6 py-3 bg-[#0D5BFF] hover:bg-[#0D5BFF]/95 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSaving ? "Publishing..." : "Apply Live Changes"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+interface AppLinkEditorFormProps {
+  currentLink: string;
+  onSave: (link: string) => Promise<void>;
+}
+
+function AppLinkEditorForm({ currentLink, onSave }: AppLinkEditorFormProps) {
+  const [inputLink, setInputLink] = useState(currentLink);
+  const [isSaving, setIsSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setInputLink(currentLink);
+  }, [currentLink]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputLink.trim()) return;
+    setIsSaving(true);
+    setSuccess(false);
+    try {
+      await onSave(inputLink);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-2">
+        <label className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+          Android App Link (.apk URL)
+        </label>
+        <input
+          type="url"
+          value={inputLink}
+          onChange={(e) => setInputLink(e.target.value)}
+          placeholder="Enter Android app APK download URL..."
+          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-medium focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent outline-none text-[#0B132B] dark:text-white transition-all"
+        />
+        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+          This URL will be linked to all "Download APK" buttons on the website.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setInputLink("https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk")}
+          className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-slate-600 dark:text-slate-300 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+        >
+          Reset to Default Release
+        </button>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        {success ? (
+          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-pulse">
+            ✓ Link saved successfully!
+          </span>
+        ) : (
+          <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+            Changes will propagate globally in real-time.
+          </span>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSaving || !inputLink.trim()}
+          className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSaving ? "Saving..." : "Save App Link"}
         </button>
       </div>
     </form>

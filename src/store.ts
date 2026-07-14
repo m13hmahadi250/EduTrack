@@ -257,6 +257,8 @@ interface AppState {
   // Promotional banner settings
   promotionalBannerText: string;
   updatePromotionalBannerText: (text: string) => Promise<void>;
+  androidAppLink: string;
+  updateAndroidAppLink: (link: string) => Promise<void>;
 
   // Referral actions
   fetchReferrals: () => Promise<void>;
@@ -317,16 +319,25 @@ function cleanupListeners() {
 }
 
 export const useAppStore = create<AppState>((set, get) => {
-  // Listen for global system configurations like promotional banner
+  // Listen for global system configurations like promotional banner & android app link
   onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
     if (snapshot.exists()) {
       const data = snapshot.data();
-      if (data && data.promotionalBannerText !== undefined) {
-        set({ promotionalBannerText: data.promotionalBannerText });
+      const updates: Partial<AppState> = {};
+      if (data) {
+        if (data.promotionalBannerText !== undefined) {
+          updates.promotionalBannerText = data.promotionalBannerText;
+        }
+        if (data.androidAppLink !== undefined) {
+          updates.androidAppLink = data.androidAppLink;
+        }
+        if (Object.keys(updates).length > 0) {
+          set(updates);
+        }
       }
     }
   }, (error) => {
-    console.warn("Non-blocking: could not fetch promotional banner config:", error);
+    console.warn("Non-blocking: could not fetch system config:", error);
   });
 
   // Listen for Auth changes
@@ -397,10 +408,19 @@ export const useAppStore = create<AppState>((set, get) => {
     theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
 
     promotionalBannerText: "0% COMMISSION FOR INTERNATIONAL ISLAMIC UNIVERSITY CHITTAGONG (IIUC) STUDENTS  • JOIN AS A TUTOR TODAY AND GET 0% COMMISSION FOR THE FIRST 3 MONTHS! • VERIFIED EXPERT MENTORS AVAILABLE IN OUR NEAR • ",
+    androidAppLink: "https://github.com/m13hmahadi250/EduTrack-Bangladesh-APP/releases/download/edutrackbd/EduTrack.Bangladesh.apk",
 
     updatePromotionalBannerText: async (text: string) => {
       try {
         await setDoc(doc(db, 'system', 'config'), { promotionalBannerText: text }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'system/config');
+      }
+    },
+
+    updateAndroidAppLink: async (link: string) => {
+      try {
+        await setDoc(doc(db, 'system', 'config'), { androidAppLink: link }, { merge: true });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, 'system/config');
       }
