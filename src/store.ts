@@ -93,6 +93,7 @@ export interface User {
   referralCode?: string;
   referralPoints?: number;
   serviceDiscounts?: number;
+  fcmToken?: string;
   whatsappNumber?: string;
 }
 

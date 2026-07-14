@@ -1905,10 +1905,10 @@ export default function TutorDashboard() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="grid lg:grid-cols-3 gap-12"
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12"
             >
               <div className="lg:col-span-1 space-y-8">
-                <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-start md:items-center">
+                <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-start md:items-center w-full">
                   <div className="mb-8">
                     <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
                       <ImageUpload
@@ -2067,8 +2067,8 @@ export default function TutorDashboard() {
 
               <div className="lg:col-span-2">
                 {isEditingProfile ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] md:rounded-[4rem] p-6 sm:p-12 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
-                    <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-12">
+                  <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
+                    <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-8 sm:mb-12">
                       Update Academic Data
                     </h3>
 
@@ -2658,24 +2658,24 @@ export default function TutorDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 lg:p-16 border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-4 mb-8">
-                        <Briefcase className="w-6 h-6 text-[#0D5BFF]" />
-                        <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
+                      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+                        <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
+                        <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                           Academic Bio
                         </h3>
                       </div>
-                      <p className="text-sm font-black uppercase italic text-slate-500 leading-loose tracking-tight border-l-4 border-slate-50 pl-8">
+                      <p className="text-xs sm:text-sm font-black uppercase italic text-slate-500 dark:text-slate-400 leading-loose tracking-tight border-l-4 border-slate-100 dark:border-slate-800 pl-4 sm:pl-8">
                         {currentUser.bio ||
                           "Profile bio pending system update. Set your professional philosophy to attract premium bookings."}
                       </p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-8">
-                      <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                      <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
                         <div className="flex items-center gap-4 mb-6">
                           <GraduationCap className="w-5 h-5 text-emerald-500" />
-                          <h3 className="text-sm font-black text-[#0B132B] uppercase italic">
+                          <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">
                             Expertise
                           </h3>
                         </div>
@@ -2683,21 +2683,21 @@ export default function TutorDashboard() {
                           {(currentUser.subjects || ["Pending"]).map((s) => (
                             <span
                               key={s}
-                              className="px-5 py-2 bg-slate-50 border border-slate-100 text-[9px] font-black uppercase italic text-slate-400 rounded-full"
+                              className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-750 text-[9px] font-black uppercase italic text-slate-400 dark:text-slate-300 rounded-full"
                             >
                               {s}
                             </span>
                           ))}
                         </div>
                       </div>
-                      <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 border border-slate-100 shadow-sm">
+                      <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
                         <div className="flex items-center gap-4 mb-6">
                           <Clock className="w-5 h-5 text-amber-500" />
-                          <h3 className="text-sm font-black text-[#0B132B] uppercase italic">
+                          <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">
                             Availability
                           </h3>
                         </div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-loose">
                           {Object.keys(currentUser.availabilitySlots || {})
                             .length > 0
                             ? "Slots Configured"
@@ -2706,10 +2706,10 @@ export default function TutorDashboard() {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 lg:p-16 border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-4 mb-10">
-                        <Calendar className="w-6 h-6 text-[#0D5BFF]" />
-                        <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
+                      <div className="flex items-center gap-4 mb-6 sm:mb-10">
+                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
+                        <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                           Visual Schedule
                         </h3>
                       </div>
@@ -3688,7 +3688,7 @@ const ProfileField = memo(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-full py-5 px-10 text-xs font-black uppercase italic text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] transition-all"
+          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-full py-4 sm:py-5 px-6 sm:px-10 text-xs font-black uppercase italic text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] transition-all"
         />
       </div>
     );

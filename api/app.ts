@@ -301,6 +301,24 @@ app.post("/api/groq/chat", async (req, res) => {
   }
 });
 
+app.post("/api/save-fcm-token", (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: "Token is required" });
+    }
+    
+    console.log(`[FCM Backend Service] Device FCM token registered on backend: ${token.substring(0, 20)}...`);
+    
+    // Returns 200 success response. Since this app utilizes direct Firestore,
+    // we also sync this token directly into the user's Firestore document on the frontend.
+    res.json({ success: true, message: "FCM Token registered on backend successfully" });
+  } catch (error: any) {
+    console.error("[FCM API Error]:", error);
+    res.status(500).json({ error: error.message || "Failed to register FCM token on backend" });
+  }
+});
+
 app.all("/api/*", (req, res) => {
   res.status(404).json({ error: "API Route Not Found", path: req.path });
 });

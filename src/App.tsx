@@ -195,6 +195,48 @@ function LayoutWrapper() {
     }
   }, [isLoggingOut, navigate]);
 
+  // Set up global FCM token receiver callback to bridge with Android App or other senders
+  React.useEffect(() => {
+    (window as any).onFcmTokenReceived = (token: string) => {
+      console.log('[FCM Bridge] Received token from device:', token);
+      if (!token) return;
+
+      localStorage.setItem('fcm_token', token);
+
+      // Call server backend API route
+      fetch('/api/save-fcm-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token })
+      })
+      .then(res => res.json())
+      .then(data => console.log('[FCM Bridge] Server token save response:', data))
+      .catch(err => console.warn('[FCM Bridge] Server token save warning:', err));
+
+      // Associate with current user in Firestore if logged in
+      const activeUser = useAppStore.getState().currentUser;
+      if (activeUser && activeUser.fcmToken !== token) {
+        useAppStore.getState().updateUser(activeUser.id, { fcmToken: token });
+      }
+    };
+
+    return () => {
+      delete (window as any).onFcmTokenReceived;
+    };
+  }, []);
+
+  // Sync token to user document whenever currentUser changes
+  React.useEffect(() => {
+    if (currentUser) {
+      const storedToken = localStorage.getItem('fcm_token');
+      if (storedToken && currentUser.fcmToken !== storedToken) {
+        useAppStore.getState().updateUser(currentUser.id, { fcmToken: storedToken });
+      }
+    }
+  }, [currentUser]);
+
   React.useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
       // Avoid infinite loop if Firebase SDK itself fails or is offline
