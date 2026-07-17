@@ -6,6 +6,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
@@ -381,6 +383,17 @@ export const useAppStore = create<AppState>((set, get) => {
     console.warn("Non-blocking: could not fetch system config:", error);
   });
 
+  // Handle Google Redirect login results (e.g. for iframe environments or popup-blocked fallbacks)
+  getRedirectResult(auth)
+    .then(async (result) => {
+      if (result?.user) {
+        console.log("Redirect sign-in completed successfully for:", result.user.email);
+      }
+    })
+    .catch((error) => {
+      console.error("Error processing Google redirect login result:", error);
+    });
+
   // Listen for Auth changes
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
@@ -416,8 +429,48 @@ export const useAppStore = create<AppState>((set, get) => {
           // Setup real-time listeners for data
           setupListeners(firebaseUser.uid, userData.role, set, get);
         } else {
-          set({ currentUser: null });
-          cleanupListeners();
+          // New user signed in (e.g., via redirect or popup where flow is asynchronous)
+          // Read from localStorage
+          const requestedRoleStr = localStorage.getItem('google_auth_requested_role') as Role | null;
+          let additionalUserData: any = {};
+          try {
+            const storedData = localStorage.getItem('google_auth_additional_user_data');
+            if (storedData) {
+              additionalUserData = JSON.parse(storedData);
+            }
+          } catch (e) {
+            console.error("Error parsing stored google additional user data:", e);
+          }
+
+          // Clean up localStorage
+          localStorage.removeItem('google_auth_requested_role');
+          localStorage.removeItem('google_auth_additional_user_data');
+
+          const lowerGEmail = firebaseUser.email?.toLowerCase();
+          const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
+          const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
+          const newUser: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email!,
+            name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
+            phone: firebaseUser.phoneNumber || '',
+            role: finalRole,
+            balance: 0,
+            isVerified: isMainAdmin ? true : false,
+            isTrackingOn: false,
+            rating: isMainAdmin ? 5 : 0,
+            profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
+            showTour: true,
+            createdAt: new Date().toISOString(),
+            referralPoints: 0,
+            serviceDiscounts: 0,
+            ...additionalUserData
+          };
+
+          const cleanedUser = cleanUndefined(newUser);
+          await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
+          set({ currentUser: cleanedUser });
+          setupListeners(firebaseUser.uid, cleanedUser.role, set, get);
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -672,6 +725,8 @@ export const useAppStore = create<AppState>((set, get) => {
               rating: 5,
               showTour: true,
               createdAt: new Date().toISOString(),
+              referralPoints: 0,
+              serviceDiscounts: 0,
             };
             await setDoc(doc(db, 'users', uid), newUser);
             set({ currentUser: newUser, isLoading: false });
@@ -687,62 +742,24 @@ export const useAppStore = create<AppState>((set, get) => {
 
     loginWithGoogle: async (requestedRole, additionalUserData) => {
       set({ isLoading: true });
+      // Store registration details in localStorage to persist across redirect
+      if (requestedRole) {
+        localStorage.setItem('google_auth_requested_role', requestedRole);
+      } else {
+        localStorage.removeItem('google_auth_requested_role');
+      }
+      if (additionalUserData) {
+        localStorage.setItem('google_auth_additional_user_data', JSON.stringify(additionalUserData));
+      } else {
+        localStorage.removeItem('google_auth_additional_user_data');
+      }
+
       try {
         const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        const { user } = result;
-
-        // Check if user exists in Firestore
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        
-        if (!userDoc.exists()) {
-          // New user from Google
-          const lowerGEmail = user.email?.toLowerCase();
-          const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
-          const newUser: User = {
-            id: user.uid,
-            email: user.email!,
-            name: user.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
-            phone: user.phoneNumber || '',
-            role: isMainAdmin ? 'admin' : (requestedRole || 'student'), // Admin if main email
-            balance: 0,
-            isVerified: isMainAdmin ? true : false,
-            isTrackingOn: false,
-            rating: isMainAdmin ? 5 : 0,
-            profileImage: isMainAdmin ? '/admin_profile.png' : (user.photoURL || ''),
-            showTour: true,
-            createdAt: new Date().toISOString(),
-            ...additionalUserData
-          };
-          const cleanedUser = cleanUndefined(newUser);
-          await setDoc(doc(db, 'users', user.uid), cleanedUser);
-          set({ currentUser: cleanedUser });
-        } else {
-          let userData = userDoc.data() as User;
-          const lowerGEmail = user.email?.toLowerCase();
-          if (lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com') {
-            if (userData.role !== 'admin' || !userData.isVerified) {
-              userData = { ...userData, role: 'admin', isVerified: true };
-              try {
-                await updateDoc(doc(db, 'users', user.uid), { role: 'admin', isVerified: true });
-              } catch (e) {
-                console.error("Error setting Google logged-in admin role:", e);
-              }
-            }
-          }
-          if (userData.role === 'admin') {
-            if (!userData.profileImage || userData.profileImage.startsWith('https://i.pravatar.cc') || userData.profileImage.includes('googleusercontent.com') || userData.profileImage === '' || userData.profileImage === '/admin_profile.svg') {
-              userData.profileImage = '/admin_profile.png';
-              try {
-                await updateDoc(doc(db, 'users', user.uid), { profileImage: '/admin_profile.png' });
-              } catch (e) {
-                console.error("Error updating admin profile image in Firestore google login:", e);
-              }
-            }
-          }
-          set({ currentUser: userData });
-        }
-      } catch (error) {
+        // Use signInWithRedirect directly as recommended for production/iframe environment
+        await signInWithRedirect(auth, provider);
+      } catch (error: any) {
+        console.error("Error initiating redirect sign-in:", error);
         set({ isLoading: false });
         throw error;
       }
@@ -832,8 +849,8 @@ export const useAppStore = create<AppState>((set, get) => {
           createdAt: new Date().toISOString(),
           profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || ''),
           referralCode,
-          referralPoints: finalRole === 'tutor' ? 0 : undefined,
-          serviceDiscounts: finalRole === 'student' ? 0 : undefined
+          referralPoints: 0,
+          serviceDiscounts: 0,
         } as User;
 
         const cleanedUser = cleanUndefined(newUser);
