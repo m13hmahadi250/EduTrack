@@ -339,6 +339,19 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+function cleanUndefined<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined) as any;
+  }
+  const entries = Object.entries(obj).filter(([_, value]) => value !== undefined);
+  return Object.fromEntries(
+    entries.map(([key, value]) => [key, cleanUndefined(value)])
+  ) as any;
+}
+
 let activeUnsubscribes: (() => void)[] = [];
 
 function cleanupListeners() {
@@ -701,8 +714,9 @@ export const useAppStore = create<AppState>((set, get) => {
             createdAt: new Date().toISOString(),
             ...additionalUserData
           };
-          await setDoc(doc(db, 'users', user.uid), newUser);
-          set({ currentUser: newUser });
+          const cleanedUser = cleanUndefined(newUser);
+          await setDoc(doc(db, 'users', user.uid), cleanedUser);
+          set({ currentUser: cleanedUser });
         } else {
           let userData = userDoc.data() as User;
           const lowerGEmail = user.email?.toLowerCase();
@@ -822,9 +836,11 @@ export const useAppStore = create<AppState>((set, get) => {
           serviceDiscounts: finalRole === 'student' ? 0 : undefined
         } as User;
 
+        const cleanedUser = cleanUndefined(newUser);
+
         // Save to Firestore
-        await setDoc(doc(db, 'users', uid), newUser);
-        set({ currentUser: newUser });
+        await setDoc(doc(db, 'users', uid), cleanedUser);
+        set({ currentUser: cleanedUser });
 
         if (referredByCode) {
           try {
@@ -845,16 +861,17 @@ export const useAppStore = create<AppState>((set, get) => {
 
     updateUser: async (id, data) => {
       try {
-        await updateDoc(doc(db, 'users', id), data as any);
+        const cleanedData = cleanUndefined(data);
+        await updateDoc(doc(db, 'users', id), cleanedData as any);
         // Update local state immediately for snappy UI
         const current = get().currentUser;
         if (current?.id === id) {
-          set({ currentUser: { ...current, ...data } as User });
+          set({ currentUser: { ...current, ...cleanedData } as User });
         }
         const usersList = get().users;
         if (usersList.some(u => u.id === id)) {
           set({
-            users: usersList.map(u => u.id === id ? { ...u, ...data } as User : u)
+            users: usersList.map(u => u.id === id ? { ...u, ...cleanedData } as User : u)
           });
         }
       } catch (error) {

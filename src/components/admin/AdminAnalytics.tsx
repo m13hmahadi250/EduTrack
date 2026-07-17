@@ -221,7 +221,7 @@ export default function AdminAnalytics({ users, payments, withdrawals, sessions 
           </div>
           
           <div className="h-64 sm:h-72 w-full flex-1 min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={subjectChartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
                 <XAxis 
                   dataKey="name" 
@@ -279,7 +279,7 @@ export default function AdminAnalytics({ users, payments, withdrawals, sessions 
           </div>
 
           <div className="h-48 sm:h-52 relative flex items-center justify-center my-4">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={paymentDistributionData}

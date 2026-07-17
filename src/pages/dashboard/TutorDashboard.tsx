@@ -4050,7 +4050,7 @@ const EarningsSummaryWidget = memo(
 
         {/* Chart Stage */}
         <div className="h-56 w-full select-none">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
