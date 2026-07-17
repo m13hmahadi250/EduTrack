@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 
@@ -9,6 +9,7 @@ export default function Signup() {
   const [role, setRole] = useState<'student' | 'tutor'>('student');
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState<boolean>(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -138,6 +139,10 @@ export default function Signup() {
       delete data.password;
       
       await signup({ ...data, role }, password, referralCodeInput);
+      
+      setSignupSuccess(true);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       navigate('/dashboard');
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -176,9 +181,9 @@ export default function Signup() {
       }
 
       setError(msg);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } finally {
+      setSignupSuccess(false);
       setLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -187,22 +192,60 @@ export default function Signup() {
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20">
       <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800/85 p-8 relative overflow-hidden">
-        <button 
-          className="absolute top-8 right-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
-          onClick={() => navigate('/')}
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        
-        <div className="mb-8">
-          <h2 className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight uppercase">
-            Create an Account
-          </h2>
-          <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
-            EduTrack Bangladesh • Join our secure community
-          </p>
-        </div>
+        {loading ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-12 px-4 text-center min-h-[360px]"
+          >
+            {signupSuccess ? (
+              <motion.div 
+                initial={{ scale: 0.3, rotate: -45, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: 'spring', damping: 10, stiffness: 100 }}
+                className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6 border border-emerald-500/20"
+              >
+                <CheckCircle2 className="w-10 h-10" />
+              </motion.div>
+            ) : (
+              <div className="relative mb-6">
+                <div className="w-16 h-16 rounded-full border-4 border-slate-100 dark:border-slate-800 flex items-center justify-center">
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
+                    className="absolute w-16 h-16 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent"
+                    style={{ borderColor: `${accentColor} transparent transparent transparent` }}
+                  />
+                  <GraduationCap className={`w-6 h-6 text-slate-400 dark:text-slate-500 animate-pulse`} />
+                </div>
+              </div>
+            )}
+
+            <h3 className="text-lg font-black font-heading text-slate-800 dark:text-white uppercase tracking-wide">
+              {signupSuccess ? "Account Provisioned!" : "Creating Account"}
+            </h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mt-1">
+              {signupSuccess ? "Setting up workspace..." : "Please wait..."}
+            </p>
+          </motion.div>
+        ) : (
+          <>
+            <button 
+              className="absolute top-8 right-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
+              onClick={() => navigate('/')}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="mb-8">
+              <h2 className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight uppercase">
+                Create an Account
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+                EduTrack Bangladesh • Join our secure community
+              </p>
+            </div>
 
         {/* Toggle */}
         <motion.div 
@@ -733,6 +776,8 @@ export default function Signup() {
               const data = { ...formData };
               delete data.password;
               await useAppStore.getState().loginWithGoogle(role, data);
+              setSignupSuccess(true);
+              await new Promise(resolve => setTimeout(resolve, 800));
               navigate('/dashboard');
             } catch (err: any) {
               console.error("Google Auth error:", err);
@@ -755,7 +800,7 @@ export default function Signup() {
                 msg = 'Google Auth Error (invalid-credential). Ensure your Vercel URL is added to "Authorized Domains" in Firebase Console > Authentication > Settings.';
               }
               setError(msg);
-            } finally {
+              setSignupSuccess(false);
               setLoading(false);
             }
           }}
@@ -774,6 +819,8 @@ export default function Signup() {
         <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">
           Already registered? <button onClick={() => navigate('/login')} className="font-bold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Sign in instead</button>
         </p>
+      </>
+    )}
 
       </div>
     </div>
