@@ -31,8 +31,26 @@ export default function MessageToastCenter() {
   const notifiedIdsRef = useRef<Set<string>>(new Set());
   const notifiedNotifIdsRef = useRef<Set<string>>(new Set());
   const initialNotifsRegisteredRef = useRef(false);
+  const recentNotifKeysRef = useRef<Map<string, number>>(new Map());
 
-  // Helper to dispatch standard or Service Worker-driven native notifications (works on mobile PWA and PC)
+  // Helper to check and record recent notification keys to strictly prevent double/duplicate notifications
+  const isDuplicateNotificationKey = (key: string): boolean => {
+    const now = Date.now();
+    recentNotifKeysRef.current.forEach((timestamp, k) => {
+      if (now - timestamp > 30000) {
+        recentNotifKeysRef.current.delete(k);
+      }
+    });
+
+    const lastSeen = recentNotifKeysRef.current.get(key);
+    if (lastSeen && now - lastSeen < 15000) {
+      return true; // Duplicate detected within 15 seconds window
+    }
+    recentNotifKeysRef.current.set(key, now);
+    return false;
+  };
+
+  // Helper to dispatch standard or Service Worker-driven native notifications (works on Android mobile status bar and PC)
   const triggerNativeNotification = async (
     title: string,
     body: string,
@@ -47,22 +65,30 @@ export default function MessageToastCenter() {
       return;
     }
 
-    // Try service worker registration first (highest compatibility for mobile PWA and PC browsers)
+    const destinationUrl = options.onClickUrl 
+      ? new URL(options.onClickUrl, window.location.origin).href 
+      : window.location.origin + '/';
+
+    const notifTag = options.tag || 'edutrack-mobile-' + Date.now();
+
+    // Try service worker registration first (highest compatibility for Android mobile notification bar and PWA)
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.ready;
         if (registration && 'showNotification' in registration) {
-          const destinationUrl = options.onClickUrl 
-            ? new URL(options.onClickUrl, window.location.origin).href 
-            : window.location.origin + '/';
-
           await registration.showNotification(title, {
             body,
-            icon: options.icon || '/favicon.ico',
-            badge: '/favicon.ico',
-            tag: options.tag,
-            vibrate: [100, 50, 100],
-            data: destinationUrl
+            icon: options.icon || '/logo.svg',
+            badge: '/favicon.svg',
+            tag: notifTag,
+            renotify: true,
+            vibrate: [200, 100, 200, 100, 200],
+            requireInteraction: false,
+            data: destinationUrl,
+            actions: [
+              { action: 'open', title: 'Open App' },
+              { action: 'close', title: 'Dismiss' }
+            ]
           } as any);
           return;
         }
@@ -75,8 +101,9 @@ export default function MessageToastCenter() {
     try {
       const legacyNotif = new window.Notification(title, {
         body,
-        icon: options.icon || '/favicon.ico',
-        tag: options.tag,
+        icon: options.icon || '/logo.svg',
+        badge: '/favicon.svg',
+        tag: notifTag,
         silent: false,
         requireInteraction: false
       });
@@ -120,8 +147,8 @@ export default function MessageToastCenter() {
         
         // Spawn a pilot transmission notification to confirm connectivity
         if (permission === 'granted') {
-          triggerNativeNotification('System Alert', 'Notifications successfully linked to your device.', {
-            icon: '/favicon.ico',
+          triggerNativeNotification('📱 Android System Bar Linked!', 'EduTrack alerts will now appear directly in your mobile notification bar.', {
+            icon: '/logo.svg',
             tag: 'edutrack-confirm',
             onClickUrl: '/'
           });
@@ -219,21 +246,29 @@ export default function MessageToastCenter() {
           const senderName = sender ? sender.name : 'Unknown User';
           const senderAvatar = sender?.profileImage;
 
-          // 1. Trigger in-app toast component
-          setToasts(prev => [
-            ...prev,
-            {
-              id: m.id,
-              type: 'message',
-              content: m.content,
-              senderName,
-              senderAvatar
+          const msgKey = `msg_${m.id}_${m.content}`;
+          if (isDuplicateNotificationKey(msgKey)) return;
+
+          // 1. Trigger in-app toast component with deduplication
+          setToasts(prev => {
+            if (prev.some(t => t.id === m.id || (t.type === 'message' && t.content === m.content && t.senderName === senderName))) {
+              return prev;
             }
-          ]);
+            return [
+              ...prev,
+              {
+                id: m.id,
+                type: 'message',
+                content: m.content,
+                senderName,
+                senderAvatar
+              }
+            ];
+          });
 
           // 2. Trigger native OS / desktop / mobile notification system
           triggerNativeNotification(`New Message from ${senderName}`, m.content, {
-            icon: senderAvatar || '/favicon.ico',
+            icon: senderAvatar || '/logo.svg',
             tag: 'edutrack-msg-' + m.senderId,
             onClickUrl: '/messages'
           });
@@ -274,22 +309,31 @@ export default function MessageToastCenter() {
       if (n.userId === currentUser.id && !n.isRead && !notifiedNotifIdsRef.current.has(n.id)) {
         notifiedNotifIdsRef.current.add(n.id);
 
-        // 1. Trigger in-app toast component
-        setToasts(prev => [
-          ...prev,
-          {
-            id: n.id,
-            type: 'notification',
-            title: n.title || 'System Notification',
-            content: n.message,
-            senderName: 'EduTrack Alert',
-            notifType: n.type
+        const notifTitle = n.title || 'System Notification';
+        const notifKey = `notif_${n.id}_${notifTitle}_${n.message}`;
+        if (isDuplicateNotificationKey(notifKey)) return;
+
+        // 1. Trigger in-app toast component with deduplication
+        setToasts(prev => {
+          if (prev.some(t => t.id === n.id || (t.type === 'notification' && t.title === notifTitle && t.content === n.message))) {
+            return prev;
           }
-        ]);
+          return [
+            ...prev,
+            {
+              id: n.id,
+              type: 'notification',
+              title: notifTitle,
+              content: n.message,
+              senderName: 'EduTrack Alert',
+              notifType: n.type
+            }
+          ];
+        });
 
         // 2. Trigger native OS / desktop / mobile notification system
-        triggerNativeNotification(n.title || 'EduTrack System Alert', n.message, {
-          icon: '/favicon.ico',
+        triggerNativeNotification(notifTitle, n.message, {
+          icon: '/logo.svg',
           tag: 'edutrack-notif-' + n.id,
           onClickUrl: '/'
         });
@@ -337,10 +381,10 @@ export default function MessageToastCenter() {
                   <BellRing className="w-5 h-5 text-white animate-bounce" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-105_40">ALERTS CONFIGURATION</h4>
-                  <p className="text-xs font-black uppercase italic mt-1">Enable Desktop Alerts</p>
+                  <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-200">ANDROID & MOBILE ALERTS</h4>
+                  <p className="text-xs font-black uppercase italic mt-1">Enable Mobile Status Bar Alerts</p>
                   <p className="text-[10px] text-blue-50/90 leading-relaxed mt-1">
-                    Receive active transmission logs instantly, even when offline or minimized in the hull.
+                    Receive instant alerts in your Android mobile notification bar when new messages, class logs, or payment updates arrive.
                   </p>
                 </div>
               </div>
@@ -358,9 +402,9 @@ export default function MessageToastCenter() {
                 onClick={handleRequestPermission}
                 className="px-5 py-2.5 bg-white text-[#0D5BFF] text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-50 hover:shadow-lg transition-all"
               >
-                Grant Permission
+                Enable Notifications
               </button>
-              <span className="text-[8px] font-black uppercase tracking-widest text-white/50 italic mr-2">SECURE ENDPOINT API</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-white/70 italic mr-2">ANDROID STATUS BAR PWA</span>
             </div>
           </motion.div>
         )}
