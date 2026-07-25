@@ -61,6 +61,17 @@ export default function MessageToastCenter() {
       onClickAction?: () => void;
     } = {}
   ) => {
+    // 1. Android Native WebView Interface (calls window.AndroidInterface.showNotification)
+    if (window.AndroidInterface && typeof window.AndroidInterface.showNotification === 'function') {
+      try {
+        window.AndroidInterface.showNotification(title, body);
+        return;
+      } catch (err) {
+        console.warn('AndroidInterface.showNotification error:', err);
+      }
+    }
+
+    // 2. Browser / PWA Notifications (requires permission check)
     if (!('Notification' in window) || Notification.permission !== 'granted') {
       return;
     }
@@ -124,6 +135,11 @@ export default function MessageToastCenter() {
 
   // Check notification permissions and prompt nicely on load
   useEffect(() => {
+    if (window.AndroidInterface && typeof window.AndroidInterface.showNotification === 'function') {
+      setPermissionStatus('granted');
+      return;
+    }
+
     if ('Notification' in window) {
       setPermissionStatus(Notification.permission);
       
@@ -139,6 +155,17 @@ export default function MessageToastCenter() {
 
   // Handle explicit permission grant
   const handleRequestPermission = async () => {
+    if (window.AndroidInterface && typeof window.AndroidInterface.showNotification === 'function') {
+      try {
+        window.AndroidInterface.showNotification('📱 Android System Bar Linked!', 'EduTrack alerts will now appear directly in your mobile notification bar.');
+        setPermissionStatus('granted');
+        setShowPermissionPrompt(false);
+        return;
+      } catch (err) {
+        console.error('Error invoking AndroidInterface.showNotification:', err);
+      }
+    }
+
     if ('Notification' in window) {
       try {
         const permission = await Notification.requestPermission();
