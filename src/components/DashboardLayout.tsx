@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, theme, messages } = useAppStore();
+  const { currentUser, theme, toggleTheme, messages, logout } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,13 +41,13 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const navItems = useMemo(() => [
     ...(isTutor ? [
       { label: 'Session', icon: Calendar, path: '/dashboard' },
-      { label: 'Find Students', icon: Users, path: '/dashboard/find-students' },
+      { label: 'Students', icon: Users, path: '/dashboard/find-students' },
       { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
     ...(isStudent ? [
       { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-      { label: 'Find Tutor', icon: Search, path: '/dashboard/search' },
+      { label: 'Tutors', icon: Search, path: '/dashboard/search' },
       { label: 'Chat', icon: MessageSquare, path: '/messages', badge: totalUnreadMessages },
       { label: 'Profile', icon: User, path: '/dashboard/profile' },
     ] : []),
@@ -62,67 +62,101 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] flex-col lg:flex-row transition-colors duration-300">
+    <div className="flex min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] flex-col lg:flex-row transition-colors duration-300 select-none sm:select-auto">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
       </div>
 
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/60 p-4 sticky top-0 z-50 flex items-center justify-between transition-colors">
+      {/* Native Mobile App Header Bar */}
+      <div className="lg:hidden bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80 px-4 py-2.5 sticky top-0 z-40 flex items-center justify-between shadow-xs transition-colors pt-safe">
         <div 
           onClick={() => navigate('/')}
-          className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center space-x-2.5 cursor-pointer active:scale-95 transition-transform"
         >
-          <Logo className="w-8 h-8 shadow-lg shadow-blue-200 dark:shadow-none" />
-          <span 
-            className="text-lg font-black font-heading text-[#0B132B] dark:text-white flex select-none"
-          >
-            {"EduTrack".split("").map((char, index) => (
-              <span
-                key={index}
-                className="inline-block origin-bottom animate-logo-letter"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                {char}
-              </span>
-            ))}
-          </span>
+          <Logo className="w-8 h-8 shadow-md shadow-blue-200 dark:shadow-none" />
+          <div className="flex flex-col">
+            <span className="text-base font-black font-heading text-[#0B132B] dark:text-white leading-tight">
+              EduTrack
+            </span>
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider -mt-0.5">
+              {currentUser.role} App
+            </span>
+          </div>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500 dark:text-slate-400">
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+
+        {/* Right Header Mobile Quick Controls */}
+        <div className="flex items-center space-x-1.5">
+          {/* Quick Chat Shortcut with Badge */}
+          <button
+            onClick={() => navigate('/messages')}
+            className="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+            aria-label="Messages"
+          >
+            <MessageSquare className="w-5 h-5" />
+            {totalUnreadMessages > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#E51275] rounded-full border-2 border-white dark:border-[#111A2E] animate-pulse" />
+            )}
+          </button>
+
+          {/* Mobile Menu Drawer Toggle Button */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+            className="p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-90 transition-all"
+            aria-label="Open App Menu"
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Bottom Sheet / Drawer */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsMobileMenuOpen(false)}>
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300 flex flex-col justify-end" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
           <div 
-            className="w-80 max-w-[85vw] h-full bg-white dark:bg-[#111A2E] shadow-2xl transition-transform duration-300 transform translate-x-0 relative flex flex-col" 
+            className="w-full max-h-[85vh] bg-white dark:bg-[#111A2E] rounded-t-[2.5rem] shadow-2xl transition-transform duration-300 overflow-hidden flex flex-col border-t border-slate-100 dark:border-slate-800" 
             onClick={e => e.stopPropagation()}
           >
-             <div className="absolute top-4 right-4 z-50">
+             {/* Mobile Sheet Drag Handle */}
+             <div className="pt-3 pb-1 flex justify-center items-center">
+               <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+             </div>
+
+             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+               <div className="flex items-center space-x-3">
+                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-md">
+                   {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                 </div>
+                 <div>
+                   <h4 className="text-sm font-black text-slate-800 dark:text-white leading-tight">{currentUser.name}</h4>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{currentUser.email}</p>
+                 </div>
+               </div>
                <button 
                  onClick={() => setIsMobileMenuOpen(false)}
-                 className="p-2 text-[#0B132B] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                 className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full transition-colors"
                >
                  <X className="w-5 h-5" />
                </button>
              </div>
-             <div className="flex-1 overflow-y-auto pt-8">
+
+             <div className="flex-1 overflow-y-auto no-scrollbar p-4">
                <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
              </div>
           </div>
         </div>
       )}
 
-      {/* Content Area */}
-      <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto pb-24 lg:pb-12">
+      {/* Main App Content View Container */}
+      <main className="flex-grow p-3.5 sm:p-6 lg:p-12 overflow-y-auto pb-28 lg:pb-12 max-w-7xl mx-auto w-full">
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800/80 p-2 pb-5 pt-3 px-4 z-50 flex justify-around items-center shadow-[0_-12px_40px_-15px_rgba(0,0,0,0.12)] transition-colors duration-300">
+      {/* Native Mobile App Bottom Dock Tab Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800/80 p-1.5 pb-safe pt-2.5 px-3 z-40 flex justify-around items-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transition-colors duration-300">
         {navItems.map((item) => {
           const active = isActive(item.path);
           return (
@@ -132,40 +166,33 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
                 navigate(item.path);
                 setIsMobileMenuOpen(false);
               }}
-              className="flex-1 max-w-[80px] relative py-2 flex flex-col items-center justify-center gap-1 cursor-pointer bg-transparent border-none outline-none"
+              className="flex-1 max-w-[85px] relative py-1 flex flex-col items-center justify-center gap-1 cursor-pointer bg-transparent border-none outline-none active:scale-90 transition-transform duration-150"
             >
               <div 
-                className={`relative p-2 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                className={`relative px-4 py-1.5 rounded-full flex items-center justify-center transition-all duration-300 ${
                   active 
-                    ? 'bg-[#0B132B]/5 dark:bg-white/10 text-[#0D5BFF] dark:text-[#0D5BFF] scale-110' 
-                    : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
+                    ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-105' 
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
-                <item.icon className={`w-5 h-5 transition-transform duration-300 ${active ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                <item.icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                 
                 {/* Notification Badge */}
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-[#111A2E] shadow-sm animate-pulse">
+                  <span className="absolute -top-1 -right-1 bg-[#E51275] text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-[#111A2E] shadow-sm animate-pulse">
                     {item.badge}
                   </span>
                 )}
               </div>
               <span 
-                className={`text-[8.5px] font-black uppercase tracking-widest text-center transition-colors duration-300 ${
+                className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors duration-200 ${
                   active 
-                    ? 'text-[#0B132B] dark:text-white' 
-                    : 'text-slate-400 dark:text-slate-500'
+                    ? 'text-[#0D5BFF] dark:text-blue-400 font-black' 
+                    : 'text-slate-400 dark:text-slate-500 font-bold'
                 }`}
               >
-                {item.label.split(' ')[0]}
+                {item.label}
               </span>
-              
-              {/* Active Dot indicator */}
-              {active && (
-                <div 
-                  className="absolute bottom-0 w-1 h-1 rounded-full bg-[#0D5BFF]"
-                />
-              )}
             </button>
           );
         })}

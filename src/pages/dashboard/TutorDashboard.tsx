@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore, Session, Withdrawal, User } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import { calculateEarnedBadges } from '../../utils/badges';
+import { triggerConfetti } from '../../utils/confetti';
 import BadgeDisplay from '../../components/BadgeDisplay';
 import {
   Bell,
@@ -3293,6 +3294,8 @@ export default function TutorDashboard() {
                               subject: proposalSubject, status: "proposed_by_tutor",
                               scheduledTime
                             });
+
+                            triggerConfetti();
 
                             await useAppStore.getState().sendNotification(
                               selectedStudentForProposal.id,

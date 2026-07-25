@@ -1551,8 +1551,49 @@ export const useAppStore = create<AppState>((set, get) => {
   };
 });
 
+function persistOfflineData(uid: string, state: any) {
+  if (!uid) return;
+  try {
+    const cacheData = {
+      sessions: state.sessions || [],
+      classLogs: state.classLogs || [],
+      messages: state.messages || [],
+      users: state.users || [],
+      homeworkAssignments: state.homeworkAssignments || [],
+      cachedAt: new Date().toISOString()
+    };
+    localStorage.setItem(`edutrack_offline_cache_${uid}`, JSON.stringify(cacheData));
+  } catch (err) {
+    console.warn('Failed to persist offline state cache:', err);
+  }
+}
+
+function loadOfflineData(uid: string, set: any) {
+  if (!uid) return;
+  try {
+    const raw = localStorage.getItem(`edutrack_offline_cache_${uid}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed) {
+        set({
+          sessions: parsed.sessions || [],
+          classLogs: parsed.classLogs || [],
+          messages: parsed.messages || [],
+          users: parsed.users || [],
+          homeworkAssignments: parsed.homeworkAssignments || []
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load offline state cache:', err);
+  }
+}
+
 function setupListeners(uid: string, role: Role, set: any, get: any) {
   cleanupListeners();
+
+  // Load local offline cached schedules & messages immediately so app works seamlessly offline
+  loadOfflineData(uid, set);
 
   // 1. Listen to OWN user document for real-time profile updates (balance, verification, etc.)
   const unsubSelf = onSnapshot(doc(db, 'users', uid), async (snapshot) => {
@@ -1607,6 +1648,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       users = users.filter(user => !user.isBlocked);
     }
     set({ users });
+    persistOfflineData(uid, get());
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'users');
   });
@@ -1638,6 +1680,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
     const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
     set({ sessions });
+    persistOfflineData(uid, get());
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'sessions');
   });
@@ -1664,6 +1707,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
     const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
     set({ messages });
+    persistOfflineData(uid, get());
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'messages');
   });
@@ -1691,6 +1735,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const unsubClassLogs = onSnapshot(classLogsQuery, (snapshot) => {
     const classLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClassLog));
     set({ classLogs });
+    persistOfflineData(uid, get());
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'class_logs');
   });
@@ -1708,6 +1753,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const unsubHomework = onSnapshot(homeworkQuery, (snapshot) => {
     const homeworkAssignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HomeworkAssignment));
     set({ homeworkAssignments });
+    persistOfflineData(uid, get());
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'homework_assignments');
   });

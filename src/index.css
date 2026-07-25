@@ -79,7 +79,40 @@
   }
 }
 
-/* Mobile optimizations */
+/* Mobile app optimizations & touch utilities */
+@media (max-width: 1024px) {
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: auto;
+    user-select: auto;
+    overscroll-behavior-y: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Native touch feedback card utility */
+  .mobile-touch-card {
+    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease;
+  }
+  .mobile-touch-card:active {
+    transform: scale(0.985);
+  }
+
+  /* Safe area inset helpers */
+  .pb-safe {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+}
+
 @media (max-width: 640px) {
   .container {
     @apply px-4;
@@ -92,7 +125,7 @@
 
   /* Faster interactive responses */
   button, a, input, select, textarea {
-    transition-duration: 200ms;
+    transition-duration: 180ms;
   }
 }
 

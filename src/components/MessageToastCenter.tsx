@@ -14,6 +14,26 @@ interface ActiveToast {
   notifType?: 'info' | 'success' | 'warning' | 'error';
 }
 
+// Helper to read/write persistent notified IDs so reloading or re-entering the site never repeats toasts
+const getStoredNotifiedIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem('edutrack_notified_toast_ids');
+    if (raw) {
+      return new Set(JSON.parse(raw));
+    }
+  } catch (e) {}
+  return new Set();
+};
+
+const storeNotifiedId = (id: string) => {
+  try {
+    const ids = getStoredNotifiedIds();
+    ids.add(id);
+    const arr = Array.from(ids).slice(-500);
+    localStorage.setItem('edutrack_notified_toast_ids', JSON.stringify(arr));
+  } catch (e) {}
+};
+
 export default function MessageToastCenter() {
   const { messages, currentUser, users, notifications } = useAppStore();
   const navigate = useNavigate();
@@ -28,8 +48,8 @@ export default function MessageToastCenter() {
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   
   const initializedRef = useRef(false);
-  const notifiedIdsRef = useRef<Set<string>>(new Set());
-  const notifiedNotifIdsRef = useRef<Set<string>>(new Set());
+  const notifiedIdsRef = useRef<Set<string>>(getStoredNotifiedIds());
+  const notifiedNotifIdsRef = useRef<Set<string>>(getStoredNotifiedIds());
   const initialNotifsRegisteredRef = useRef(false);
   const recentNotifKeysRef = useRef<Map<string, number>>(new Map());
 
@@ -135,6 +155,10 @@ export default function MessageToastCenter() {
 
   // Check notification permissions and prompt nicely on load
   useEffect(() => {
+    if (localStorage.getItem('edutrack_notif_prompt_dismissed') === 'true') {
+      return;
+    }
+
     if (window.AndroidInterface && typeof window.AndroidInterface.showNotification === 'function') {
       setPermissionStatus('granted');
       return;
@@ -144,10 +168,11 @@ export default function MessageToastCenter() {
       setPermissionStatus(Notification.permission);
       
       if (Notification.permission === 'default') {
-        // Delay permission prompt slightly for dynamic visual comfort
         const timer = setTimeout(() => {
-          setShowPermissionPrompt(true);
-        }, 1500);
+          if (localStorage.getItem('edutrack_notif_prompt_dismissed') !== 'true') {
+            setShowPermissionPrompt(true);
+          }
+        }, 2000);
         return () => clearTimeout(timer);
       }
     }
@@ -155,11 +180,13 @@ export default function MessageToastCenter() {
 
   // Handle explicit permission grant
   const handleRequestPermission = async () => {
+    localStorage.setItem('edutrack_notif_prompt_dismissed', 'true');
+    setShowPermissionPrompt(false);
+
     if (window.AndroidInterface && typeof window.AndroidInterface.showNotification === 'function') {
       try {
         window.AndroidInterface.showNotification('📱 Android System Bar Linked!', 'EduTrack alerts will now appear directly in your mobile notification bar.');
         setPermissionStatus('granted');
-        setShowPermissionPrompt(false);
         return;
       } catch (err) {
         console.error('Error invoking AndroidInterface.showNotification:', err);
@@ -170,9 +197,7 @@ export default function MessageToastCenter() {
       try {
         const permission = await Notification.requestPermission();
         setPermissionStatus(permission);
-        setShowPermissionPrompt(false);
         
-        // Spawn a pilot transmission notification to confirm connectivity
         if (permission === 'granted') {
           triggerNativeNotification('📱 Android System Bar Linked!', 'EduTrack alerts will now appear directly in your mobile notification bar.', {
             icon: '/logo.svg',
@@ -184,6 +209,11 @@ export default function MessageToastCenter() {
         console.error('Error requesting notification permission:', err);
       }
     }
+  };
+
+  const handleDismissPrompt = () => {
+    setShowPermissionPrompt(false);
+    localStorage.setItem('edutrack_notif_prompt_dismissed', 'true');
   };
 
   // Track network connectivity status
@@ -202,7 +232,6 @@ export default function MessageToastCenter() {
         }
       ]);
       
-      // Automatically dismiss network toast
       setTimeout(() => {
         setToasts(prev => prev.filter(t => t.id !== toastId));
       }, 5000);
@@ -216,16 +245,15 @@ export default function MessageToastCenter() {
         {
           id: toastId,
           type: 'offline',
-          title: 'System Disconnected',
-          content: 'Offline mode active. Message queue synchronizations queued.',
+          title: 'Offline Mode Active',
+          content: 'You are offline. Viewing your cached lesson schedules and messages.',
           senderName: ''
         }
       ]);
       
-      // Automatically dismiss network toast
       setTimeout(() => {
         setToasts(prev => prev.filter(t => t.id !== toastId));
-      }, 5000);
+      }, 6000);
     };
 
     window.addEventListener('online', handleOnline);
@@ -241,33 +269,29 @@ export default function MessageToastCenter() {
   useEffect(() => {
     if (!currentUser) {
       initializedRef.current = false;
-      notifiedIdsRef.current.clear();
       return;
     }
 
-    // On initial mount or auth transition, register existing unread messages to seen list
+    // On initial mount or auth transition, register ALL existing messages to seen list so old ones never trigger toasts
     if (!initializedRef.current) {
       messages.forEach(m => {
-        if (m.receiverId === currentUser.id && !m.isRead) {
-          notifiedIdsRef.current.add(m.id);
-        }
+        notifiedIdsRef.current.add(m.id);
+        storeNotifiedId(m.id);
       });
-      initializedRef.current = true;
+      if (messages.length > 0 || useAppStore.getState().isInitialized) {
+        initializedRef.current = true;
+      }
       return;
     }
 
     messages.forEach(m => {
-      // Condition check for qualifying messages:
-      // - Aimed at our logged-in user
-      // - Unread
-      // - Not previously processed by the toast controller
       if (m.receiverId === currentUser.id && !m.isRead && !notifiedIdsRef.current.has(m.id)) {
         notifiedIdsRef.current.add(m.id);
+        storeNotifiedId(m.id);
 
         const isTabHidden = document.hidden;
         const isNotOnMessagesPath = location.pathname !== '/messages';
 
-        // Trigger notifications if away from the relevant interface or active tab
         if (isTabHidden || isNotOnMessagesPath) {
           const sender = users.find(u => u.id === m.senderId);
           const senderName = sender ? sender.name : 'Unknown User';
@@ -276,7 +300,6 @@ export default function MessageToastCenter() {
           const msgKey = `msg_${m.id}_${m.content}`;
           if (isDuplicateNotificationKey(msgKey)) return;
 
-          // 1. Trigger in-app toast component with deduplication
           setToasts(prev => {
             if (prev.some(t => t.id === m.id || (t.type === 'message' && t.content === m.content && t.senderName === senderName))) {
               return prev;
@@ -293,14 +316,12 @@ export default function MessageToastCenter() {
             ];
           });
 
-          // 2. Trigger native OS / desktop / mobile notification system
           triggerNativeNotification(`New Message from ${senderName}`, m.content, {
             icon: senderAvatar || '/logo.svg',
             tag: 'edutrack-msg-' + m.senderId,
             onClickUrl: '/messages'
           });
 
-          // Automatically clear this message toast after 6 seconds
           setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== m.id));
           }, 6000);
@@ -313,34 +334,30 @@ export default function MessageToastCenter() {
   useEffect(() => {
     if (!currentUser) {
       initialNotifsRegisteredRef.current = false;
-      notifiedNotifIdsRef.current.clear();
       return;
     }
 
-    // On initial mount or auth transition, register existing unread notifications to avoid duplicate spamming
+    // On initial mount or auth transition, register ALL existing notifications to seen list so old ones never trigger toasts
     if (!initialNotifsRegisteredRef.current) {
       notifications.forEach(n => {
-        if (n.userId === currentUser.id && !n.isRead) {
-          notifiedNotifIdsRef.current.add(n.id);
-        }
+        notifiedNotifIdsRef.current.add(n.id);
+        storeNotifiedId(n.id);
       });
-      initialNotifsRegisteredRef.current = true;
+      if (notifications.length > 0 || useAppStore.getState().isInitialized) {
+        initialNotifsRegisteredRef.current = true;
+      }
       return;
     }
 
     notifications.forEach(n => {
-      // Condition check for qualifying notifications:
-      // - Belongs to current logged-in user
-      // - Unread
-      // - Not previously processed by this controller
       if (n.userId === currentUser.id && !n.isRead && !notifiedNotifIdsRef.current.has(n.id)) {
         notifiedNotifIdsRef.current.add(n.id);
+        storeNotifiedId(n.id);
 
         const notifTitle = n.title || 'System Notification';
         const notifKey = `notif_${n.id}_${notifTitle}_${n.message}`;
         if (isDuplicateNotificationKey(notifKey)) return;
 
-        // 1. Trigger in-app toast component with deduplication
         setToasts(prev => {
           if (prev.some(t => t.id === n.id || (t.type === 'notification' && t.title === notifTitle && t.content === n.message))) {
             return prev;
@@ -358,14 +375,12 @@ export default function MessageToastCenter() {
           ];
         });
 
-        // 2. Trigger native OS / desktop / mobile notification system
         triggerNativeNotification(notifTitle, n.message, {
           icon: '/logo.svg',
           tag: 'edutrack-notif-' + n.id,
           onClickUrl: '/'
         });
 
-        // Automatically clear this general notification toast after 6 seconds
         setTimeout(() => {
           setToasts(prev => prev.filter(t => t.id !== n.id));
         }, 6000);
@@ -417,7 +432,7 @@ export default function MessageToastCenter() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowPermissionPrompt(false)}
+                onClick={handleDismissPrompt}
                 className="w-8 h-8 rounded-xl hover:bg-white/10 flex items-center justify-center transition-all text-white/80 hover:text-white flex-shrink-0"
               >
                 <X className="w-4 h-4" />

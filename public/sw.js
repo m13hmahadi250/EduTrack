@@ -1,10 +1,117 @@
-// Service Worker for EduTrack Web Notifications
-self.addEventListener('install', () => {
-  self.skipWaiting();
+// Service Worker for EduTrack Web Notifications & Offline Caching Strategy
+const CACHE_NAME = 'edutrack-app-v3';
+const DYNAMIC_CACHE = 'edutrack-dynamic-v1';
+
+// Core app assets to pre-cache on install
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/logo.svg',
+  '/favicon.ico',
+  '/sw.js'
+];
+
+// Install Event - Pre-cache core app shell
+self.addEventListener('install', (event) => {
+  console.log('[SW] Service Worker installing & caching app shell...');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+        console.warn('[SW] Pre-cache partial warning:', err);
+      });
+    }).then(() => self.skipWaiting())
+  );
 });
 
+// Activate Event - Clean up old caches
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  console.log('[SW] Service Worker activating...');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME && cache !== DYNAMIC_CACHE) {
+            console.log('[SW] Purging outdated cache:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Fetch Event - Advanced Offline Caching Strategy
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET requests or browser extension/chrome-extension requests
+  if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // 1. SPA Navigation requests (HTML / page routes like /messages or /dashboard)
+  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Serve cached page response or fall back to index.html
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/index.html') || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // 2. Static Assets (JS, CSS, Images, Fonts, SVG, JSON) - Stale-While-Revalidate
+  if (
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    request.destination === 'image' ||
+    request.destination === 'font' ||
+    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|json|woff2?)$/)
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const copy = networkResponse.clone();
+              caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
+            }
+            return networkResponse;
+          })
+          .catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // 3. API or Data Requests - Network First with Cache Fallback
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && !url.pathname.includes('/api/health')) {
+          const copy = networkResponse.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(request);
+      })
+  );
 });
 
 // Handle custom push notifications if push services are configured
@@ -40,7 +147,6 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // If the user clicked the 'close' button action, do nothing else
   if (event.action === 'close') {
     return;
   }
@@ -49,14 +155,12 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a window is already open, focus it and redirect if needed
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // If there's any active window but not on the correct URL, navigate it
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if ('focus' in client && 'navigate' in client) {
@@ -64,11 +168,9 @@ self.addEventListener('notificationclick', (event) => {
           return client.navigate(urlToOpen);
         }
       }
-      // Otherwise, open a new window
       if (self.clients.openWindow) {
         return self.clients.openWindow(urlToOpen);
       }
     })
   );
 });
-

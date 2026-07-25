@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAppStore, User, Session } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateEarnedBadges } from '../../utils/badges';
+import { triggerConfetti } from '../../utils/confetti';
 import BadgeDisplay from '../../components/BadgeDisplay';
 import { 
   Search, 
@@ -891,6 +892,7 @@ export default function StudentDashboard() {
         status: 'requested_by_student'
       });
 
+      triggerConfetti();
       setBookingSuccess(true);
       setTimeout(() => {
         setBookingSuccess(false);

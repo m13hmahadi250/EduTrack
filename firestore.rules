@@ -243,7 +243,8 @@ service cloud.firestore {
                data.loggedAt is string &&
                (data.get('notes', null) == null || data.notes is string) &&
                (data.get('reviewedAt', null) == null || data.reviewedAt is string) &&
-               (data.get('tutorNotes', null) == null || data.tutorNotes is string);
+               (data.get('tutorNotes', null) == null || data.tutorNotes is string) &&
+               (data.get('homework', null) == null || data.homework is string);
       }
 
       allow list: if isAdmin();
@@ -252,17 +253,17 @@ service cloud.firestore {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
 
       allow create: if isSignedIn() && isValidId(classLogId) && isValidClassLog(incoming()) &&
-                    incoming().studentId == request.auth.uid &&
+                    (incoming().studentId == request.auth.uid || incoming().tutorId == request.auth.uid) &&
                     incoming().status == 'pending';
 
       allow update: if isAdmin() || (
         isSignedIn() && isValidClassLog(incoming()) && (
-          (resource.data.tutorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['status', 'reviewedAt', 'tutorNotes'])) ||
+          (resource.data.tutorId == request.auth.uid && incoming().tutorId == request.auth.uid) ||
           (resource.data.studentId == request.auth.uid && incoming().studentId == request.auth.uid)
         )
       );
 
-      allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid));
     }
 
     // --- Homework Assignments Collection ---

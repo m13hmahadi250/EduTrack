@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAppStore, ClassLog, User } from '../store';
 import { useShallow } from 'zustand/react/shallow';
 import { jsPDF } from 'jspdf';
+import { triggerConfetti } from '../utils/confetti';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -1320,13 +1321,17 @@ Please show this to your tutor during your live tuition.
     setFormSuccess(true);
 
     try {
+      const targetStudentId = role === 'student' ? currentUser.id : formTutorId;
+      const targetTutorId = role === 'student' ? formTutorId : currentUser.id;
+
       await logClass(
-        currentUser.id,
-        formTutorId,
+        targetStudentId,
+        targetTutorId,
         finalSubjectStr,
         dateStr,
         formNotes
       );
+      triggerConfetti();
       setTimeout(() => {
         setShowLogModal(false);
         setFormSuccess(false);
@@ -1345,6 +1350,9 @@ Please show this to your tutor during your live tuition.
     try {
       await verifyClass(logId, status, tutorReplyNotes);
       setTutorReplyNotes('');
+      if (status === 'verified') {
+        triggerConfetti();
+      }
       // Refresh current focused log detail if it matches
       if (selectedClassLog && selectedClassLog.id === logId) {
         setSelectedClassLog(null);
@@ -1635,7 +1643,7 @@ Please show this to your tutor during your live tuition.
             <span className="w-2.5 h-2.5 rounded-md border-2 border-slate-200 dark:border-slate-700" />
             <span>Unmarked Day</span>
           </div>
-          {role === 'student' && (
+          {(role === 'student' || role === 'tutor') && (
             <button 
               onClick={() => {
                 if (selectedDate) {
@@ -1788,6 +1796,7 @@ Please show this to your tutor during your live tuition.
                         onClick={async () => {
                           setIsSavingHomework(true);
                           await assignHomework(selectedClassLog.id, homeworkText);
+                          triggerConfetti();
                           setIsSavingHomework(false);
                           setHomeworkSuccess(true);
                           setTimeout(() => setHomeworkSuccess(false), 3000);
