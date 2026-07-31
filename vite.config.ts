@@ -13,14 +13,20 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'react': path.resolve(__dirname, 'node_modules/react'),
+        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'leaflet'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     build: {
-      chunkSizeWarningLimit: 5000,
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -29,6 +35,7 @@ export default defineConfig(({mode}) => {
               if (id.includes('leaflet')) return 'leaflet';
               if (id.includes('recharts') || id.includes('d3')) return 'charts';
               if (id.includes('motion')) return 'motion';
+              if (id.includes('lucide-react')) return 'icons';
               return 'vendor';
             }
           },

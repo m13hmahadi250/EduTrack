@@ -1,36 +1,18 @@
-import { useEffect, useMemo, memo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from 'react-leaflet';
+import { useEffect, useMemo, memo, useState, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useAppStore } from '../store';
-import { ZoomIn, ZoomOut, Focus, Navigation, ExternalLink, MapPin } from 'lucide-react';
-import MarkerClusterGroup from './MarkerClusterGroup';
+import { ZoomIn, ZoomOut, Focus, Navigation, MapPin } from 'lucide-react';
 
-// Fix typical leaflet marker icon issue in React
+// Fix typical leaflet marker icon assets
 // @ts-ignore
 import iconMarker2x from 'leaflet/dist/images/marker-icon-2x.png';
 // @ts-ignore
 import iconMarker from 'leaflet/dist/images/marker-icon.png';
 // @ts-ignore
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: iconMarker2x,
-  iconUrl: iconMarker,
-  shadowUrl: iconShadow,
-});
-
-function MapEventsHandler({ active, onMapClick }: { active: boolean; onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      if (active) {
-        onMapClick(e.latlng.lat, e.latlng.lng);
-      }
-    }
-  });
-  return null;
-}
 
 interface UserMarker {
   id: string;
@@ -43,21 +25,21 @@ interface UserMarker {
 }
 
 interface MapTrackerProps {
-  tutorLocation?: [number, number]; // Legacy support or single focal tutor
+  tutorLocation?: [number, number];
   studentLocation?: [number, number];
   tutorName?: string;
   studentName?: string;
   tutorImage?: string;
   studentImage?: string;
   eta?: { distance: string; minutes: number } | null;
-  tutors?: UserMarker[]; // Support for multiple tutor markers
-  students?: UserMarker[]; // Support for multiple student markers
+  tutors?: UserMarker[];
+  students?: UserMarker[];
 }
 
 const createCustomMarker = (color: string, name: string, image?: string, isOnline?: boolean) => {
   const isRose = color === 'rose-500';
-  const themeBgColor = isRose ? '#FFF1F2' : '#EFF6FF'; // rose-50 / blue-50
-  const themeTextColor = isRose ? '#E11D48' : '#3B82F6'; // rose-600 / blue-600
+  const themeBgColor = isRose ? '#FFF1F2' : '#EFF6FF';
+  const themeTextColor = isRose ? '#E11D48' : '#3B82F6';
   const themeBorderColor = isRose ? '#FC155D' : '#0D5BFF';
   const themeDotColor = isRose ? '#FC155D' : '#0D5BFF';
 
@@ -76,7 +58,6 @@ const createCustomMarker = (color: string, name: string, image?: string, isOnlin
        </style>`
     : '';
 
-  // Dynamic pulsing glow ring for active/online status
   const glowRing = isOnline !== false 
     ? `<div style="position: absolute; width: 44px; height: 44px; top: -6px; left: -6px; border-radius: 12px; border: 2.5px solid ${themeDotColor}; opacity: 0.6; animation: custom-sonar 2s infinite ease-out; pointer-events: none; z-index: -1;"></div>`
     : '';
@@ -100,15 +81,8 @@ const createCustomMarker = (color: string, name: string, image?: string, isOnlin
   });
 };
 
-function MapRecenter({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView([lat, lng]);
-  }, [lat, lng, map]);
-  return null;
-}
-
 function CustomMapHUD({ 
+  map,
   center, 
   studentLocation, 
   tutorLocation, 
@@ -118,6 +92,7 @@ function CustomMapHUD({
   setIsPinningMode,
   hasUser
 }: { 
+  map: L.Map | null;
   center: [number, number]; 
   studentLocation?: [number, number]; 
   tutorLocation?: [number, number]; 
@@ -127,10 +102,8 @@ function CustomMapHUD({
   setIsPinningMode: (val: boolean) => void;
   hasUser: boolean;
 }) {
-  const map = useMap();
-  
-  // Fit Bounds of all active markers
   const fitAllBounds = () => {
+    if (!map) return;
     const coords: [number, number][] = [];
     if (studentLocation) coords.push(studentLocation);
     if (tutorLocation) coords.push(tutorLocation);
@@ -154,24 +127,22 @@ function CustomMapHUD({
     }
   };
 
-  const handleZoomIn = () => map.zoomIn();
-  const handleZoomOut = () => map.zoomOut();
-  
+  const handleZoomIn = () => map?.zoomIn();
+  const handleZoomOut = () => map?.zoomOut();
   const handleRecenter = () => {
-    map.setView(center, 14);
+    if (map && center) map.setView(center, 14);
   };
 
-  // Trigger auto-fitbounds on load and count change
   useEffect(() => {
+    if (!map) return;
     const timer = setTimeout(() => {
       fitAllBounds();
     }, 600);
     return () => clearTimeout(timer);
-  }, [studentLocation, tutorLocation, tutors?.length, students?.length]);
+  }, [map, studentLocation, tutorLocation, tutors?.length, students?.length]);
 
   return (
     <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1.5 p-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-colors">
-      {/* Zoom In */}
       <button 
         type="button"
         onClick={handleZoomIn}
@@ -181,7 +152,6 @@ function CustomMapHUD({
         <ZoomIn className="w-4 h-4 stroke-[2.5]" />
       </button>
 
-      {/* Zoom Out */}
       <button 
         type="button"
         onClick={handleZoomOut}
@@ -193,7 +163,6 @@ function CustomMapHUD({
 
       <div className="h-[1px] bg-slate-200/60 dark:bg-slate-800 mx-1" />
 
-      {/* Manual Pin Placement Mode */}
       {hasUser && (
         <button 
           type="button"
@@ -209,7 +178,6 @@ function CustomMapHUD({
         </button>
       )}
 
-      {/* Recenter */}
       <button 
         type="button"
         onClick={handleRecenter}
@@ -219,7 +187,6 @@ function CustomMapHUD({
         <Navigation className="w-4 h-4 stroke-[2.5] rotate-45" />
       </button>
 
-      {/* Auto Fit Bounds */}
       <button 
         type="button"
         onClick={fitAllBounds}
@@ -247,6 +214,13 @@ const MapTracker = memo(({
 
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [isPinningMode, setIsPinningMode] = useState(false);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const isPinningModeRef = useRef(isPinningMode);
+  isPinningModeRef.current = isPinningMode;
 
   const handleMapClick = async (lat: number, lng: number) => {
     if (!currentUser) return;
@@ -302,245 +276,358 @@ const MapTracker = memo(({
     return tutorLocation || studentLocation || [23.8103, 90.4125];
   }, [tutorLocation, studentLocation, tutors, students]);
 
-  return (
-    <div className="relative w-full h-full">
-      <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false} attributionControl={false}>
-        <TileLayer
-          key={theme}
-          url={theme === 'dark' 
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-            : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+  // Safely initialize Leaflet defaults & marker cluster in client lifecycle
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).L = L;
+      try {
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: iconMarker2x,
+          iconUrl: iconMarker,
+          shadowUrl: iconShadow,
+        });
+      } catch (err) {
+        console.warn('Leaflet icon config warning:', err);
+      }
+
+      if (!(L as any).markerClusterGroup) {
+        import('leaflet.markercluster').catch(() => {});
+      }
+    }
+  }, []);
+
+  // Geolocation tracking logic safely managed within useEffect block
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    if (typeof window === 'undefined' || !('navigator' in window)) return;
+
+    let currentWatchId: number | null = null;
+
+    if ('geolocation' in navigator) {
+      currentWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
+            () => {
+              updateLocation(currentUser.id, 23.8103, 90.4125);
+            },
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+          );
+        },
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+      );
+    } else {
+      updateLocation(currentUser.id, 23.8103, 90.4125);
+    }
+
+    return () => {
+      if (currentWatchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(currentWatchId);
+      }
+    };
+  }, [currentUser?.id, updateLocation]);
+
+  // Map Instance Initialization safely managed inside useEffect block
+  useEffect(() => {
+    if (!containerRef.current || mapInstance) return;
+
+    const map = L.map(containerRef.current, {
+      center: center,
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: false,
+    });
+
+    const tileUrl = theme === 'dark' 
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+
+    const tileLayer = L.tileLayer(tileUrl, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    });
+    tileLayer.on('tileerror', () => {
+      // Ignore tile load failures when offline
+    });
+    tileLayer.addTo(map);
+
+    tileLayerRef.current = tileLayer;
+
+    const layerGroup = L.layerGroup().addTo(map);
+    layerGroupRef.current = layerGroup;
+
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      if (isPinningModeRef.current) {
+        handleMapClick(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+    map.on('popupopen', (e) => {
+      const popupNode = e.popup.getElement();
+      if (!popupNode) return;
+      const buttons = popupNode.querySelectorAll('[data-tutor-id]');
+      buttons.forEach(btn => {
+        (btn as HTMLButtonElement).onclick = () => {
+          const tid = btn.getAttribute('data-tutor-id');
+          if (tid) {
+            setSelectedTutorId(prev => prev === tid ? null : tid);
           }
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        />
-        
-        {/* Connection Polyline from Tutor to Student */}
-        {tutorLocation && studentLocation && (
-          <Polyline 
-            positions={[tutorLocation, studentLocation]} 
-            pathOptions={{ 
-              color: '#0D5BFF', 
-              weight: 3.5, 
-              opacity: 0.9,
-              className: 'animated-polyline'
-            }} 
-          />
-        )}
+        };
+      });
+    });
 
-        {/* Connection Polylines for multiple student markers relative to single tutorLocation */}
-        {tutorLocation && students && students.map(student => (
-          <Polyline 
-            key={`line-${student.id}`}
-            positions={[tutorLocation, student.location]} 
-            pathOptions={{ 
-              color: '#0D5BFF', 
-              weight: 3.2, 
-              opacity: 0.8,
-              className: 'animated-polyline'
-            }} 
-          />
-        ))}
+    setMapInstance(map);
 
-        {/* Connection Polylines for multiple tutor markers relative to single studentLocation */}
-        {studentLocation && tutors && tutors.map(tutor => (
-          <Polyline 
-            key={`line-${tutor.id}`}
-            positions={[studentLocation, tutor.location]} 
-            pathOptions={{ 
-              color: '#0D5BFF', 
-              weight: 3.2, 
-              opacity: 0.8,
-              className: 'animated-polyline'
-            }} 
-          />
-        ))}
+    return () => {
+      map.remove();
+      setMapInstance(null);
+      tileLayerRef.current = null;
+      layerGroupRef.current = null;
+    };
+  }, []);
 
-        {/* Animated Dashed Connection Path for Selected Tutor for Distance measurement */}
-        {studentLocation && selectedTutorObj && (
-          <Polyline 
-            positions={[studentLocation, selectedTutorObj.location]} 
-            pathOptions={{ 
-              color: '#FC155D', 
-              weight: 4.5, 
-              opacity: 0.95,
-              className: 'animated-dashed-distance-path'
-            }} 
-          />
-        )}
+  // Handle container resizing cleanly with ResizeObserver to ensure map container size is valid
+  useEffect(() => {
+    if (!mapInstance || !containerRef.current) return;
 
-        {/* Legacy/Contextual single tutor */}
-        {!tutors && tutorLocation && (
-          <Marker position={tutorLocation} icon={createCustomMarker('rose-500', tutorName || 'T', tutorImage, true)}>
-            <Popup>
-              <div className="p-2 min-w-[120px]">
-                <div className="text-[10px] font-black uppercase italic text-rose-500 mb-1">
-                  {tutorName || 'Tutor'} Location
-                </div>
-                {eta && (
-                  <div className="flex flex-col gap-0.5 mb-2">
-                    <div className="text-[14px] font-black text-[#0B132B] dark:text-white italic">
-                      ~{eta.minutes} MINS
-                    </div>
-                    <div className="text-[8px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-widest">
-                      Distance: {eta.distance} KM
-                    </div>
-                  </div>
-                )}
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${tutorLocation[0]},${tutorLocation[1]}`}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-555 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Google Maps
-                </a>
-                {studentLocation && (
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setSelectedTutorId(selectedTutorId === 'legacy_tutor' ? null : 'legacy_tutor');
-                    }}
-                    className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer border ${
-                      selectedTutorId === 'legacy_tutor'
-                        ? 'bg-[#0D5BFF] hover:bg-blue-600 text-white border-transparent'
-                        : 'bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 border-indigo-100 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white'
-                    }`}
-                  >
-                    {selectedTutorId === 'legacy_tutor' ? '📍 Active Connection' : '📏 Measure Distance'}
-                  </button>
-                )}
+    let resizeTimer: any;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        try {
+          mapInstance.invalidateSize();
+        } catch (err) {
+          console.warn("Resize invalidation warning:", err);
+        }
+      }, 100);
+    });
+
+    observer.observe(containerRef.current);
+    mapInstance.invalidateSize();
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(resizeTimer);
+    };
+  }, [mapInstance]);
+
+  // Update Theme
+  useEffect(() => {
+    if (!tileLayerRef.current) return;
+    const tileUrl = theme === 'dark' 
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+    tileLayerRef.current.setUrl(tileUrl);
+  }, [theme]);
+
+  // Update Layers (Polylines and Markers)
+  useEffect(() => {
+    if (!mapInstance || !layerGroupRef.current) return;
+
+    const group = layerGroupRef.current;
+    group.clearLayers();
+
+    // 1. Connection Polyline from Tutor to Student
+    if (tutorLocation && studentLocation) {
+      L.polyline([tutorLocation, studentLocation], {
+        color: '#0D5BFF',
+        weight: 3.5,
+        opacity: 0.9,
+        className: 'animated-polyline'
+      }).addTo(group);
+    }
+
+    // 2. Connection Polylines for multiple student markers relative to single tutorLocation
+    if (tutorLocation && students) {
+      students.forEach(student => {
+        L.polyline([tutorLocation, student.location], {
+          color: '#0D5BFF',
+          weight: 3.2,
+          opacity: 0.8,
+          className: 'animated-polyline'
+        }).addTo(group);
+      });
+    }
+
+    // 3. Connection Polylines for multiple tutor markers relative to single studentLocation
+    if (studentLocation && tutors) {
+      tutors.forEach(tutor => {
+        L.polyline([studentLocation, tutor.location], {
+          color: '#0D5BFF',
+          weight: 3.2,
+          opacity: 0.8,
+          className: 'animated-polyline'
+        }).addTo(group);
+      });
+    }
+
+    // 4. Animated Dashed Connection Path for Selected Tutor
+    if (studentLocation && selectedTutorObj) {
+      L.polyline([studentLocation, selectedTutorObj.location], {
+        color: '#FC155D',
+        weight: 4.5,
+        opacity: 0.95,
+        className: 'animated-dashed-distance-path'
+      }).addTo(group);
+    }
+
+    // 5. Legacy/Contextual single tutor marker
+    if (!tutors && tutorLocation) {
+      const popupHtml = `
+        <div style="padding: 8px; min-width: 120px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #f43f5e; margin-bottom: 4px;">
+            ${tutorName || 'Tutor'} Location
+          </div>
+          ${eta ? `
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px;">
+              <div style="font-size: 14px; font-weight: 900; font-style: italic; color: #0B132B;">
+                ~${eta.minutes} MINS
               </div>
-            </Popup>
-          </Marker>
-        )}
-
-        {/* Legacy/Contextual single student */}
-        {!students && studentLocation && (
-          <Marker position={studentLocation} icon={createCustomMarker('blue-500', studentName || 'S', studentImage, true)}>
-            <Popup>
-              <div className="p-2 min-w-[120px]">
-                <div className="text-[10px] font-black uppercase italic text-blue-500 mb-2">
-                  {studentName || 'Student'} Location
-                </div>
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${studentLocation[0]},${studentLocation[1]}`}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-[#0D5BFF] hover:text-white bg-blue-50 hover:bg-[#0D5BFF] border border-blue-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Google Maps
-                </a>
+              <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em;">
+                Distance: ${eta.distance} KM
               </div>
-            </Popup>
-          </Marker>
-        )}
+            </div>
+          ` : ''}
+          <a href="https://www.google.com/maps/search/?api=1&query=${tutorLocation[0]},${tutorLocation[1]}"
+             target="_blank" rel="noreferrer"
+             style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #e11d48; background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; text-decoration: none;">
+            Google Maps
+          </a>
+          ${studentLocation ? `
+            <button type="button" data-tutor-id="legacy_tutor"
+              style="margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer; border: 1px solid ${selectedTutorId === 'legacy_tutor' ? 'transparent' : '#e0e7ff'}; background-color: ${selectedTutorId === 'legacy_tutor' ? '#0D5BFF' : '#eef2ff'}; color: ${selectedTutorId === 'legacy_tutor' ? '#ffffff' : '#4f46e5'};">
+              ${selectedTutorId === 'legacy_tutor' ? '📍 Active Connection' : '📏 Measure Distance'}
+            </button>
+          ` : ''}
+        </div>
+      `;
 
-        {/* Multiple tutors */}
-        {tutors && tutors.length > 0 && (
-          <MarkerClusterGroup>
-            {tutors.map(tutor => (
-              <Marker 
-                key={tutor.id} 
-                position={tutor.location} 
-                icon={createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)}
-              >
-                <Popup>
-                  <div className="p-2.5 min-w-[140px]">
-                    <div className="text-[10px] font-black uppercase italic text-rose-500 mb-0.5">
-                      {tutor.name} (Expert)
-                    </div>
-                    {tutor.rating !== undefined && (
-                      <div className="text-[9.5px] font-black text-amber-500 uppercase tracking-wider mb-1">
-                        ⭐ {tutor.rating > 0 ? tutor.rating.toFixed(1) : 'New'}
-                      </div>
-                    )}
-                    {tutor.subjects && tutor.subjects.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2 max-w-[150px]">
-                        {tutor.subjects.slice(0, 3).map((sub, idx) => (
-                          <span key={idx} className="bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-[7px] font-extrabold uppercase px-1 py-0.5 rounded border border-rose-100/30">
-                            {sub}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
-                       Status: {tutor.isOnline ? 'Broadcasting' : 'Offline'}
-                    </div>
-                    <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${tutor.location[0]},${tutor.location[1]}`}
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-rose-555 dark:text-rose-450 hover:text-white bg-rose-50 hover:bg-rose-500 border border-rose-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Google Maps
-                    </a>
-                    {studentLocation && (
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setSelectedTutorId(selectedTutorId === tutor.id ? null : tutor.id);
-                        }}
-                        className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer border ${
-                          selectedTutorId === tutor.id
-                            ? 'bg-[#0D5BFF] hover:bg-blue-600 text-white border-transparent'
-                            : 'bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 border-indigo-100 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white'
-                        }`}
-                      >
-                        {selectedTutorId === tutor.id ? '📍 Active Connection' : '📏 Measure Distance'}
-                      </button>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MarkerClusterGroup>
-        )}
+      L.marker(tutorLocation, { icon: createCustomMarker('rose-500', tutorName || 'T', tutorImage, true) })
+        .bindPopup(popupHtml)
+        .addTo(group);
+    }
 
-        {/* Multiple students */}
-        {students?.map(student => (
-          <Marker 
-            key={student.id} 
-            position={student.location} 
-            icon={createCustomMarker('blue-500', student.name, student.image, student.isOnline)}
-          >
-            <Popup>
-              <div className="p-2 min-w-[120px]">
-                <div className="text-[10px] font-black uppercase italic text-blue-500 mb-1">
-                  {student.name} (Student)
-                </div>
-                <div className="text-[8px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-widest mb-2">
-                  Status: {student.isOnline ? 'Online' : 'Offline'}
-                </div>
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${student.location[0]},${student.location[1]}`}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8.5px] font-black uppercase tracking-wider text-[#0D5BFF] hover:text-white bg-blue-50 hover:bg-[#0D5BFF] border border-blue-100 rounded-xl transition-all shadow-sm cursor-pointer no-underline text-center"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Google Maps
-                </a>
+    // 6. Legacy/Contextual single student marker
+    if (!students && studentLocation) {
+      const popupHtml = `
+        <div style="padding: 8px; min-width: 120px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #3b82f6; margin-bottom: 8px;">
+            ${studentName || 'Student'} Location
+          </div>
+          <a href="https://www.google.com/maps/search/?api=1&query=${studentLocation[0]},${studentLocation[1]}"
+             target="_blank" rel="noreferrer"
+             style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #0D5BFF; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; text-decoration: none;">
+            Google Maps
+          </a>
+        </div>
+      `;
+
+      L.marker(studentLocation, { icon: createCustomMarker('blue-500', studentName || 'S', studentImage, true) })
+        .bindPopup(popupHtml)
+        .addTo(group);
+    }
+
+    // 7. Multiple tutors (using markerClusterGroup if available, or layerGroup)
+    if (tutors && tutors.length > 0) {
+      const clusterGroup = (L as any).markerClusterGroup ? (L as any).markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 40
+      }) : L.layerGroup();
+
+      tutors.forEach(tutor => {
+        const subjectsHtml = tutor.subjects && tutor.subjects.length > 0 
+          ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; max-width: 150px;">
+              ${tutor.subjects.slice(0, 3).map(sub => `<span style="background-color: #fff1f2; color: #e11d48; font-size: 7px; font-weight: 800; text-transform: uppercase; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffe4e6;">${sub}</span>`).join('')}
+             </div>`
+          : '';
+
+        const popupHtml = `
+          <div style="padding: 10px; min-width: 140px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #f43f5e; margin-bottom: 2px;">
+              ${tutor.name} (Expert)
+            </div>
+            ${tutor.rating !== undefined ? `
+              <div style="font-size: 9.5px; font-weight: 900; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                ⭐ ${tutor.rating > 0 ? tutor.rating.toFixed(1) : 'New'}
               </div>
-            </Popup>
-          </Marker>
-        ))}
+            ` : ''}
+            ${subjectsHtml}
+            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+              Status: ${tutor.isOnline ? 'Broadcasting' : 'Offline'}
+            </div>
+            <a href="https://www.google.com/maps/search/?api=1&query=${tutor.location[0]},${tutor.location[1]}"
+               target="_blank" rel="noreferrer"
+               style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #e11d48; background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; text-decoration: none;">
+              Google Maps
+            </a>
+            ${studentLocation ? `
+              <button type="button" data-tutor-id="${tutor.id}"
+                style="margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer; border: 1px solid ${selectedTutorId === tutor.id ? 'transparent' : '#e0e7ff'}; background-color: ${selectedTutorId === tutor.id ? '#0D5BFF' : '#eef2ff'}; color: ${selectedTutorId === tutor.id ? '#ffffff' : '#4f46e5'};">
+                ${selectedTutorId === tutor.id ? '📍 Active Connection' : '📏 Measure Distance'}
+              </button>
+            ` : ''}
+          </div>
+        `;
 
-        <MapRecenter lat={center[0]} lng={center[1]} />
-        <MapEventsHandler active={isPinningMode} onMapClick={handleMapClick} />
-        <CustomMapHUD 
-          center={center} 
-          studentLocation={studentLocation} 
-          tutorLocation={tutorLocation} 
-          tutors={tutors} 
-          students={students} 
-          isPinningMode={isPinningMode}
-          setIsPinningMode={setIsPinningMode}
-          hasUser={!!currentUser}
-        />
-      </MapContainer>
+        const marker = L.marker(tutor.location, {
+          icon: createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)
+        }).bindPopup(popupHtml);
+
+        clusterGroup.addLayer(marker);
+      });
+
+      group.addLayer(clusterGroup);
+    }
+
+    // 8. Multiple students
+    if (students && students.length > 0) {
+      students.forEach(student => {
+        const popupHtml = `
+          <div style="padding: 8px; min-width: 120px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #3b82f6; margin-bottom: 4px;">
+              ${student.name} (Student)
+            </div>
+            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
+              Status: ${student.isOnline ? 'Online' : 'Offline'}
+            </div>
+            <a href="https://www.google.com/maps/search/?api=1&query=${student.location[0]},${student.location[1]}"
+               target="_blank" rel="noreferrer"
+               style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #0D5BFF; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; text-decoration: none;">
+              Google Maps
+            </a>
+          </div>
+        `;
+
+        L.marker(student.location, {
+          icon: createCustomMarker('blue-500', student.name, student.image, student.isOnline)
+        }).bindPopup(popupHtml).addTo(group);
+      });
+    }
+
+  }, [mapInstance, tutorLocation, studentLocation, tutorName, studentName, tutorImage, studentImage, eta, tutors, students, selectedTutorId, selectedTutorObj]);
+
+  return (
+    <div className="relative w-full h-full min-h-[320px] @container [container-type:size] overflow-hidden">
+      <div 
+        ref={containerRef} 
+        className="w-full h-full min-h-[320px] relative z-0" 
+        style={{ width: '100%', height: '100%', minHeight: '320px' }} 
+      />
+
+      <CustomMapHUD 
+        map={mapInstance}
+        center={center} 
+        studentLocation={studentLocation} 
+        tutorLocation={tutorLocation} 
+        tutors={tutors} 
+        students={students} 
+        isPinningMode={isPinningMode}
+        setIsPinningMode={setIsPinningMode}
+        hasUser={!!currentUser}
+      />
 
       {/* Manual Pinning Instructions Overlay */}
       {isPinningMode && (

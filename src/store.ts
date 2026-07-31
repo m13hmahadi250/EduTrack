@@ -425,6 +425,9 @@ export const useAppStore = create<AppState>((set, get) => {
             }
           }
           set({ currentUser: userData });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+          } catch (e) {}
           
           // Setup real-time listeners for data
           setupListeners(firebaseUser.uid, userData.role, set, get);
@@ -470,23 +473,41 @@ export const useAppStore = create<AppState>((set, get) => {
           const cleanedUser = cleanUndefined(newUser);
           await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
           set({ currentUser: cleanedUser });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
+          } catch (e) {}
           setupListeners(firebaseUser.uid, cleanedUser.role, set, get);
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
         set({ currentUser: null });
+        try {
+          localStorage.removeItem('edutrack_cached_user');
+        } catch (e) {}
         cleanupListeners();
       } finally {
         set({ isLoading: false, isInitialized: true });
       }
     } else {
       cleanupListeners();
+      try {
+        localStorage.removeItem('edutrack_cached_user');
+      } catch (e) {}
       set({ currentUser: null, users: [], payments: [], messages: [], homeworkAssignments: [], isLoading: false, isInitialized: true });
     }
   });
 
+  const cachedUserInitial = typeof window !== 'undefined' ? (() => {
+    try {
+      const raw = localStorage.getItem('edutrack_cached_user');
+      return raw ? JSON.parse(raw) as User : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
   return {
-    currentUser: null,
+    currentUser: cachedUserInitial,
     users: [],
     payments: [],
     sessions: [],
@@ -496,8 +517,8 @@ export const useAppStore = create<AppState>((set, get) => {
     classLogs: [],
     homeworkAssignments: [],
     referrals: [],
-    isLoading: true,
-    isInitialized: false,
+    isLoading: false,
+    isInitialized: true,
     isLoggingOut: false,
     typingStatus: {},
     theme: (typeof window !== 'undefined' ? (localStorage.getItem('theme') as 'light' | 'dark' || 'light') : 'light'),
@@ -1560,6 +1581,10 @@ function persistOfflineData(uid: string, state: any) {
       messages: state.messages || [],
       users: state.users || [],
       homeworkAssignments: state.homeworkAssignments || [],
+      payments: state.payments || [],
+      notifications: state.notifications || [],
+      withdrawals: state.withdrawals || [],
+      referrals: state.referrals || [],
       cachedAt: new Date().toISOString()
     };
     localStorage.setItem(`edutrack_offline_cache_${uid}`, JSON.stringify(cacheData));
@@ -1580,7 +1605,11 @@ function loadOfflineData(uid: string, set: any) {
           classLogs: parsed.classLogs || [],
           messages: parsed.messages || [],
           users: parsed.users || [],
-          homeworkAssignments: parsed.homeworkAssignments || []
+          homeworkAssignments: parsed.homeworkAssignments || [],
+          payments: parsed.payments || [],
+          notifications: parsed.notifications || [],
+          withdrawals: parsed.withdrawals || [],
+          referrals: parsed.referrals || []
         });
       }
     }

@@ -221,7 +221,7 @@ export default function AdminAnalytics({ users, payments, withdrawals, sessions 
           </div>
           
           <div className="h-64 sm:h-72 w-full flex-1 min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 300, height: 250 }}>
               <BarChart data={subjectChartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
                 <XAxis 
                   dataKey="name" 
@@ -278,8 +278,8 @@ export default function AdminAnalytics({ users, payments, withdrawals, sessions 
             <DollarSign className="w-4 h-4 text-slate-400" />
           </div>
 
-          <div className="h-48 sm:h-52 relative flex items-center justify-center my-4">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-48 sm:h-52 relative flex items-center justify-center my-4 w-full">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={150} initialDimension={{ width: 200, height: 180 }}>
               <PieChart>
                 <Pie
                   data={paymentDistributionData}

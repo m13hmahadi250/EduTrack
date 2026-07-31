@@ -20,7 +20,7 @@ import BeautifulSkeleton from './components/BeautifulSkeleton';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
-// Lazy load pages for better initial bundle size
+// Lazy load route-level components for optimal bundle splitting
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));

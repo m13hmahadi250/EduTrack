@@ -42,7 +42,14 @@ import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
 import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
-  const [realTutors, setRealTutors] = React.useState<any[]>([]);
+  const [realTutors, setRealTutors] = React.useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('edutrack_cached_home_tutors');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const location = useLocation();
 
   React.useEffect(() => {
@@ -78,6 +85,9 @@ export default function Home() {
             .map(doc => ({ id: doc.id, ...doc.data() as any }))
             .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false);
           setRealTutors(fetched);
+          try {
+            localStorage.setItem('edutrack_cached_home_tutors', JSON.stringify(fetched));
+          } catch (e) {}
         }
       } catch (error) {
         console.error("Error fetching tutors:", error);
@@ -285,6 +295,10 @@ export default function Home() {
                   src={heroImage} 
                   alt="Education" 
                   className="w-full h-[600px] object-cover"
+                  loading="eager"
+                  // @ts-ignore
+                  fetchPriority="high"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                 />
               </div>
