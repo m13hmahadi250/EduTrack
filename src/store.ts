@@ -26,6 +26,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
+import { sendWelcomeMail } from './services/mailService';
 
 export type Role = 'student' | 'tutor' | 'admin';
 
@@ -473,6 +474,15 @@ export const useAppStore = create<AppState>((set, get) => {
           const cleanedUser = cleanUndefined(newUser);
           await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
           set({ currentUser: cleanedUser });
+
+          // Send Brevo Welcome & App Detailed Email
+          sendWelcomeMail({
+            email: cleanedUser.email,
+            name: cleanedUser.name,
+            role: cleanedUser.role,
+            district: cleanedUser.district,
+          }).catch((mailErr) => console.error("Welcome mail error:", mailErr));
+
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
           } catch (e) {}
@@ -879,6 +889,18 @@ export const useAppStore = create<AppState>((set, get) => {
         // Save to Firestore
         await setDoc(doc(db, 'users', uid), cleanedUser);
         set({ currentUser: cleanedUser });
+
+        // Trigger Brevo Welcome & App Detailed Email
+        sendWelcomeMail({
+          email: cleanedUser.email,
+          name: cleanedUser.name,
+          role: cleanedUser.role,
+          studentClass: cleanedUser.studentClass,
+          school: cleanedUser.school,
+          university: cleanedUser.university,
+          course: cleanedUser.course,
+          district: cleanedUser.district,
+        }).catch((mailErr) => console.error("Welcome mail error on signup:", mailErr));
 
         if (referredByCode) {
           try {

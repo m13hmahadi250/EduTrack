@@ -12,6 +12,7 @@ import {
   Coins,
   ArrowRightLeft,
   Mail,
+  Send,
   Smartphone,
   X,
   GraduationCap,
@@ -27,6 +28,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import AdminSendMailModal from './AdminSendMailModal';
 
 interface AdminUserDirectoryProps {
   users: User[];
@@ -58,6 +60,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [balanceInput, setBalanceInput] = useState<string>('');
   const [inspectingUser, setInspectingUser] = useState<User | null>(null);
+  const [emailModalUser, setEmailModalUser] = useState<User | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -674,6 +677,15 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <Search className="w-3.5 h-3.5" />
                         </button>
 
+                        {/* Send Brevo Welcome / Custom Mail */}
+                        <button
+                          onClick={() => setEmailModalUser(user)}
+                          className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 hover:bg-indigo-600 hover:text-white border border-indigo-100/20 hover:scale-105 active:scale-95"
+                          title="Send Brevo Welcome & Custom Email"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+
                         {/* Send Message */}
                         {user.id !== currentUser.id && onMessageUser ? (
                           <button
@@ -1158,7 +1170,18 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             </div>
 
             {/* Footer Closing Button */}
-            <div className="flex items-center justify-end pt-4 border-t border-slate-100 dark:border-slate-800/60 font-sans">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/60 font-sans">
+              <button
+                onClick={() => {
+                  const target = inspectingUser;
+                  setInspectingUser(null);
+                  setEmailModalUser(target);
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-[#0D5BFF] to-[#0040C9] text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:shadow-md cursor-pointer flex items-center gap-2"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send Welcome / Custom Email</span>
+              </button>
               <button
                 onClick={() => setInspectingUser(null)}
                 className="px-6 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
@@ -1169,6 +1192,15 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
 
           </div>
         </div>
+      )}
+
+      {/* Brevo Email Admin Modal */}
+      {emailModalUser && (
+        <AdminSendMailModal
+          user={emailModalUser}
+          onClose={() => setEmailModalUser(null)}
+          onSuccess={(msg) => showToast(msg, 'success')}
+        />
       )}
 
       {/* Custom Toast Alert */}

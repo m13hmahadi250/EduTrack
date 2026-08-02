@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateSitemap } from "./sitemap.js";
+import { sendBrevoEmail, generateWelcomeEmailHtml } from "./mailService.js";
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -316,6 +317,99 @@ app.post("/api/save-fcm-token", (req, res) => {
   } catch (error: any) {
     console.error("[FCM API Error]:", error);
     res.status(500).json({ error: error.message || "Failed to register FCM token on backend" });
+  }
+});
+
+/**
+ * Brevo Mail API Endpoints
+ */
+app.post("/api/mail/send-welcome", async (req, res) => {
+  try {
+    const { email, name, role, studentClass, school, university, course, district, customMessage } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: "Recipient email is required" });
+    }
+
+    const htmlContent = generateWelcomeEmailHtml({
+      email,
+      name: name || "Member",
+      role: role || "student",
+      studentClass,
+      school,
+      university,
+      course,
+      district,
+      customMessage
+    });
+
+    const subject = customMessage 
+      ? `EduTrack Bangladesh - Welcome & Special Message for ${name || 'User'}`
+      : `Welcome to EduTrack Bangladesh, ${name || 'Member'}! 🎓`;
+
+    const result = await sendBrevoEmail({
+      toEmail: email,
+      toName: name || email,
+      subject,
+      htmlContent
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Mail Route Error]:", error);
+    const msg = error?.message || "Failed to send welcome email via Brevo";
+    if (msg.includes("unrecognised IP address") || msg.includes("authorised_ips")) {
+      return res.status(200).json({
+        success: false,
+        isIpError: true,
+        error: "Brevo IP Whitelist Restriction Active",
+        message: "Brevo Security Notice: Your Brevo API key has IP restrictions enabled. Please go to https://app.brevo.com/security/authorised_ips and disable IP restrictions or authorize server IPs.",
+        brevoLink: "https://app.brevo.com/security/authorised_ips"
+      });
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.post("/api/mail/send-custom", async (req, res) => {
+  try {
+    const { toEmail, toName, subject, messageBody, role, district } = req.body;
+    
+    if (!toEmail || !messageBody) {
+      return res.status(400).json({ error: "toEmail and messageBody are required" });
+    }
+
+    const htmlContent = generateWelcomeEmailHtml({
+      email: toEmail,
+      name: toName || toEmail,
+      role: role || "student",
+      district,
+      customMessage: messageBody
+    });
+
+    const finalSubject = subject || `Message from EduTrack Bangladesh Administration`;
+
+    const result = await sendBrevoEmail({
+      toEmail,
+      toName: toName || toEmail,
+      subject: finalSubject,
+      htmlContent
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Custom Mail Route Error]:", error);
+    const msg = error?.message || "Failed to send email via Brevo";
+    if (msg.includes("unrecognised IP address") || msg.includes("authorised_ips")) {
+      return res.status(200).json({
+        success: false,
+        isIpError: true,
+        error: "Brevo IP Whitelist Restriction Active",
+        message: "Brevo Security Notice: Your Brevo API key has IP restrictions enabled. Please go to https://app.brevo.com/security/authorised_ips and disable IP restrictions or authorize server IPs.",
+        brevoLink: "https://app.brevo.com/security/authorised_ips"
+      });
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
