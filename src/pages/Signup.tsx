@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppStore } from '../store';
+import { useAppStore, consumePostLoginDestination } from '../store';
 import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
@@ -17,7 +17,15 @@ export default function Signup() {
   const [referralCodeInput, setReferralCodeInput] = useState(searchParams.get('ref') || '');
   
   const signup = useAppStore(state => state.signup);
+  const currentUser = useAppStore(state => state.currentUser);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (currentUser) {
+      const dest = consumePostLoginDestination('/dashboard');
+      navigate(dest, { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   const validateForm = () => {
     const errs: Record<string, string> = {};
@@ -758,10 +766,11 @@ export default function Signup() {
             try {
               const data = { ...formData };
               delete data.password;
-              await useAppStore.getState().loginWithGoogle(role, data);
+              await useAppStore.getState().loginWithGoogle(role, data, '/dashboard');
               setSignupSuccess(true);
               await new Promise(resolve => setTimeout(resolve, 800));
-              navigate('/dashboard');
+              const dest = consumePostLoginDestination('/dashboard');
+              navigate(dest);
             } catch (err: any) {
               console.error("Google Auth error:", err);
               let msg = err.message || 'Google Auth failed';

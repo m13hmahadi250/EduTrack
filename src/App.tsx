@@ -7,7 +7,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut } from 'lucide-react';
-import { useAppStore } from './store';
+import { useAppStore, consumePostLoginDestination } from './store';
 import { prefetchPage, prefetchMultiple } from './utils/prefetch';
 import Navbar from './components/Navbar';
 import DashboardLayout from './components/DashboardLayout';
@@ -179,6 +179,13 @@ function LayoutWrapper() {
       }
     }
   }, [isInitialized, currentUser]);
+
+  React.useEffect(() => {
+    if (currentUser && (location.pathname === '/login' || location.pathname === '/signup')) {
+      const targetDest = consumePostLoginDestination('/dashboard');
+      navigate(targetDest, { replace: true });
+    }
+  }, [currentUser, location.pathname, navigate]);
 
   React.useEffect(() => {
     if (theme === 'dark') {

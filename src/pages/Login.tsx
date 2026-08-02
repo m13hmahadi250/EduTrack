@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppStore } from '../store';
+import { useAppStore, consumePostLoginDestination } from '../store';
 import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert, GraduationCap, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
@@ -31,11 +31,8 @@ export default function Login() {
 
   useEffect(() => {
     if (currentUser) {
-      if (redirectUrl) {
-        navigate(redirectUrl);
-      } else {
-        navigate('/dashboard');
-      }
+      const dest = consumePostLoginDestination(redirectUrl || '/dashboard');
+      navigate(dest, { replace: true });
     }
   }, [currentUser, navigate, redirectUrl]);
 
@@ -525,12 +522,14 @@ export default function Login() {
                   setLoading(true);
                   setError('');
                   try {
-                    await useAppStore.getState().loginWithGoogle();
+                    const targetDest = redirectUrl || '/dashboard';
+                    await useAppStore.getState().loginWithGoogle(undefined, undefined, targetDest);
                     
                     setLoginSuccess(true);
                     await new Promise(resolve => setTimeout(resolve, 600));
                     
-                    navigate('/dashboard');
+                    const finalDest = consumePostLoginDestination(targetDest);
+                    navigate(finalDest);
                   } catch (err: any) {
                     console.error("Google Auth error:", err);
                     let msg = err.message || 'Google Auth failed';

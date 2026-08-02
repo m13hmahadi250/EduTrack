@@ -30,6 +30,19 @@ import { sendWelcomeMail } from './services/mailService';
 
 export type Role = 'student' | 'tutor' | 'admin';
 
+export function consumePostLoginDestination(defaultPath = '/dashboard'): string {
+  try {
+    const dest = localStorage.getItem('auth_post_login_destination');
+    if (dest) {
+      localStorage.removeItem('auth_post_login_destination');
+      return dest;
+    }
+  } catch (e) {
+    console.error("Error retrieving stored auth post-login destination:", e);
+  }
+  return defaultPath;
+}
+
 export interface AvailabilitySlot {
   day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   startTime: string; // HH:mm
@@ -226,7 +239,7 @@ interface AppState {
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (requestedRole?: Role, additionalUserData?: Partial<User>) => Promise<void>;
+  loginWithGoogle: (requestedRole?: Role, additionalUserData?: Partial<User>, destinationPath?: string) => Promise<void>;
   loginAsDemo: (role: Role) => Promise<void>;
   logout: () => Promise<void>;
   signup: (userData: Partial<User>, password: string, referredByCode?: string) => Promise<void>;
@@ -771,8 +784,17 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
-    loginWithGoogle: async (requestedRole, additionalUserData) => {
+    loginWithGoogle: async (requestedRole, additionalUserData, destinationPath) => {
       set({ isLoading: true });
+
+      // Store intended post-login destination in localStorage before initiating Google auth / redirect
+      const destinationToStore = destinationPath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null) || '/dashboard';
+      try {
+        localStorage.setItem('auth_post_login_destination', destinationToStore);
+      } catch (e) {
+        console.error("Error storing auth post-login destination in localStorage:", e);
+      }
+
       // Store registration details in localStorage to persist across redirect if fallback happens
       if (requestedRole) {
         localStorage.setItem('google_auth_requested_role', requestedRole);
