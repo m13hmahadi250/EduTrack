@@ -754,23 +754,6 @@ export default function Signup() {
           type="button"
           onClick={async () => {
             setError('');
-            const validationErrors = validateForm();
-            if (Object.keys(validationErrors).length > 0) {
-              setErrors(validationErrors);
-              const allTouched: Record<string, boolean> = {};
-              const fieldsToCheck = [
-                'name', 'email', 'phone', 'password', 'address', 'division', 'district', 'thana', 'area', 'gender',
-                ...(role === 'student' ? ['studentClass', 'group', 'school', 'subject'] : ['university', 'course', 'year', 'semester', 'whatsappNumber'])
-              ];
-              fieldsToCheck.forEach(f => {
-                allTouched[f] = true;
-              });
-              setTouched(allTouched);
-              setError('Please fill out all required fields with valid information first before signing up with Google.');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              return;
-            }
-
             setLoading(true);
             try {
               const data = { ...formData };
@@ -797,7 +780,7 @@ export default function Signup() {
               ) {
                 msg = 'YOUR ACCOUNT IS TEMPORARILY RESTRICTED DUE TO SOME REASON';
               } else if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
-                msg = 'Google Auth Error (invalid-credential). Ensure your Vercel URL is added to "Authorized Domains" in Firebase Console > Authentication > Settings.';
+                msg = 'Google Auth Error. Please check your connection and try again.';
               }
               setError(msg);
               setSignupSuccess(false);

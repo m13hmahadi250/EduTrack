@@ -773,7 +773,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     loginWithGoogle: async (requestedRole, additionalUserData) => {
       set({ isLoading: true });
-      // Store registration details in localStorage to persist across redirect
+      // Store registration details in localStorage to persist across redirect if fallback happens
       if (requestedRole) {
         localStorage.setItem('google_auth_requested_role', requestedRole);
       } else {
@@ -787,10 +787,95 @@ export const useAppStore = create<AppState>((set, get) => {
 
       try {
         const provider = new GoogleAuthProvider();
-        // Use signInWithRedirect directly as recommended for production/iframe environment
-        await signInWithRedirect(auth, provider);
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        let firebaseUser: FirebaseUser | null = null;
+        try {
+          const result = await signInWithPopup(auth, provider);
+          firebaseUser = result.user;
+        } catch (popupErr: any) {
+          console.warn("signInWithPopup failed, falling back to signInWithRedirect:", popupErr);
+          const popupErrStr = String(popupErr).toLowerCase();
+          const popupErrCode = (popupErr?.code || '').toLowerCase();
+          
+          if (
+            popupErrCode === 'auth/popup-closed-by-user' || 
+            popupErrStr.includes('popup-closed-by-user') ||
+            popupErrStr.includes('popup closed by user')
+          ) {
+            set({ isLoading: false });
+            throw popupErr;
+          }
+
+          // Fallback to redirect if popup is blocked
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+
+        if (firebaseUser) {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          let userData: User;
+          if (userDoc.exists()) {
+            userData = userDoc.data() as User;
+            const lowercaseEmail = firebaseUser.email?.toLowerCase();
+            if (lowercaseEmail === 'edutrackbangladesh@gmail.com' || lowercaseEmail === 'm13hmahadi.personal@gmail.com') {
+              if (userData.role !== 'admin' || !userData.isVerified) {
+                userData = { ...userData, role: 'admin', isVerified: true };
+                try {
+                  await updateDoc(userDocRef, { role: 'admin', isVerified: true });
+                } catch (e) {
+                  console.error("Error updating admin role in Google login:", e);
+                }
+              }
+            }
+          } else {
+            const lowerGEmail = firebaseUser.email?.toLowerCase();
+            const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
+            const finalRole = isMainAdmin ? 'admin' : (requestedRole || 'student');
+            const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
+
+            const newUser: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email!,
+              name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
+              phone: firebaseUser.phoneNumber || (additionalUserData?.phone || ''),
+              role: finalRole,
+              balance: 0,
+              isVerified: isMainAdmin ? true : false,
+              isTrackingOn: false,
+              rating: isMainAdmin ? 5 : 0,
+              profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
+              showTour: true,
+              createdAt: new Date().toISOString(),
+              referralCode,
+              referralPoints: 0,
+              serviceDiscounts: 0,
+              ...additionalUserData
+            };
+
+            const cleanedUser = cleanUndefined(newUser);
+            await setDoc(userDocRef, cleanedUser);
+            userData = cleanedUser;
+
+            sendWelcomeMail({
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              district: userData.district,
+            }).catch((mailErr) => console.error("Welcome mail error on Google Auth:", mailErr));
+          }
+
+          set({ currentUser: userData, isLoading: false });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+          } catch (e) {}
+          localStorage.removeItem('google_auth_requested_role');
+          localStorage.removeItem('google_auth_additional_user_data');
+        }
       } catch (error: any) {
-        console.error("Error initiating redirect sign-in:", error);
+        console.error("Error initiating Google sign-in:", error);
         set({ isLoading: false });
         throw error;
       }
