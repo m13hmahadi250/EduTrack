@@ -60,11 +60,11 @@ export function generateWelcomeEmailHtml({
           <tr>
             <td style="background: linear-gradient(135deg, #0B132B 0%, #111A2E 55%, #0D5BFF 100%); padding: 44px 36px 36px 36px; text-align: center; position: relative;">
               
-              <!-- Brand Badge with Official Site Logo -->
-              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.12); padding: 10px 22px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.25); margin-bottom: 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                <img src="https://edutrackbd.vercel.app/logo.svg" alt="EduTrack Bangladesh Logo" width="32" height="32" style="width: 32px; height: 32px; border-radius: 8px; vertical-align: middle; margin-right: 10px; display: inline-block; object-fit: contain;" />
-                <span style="color: #ffffff; font-size: 19px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
-                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
+              <!-- Brand Badge -->
+              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 20px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                <span style="color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
+                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
               </div>
 
               <!-- Main Title -->
@@ -302,12 +302,12 @@ export function generateWelcomeEmailHtml({
 
               <!-- Designer & Developer Signature Badge -->
               <div style="display: inline-block;">
-                <div class="creator-badge" style="background: linear-gradient(135deg, rgba(13, 91, 255, 0.2) 0%, rgba(124, 58, 237, 0.25) 100%); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 50px; padding: 6px 18px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(13, 91, 255, 0.25);">
-                  <span style="color: #94a3b8; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; margin-right: 6px;">
+                <div class="creator-badge" style="background: linear-gradient(135deg, rgba(13, 91, 255, 0.15) 0%, rgba(124, 58, 237, 0.2) 100%); border: 1px solid rgba(96, 165, 250, 0.25); border-radius: 50px; padding: 3px 12px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(13, 91, 255, 0.15);">
+                  <span style="color: #64748b; font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px;">
                     Designed & Built by
                   </span>
-                  <span style="color: #60a5fa; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 0 12px rgba(96, 165, 250, 0.5); display: inline-flex; align-items: center;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#60a5fa" stroke="#60a5fa" stroke-width="1" style="vertical-align: middle; margin-right: 4px;"><path d="M12 2l2.4 7.2L21.6 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8z"/></svg>
+                  <span style="color: #60a5fa; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; display: inline-flex; align-items: center;">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="#60a5fa" stroke="#60a5fa" stroke-width="1" style="vertical-align: middle; margin-right: 3px;"><path d="M12 2l2.4 7.2L21.6 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8z"/></svg>
                     <span>MOHAMMED MAHADI HOSSAIN</span>
                   </span>
                 </div>
