@@ -995,7 +995,10 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Save to Firestore
         await setDoc(doc(db, 'users', uid), cleanedUser);
-        set({ currentUser: cleanedUser });
+        set({ currentUser: cleanedUser, isLoading: false });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
+        } catch (e) {}
 
         // Trigger Brevo Welcome & App Detailed Email
         sendWelcomeMail({

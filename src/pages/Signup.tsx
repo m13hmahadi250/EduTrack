@@ -149,9 +149,10 @@ export default function Signup() {
       await signup({ ...data, role }, password, referralCodeInput);
       
       setSignupSuccess(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 600));
       
-      navigate('/dashboard');
+      const targetDest = consumePostLoginDestination('/dashboard');
+      navigate(targetDest, { replace: true });
     } catch (err: any) {
       console.error("Signup error:", err);
       let msg = 'Registration failed. Please try again.';
