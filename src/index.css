@@ -142,6 +142,13 @@
   @apply !bg-white;
 }
 
+/* Hide Leaflet Routing Machine default text instruction overlay box */
+.leaflet-routing-container,
+.leaflet-routing-alt,
+.leaflet-top.leaflet-right .leaflet-routing-container {
+  display: none !important;
+}
+
 /* Custom Animated Polyline Flow */
 @keyframes leafletPolylineFlow {
   from {
@@ -155,6 +162,12 @@
 .animated-polyline {
   stroke-dasharray: 8, 12;
   animation: leafletPolylineFlow 1.2s linear infinite !important;
+}
+
+.animated-route-line {
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  transition: all 0.3s ease;
 }
 
 /* -------------------------------------------------------------

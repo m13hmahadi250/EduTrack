@@ -3,8 +3,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import { useAppStore } from '../store';
-import { ZoomIn, ZoomOut, Focus, Navigation, MapPin, Crosshair } from 'lucide-react';
+import { ZoomIn, ZoomOut, Focus, Navigation, MapPin, Crosshair, Route } from 'lucide-react';
 import { getCurrentAccuratePosition, watchAccuratePosition } from '../utils/geocoding';
 
 // Fix typical leaflet marker icon assets
@@ -37,48 +39,48 @@ interface MapTrackerProps {
   students?: UserMarker[];
 }
 
-const createCustomMarker = (color: string, name: string, image?: string, isOnline?: boolean) => {
-  const isRose = color === 'rose-500';
-  const themeBgColor = isRose ? '#FFF1F2' : '#EFF6FF';
-  const themeTextColor = isRose ? '#E11D48' : '#3B82F6';
-  const themeBorderColor = isRose ? '#FC155D' : '#0D5BFF';
-  const themeDotColor = isRose ? '#FC155D' : '#0D5BFF';
+// Custom Circular HTML DivIcon Generator for Ride-Sharing / Delivery Tracking UI
+const createCustomCircularMarker = (
+  type: 'start' | 'destination' | 'tutor' | 'student',
+  name: string,
+  image?: string,
+  isOnline?: boolean,
+  roleLabel?: string
+) => {
+  const isStart = type === 'start' || type === 'tutor';
+  const themeColor = isStart ? '#10b981' : '#2dd4bf'; // Emerald Green for Start, Teal for Destination
+  const themeBg = isStart ? '#ecfdf5' : '#f0fdfa';
+  const badgeText = roleLabel || (isStart ? 'START' : 'DESTINATION');
+  const badgeBg = isStart ? '#10b981' : '#0d9488';
 
-  const content = image 
-    ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover;" referrerpolicy="no-referrer" />`
-    : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 950; font-style: italic; color: ${themeTextColor}; background-color: ${themeBgColor};">
+  const avatarContent = image 
+    ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" />`
+    : `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: ${themeColor}; background: ${themeBg};">
         ${name.charAt(0).toUpperCase()}
       </div>`;
 
-  const sonarAnimation = isOnline !== false 
-    ? `<style>
-        @keyframes custom-sonar {
-          0% { transform: scale(0.65); opacity: 0.9; }
-          100% { transform: scale(1.6); opacity: 0; }
-        }
-       </style>`
-    : '';
-
-  const glowRing = isOnline !== false 
-    ? `<div style="position: absolute; width: 44px; height: 44px; top: -6px; left: -6px; border-radius: 12px; border: 2.5px solid ${themeDotColor}; opacity: 0.6; animation: custom-sonar 2s infinite ease-out; pointer-events: none; z-index: -1;"></div>`
-    : '';
-
   return L.divIcon({
-    className: 'custom-div-icon',
+    className: 'custom-circular-marker',
     html: `
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-        ${sonarAnimation}
-        ${glowRing}
-        <div style="width: 32px; height: 32px; border-radius: 10px; background-color: white; border: 2.5px solid ${themeBorderColor}; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
-          ${content}
-          ${isOnline !== false ? `<div style="position: absolute; top: -1.5px; right: -1.5px; width: 9px; height: 9px; background-color: #10B981; border-radius: 50%; border: 1.5px solid white;"></div>` : ''}
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <!-- Pulsing Aura Ring -->
+        <div style="position: absolute; width: 48px; height: 48px; border-radius: 50%; background-color: ${themeColor}; opacity: 0.35; animation: custom-sonar 2s infinite ease-out; pointer-events: none; z-index: -1;"></div>
+        
+        <!-- Circular Avatar Frame -->
+        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: #ffffff; border: 3px solid ${themeColor}; box-shadow: 0 10px 25px -3px rgba(0,0,0,0.3), 0 4px 10px -2px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+          ${avatarContent}
+          ${isOnline !== false ? `<div style="position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; background-color: #10b981; border-radius: 50%; border: 1.5px solid white;"></div>` : ''}
         </div>
-        <div style="width: 2px; height: 8px; background-color: ${themeDotColor}; margin-top: -1px;"></div>
+
+        <!-- Role Badge Tag -->
+        <div style="margin-top: 3px; background-color: ${badgeBg}; color: white; font-size: 7.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap;">
+          ${badgeText}
+        </div>
       </div>
     `,
-    iconSize: [32, 42],
-    iconAnchor: [16, 42],
-    popupAnchor: [0, -42]
+    iconSize: [48, 60],
+    iconAnchor: [24, 30],
+    popupAnchor: [0, -32]
   });
 };
 
@@ -260,10 +262,13 @@ const MapTracker = memo(({
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [isPinningMode, setIsPinningMode] = useState(false);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [routeDetails, setRouteDetails] = useState<{ distanceKm: string; durationMins: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const roadLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const routingControlRef = useRef<any>(null);
   const isPinningModeRef = useRef(isPinningMode);
   isPinningModeRef.current = isPinningMode;
 
@@ -299,21 +304,7 @@ const MapTracker = memo(({
     return null;
   }, [selectedTutorId, tutors, tutorLocation, tutorName, tutorImage]);
 
-  const calculatedDistanceStr = useMemo(() => {
-    if (!studentLocation || !selectedTutorObj) return null;
-    try {
-      const p1 = L.latLng(studentLocation[0], studentLocation[1]);
-      const p2 = L.latLng(selectedTutorObj.location[0], selectedTutorObj.location[1]);
-      const distanceInMeters = p1.distanceTo(p2);
-      if (distanceInMeters < 1000) {
-        return `${Math.round(distanceInMeters)} meters`;
-      } else {
-        return `${(distanceInMeters / 1000).toFixed(2)} km`;
-      }
-    } catch (err) {
-      return null;
-    }
-  }, [studentLocation, selectedTutorObj]);
+  const activeStartLocation = tutorLocation || (selectedTutorObj ? selectedTutorObj.location : undefined);
 
   const center = useMemo<[number, number]>(() => {
     if (tutors && tutors.length > 0) return tutors[0].location;
@@ -401,7 +392,9 @@ const MapTracker = memo(({
 
     tileLayerRef.current = tileLayer;
 
+    const roadLayerGroup = L.layerGroup().addTo(map);
     const layerGroup = L.layerGroup().addTo(map);
+    roadLayerGroupRef.current = roadLayerGroup;
     layerGroupRef.current = layerGroup;
 
     map.on('click', (e: L.LeafletMouseEvent) => {
@@ -430,6 +423,7 @@ const MapTracker = memo(({
       map.remove();
       setMapInstance(null);
       tileLayerRef.current = null;
+      roadLayerGroupRef.current = null;
       layerGroupRef.current = null;
     };
   }, []);
@@ -468,114 +462,206 @@ const MapTracker = memo(({
     tileLayerRef.current.setUrl(tileUrl);
   }, [theme]);
 
-  // Update Layers (Polylines and Markers)
+  // --------------------------------------------------------------------------
+  // Real-Time Road Route Direction Engine (leaflet-routing-machine & OSRM)
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (!mapInstance) return;
+
+    // Clear existing road layers
+    if (roadLayerGroupRef.current) {
+      roadLayerGroupRef.current.clearLayers();
+    }
+
+    // Remove existing routing control if present
+    if (routingControlRef.current) {
+      try {
+        mapInstance.removeControl(routingControlRef.current);
+      } catch (err) {}
+      routingControlRef.current = null;
+    }
+
+    const start = activeStartLocation;
+    const dest = studentLocation;
+
+    if (!start || !dest) {
+      setRouteDetails(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    // Direct OSRM geometry fetch for 100% accurate road driving path polyline
+    const fetchOSRMGeometry = async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.routes && data.routes[0] && isMounted && roadLayerGroupRef.current) {
+          const coords = data.routes[0].geometry.coordinates.map(
+            (c: [number, number]) => [c[1], c[0]] as [number, number]
+          );
+          const distKm = (data.routes[0].distance / 1000).toFixed(2);
+          const durMin = Math.round(data.routes[0].duration / 60);
+
+          setRouteDetails({
+            distanceKm: distKm,
+            durationMins: durMin > 0 ? durMin : 1,
+          });
+
+          // Clear previous road polylines before adding the new road path
+          roadLayerGroupRef.current.clearLayers();
+
+          // Draw custom green/teal polyline strictly following actual roads
+          const roadPolyline = L.polyline(coords, {
+            color: '#10b981', // Modern emerald/teal green
+            weight: 6,
+            opacity: 0.95,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'animated-route-line',
+          }).addTo(roadLayerGroupRef.current);
+
+          // Fit map bounds to show the entire road route clearly
+          try {
+            mapInstance.fitBounds(roadPolyline.getBounds().pad(0.15));
+          } catch (err) {}
+        }
+      } catch (err) {
+        console.warn("OSRM geometry fetch warning:", err);
+      }
+    };
+
+    // Initialize leaflet-routing-machine with OSRM engine
+    if ((L as any).Routing && (L as any).Routing.control) {
+      try {
+        const control = (L as any).Routing.control({
+          waypoints: [
+            L.latLng(start[0], start[1]),
+            L.latLng(dest[0], dest[1]),
+          ],
+          routeWhileDragging: false,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: true,
+          show: false, // Hides default text instruction overlay box
+          createMarker: () => null, // Suppresses default icons so custom circular DivIcons are displayed
+          lineOptions: {
+            styles: [
+              {
+                color: '#10b981', // Modern green/teal color
+                opacity: 0.95,
+                weight: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+              },
+            ],
+            extendToWaypoints: true,
+            missingRouteTolerance: 0,
+          },
+        }).addTo(mapInstance);
+
+        routingControlRef.current = control;
+
+        control.on('routesfound', (e: any) => {
+          if (e.routes && e.routes[0] && isMounted) {
+            const summary = e.routes[0].summary;
+            const distKm = (summary.totalDistance / 1000).toFixed(2);
+            const durMin = Math.round(summary.totalTime / 60);
+            setRouteDetails({
+              distanceKm: distKm,
+              durationMins: durMin > 0 ? durMin : 1,
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("Leaflet Routing Machine setup notice:", err);
+      }
+    }
+
+    fetchOSRMGeometry();
+
+    return () => {
+      isMounted = false;
+      if (routingControlRef.current && mapInstance) {
+        try {
+          mapInstance.removeControl(routingControlRef.current);
+        } catch (err) {}
+        routingControlRef.current = null;
+      }
+    };
+  }, [mapInstance, activeStartLocation?.[0], activeStartLocation?.[1], studentLocation?.[0], studentLocation?.[1]]);
+
+  // Update Layers (Custom Circular Markers)
   useEffect(() => {
     if (!mapInstance || !layerGroupRef.current) return;
 
     const group = layerGroupRef.current;
     group.clearLayers();
 
-    // 1. Connection Polyline from Tutor to Student
-    if (tutorLocation && studentLocation) {
-      L.polyline([tutorLocation, studentLocation], {
-        color: '#0D5BFF',
-        weight: 3.5,
-        opacity: 0.9,
-        className: 'animated-polyline'
-      }).addTo(group);
-    }
-
-    // 2. Connection Polylines for multiple student markers relative to single tutorLocation
-    if (tutorLocation && students) {
-      students.forEach(student => {
-        L.polyline([tutorLocation, student.location], {
-          color: '#0D5BFF',
-          weight: 3.2,
-          opacity: 0.8,
-          className: 'animated-polyline'
-        }).addTo(group);
-      });
-    }
-
-    // 3. Connection Polylines for multiple tutor markers relative to single studentLocation
-    if (studentLocation && tutors) {
-      tutors.forEach(tutor => {
-        L.polyline([studentLocation, tutor.location], {
-          color: '#0D5BFF',
-          weight: 3.2,
-          opacity: 0.8,
-          className: 'animated-polyline'
-        }).addTo(group);
-      });
-    }
-
-    // 4. Animated Dashed Connection Path for Selected Tutor
-    if (studentLocation && selectedTutorObj) {
-      L.polyline([studentLocation, selectedTutorObj.location], {
-        color: '#FC155D',
-        weight: 4.5,
-        opacity: 0.95,
-        className: 'animated-dashed-distance-path'
-      }).addTo(group);
-    }
-
-    // 5. Legacy/Contextual single tutor marker
-    if (!tutors && tutorLocation) {
+    // 1. Point A (Start / Tutor) Marker using Custom Circular DivIcon
+    if (tutorLocation) {
       const popupHtml = `
-        <div style="padding: 8px; min-width: 120px;">
-          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #f43f5e; margin-bottom: 4px;">
-            ${tutorName || 'Tutor'} Location
+        <div style="padding: 10px; min-width: 140px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #10b981; margin-bottom: 4px;">
+            📍 START (Tutor / Teacher)
           </div>
-          ${eta ? `
-            <div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px;">
-              <div style="font-size: 14px; font-weight: 900; font-style: italic; color: #0B132B;">
-                ~${eta.minutes} MINS
+          <div style="font-size: 13px; font-weight: 900; color: #0B132B; margin-bottom: 6px;">
+            ${tutorName || 'Tutor'}
+          </div>
+          ${routeDetails ? `
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; background: #ecfdf5; padding: 6px 10px; border-radius: 10px; border: 1px solid #a7f3d0;">
+              <div style="font-size: 13px; font-weight: 900; font-style: italic; color: #047857;">
+                🚗 ~${routeDetails.durationMins} MINS
               </div>
-              <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em;">
-                Distance: ${eta.distance} KM
+              <div style="font-size: 8px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.05em;">
+                Road Distance: ${routeDetails.distanceKm} KM
               </div>
             </div>
           ` : ''}
           <a href="https://www.google.com/maps/search/?api=1&query=${tutorLocation[0]},${tutorLocation[1]}"
              target="_blank" rel="noreferrer"
-             style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #e11d48; background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; text-decoration: none;">
-            Google Maps
+             style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; text-decoration: none;">
+            Google Maps Directions
           </a>
-          ${studentLocation ? `
-            <button type="button" data-tutor-id="legacy_tutor"
-              style="margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer; border: 1px solid ${selectedTutorId === 'legacy_tutor' ? 'transparent' : '#e0e7ff'}; background-color: ${selectedTutorId === 'legacy_tutor' ? '#0D5BFF' : '#eef2ff'}; color: ${selectedTutorId === 'legacy_tutor' ? '#ffffff' : '#4f46e5'};">
-              ${selectedTutorId === 'legacy_tutor' ? '📍 Active Connection' : '📏 Measure Distance'}
-            </button>
-          ` : ''}
         </div>
       `;
 
-      L.marker(tutorLocation, { icon: createCustomMarker('rose-500', tutorName || 'T', tutorImage, true) })
-        .bindPopup(popupHtml)
-        .addTo(group);
+      L.marker(tutorLocation, { 
+        icon: createCustomCircularMarker('start', tutorName || 'Tutor', tutorImage, true, 'START / TUTOR') 
+      })
+      .bindPopup(popupHtml)
+      .addTo(group);
     }
 
-    // 6. Legacy/Contextual single student marker
-    if (!students && studentLocation) {
+    // 4. Point B (Destination / Student) Marker using Custom Circular DivIcon
+    if (studentLocation) {
       const popupHtml = `
-        <div style="padding: 8px; min-width: 120px;">
-          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #3b82f6; margin-bottom: 8px;">
-            ${studentName || 'Student'} Location
+        <div style="padding: 10px; min-width: 140px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #0d9488; margin-bottom: 4px;">
+            🎯 DESTINATION (Student)
+          </div>
+          <div style="font-size: 13px; font-weight: 900; color: #0B132B; margin-bottom: 6px;">
+            ${studentName || 'Student'}
           </div>
           <a href="https://www.google.com/maps/search/?api=1&query=${studentLocation[0]},${studentLocation[1]}"
              target="_blank" rel="noreferrer"
-             style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #0D5BFF; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; text-decoration: none;">
-            Google Maps
+             style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #0f766e; background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px; text-decoration: none;">
+            Google Maps Location
           </a>
         </div>
       `;
 
-      L.marker(studentLocation, { icon: createCustomMarker('blue-500', studentName || 'S', studentImage, true) })
-        .bindPopup(popupHtml)
-        .addTo(group);
+      L.marker(studentLocation, { 
+        icon: createCustomCircularMarker('destination', studentName || 'Student', studentImage, true, 'DESTINATION') 
+      })
+      .bindPopup(popupHtml)
+      .addTo(group);
     }
 
-    // 7. Multiple tutors (using markerClusterGroup if available, or layerGroup)
+    // 5. Multiple tutors (using markerClusterGroup if available, or layerGroup)
     if (tutors && tutors.length > 0) {
       const clusterGroup = (L as any).markerClusterGroup ? (L as any).markerClusterGroup({
         showCoverageOnHover: false,
@@ -585,13 +671,13 @@ const MapTracker = memo(({
       tutors.forEach(tutor => {
         const subjectsHtml = tutor.subjects && tutor.subjects.length > 0 
           ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; max-width: 150px;">
-              ${tutor.subjects.slice(0, 3).map(sub => `<span style="background-color: #fff1f2; color: #e11d48; font-size: 7px; font-weight: 800; text-transform: uppercase; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffe4e6;">${sub}</span>`).join('')}
+              ${tutor.subjects.slice(0, 3).map(sub => `<span style="background-color: #ecfdf5; color: #047857; font-size: 7px; font-weight: 800; text-transform: uppercase; padding: 2px 4px; border-radius: 4px; border: 1px solid #a7f3d0;">${sub}</span>`).join('')}
              </div>`
           : '';
 
         const popupHtml = `
           <div style="padding: 10px; min-width: 140px;">
-            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #f43f5e; margin-bottom: 2px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #10b981; margin-bottom: 2px;">
               ${tutor.name} (Expert)
             </div>
             ${tutor.rating !== undefined ? `
@@ -603,22 +689,17 @@ const MapTracker = memo(({
             <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
               Status: ${tutor.isOnline ? 'Broadcasting' : 'Offline'}
             </div>
-            <a href="https://www.google.com/maps/search/?api=1&query=${tutor.location[0]},${tutor.location[1]}"
-               target="_blank" rel="noreferrer"
-               style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #e11d48; background-color: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; text-decoration: none;">
-              Google Maps
-            </a>
             ${studentLocation ? `
               <button type="button" data-tutor-id="${tutor.id}"
-                style="margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer; border: 1px solid ${selectedTutorId === tutor.id ? 'transparent' : '#e0e7ff'}; background-color: ${selectedTutorId === tutor.id ? '#0D5BFF' : '#eef2ff'}; color: ${selectedTutorId === tutor.id ? '#ffffff' : '#4f46e5'};">
-                ${selectedTutorId === tutor.id ? '📍 Active Connection' : '📏 Measure Distance'}
+                style="margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer; border: 1px solid ${selectedTutorId === tutor.id ? 'transparent' : '#a7f3d0'}; background-color: ${selectedTutorId === tutor.id ? '#10b981' : '#ecfdf5'}; color: ${selectedTutorId === tutor.id ? '#ffffff' : '#047857'};">
+                ${selectedTutorId === tutor.id ? '📍 Active Route' : '🗺️ Draw Route'}
               </button>
             ` : ''}
           </div>
         `;
 
         const marker = L.marker(tutor.location, {
-          icon: createCustomMarker('rose-500', tutor.name, tutor.image, tutor.isOnline)
+          icon: createCustomCircularMarker('tutor', tutor.name, tutor.image, tutor.isOnline, 'TUTOR')
         }).bindPopup(popupHtml);
 
         clusterGroup.addLayer(marker);
@@ -627,32 +708,27 @@ const MapTracker = memo(({
       group.addLayer(clusterGroup);
     }
 
-    // 8. Multiple students
+    // 6. Multiple students
     if (students && students.length > 0) {
       students.forEach(student => {
         const popupHtml = `
           <div style="padding: 8px; min-width: 120px;">
-            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #3b82f6; margin-bottom: 4px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #0d9488; margin-bottom: 4px;">
               ${student.name} (Student)
             </div>
             <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
               Status: ${student.isOnline ? 'Online' : 'Offline'}
             </div>
-            <a href="https://www.google.com/maps/search/?api=1&query=${student.location[0]},${student.location[1]}"
-               target="_blank" rel="noreferrer"
-               style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #0D5BFF; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; text-decoration: none;">
-              Google Maps
-            </a>
           </div>
         `;
 
         L.marker(student.location, {
-          icon: createCustomMarker('blue-500', student.name, student.image, student.isOnline)
+          icon: createCustomCircularMarker('student', student.name, student.image, student.isOnline, 'STUDENT')
         }).bindPopup(popupHtml).addTo(group);
       });
     }
 
-  }, [mapInstance, tutorLocation?.[0], tutorLocation?.[1], studentLocation?.[0], studentLocation?.[1], tutorName, studentName, tutorImage, studentImage, eta, JSON.stringify(tutors), JSON.stringify(students), selectedTutorId, selectedTutorObj]);
+  }, [mapInstance, tutorLocation?.[0], tutorLocation?.[1], studentLocation?.[0], studentLocation?.[1], tutorName, studentName, tutorImage, studentImage, eta, JSON.stringify(tutors), JSON.stringify(students), selectedTutorId, selectedTutorObj, routeDetails]);
 
   return (
     <div className="relative w-full h-full min-h-[320px] @container [container-type:size] overflow-hidden">
@@ -674,6 +750,31 @@ const MapTracker = memo(({
         hasUser={!!currentUser}
       />
 
+      {/* Ride-Sharing / Delivery Tracking Route Overlay HUD Banner */}
+      {activeStartLocation && studentLocation && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2.5 bg-slate-950/90 dark:bg-slate-900/95 text-white backdrop-blur-md px-4 py-2 rounded-full shadow-2xl border border-emerald-500/40 animate-fade-in max-w-[92%] sm:max-w-md">
+          <div className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold min-w-0">
+            <span className="text-emerald-400 font-black uppercase tracking-wider text-[10px] shrink-0 flex items-center gap-1">
+              <Route className="w-3 h-3" />
+              Route Active
+            </span>
+            <div className="h-3 w-[1px] bg-slate-700" />
+            {routeDetails ? (
+              <div className="flex items-center gap-1.5 text-slate-200 text-[11px] truncate">
+                <span>🚗 <strong className="text-emerald-300 font-extrabold">{routeDetails.durationMins} mins</strong></span>
+                <span className="text-slate-400">({routeDetails.distanceKm} km)</span>
+              </div>
+            ) : (
+              <span className="text-slate-400 text-[10px] italic">Drawing road path...</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Manual Pinning Instructions Overlay */}
       {isPinningMode && (
         <div className="absolute top-4 left-4 z-[1000] p-3.5 sm:p-4 bg-amber-500 text-white rounded-2xl shadow-xl border border-amber-400/50 font-sans max-w-[240px] sm:max-w-xs animate-fade-in">
@@ -694,45 +795,46 @@ const MapTracker = memo(({
         </div>
       )}
 
-      {/* Distance Ruler Floating HUD Overlay */}
+      {/* Distance & Route Details Card Overlay */}
       {studentLocation && selectedTutorObj && (
-        <div className="absolute top-4 right-4 z-[1000] max-w-[200px] sm:max-w-64 p-3 sm:p-3.5 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-all animate-fade-in">
-          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] italic mb-2">
-            <span>📏</span>
-            DISTANCE RULER
+        <div className="absolute top-16 right-4 z-[1000] max-w-[220px] sm:max-w-64 p-3 sm:p-3.5 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-all animate-fade-in">
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 italic mb-2">
+            <Route className="w-3 h-3 stroke-[2.5]" />
+            ACTIVE ROAD PATH
           </div>
           
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               {selectedTutorObj.image ? (
-                <img src={selectedTutorObj.image} referrerPolicy="no-referrer" className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+                <img src={selectedTutorObj.image} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500" />
               ) : (
-                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center font-black text-xs">
+                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs border-2 border-emerald-500">
                   {selectedTutorObj.name.charAt(0).toUpperCase()}
                 </div>
               )}
               <div className="flex flex-col min-w-0 text-left">
-                <div className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
                   {selectedTutorObj.name}
                 </div>
-                {selectedTutorObj.rating !== undefined && (
-                  <div className="text-[7.5px] font-black text-amber-500 uppercase tracking-wider mt-0.5">
-                    ⭐ {selectedTutorObj.rating > 0 ? selectedTutorObj.rating.toFixed(1) : 'New'}
+                {routeDetails ? (
+                  <div className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wide leading-none mt-0.5">
+                    {routeDetails.durationMins} mins ({routeDetails.distanceKm} km)
+                  </div>
+                ) : (
+                  <div className="text-[8px] font-bold text-slate-400 italic mt-0.5">
+                    Calculating route...
                   </div>
                 )}
-                <div className="text-[8px] font-black text-[#FC155D] uppercase tracking-wide leading-none mt-0.5 animate-pulse">
-                  {calculatedDistanceStr || 'Calculating...'}
-                </div>
               </div>
             </div>
             
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 pt-1">
               <button
                 type="button"
                 onClick={() => setSelectedTutorId(null)}
-                className="flex-1 py-1 px-2 text-[8px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-350 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer text-center border border-slate-200/40 dark:border-transparent"
+                className="flex-1 py-1 px-2 text-[8px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer text-center border border-slate-200/40 dark:border-transparent"
               >
-                Clear Path
+                Clear Route
               </button>
             </div>
           </div>
