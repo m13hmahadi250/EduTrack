@@ -3384,7 +3384,13 @@ export default function StudentDashboard() {
                        </div>
                        <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
                           <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-2">Member Since</p>
-                          <p className="text-sm font-black text-[#0B132B] uppercase italic">May 2024</p>
+                          <p className="text-sm font-black text-[#0B132B] uppercase italic">
+                              {currentUser?.createdAt 
+                                ? (isNaN(new Date(currentUser.createdAt).getTime()) 
+                                    ? currentUser.createdAt 
+                                    : new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }))
+                                : 'August 2026'}
+                           </p>
                        </div>
                     </div>
                   </div>

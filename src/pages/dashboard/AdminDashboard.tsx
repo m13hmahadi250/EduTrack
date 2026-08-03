@@ -22,6 +22,7 @@ import {
   Megaphone,
   Smartphone,
   Download,
+  Database,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -29,9 +30,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import AdminAnalytics from "../../components/admin/AdminAnalytics";
 import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
 import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
-
-const ChatWindow = lazy(() => import("../../components/ChatWindow"));
-const ImageUpload = lazy(() => import("../../components/ImageUpload"));
+import AdminMongoDatabase from "../../components/admin/AdminMongoDatabase";
+import ImageUpload from "../../components/ImageUpload";
+import ChatWindow from "../../components/ChatWindow";
 
 export default function AdminDashboard() {
   const {
@@ -58,7 +59,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = useMemo<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/verifications")) return "verifications";
@@ -70,6 +71,7 @@ export default function AdminDashboard() {
     if (path.endsWith("/analytics")) return "analytics";
     if (path.endsWith("/banner")) return "banner";
     if (path.endsWith("/downloads")) return "downloads";
+    if (path.endsWith("/mongodb")) return "mongodb";
     if (path.endsWith("/account") || path.endsWith("/profile")) return "account";
     return "users";
   }, [location.pathname]);
@@ -203,10 +205,10 @@ export default function AdminDashboard() {
   // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb",
   ) => {
     setSelectedTutorIds([]);
-    const pathMap = {
+    const pathMap: Record<string, string> = {
       users: "/dashboard",
       verifications: "/dashboard/verifications",
       payments: "/dashboard/payments",
@@ -217,8 +219,11 @@ export default function AdminDashboard() {
       account: "/dashboard/account",
       banner: "/dashboard/banner",
       downloads: "/dashboard/downloads",
+      mongodb: "/dashboard/mongodb",
     };
-    navigate(pathMap[tab]);
+    if (pathMap[tab]) {
+      navigate(pathMap[tab]);
+    }
   };
 
   const promptForBio = async (tutor: User) => {
@@ -413,6 +418,7 @@ export default function AdminDashboard() {
             { id: "messages", label: "Secure messages", icon: MessageSquare },
             { id: "banner", label: "Promo Banner", icon: Megaphone },
             { id: "downloads", label: "App Downloads", icon: Smartphone },
+            { id: "mongodb", label: "MongoDB Secondary DB", icon: Database },
             { id: "account", label: "Admin profile", icon: UserIcon },
           ].map((tab) => {
             const IconComponent = tab.icon;
@@ -463,6 +469,7 @@ export default function AdminDashboard() {
           { id: "messages", label: "Secure messages" },
           { id: "banner", label: "Promo Banner" },
           { id: "downloads", label: "App Downloads" },
+          { id: "mongodb", label: "MongoDB Secondary DB" },
           { id: "account", label: "Admin profile" },
         ].map((tab) => (
           <button
@@ -1396,6 +1403,18 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === "mongodb" && (
+          <motion.div
+            key="mongodb"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+          >
+            <AdminMongoDatabase />
           </motion.div>
         )}
 

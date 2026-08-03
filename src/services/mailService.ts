@@ -1,3 +1,5 @@
+import { mirrorAdminDataToMongoDB } from './mongoSyncService';
+
 export interface WelcomeEmailData {
   email: string;
   name: string;
@@ -54,6 +56,14 @@ export async function sendCustomAdminMail({
       }),
     });
     const result = await res.json();
+
+    // Secondary DB mirror trigger
+    mirrorAdminDataToMongoDB({
+      actionType: 'SEND_ADMIN_MAIL',
+      entityType: 'mail',
+      payload: { toEmail, toName, subject, messageBody, role, district }
+    });
+
     return result;
   } catch (error) {
     console.error("[Mail Service Client] Failed to send custom admin email:", error);

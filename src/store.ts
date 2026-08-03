@@ -27,6 +27,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { sendWelcomeMail } from './services/mailService';
+import { mirrorAdminDataToMongoDB } from './services/mongoSyncService';
 
 export type Role = 'student' | 'tutor' | 'admin';
 
@@ -552,6 +553,15 @@ export const useAppStore = create<AppState>((set, get) => {
     updatePromotionalBannerText: async (text: string) => {
       try {
         await setDoc(doc(db, 'system', 'config'), { promotionalBannerText: text }, { merge: true });
+        // Secondary DB mirror trigger
+        const adminEmail = get().currentUser?.email || 'admin@edutrack.bd';
+        mirrorAdminDataToMongoDB({
+          actionType: 'UPDATE_BANNER',
+          entityType: 'system',
+          entityId: 'promotionalBannerText',
+          payload: { configKey: 'promotionalBannerText', value: text },
+          adminEmail
+        });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, 'system/config');
       }
@@ -560,6 +570,15 @@ export const useAppStore = create<AppState>((set, get) => {
     updateAndroidAppLink: async (link: string) => {
       try {
         await setDoc(doc(db, 'system', 'config'), { androidAppLink: link }, { merge: true });
+        // Secondary DB mirror trigger
+        const adminEmail = get().currentUser?.email || 'admin@edutrack.bd';
+        mirrorAdminDataToMongoDB({
+          actionType: 'UPDATE_APP_LINK',
+          entityType: 'system',
+          entityId: 'androidAppLink',
+          payload: { configKey: 'androidAppLink', value: link },
+          adminEmail
+        });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, 'system/config');
       }
@@ -1044,6 +1063,19 @@ export const useAppStore = create<AppState>((set, get) => {
             users: usersList.map(u => u.id === id ? { ...u, ...cleanedData } as User : u)
           });
         }
+
+        // Trigger MongoDB secondary DB mirror automatically
+        const targetUser = get().users.find(u => u.id === id) || (get().currentUser?.id === id ? get().currentUser : null);
+        const fullPayload = targetUser ? { ...targetUser, ...cleanedData } : { id, ...cleanedData };
+        const activeAdminEmail = get().currentUser?.role === 'admin' ? get().currentUser?.email : 'admin@edutrack.bd';
+        
+        mirrorAdminDataToMongoDB({
+          actionType: 'UPDATE_USER_RECORD',
+          entityType: 'users',
+          entityId: id,
+          payload: fullPayload,
+          adminEmail: activeAdminEmail
+        });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
       }

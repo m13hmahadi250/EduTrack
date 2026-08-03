@@ -10,6 +10,14 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateSitemap } from "./sitemap.js";
 import { sendBrevoEmail, generateWelcomeEmailHtml } from "./mailService.js";
+import { 
+  connectMongoDB, 
+  AdminActionLog, 
+  UserMirror, 
+  SystemConfigMirror, 
+  AdminMailMirror, 
+  TuitionMirror 
+} from "./mongo.js";
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -410,6 +418,194 @@ app.post("/api/mail/send-custom", async (req, res) => {
       });
     }
     res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * -------------------------------------------------------------
+ * MongoDB Secondary Database Sync & Mirroring Endpoints
+ * -------------------------------------------------------------
+ */
+
+// 1. Get MongoDB Connection & Collections Status
+app.get("/api/admin/mongo/status", async (req, res) => {
+  try {
+    const isConfigured = !!process.env.MONGODB_URI;
+    const connected = await connectMongoDB();
+
+    if (!connected) {
+      return res.json({
+        connected: false,
+        isConfigured,
+        message: isConfigured 
+          ? "MongoDB connection string configured, but server could not establish connection." 
+          : "MONGODB_URI environment variable is not configured. Standing by.",
+        counts: { userMirrors: 0, adminLogs: 0, systemConfigs: 0, adminMails: 0, tuitionMirrors: 0 }
+      });
+    }
+
+    const [userMirrors, adminLogs, systemConfigs, adminMails, tuitionMirrors] = await Promise.all([
+      UserMirror.countDocuments(),
+      AdminActionLog.countDocuments(),
+      SystemConfigMirror.countDocuments(),
+      AdminMailMirror.countDocuments(),
+      TuitionMirror.countDocuments()
+    ]);
+
+    res.json({
+      connected: true,
+      isConfigured: true,
+      dbName: "edutrack_secondary",
+      counts: {
+        userMirrors,
+        adminLogs,
+        systemConfigs,
+        adminMails,
+        tuitionMirrors
+      }
+    });
+  } catch (error: any) {
+    console.error("[MongoDB Status Route Error]:", error);
+    res.status(500).json({ connected: false, error: error.message });
+  }
+});
+
+// 2. Mirror/Copy Admin Created/Pushed Data to MongoDB automatically
+app.post("/api/admin/mongo/mirror", async (req, res) => {
+  try {
+    const { actionType, entityType, entityId, payload, adminEmail } = req.body;
+
+    if (!actionType || !entityType) {
+      return res.status(400).json({ error: "Missing required fields: actionType, entityType" });
+    }
+
+    const connected = await connectMongoDB();
+
+    // 1. Always record in AdminActionLog if MongoDB is connected
+    let savedLog = null;
+    if (connected) {
+      savedLog = await AdminActionLog.create({
+        actionType,
+        entityType,
+        entityId,
+        payload,
+        adminEmail: adminEmail || "admin@edutrack.bd",
+        syncedToFirestore: true
+      });
+
+      // 2. Entity-specific schema mirroring
+      if (entityType === "users" && payload && (entityId || payload.id)) {
+        const userId = entityId || payload.id;
+        await (UserMirror as any).findOneAndUpdate(
+          { firestoreId: userId },
+          {
+            $set: {
+              firestoreId: userId,
+              email: payload.email || "unknown@user.bd",
+              name: payload.name,
+              role: payload.role,
+              isVerified: payload.isVerified,
+              isBlocked: payload.isBlocked,
+              balance: payload.balance,
+              nidStatus: payload.nidStatus,
+              academicStatus: payload.academicStatus,
+              gender: payload.gender,
+              phone: payload.phone,
+              district: payload.district,
+              showOnHomePage: payload.showOnHomePage,
+              updatedByAdmin: adminEmail || "admin@edutrack.bd",
+              lastSyncedAt: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } else if (entityType === "system" && payload) {
+        const configKey = payload.configKey || "global_config";
+        await (SystemConfigMirror as any).findOneAndUpdate(
+          { configKey },
+          {
+            $set: {
+              configKey,
+              value: payload.value || payload,
+              pushedByAdmin: adminEmail || "admin@edutrack.bd",
+              lastSyncedAt: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } else if (entityType === "mail" && payload) {
+        await AdminMailMirror.create({
+          toEmail: payload.toEmail,
+          toName: payload.toName,
+          subject: payload.subject,
+          messageBody: payload.messageBody,
+          roleScope: payload.role,
+          districtScope: payload.district,
+          pushedByAdmin: adminEmail || "admin@edutrack.bd"
+        });
+      } else if (entityType === "tuition" && payload && (entityId || payload.id)) {
+        const tuitionId = entityId || payload.id;
+        await (TuitionMirror as any).findOneAndUpdate(
+          { firestoreId: tuitionId },
+          {
+            $set: {
+              firestoreId: tuitionId,
+              title: payload.title,
+              subject: payload.subject,
+              studentClass: payload.studentClass,
+              district: payload.district,
+              salary: payload.salary,
+              status: payload.status || "active",
+              pushedByAdmin: adminEmail || "admin@edutrack.bd",
+              lastSyncedAt: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      mongoSaved: connected,
+      actionType,
+      entityType,
+      entityId,
+      message: connected 
+        ? "Data successfully saved to Firestore and mirrored to MongoDB secondary database!" 
+        : "Data saved to Firestore. MongoDB secondary database is offline or unconfigured."
+    });
+  } catch (error: any) {
+    console.error("[MongoDB Mirror Route Error]:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. Fetch Recent MongoDB Action Logs & Records for Admin Inspection
+app.get("/api/admin/mongo/logs", async (req, res) => {
+  try {
+    const connected = await connectMongoDB();
+    if (!connected) {
+      return res.json({ connected: false, logs: [], userMirrors: [] });
+    }
+
+    const [logs, userMirrors, systemConfigs, adminMails] = await Promise.all([
+      AdminActionLog.find().sort({ createdAt: -1 }).limit(50).lean(),
+      UserMirror.find().sort({ updatedAt: -1 }).limit(50).lean(),
+      SystemConfigMirror.find().sort({ updatedAt: -1 }).limit(20).lean(),
+      AdminMailMirror.find().sort({ createdAt: -1 }).limit(20).lean(),
+    ]);
+
+    res.json({
+      connected: true,
+      logs,
+      userMirrors,
+      systemConfigs,
+      adminMails
+    });
+  } catch (error: any) {
+    console.error("[MongoDB Logs Route Error]:", error);
+    res.status(500).json({ connected: false, error: error.message });
   }
 });
 
