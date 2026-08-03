@@ -267,7 +267,6 @@ const MapTracker = memo(({
   const containerRef = useRef<HTMLDivElement>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
-  const roadLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const routingControlRef = useRef<any>(null);
   const isPinningModeRef = useRef(isPinningMode);
   isPinningModeRef.current = isPinningMode;
@@ -392,9 +391,7 @@ const MapTracker = memo(({
 
     tileLayerRef.current = tileLayer;
 
-    const roadLayerGroup = L.layerGroup().addTo(map);
     const layerGroup = L.layerGroup().addTo(map);
-    roadLayerGroupRef.current = roadLayerGroup;
     layerGroupRef.current = layerGroup;
 
     map.on('click', (e: L.LeafletMouseEvent) => {
@@ -423,7 +420,6 @@ const MapTracker = memo(({
       map.remove();
       setMapInstance(null);
       tileLayerRef.current = null;
-      roadLayerGroupRef.current = null;
       layerGroupRef.current = null;
     };
   }, []);
@@ -468,11 +464,6 @@ const MapTracker = memo(({
   useEffect(() => {
     if (!mapInstance) return;
 
-    // Clear existing road layers
-    if (roadLayerGroupRef.current) {
-      roadLayerGroupRef.current.clearLayers();
-    }
-
     // Remove existing routing control if present
     if (routingControlRef.current) {
       try {
@@ -488,51 +479,6 @@ const MapTracker = memo(({
       setRouteDetails(null);
       return;
     }
-
-    let isMounted = true;
-
-    // Direct OSRM geometry fetch for 100% accurate road driving path polyline
-    const fetchOSRMGeometry = async () => {
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const data = await res.json();
-        
-        if (data.routes && data.routes[0] && isMounted && roadLayerGroupRef.current) {
-          const coords = data.routes[0].geometry.coordinates.map(
-            (c: [number, number]) => [c[1], c[0]] as [number, number]
-          );
-          const distKm = (data.routes[0].distance / 1000).toFixed(2);
-          const durMin = Math.round(data.routes[0].duration / 60);
-
-          setRouteDetails({
-            distanceKm: distKm,
-            durationMins: durMin > 0 ? durMin : 1,
-          });
-
-          // Clear previous road polylines before adding the new road path
-          roadLayerGroupRef.current.clearLayers();
-
-          // Draw custom green/teal polyline strictly following actual roads
-          const roadPolyline = L.polyline(coords, {
-            color: '#10b981', // Modern emerald/teal green
-            weight: 6,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round',
-            className: 'animated-route-line',
-          }).addTo(roadLayerGroupRef.current);
-
-          // Fit map bounds to show the entire road route clearly
-          try {
-            mapInstance.fitBounds(roadPolyline.getBounds().pad(0.15));
-          } catch (err) {}
-        }
-      } catch (err) {
-        console.warn("OSRM geometry fetch warning:", err);
-      }
-    };
 
     // Initialize leaflet-routing-machine with OSRM engine
     if ((L as any).Routing && (L as any).Routing.control) {
@@ -566,7 +512,7 @@ const MapTracker = memo(({
         routingControlRef.current = control;
 
         control.on('routesfound', (e: any) => {
-          if (e.routes && e.routes[0] && isMounted) {
+          if (e.routes && e.routes[0]) {
             const summary = e.routes[0].summary;
             const distKm = (summary.totalDistance / 1000).toFixed(2);
             const durMin = Math.round(summary.totalTime / 60);
@@ -581,6 +527,41 @@ const MapTracker = memo(({
       }
     }
 
+    // Direct OSRM geometry fetch for ultra-reliable polyline fallback & smooth animation
+    let isMounted = true;
+    const fetchOSRMGeometry = async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.routes && data.routes[0] && isMounted && layerGroupRef.current) {
+          const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+          const distKm = (data.routes[0].distance / 1000).toFixed(2);
+          const durMin = Math.round(data.routes[0].duration / 60);
+
+          setRouteDetails({
+            distanceKm: distKm,
+            durationMins: durMin > 0 ? durMin : 1,
+          });
+
+          // Draw custom green/teal road polyline
+          if (layerGroupRef.current) {
+            L.polyline(coords, {
+              color: '#10b981', // Modern green/teal color
+              weight: 6,
+              opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round',
+              className: 'animated-route-line',
+            }).addTo(layerGroupRef.current);
+          }
+        }
+      } catch (err) {
+        console.warn("OSRM geometry fallback fetch warning:", err);
+      }
+    };
+
     fetchOSRMGeometry();
 
     return () => {
@@ -594,14 +575,40 @@ const MapTracker = memo(({
     };
   }, [mapInstance, activeStartLocation?.[0], activeStartLocation?.[1], studentLocation?.[0], studentLocation?.[1]]);
 
-  // Update Layers (Custom Circular Markers)
+  // Update Layers (Custom Circular Markers & Secondary Connection Polylines)
   useEffect(() => {
     if (!mapInstance || !layerGroupRef.current) return;
 
     const group = layerGroupRef.current;
     group.clearLayers();
 
-    // 1. Point A (Start / Tutor) Marker using Custom Circular DivIcon
+    // 1. Connection Polylines for multiple student markers relative to single tutorLocation
+    if (tutorLocation && students) {
+      students.forEach(student => {
+        L.polyline([tutorLocation, student.location], {
+          color: '#10b981',
+          weight: 4,
+          opacity: 0.7,
+          lineCap: 'round',
+          className: 'animated-polyline'
+        }).addTo(group);
+      });
+    }
+
+    // 2. Connection Polylines for multiple tutor markers relative to single studentLocation
+    if (studentLocation && tutors) {
+      tutors.forEach(tutor => {
+        L.polyline([studentLocation, tutor.location], {
+          color: '#10b981',
+          weight: 4,
+          opacity: 0.7,
+          lineCap: 'round',
+          className: 'animated-polyline'
+        }).addTo(group);
+      });
+    }
+
+    // 3. Point A (Start / Tutor) Marker using Custom Circular DivIcon
     if (tutorLocation) {
       const popupHtml = `
         <div style="padding: 10px; min-width: 140px;">
