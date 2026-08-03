@@ -5,6 +5,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useAppStore } from '../store';
 import { ZoomIn, ZoomOut, Focus, Navigation, MapPin } from 'lucide-react';
+import { getCurrentAccuratePosition, watchAccuratePosition } from '../utils/geocoding';
 
 // Fix typical leaflet marker icon assets
 // @ts-ignore
@@ -305,20 +306,20 @@ const MapTracker = memo(({
     let currentWatchId: number | null = null;
 
     if ('geolocation' in navigator) {
-      currentWatchId = navigator.geolocation.watchPosition(
+      currentWatchId = watchAccuratePosition(
         (position) => {
           updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
         },
         (error) => {
-          navigator.geolocation.getCurrentPosition(
+          console.warn("High accuracy tracking unavailable, trying single accurate fix:", error);
+          getCurrentAccuratePosition(
             (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
-            () => {
+            (err) => {
+              console.warn("Location fix failed, falling back to metropolitan center:", err);
               updateLocation(currentUser.id, 23.8103, 90.4125);
-            },
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+            }
           );
-        },
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+        }
       );
     } else {
       updateLocation(currentUser.id, 23.8103, 90.4125);

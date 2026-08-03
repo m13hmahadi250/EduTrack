@@ -61,7 +61,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import ReferralsTab from "../../components/ReferralsTab";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
-import { getCoordinatesForLocation } from "../../utils/geocoding";
+import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from "../../utils/geocoding";
 import {
   LineChart,
   Line,
@@ -426,30 +426,27 @@ export default function TutorDashboard() {
   const refreshLocationManual = () => {
     if ("geolocation" in navigator) {
       setIsRefreshingLocation(true);
-      const tryGetPosition = (highAccuracy: boolean) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            updateLocation(
-              currentUser!.id,
-              pos.coords.latitude,
-              pos.coords.longitude,
-            );
-            setIsRefreshingLocation(false);
-          },
-          (err) => {
-            if (highAccuracy) {
-              // Retry with standard IP-resolved accuracy for headless desktop virtual frames
-              tryGetPosition(false);
-              return;
-            }
-            console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
-            updateLocation(currentUser!.id, 23.8103, 90.4125);
-            setIsRefreshingLocation(false);
-          },
-          { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 15000, maximumAge: 60000 },
-        );
-      };
-      tryGetPosition(true);
+      getCurrentAccuratePosition(
+        (pos) => {
+          updateLocation(
+            currentUser!.id,
+            pos.coords.latitude,
+            pos.coords.longitude,
+          );
+          setIsRefreshingLocation(false);
+          useAppStore.getState().sendNotification(
+            currentUser!.id,
+            "Location Synchronized",
+            "Your real-time GPS coordinates have been synced accurately.",
+            "success"
+          );
+        },
+        (err) => {
+          console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
+          updateLocation(currentUser!.id, 23.8103, 90.4125);
+          setIsRefreshingLocation(false);
+        }
+      );
     }
   };
 
@@ -602,7 +599,7 @@ export default function TutorDashboard() {
 
     if (currentUser?.isTrackingOn) {
       if ("geolocation" in navigator) {
-        currentWatchId = navigator.geolocation.watchPosition(
+        currentWatchId = watchAccuratePosition(
           (position) => {
             updateLocation(
               currentUser.id,
@@ -612,8 +609,7 @@ export default function TutorDashboard() {
           },
           (error) => {
             console.warn("Active tracking watch unavailable, falling back to standard placement:", error);
-            // Fallback to single getCurrentPosition update with loose timeout constraints
-            navigator.geolocation.getCurrentPosition(
+            getCurrentAccuratePosition(
               (pos) =>
                 updateLocation(
                   currentUser.id,
@@ -622,13 +618,10 @@ export default function TutorDashboard() {
                 ),
               (err) => {
                 console.warn("Standard position failed, applying default Dhaka metropolitan context alignment:", err);
-                // Graceful fallback to center of Dhaka so dashboard layout stays perfectly functional
                 updateLocation(currentUser.id, 23.8103, 90.4125);
-              },
-              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+              }
             );
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+          }
         );
       } else {
         // Device lacks geolocation hardware/support
@@ -637,7 +630,7 @@ export default function TutorDashboard() {
     }
 
     return () => {
-      if (currentWatchId !== null) {
+      if (currentWatchId !== null && "geolocation" in navigator) {
         navigator.geolocation.clearWatch(currentWatchId);
       }
     };

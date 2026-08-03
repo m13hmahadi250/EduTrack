@@ -44,6 +44,88 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0D5BFF" />
     <link rel="apple-touch-icon" href="/logo.svg" />
+
+    <!-- JSON-LD Structured Data Schema for SEO (Tutor Finder Bangladesh) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "EducationalOrganization",
+          "@id": "https://edutrack.example.com/#organization",
+          "name": "EduTrack Bangladesh",
+          "alternateName": "EduTrack Tutor Finder",
+          "url": "https://edutrack.example.com/",
+          "logo": "https://edutrack.example.com/logo.svg",
+          "description": "Leading tutor finder and tuition matching platform in Bangladesh connecting students with verified home and online tutors across Dhaka, Chittagong, Sylhet, Rajshahi, and all divisions.",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Dhaka",
+            "addressRegion": "Dhaka Division",
+            "addressCountry": "BD"
+          },
+          "areaServed": {
+            "@type": "Country",
+            "name": "Bangladesh"
+          },
+          "sameAs": [
+            "https://facebook.com/edutrackbd",
+            "https://linkedin.com/company/edutrackbd"
+          ],
+          "knowsAbout": [
+            "Home Tutoring",
+            "Online Tutoring",
+            "Private Tutors",
+            "Bangla Medium Tuition",
+            "English Medium Tuition",
+            "HSC & SSC Exam Preparation",
+            "BUET & Medical Admission Coaching"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://edutrack.example.com/#website",
+          "url": "https://edutrack.example.com/",
+          "name": "EduTrack - Tutor Finder Bangladesh",
+          "description": "Find verified home and online tutors in Bangladesh easily.",
+          "publisher": {
+            "@id": "https://edutrack.example.com/#organization"
+          },
+          "inLanguage": ["en", "bn"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://edutrack.example.com/?search={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Service",
+          "@id": "https://edutrack.example.com/#service",
+          "name": "Tutor Matching & Home Tuition Service",
+          "serviceType": "Tutor Finder & Educational Services",
+          "provider": {
+            "@id": "https://edutrack.example.com/#organization"
+          },
+          "areaServed": {
+            "@type": "Country",
+            "name": "Bangladesh"
+          },
+          "description": "Hire expert private tutors for Science, Mathematics, English, Commerce, and Arts subjects across Bangladesh with background checks and session verification.",
+          "offers": {
+            "@type": "AggregateOffer",
+            "priceCurrency": "BDT",
+            "price": "1000.00",
+            "lowPrice": "1000",
+            "highPrice": "25000",
+            "offerCount": "1200"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

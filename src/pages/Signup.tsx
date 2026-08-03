@@ -200,7 +200,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20">
-      <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800/85 p-8 relative overflow-hidden">
+      <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-2xl border-2 border-slate-200 dark:border-slate-700/80 p-6 sm:p-10 relative overflow-hidden">
         {loading ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -259,24 +259,24 @@ export default function Signup() {
         {/* Toggle */}
         <motion.div 
           animate={{
-            borderColor: role === 'student' ? 'rgba(13, 91, 255, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+            borderColor: role === 'student' ? 'rgba(13, 91, 255, 0.5)' : 'rgba(245, 158, 11, 0.5)',
             boxShadow: role === 'student' 
-              ? '0 10px 25px -5px rgba(13, 91, 255, 0.1), 0 8px 10px -6px rgba(13, 91, 255, 0.08)' 
-              : '0 10px 25px -5px rgba(245, 158, 11, 0.1), 0 8px 10px -6px rgba(245, 158, 11, 0.08)',
+              ? '0 10px 25px -5px rgba(13, 91, 255, 0.15)' 
+              : '0 10px 25px -5px rgba(245, 158, 11, 0.15)',
           }}
           transition={{ duration: 0.3 }}
-          className="flex bg-slate-50 dark:bg-slate-900 rounded-2xl p-1.5 mb-8 relative border-2 border-slate-200/60 dark:border-slate-800/60"
+          className="flex bg-slate-100 dark:bg-slate-900/90 rounded-2xl p-1.5 mb-8 relative border-2 border-slate-300 dark:border-slate-700 shadow-xs"
         >
           <motion.button
             whileTap={{ scale: 0.97 }}
             type="button"
-            className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${role === 'student' ? 'text-[#0B132B] dark:text-white' : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'}`}
+            className={`relative flex-1 py-3.5 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${role === 'student' ? 'text-[#0B132B] dark:text-white font-extrabold' : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'}`}
             onClick={() => setRole('student')}
           >
             {role === 'student' && (
               <motion.div
                 layoutId="active-role-bg"
-                className="absolute inset-0 bg-white dark:bg-[#1A233A] rounded-xl shadow-md border border-slate-100 dark:border-slate-800/50"
+                className="absolute inset-0 bg-white dark:bg-[#1A233A] rounded-xl shadow-md border-2 border-blue-500/30 dark:border-blue-500/40"
                 transition={{ type: "spring", stiffness: 350, damping: 25 }}
                 style={{ zIndex: -1 }}
               />
@@ -286,13 +286,13 @@ export default function Signup() {
           </motion.button>
           <button
             type="button"
-            className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${role === 'tutor' ? 'text-[#0B132B] dark:text-white' : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'}`}
+            className={`relative flex-1 py-3.5 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${role === 'tutor' ? 'text-[#0B132B] dark:text-white font-extrabold' : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'}`}
             onClick={() => setRole('tutor')}
           >
             {role === 'tutor' && (
               <motion.div
                 layoutId="active-role-bg"
-                className="absolute inset-0 bg-white dark:bg-[#1A233A] rounded-xl shadow-md border border-slate-100 dark:border-slate-800/50"
+                className="absolute inset-0 bg-white dark:bg-[#1A233A] rounded-xl shadow-md border-2 border-amber-500/30 dark:border-amber-500/40"
                 transition={{ type: "spring", stiffness: 350, damping: 25 }}
                 style={{ zIndex: -1 }}
               />
@@ -309,7 +309,7 @@ export default function Signup() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 p-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-3 shadow-sm"
+                className="bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 p-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-3 shadow-xs"
               >
                 <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500 animate-pulse" />
                 <span>{error}</span>
@@ -318,12 +318,12 @@ export default function Signup() {
           </AnimatePresence>
 
           {/* Group 1: Account details */}
-          <div className="border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white flex items-center gap-2 mb-2 italic">
-              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[#0B132B] dark:text-white flex items-center justify-center text-[9px] font-black not-italic">1</span>
+          <div className="border-2 border-slate-200/90 dark:border-slate-700/90 bg-slate-50/80 dark:bg-slate-900/50 p-6 rounded-2xl space-y-5 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2.5 mb-2">
+              <span className="w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center text-xs font-bold not-italic shadow-xs">1</span>
               Account Information
             </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Input 
                   label="Full Name / Guardian Name" 
@@ -357,7 +357,7 @@ export default function Signup() {
                 onChange={handleInputChange} 
                 onBlur={handleBlur}
                 error={touched.phone ? errors.phone : undefined}
-                helperText="Must be an 11-digit mobile number started with 01"
+                helperText="Must be an 11-digit mobile number starting with 01"
                 value={formData.phone || ''}
                 accentColor={accentColor}
                 placeholder="e.g. 01712345678"
@@ -379,11 +379,11 @@ export default function Signup() {
               )}
               <div className="sm:col-span-2 space-y-1.5 w-full">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wide mb-1">
                     Gender <span className="text-rose-500 font-bold ml-0.5">*</span>
                   </label>
                   {touched.gender && errors.gender && (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 animate-slide-in">
                       {errors.gender}
                     </span>
                   )}
@@ -395,21 +395,18 @@ export default function Signup() {
                     value={formData.gender || ''}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                    className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none transition-all duration-200 outline-none appearance-none cursor-pointer shadow-xs ${
                       touched.gender && errors.gender
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
-                    style={{
-                      ['--tw-ring-color' as any]: touched.gender && errors.gender ? 'rgb(239, 68, 68)' : accentColor
-                    }}
                   >
                     <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Gender</option>
                     <option value="Male" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Male</option>
                     <option value="Female" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Female</option>
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
-                    <ChevronDown className="w-4 h-4 transition-transform duration-200 group-focus-within:rotate-180" />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4 transition-transform duration-200" />
                   </div>
                 </div>
               </div>
@@ -431,12 +428,12 @@ export default function Signup() {
           </div>
 
           {/* Group 2: Location credentials */}
-          <div className="border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white flex items-center gap-2 mb-2 italic">
-              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[#0B132B] dark:text-white flex items-center justify-center text-[9px] font-black not-italic">2</span>
+          <div className="border-2 border-slate-200/90 dark:border-slate-700/90 bg-slate-50/80 dark:bg-slate-900/50 p-6 rounded-2xl space-y-5 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2.5 mb-2">
+              <span className="w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center text-xs font-bold not-italic shadow-xs">2</span>
               Location Details
             </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Input 
                   label="Address" 
@@ -452,11 +449,11 @@ export default function Signup() {
               </div>
               <div className="space-y-1.5 w-full sm:col-span-2">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wide mb-1">
                     Division <span className="text-rose-500 font-bold ml-0.5">*</span>
                   </label>
                   {touched.division && errors.division && (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 animate-slide-in">
                       {errors.division}
                     </span>
                   )}
@@ -468,21 +465,18 @@ export default function Signup() {
                     value={formData.division || ''}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
+                    className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none transition-all duration-200 outline-none appearance-none cursor-pointer shadow-xs ${
                       touched.division && errors.division
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
-                    style={{
-                      ['--tw-ring-color' as any]: touched.division && errors.division ? 'rgb(239, 68, 68)' : accentColor
-                    }}
                   >
                     <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Division</option>
                     {BANGLADESH_DIVISIONS.map((div) => (
                       <option key={div} value={div} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{div}</option>
                     ))}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 flex items-center justify-center">
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -490,11 +484,11 @@ export default function Signup() {
 
               <div className="space-y-1.5 w-full">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wide mb-1">
                     District <span className="text-rose-500 font-bold ml-0.5">*</span>
                   </label>
                   {touched.district && errors.district && (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 animate-slide-in">
                       {errors.district}
                     </span>
                   )}
@@ -507,16 +501,13 @@ export default function Signup() {
                     value={formData.district || ''}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
-                      !formData.division ? 'opacity-60 cursor-not-allowed' : ''
+                    className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none transition-all duration-200 outline-none appearance-none cursor-pointer shadow-xs ${
+                      !formData.division ? 'opacity-50 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-800 cursor-not-allowed' : ''
                     } ${
                       touched.district && errors.district
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
-                    style={{
-                      ['--tw-ring-color' as any]: touched.district && errors.district ? 'rgb(239, 68, 68)' : accentColor
-                    }}
                   >
                     <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
                       {formData.division ? 'Select District' : 'Select Division First'}
@@ -525,7 +516,7 @@ export default function Signup() {
                       <option key={dist} value={dist} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{dist}</option>
                     ))}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 flex items-center justify-center">
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -533,11 +524,11 @@ export default function Signup() {
 
               <div className="space-y-1.5 w-full">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wide mb-1">
                     Thana <span className="text-rose-500 font-bold ml-0.5">*</span>
                   </label>
                   {touched.thana && errors.thana && (
-                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 animate-slide-in">
                       {errors.thana}
                     </span>
                   )}
@@ -550,16 +541,13 @@ export default function Signup() {
                     value={formData.thana || ''}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 outline-none appearance-none cursor-pointer ${
-                      !formData.district ? 'opacity-60 cursor-not-allowed' : ''
+                    className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white pl-4 pr-10 py-3.5 rounded-xl focus:outline-none transition-all duration-200 outline-none appearance-none cursor-pointer shadow-xs ${
+                      !formData.district ? 'opacity-50 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-800 cursor-not-allowed' : ''
                     } ${
                       touched.thana && errors.thana
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
-                    style={{
-                      ['--tw-ring-color' as any]: touched.thana && errors.thana ? 'rgb(239, 68, 68)' : accentColor
-                    }}
                   >
                     <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
                       {formData.district ? 'Select Thana' : 'Select District First'}
@@ -568,7 +556,7 @@ export default function Signup() {
                       <option key={th} value={th} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{th}</option>
                     ))}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 flex items-center justify-center">
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -590,12 +578,12 @@ export default function Signup() {
           </div>
 
           {/* Group 3: Professional / Student info */}
-          <div className="border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white flex items-center gap-2 mb-2 italic">
-              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[#0B132B] dark:text-white flex items-center justify-center text-[9px] font-black not-italic">3</span>
-              {role === 'student' ? 'Student Profile requirements' : 'Tutor Academic History'}
+          <div className="border-2 border-slate-200/90 dark:border-slate-700/90 bg-slate-50/80 dark:bg-slate-900/50 p-6 rounded-2xl space-y-5 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2.5 mb-2">
+              <span className="w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center text-xs font-bold not-italic shadow-xs">3</span>
+              {role === 'student' ? 'Student Profile Requirements' : 'Tutor Academic History'}
             </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {role === 'student' ? (
                 <>
                   <Input 
@@ -703,12 +691,12 @@ export default function Signup() {
           </div>
 
           {/* Referral Option */}
-          <div className="border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white flex items-center gap-2 mb-2 italic">
+          <div className="border-2 border-slate-200/90 dark:border-slate-700/90 bg-slate-50/80 dark:bg-slate-900/50 p-6 rounded-2xl space-y-4 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-2">
               <Award className="w-4 h-4 text-emerald-500 animate-pulse" />
               Referral Code (Optional)
             </h3>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
               Were you invited by a friend or colleague? Enter their referral code or ID to reward them with exclusive badge points or service discounts!
             </p>
             <div className="relative group">
@@ -717,10 +705,10 @@ export default function Signup() {
                 placeholder="e.g. EDU-NAME-XXXX"
                 value={referralCodeInput}
                 onChange={(e) => setReferralCodeInput(e.target.value)}
-                className="w-full px-5 py-3.5 bg-white dark:bg-[#1A233A] border-2 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white focus:outline-none transition-all duration-300 focus:border-emerald-500"
+                className="w-full px-5 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white focus:outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 shadow-xs"
               />
               {referralCodeInput && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-emerald-500 font-bold uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-md">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                   Applied
                 </div>
               )}
@@ -752,10 +740,10 @@ export default function Signup() {
 
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-100 dark:border-slate-800/80"></div>
+            <div className="w-full border-t-2 border-slate-200 dark:border-slate-800"></div>
           </div>
-          <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest leading-none">
-            <span className="px-4 bg-white dark:bg-[#111A2E] text-slate-400 dark:text-slate-500">Or register with</span>
+          <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest leading-none">
+            <span className="px-4 bg-white dark:bg-[#111A2E] text-slate-500 dark:text-slate-400">Or register with</span>
           </div>
         </div>
 
@@ -798,7 +786,7 @@ export default function Signup() {
             }
           }}
           disabled={loading}
-          className="w-full py-3.5 bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 text-[#374151] dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer mb-6"
+          className="w-full py-3.5 bg-white dark:bg-[#111A2E] border-2 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer mb-6 shadow-xs"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M23.766 12.2764C23.766 11.4607 23.6999 10.6406 23.5588 9.83807H12.24V14.4591H18.7217C18.4528 15.9494 17.5885 17.2678 16.323 18.1056V21.1039H20.19C22.4608 19.0139 23.766 15.9274 23.766 12.2764Z" fill="#4285F4"/>
@@ -809,8 +797,8 @@ export default function Signup() {
           CREATE WITH GOOGLE
         </button>
          
-        <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">
-          Already registered? <button onClick={() => navigate('/login')} className="font-bold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Sign in instead</button>
+        <p className="mt-8 text-center text-xs uppercase font-bold tracking-wider text-slate-600 dark:text-slate-400">
+          Already registered? <button onClick={() => navigate('/login')} className="font-extrabold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Sign in instead</button>
         </p>
       </>
     )}
@@ -854,11 +842,11 @@ function Input({
   return (
     <div className="space-y-1.5 w-full">
       <div className="flex justify-between items-center px-0.5">
-        <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+        <label className="block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           {label} {required && <span className="text-rose-500 font-bold ml-0.5">*</span>}
         </label>
         {error && (
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 animate-slide-in">
+          <span className="text-xs font-bold uppercase tracking-wider text-rose-500 animate-slide-in">
             {error}
           </span>
         )}
@@ -872,22 +860,18 @@ function Input({
           onChange={onChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className={`w-full bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white placeholder-slate-400/80 dark:placeholder-slate-500/80 focus:outline-none focus:ring-2 transition-all duration-200 outline-none ${
+          className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all duration-200 shadow-xs ${
             hasError 
-              ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500 focus:border-rose-500' 
-              : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80 focus:border-transparent'
+              ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
+              : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
           } ${isPasswordType ? 'pl-4 pr-12 py-3.5 rounded-xl' : 'px-4 py-3.5 rounded-xl'}`}
-          style={{
-            // CSS custom property overrides for tailwind ring color if supported, or directly managed
-            ['--tw-ring-color' as any]: hasError ? 'rgb(239, 68, 68)' : accentColor
-          }}
         />
         {isPasswordType && (
           <button
             type="button"
             id={`toggle-${name}-visibility`}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all cursor-pointer"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
             title={showPassword ? "Hide Password" : "Show Password"}
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -895,7 +879,7 @@ function Input({
         )}
       </div>
       {helperText && !error && (
-        <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-0.5 leading-normal">
+        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 px-0.5 mt-1 leading-normal">
           {helperText}
         </p>
       )}

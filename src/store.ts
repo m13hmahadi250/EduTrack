@@ -28,6 +28,7 @@ import {
 import { auth, db } from './lib/firebase';
 import { sendWelcomeMail } from './services/mailService';
 import { mirrorAdminDataToMongoDB } from './services/mongoSyncService';
+import { reverseGeocodeLocation } from './utils/geocoding';
 
 export type Role = 'student' | 'tutor' | 'admin';
 
@@ -466,6 +467,19 @@ export const useAppStore = create<AppState>((set, get) => {
 
           const lowerGEmail = firebaseUser.email?.toLowerCase();
           const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
+
+          // UNREGISTERED USER GUARD: If user didn't initiate signup flow (no requestedRoleStr) and is not main admin, reject login!
+          if (!requestedRoleStr && !isMainAdmin) {
+            console.warn("Unregistered user attempted login without account creation.");
+            await signOut(auth);
+            cleanupListeners();
+            try {
+              localStorage.removeItem('edutrack_cached_user');
+            } catch (e) {}
+            set({ currentUser: null, isLoading: false, isInitialized: true });
+            return;
+          }
+
           const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
           const newUser: User = {
             id: firebaseUser.uid,
@@ -768,7 +782,23 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ isLoading: true });
       const trimmedEmail = email.trim();
       try {
-        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        const firebaseUser = result.user;
+
+        // Verify that the user document actually exists in Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (!userDoc.exists()) {
+          const lowerEmail = trimmedEmail.toLowerCase();
+          const isMainAdmin = lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com';
+          if (!isMainAdmin) {
+            await signOut(auth);
+            set({ currentUser: null, isLoading: false });
+            try {
+              localStorage.removeItem('edutrack_cached_user');
+            } catch (e) {}
+            throw new Error('Account not found. Unregistered users cannot log in. Please create an account first.');
+          }
+        }
       } catch (error: any) {
         // Auto-provision primary main admin on the fly if the credentials match
         const lowerEmail = trimmedEmail.toLowerCase();
@@ -874,6 +904,19 @@ export const useAppStore = create<AppState>((set, get) => {
           } else {
             const lowerGEmail = firebaseUser.email?.toLowerCase();
             const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
+
+            // UNREGISTERED USER GUARD: If requestedRole is not provided (meaning user is trying to log in on /login) and is not main admin, reject login!
+            if (!requestedRole && !isMainAdmin) {
+              await signOut(auth);
+              set({ currentUser: null, isLoading: false });
+              try {
+                localStorage.removeItem('edutrack_cached_user');
+                localStorage.removeItem('google_auth_requested_role');
+                localStorage.removeItem('google_auth_additional_user_data');
+              } catch (e) {}
+              throw new Error('No registered account found with this Google email. Please create an account first.');
+            }
+
             const finalRole = isMainAdmin ? 'admin' : (requestedRole || 'student');
             const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
@@ -1097,12 +1140,32 @@ export const useAppStore = create<AppState>((set, get) => {
     updateLocation: async (id, lat, lng) => {
       try {
         const location = { lat, lng };
-        await updateDoc(doc(db, 'users', id), { location });
+        const updatesPayload: Record<string, any> = { location };
+
+        // Attempt non-blocking reverse geocoding to keep user area & district accurate in real-time
+        try {
+          const geoData = await reverseGeocodeLocation(lat, lng);
+          if (geoData) {
+            if (geoData.area) updatesPayload.area = geoData.area;
+            if (geoData.district) updatesPayload.district = geoData.district;
+          }
+        } catch (e) {
+          // Non-critical reverse geocoding fallback
+        }
+
+        await updateDoc(doc(db, 'users', id), updatesPayload);
+
         // Update local state immediately
         const current = get().currentUser;
         if (current?.id === id) {
-          set({ currentUser: { ...current, location } });
+          set({ currentUser: { ...current, ...updatesPayload } });
         }
+
+        // Keep users list in state synchronized
+        const usersList = get().users;
+        set({
+          users: usersList.map(u => u.id === id ? { ...u, ...updatesPayload } : u)
+        });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
       }
@@ -1696,6 +1759,16 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     sendNotification: async (userId, title, message, type = 'info') => {
+      // Prevent creating duplicate unread notifications with identical title and message
+      const existingNotifs = get().notifications || [];
+      const duplicate = existingNotifs.find(n => 
+        n.userId === userId && 
+        !n.isRead && 
+        n.title === title && 
+        n.message === message
+      );
+      if (duplicate) return;
+
       const id = `notif_${Date.now()}`;
       try {
         await setDoc(doc(db, 'notifications', id), {

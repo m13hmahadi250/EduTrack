@@ -62,7 +62,7 @@ import ClassLogsCalendar from '../../components/ClassLogsCalendar';
 import HomeworkDashboard from '../../components/HomeworkDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
-import { getCoordinatesForLocation } from '../../utils/geocoding';
+import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from '../../utils/geocoding';
 import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VERSIONS } from '../../constants';
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
@@ -601,38 +601,29 @@ export default function StudentDashboard() {
     }
 
     setIsRefreshingLocation(true);
-    const tryGetPosition = (highAccuracy: boolean) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
-          setIsRefreshingLocation(false);
-          useAppStore.getState().sendNotification(
-            currentUser!.id,
-            "Location Synchronized",
-            "Your current transit position has been successfully synchronized on the tracking radar.",
-            "success"
-          );
-        },
-        (err) => {
-          if (highAccuracy) {
-            // Fall back to standard, non-GPS IP lookup which works instantly on VMs and desktops
-            tryGetPosition(false);
-            return;
-          }
-          console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
-          updateLocation(currentUser!.id, 23.8103, 90.4125);
-          setIsRefreshingLocation(false);
-          useAppStore.getState().sendNotification(
-            currentUser!.id,
-            "Transit Radar Calibrated",
-            "Coordinates aligned to metropolitan center (Dhaka) for active session tracking.",
-            "info"
-          );
-        },
-        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 15000, maximumAge: 60000 }
-      );
-    };
-    tryGetPosition(true);
+    getCurrentAccuratePosition(
+      (pos) => {
+        updateLocation(currentUser!.id, pos.coords.latitude, pos.coords.longitude);
+        setIsRefreshingLocation(false);
+        useAppStore.getState().sendNotification(
+          currentUser!.id,
+          "Location Synchronized",
+          "Your current transit position has been successfully synchronized on the tracking radar.",
+          "success"
+        );
+      },
+      (err) => {
+        console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
+        updateLocation(currentUser!.id, 23.8103, 90.4125);
+        setIsRefreshingLocation(false);
+        useAppStore.getState().sendNotification(
+          currentUser!.id,
+          "Transit Radar Calibrated",
+          "Coordinates aligned to metropolitan center (Dhaka) for active session tracking.",
+          "info"
+        );
+      }
+    );
   };
 
   // Active tab is derived directly from route location to avoid double-rendering delays
@@ -658,23 +649,20 @@ export default function StudentDashboard() {
     
     if (activeTab === 'transit' && currentUser?.id) {
       if ('geolocation' in navigator) {
-        currentWatchId = navigator.geolocation.watchPosition(
+        currentWatchId = watchAccuratePosition(
           (position) => {
             updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
           },
           (error) => {
             console.warn("Error watching student position, launching fallback:", error);
-            navigator.geolocation.getCurrentPosition(
+            getCurrentAccuratePosition(
               (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
               (err) => {
                 console.warn("Student position fallback default (Dhaka coordinates) selected:", err);
-                // Clean fallback to center of Dhaka so dashboard layout stays perfectly functional
                 updateLocation(currentUser.id, 23.8103, 90.4125);
-              },
-              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+              }
             );
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+          }
         );
       } else {
         // Fallback for missing GPS
@@ -683,7 +671,7 @@ export default function StudentDashboard() {
     }
 
     return () => {
-      if (currentWatchId !== null) {
+      if (currentWatchId !== null && 'geolocation' in navigator) {
         navigator.geolocation.clearWatch(currentWatchId);
       }
     };

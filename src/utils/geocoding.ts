@@ -112,3 +112,99 @@ export function getCoordinatesForLocation(
 
   return coords;
 }
+
+/**
+ * Perform reverse geocoding on coordinates to obtain human-readable district and area.
+ */
+export async function reverseGeocodeLocation(lat: number, lng: number): Promise<{ district?: string; area?: string; address?: string } | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 sec timeout max
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+      signal: controller.signal,
+      headers: {
+        'Accept-Language': 'en'
+      }
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.address) return null;
+
+    const address = data.address;
+    const resolvedArea = address.suburb || address.neighbourhood || address.residential || address.quarter || address.village || address.city_district || '';
+    const resolvedDistrict = address.state_district || address.district || address.county || address.city || address.state || '';
+
+    return {
+      area: resolvedArea,
+      district: resolvedDistrict.replace(/ District/gi, '').replace(/ Division/gi, '').trim(),
+      address: data.display_name
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Gets the current real-time position using High Accuracy GPS with zero stale maximumAge.
+ * Falls back cleanly to standard accuracy if hardware GPS is unavailable or times out.
+ */
+export function getCurrentAccuratePosition(
+  onSuccess: (pos: GeolocationPosition) => void,
+  onError?: (err: GeolocationPositionError) => void,
+  customOptions?: PositionOptions
+) {
+  if (typeof window === 'undefined' || !('navigator' in window) || !('geolocation' in navigator)) {
+    if (onError) {
+      onError({
+        code: 2,
+        message: 'Geolocation not supported',
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3
+      } as GeolocationPositionError);
+    }
+    return;
+  }
+
+  // 1st Attempt: High Accuracy GPS positioning with 0 maximumAge (fresh real-time data)
+  navigator.geolocation.getCurrentPosition(
+    (pos) => onSuccess(pos),
+    (err) => {
+      console.warn("High accuracy GPS timeout/failed, retrying with standard accuracy:", err);
+      // 2nd Attempt: Standard accuracy fallback for desktops/VMs without GPS chips
+      navigator.geolocation.getCurrentPosition(
+        (pos2) => onSuccess(pos2),
+        (err2) => {
+          console.warn("Standard accuracy position lookup failed:", err2);
+          if (onError) onError(err2);
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+      );
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, ...customOptions }
+  );
+}
+
+/**
+ * Watches position continuously using High Accuracy GPS for real-time tracking.
+ */
+export function watchAccuratePosition(
+  onSuccess: (pos: GeolocationPosition) => void,
+  onError?: (err: GeolocationPositionError) => void
+): number | null {
+  if (typeof window === 'undefined' || !('navigator' in window) || !('geolocation' in navigator)) {
+    return null;
+  }
+
+  return navigator.geolocation.watchPosition(
+    (pos) => onSuccess(pos),
+    (err) => {
+      console.warn("Watch position error, trying current position fallback:", err);
+      getCurrentAccuratePosition(onSuccess, onError);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}

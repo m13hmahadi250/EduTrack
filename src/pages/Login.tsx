@@ -88,16 +88,23 @@ export default function Login() {
         ) {
           msg = 'YOUR ACCOUNT IS TEMPORARILY RESTRICTED DUE TO SOME REASON';
         } else if (
+          errCode === 'auth/user-not-found' ||
+          errStr.includes('user-not-found') ||
+          errStr.includes('account not found') ||
+          errStr.includes('unregistered') ||
+          errStr.includes('create an account first')
+        ) {
+          msg = 'No registered account found for this email. Unregistered users must create an account first.';
+          setShowInvalidCredPopup(true);
+        } else if (
           errCode === 'auth/wrong-password' || 
           errStr.includes('wrong-password') || 
           errStr.includes('incorrect-password') ||
-          errCode === 'auth/user-not-found' || 
-          errStr.includes('user-not-found') ||
           errCode === 'auth/invalid-credential' || 
           errStr.includes('invalid-credential') || 
           errStr.includes('invalid_credential')
         ) {
-          msg = 'Wrong email or password. Please check your credentials and try again.';
+          msg = 'Incorrect email or password, or no account exists. Unregistered users must create an account first.';
           setShowInvalidCredPopup(true);
         } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
           msg = 'The email address is badly formatted.';
@@ -105,6 +112,7 @@ export default function Login() {
           msg = 'Too many failed login attempts. Please try again later.';
         } else if (err.message) {
           msg = err.message;
+          setShowInvalidCredPopup(true);
         }
 
         setError(msg);
@@ -192,17 +200,30 @@ export default function Login() {
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white italic mb-2 flex items-center justify-center gap-1.5">
                 Authentication Failed
               </h3>
-              <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide mb-6">
-                Wrong email or password. Please check your credentials and try again.
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed tracking-wide mb-6">
+                {error || "No registered account found. Unregistered users must create an account first before logging in."}
               </p>
-              <button 
-                type="button"
-                id="close-invalid-cred-popup-btn"
-                onClick={() => setShowInvalidCredPopup(false)}
-                className="w-full py-3.5 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-lg active:scale-[0.99] cursor-pointer"
-              >
-                Okay, Try Again
-              </button>
+              <div className="flex flex-col gap-2.5">
+                <button 
+                  type="button"
+                  id="modal-create-account-btn"
+                  onClick={() => {
+                    setShowInvalidCredPopup(false);
+                    navigate('/signup');
+                  }}
+                  className="w-full py-3.5 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-lg active:scale-[0.99] cursor-pointer"
+                >
+                  Create Account Now
+                </button>
+                <button 
+                  type="button"
+                  id="close-invalid-cred-popup-btn"
+                  onClick={() => setShowInvalidCredPopup(false)}
+                  className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Try Again
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -425,7 +446,7 @@ export default function Login() {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                     Email Address <span className="text-[#0D5BFF]">*</span>
                   </label>
                 </div>
@@ -439,10 +460,10 @@ export default function Login() {
                       setError('');
                     }}
                     placeholder="e.g. mahadi@gmail.com"
-                    className={`w-full px-4 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all duration-200 outline-none rounded-xl ${
+                    className={`w-full px-4 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
                       error 
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   />
                 </div>
@@ -450,7 +471,7 @@ export default function Login() {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center px-0.5">
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                     Password <span className="text-[#0D5BFF]">*</span>
                   </label>
                 </div>
@@ -464,17 +485,17 @@ export default function Login() {
                       setError('');
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-4 pr-12 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 border text-xs font-bold text-[#0B132B] dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all duration-200 outline-none rounded-xl ${
+                    className={`w-full pl-4 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
                       error 
-                        ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-500' 
-                        : 'border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700/80'
+                        ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-rose-500/20' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   />
                   <button
                     type="button"
                     id="toggle-login-password-visibility"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     title={showPassword ? "Hide Password" : "Show Password"}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -491,7 +512,7 @@ export default function Login() {
                       setResetSuccess('');
                       setShowForgotPassword(true);
                     }}
-                    className="text-[10px] font-black uppercase text-[#0D5BFF] hover:text-blue-700 tracking-wider cursor-pointer"
+                    className="text-xs font-bold uppercase text-[#0D5BFF] hover:text-blue-700 tracking-wider cursor-pointer"
                   >
                     Forgot your password?
                   </button>
@@ -547,8 +568,19 @@ export default function Login() {
                       errStr.includes('user_disabled')
                     ) {
                       msg = 'YOUR ACCOUNT IS TEMPORARILY RESTRICTED DUE TO SOME REASON';
+                    } else if (
+                      errStr.includes('no registered account') ||
+                      errStr.includes('account not found') ||
+                      errStr.includes('unregistered') ||
+                      errStr.includes('create an account first')
+                    ) {
+                      msg = 'No registered account found for this Google email. Unregistered users must create an account first.';
+                      setShowInvalidCredPopup(true);
                     } else if (err.code === 'auth/invalid-credential' || (typeof err === 'string' && err.includes('invalid-credential'))) {
-                      msg = 'Google Auth error. Please try again.';
+                      msg = 'Google Auth error. Unregistered users must create an account first.';
+                      setShowInvalidCredPopup(true);
+                    } else {
+                      setShowInvalidCredPopup(true);
                     }
                     setError(msg);
                     setLoginSuccess(false);

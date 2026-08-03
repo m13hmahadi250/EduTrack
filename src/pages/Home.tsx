@@ -477,7 +477,7 @@ export default function Home() {
           ) : (
             <motion.div 
               layout
-              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
             >
               {filteredTutors.map((t) => {
                 const isFavorite = currentUser?.savedTutors?.includes(t.id) || localFavorites.includes(t.id);
@@ -619,19 +619,6 @@ export default function Home() {
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
-
-      {/* Stats - Massive Visuals */}
-      <section className="py-24 bg-[#0B132B] text-white overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-full h-full bg-[#0D5BFF]/5 z-0"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-0">
-              <StatBlock value="5k+" label="Guardians Trust" />
-              <StatBlock value="1.2k+" label="Active Tutors" />
-              <StatBlock value="99%" label="Success Rate" />
-              <StatBlock value="24h" label="Instant Support" />
-           </div>
         </div>
       </section>
 
@@ -1171,7 +1158,7 @@ const RealUserSuccessStories = () => {
 
   if (loading) {
     return (
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
         {[1, 2, 3].map((n) => (
           <div key={n} className="bg-white dark:bg-[#1E293B]/50 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800/80 animate-pulse space-y-6">
             <div className="flex gap-1">
@@ -1225,7 +1212,7 @@ const RealUserSuccessStories = () => {
       )}
 
       {/* Testimonials Grid Display */}
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
         {stories.map((item, idx) => (
           <motion.div
             key={`${item.id || 'story'}-${idx}`}

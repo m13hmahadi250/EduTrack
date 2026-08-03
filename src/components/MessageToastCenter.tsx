@@ -47,27 +47,86 @@ export default function MessageToastCenter() {
   );
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   
-  const initializedRef = useRef(false);
+  const sessionStartTimeRef = useRef<number>(Date.now() - 3000); // 3 seconds tolerance before mount
   const notifiedIdsRef = useRef<Set<string>>(getStoredNotifiedIds());
   const notifiedNotifIdsRef = useRef<Set<string>>(getStoredNotifiedIds());
-  const initialNotifsRegisteredRef = useRef(false);
   const recentNotifKeysRef = useRef<Map<string, number>>(new Map());
+  const seenContentKeysRef = useRef<Map<string, number>>(new Map());
+
+  // Toast Queue state to display at most 1 toast at a time smoothly
+  const toastQueueRef = useRef<ActiveToast[]>([]);
+  const activeToastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to check and record recent notification keys to strictly prevent double/duplicate notifications
-  const isDuplicateNotificationKey = (key: string): boolean => {
+  const isDuplicateNotificationKey = (key: string, contentKey?: string): boolean => {
     const now = Date.now();
     recentNotifKeysRef.current.forEach((timestamp, k) => {
-      if (now - timestamp > 30000) {
+      if (now - timestamp > 60000) {
         recentNotifKeysRef.current.delete(k);
+      }
+    });
+    seenContentKeysRef.current.forEach((timestamp, k) => {
+      if (now - timestamp > 300000) { // 5 minutes duplicate protection
+        seenContentKeysRef.current.delete(k);
       }
     });
 
     const lastSeen = recentNotifKeysRef.current.get(key);
-    if (lastSeen && now - lastSeen < 15000) {
-      return true; // Duplicate detected within 15 seconds window
+    if (lastSeen && now - lastSeen < 30000) {
+      return true; // Duplicate ID detected within 30 seconds
     }
+
+    if (contentKey) {
+      const lastContentSeen = seenContentKeysRef.current.get(contentKey);
+      if (lastContentSeen && now - lastContentSeen < 120000) { // 2 minutes window for identical text
+        return true;
+      }
+      seenContentKeysRef.current.set(contentKey, now);
+    }
+
     recentNotifKeysRef.current.set(key, now);
     return false;
+  };
+
+  // Process the queue one by one
+  const processNextToastInQueue = () => {
+    if (toastQueueRef.current.length === 0) return;
+
+    setToasts(currentToasts => {
+      // If already displaying a toast, wait for it to dismiss
+      if (currentToasts.length >= 1) return currentToasts;
+
+      const nextToast = toastQueueRef.current.shift();
+      if (!nextToast) return currentToasts;
+
+      // Clear existing auto-dismiss timer if any
+      if (activeToastTimerRef.current) {
+        clearTimeout(activeToastTimerRef.current);
+      }
+
+      // Schedule auto-dismiss for this single toast
+      activeToastTimerRef.current = setTimeout(() => {
+        setToasts(prev => {
+          const remaining = prev.filter(t => t.id !== nextToast.id);
+          // Trigger queue check for next toast after animation finishes
+          setTimeout(() => {
+            processNextToastInQueue();
+          }, 400);
+          return remaining;
+        });
+      }, 5000);
+
+      return [nextToast];
+    });
+  };
+
+  const enqueueToast = (toast: ActiveToast) => {
+    // Check if duplicate is already in active toasts or queue
+    const isInQueue = toastQueueRef.current.some(t => t.id === toast.id || (t.type === toast.type && t.content === toast.content));
+    if (isInQueue) return;
+
+    toastQueueRef.current.push(toast);
+    processNextToastInQueue();
   };
 
   // Helper to dispatch standard or Service Worker-driven native notifications (works on Android mobile status bar and PC)
@@ -221,39 +280,25 @@ export default function MessageToastCenter() {
     const handleOnline = () => {
       setIsOnline(true);
       const toastId = 'connect-' + Date.now();
-      setToasts(prev => [
-        ...prev,
-        {
-          id: toastId,
-          type: 'online',
-          title: 'Connection Restored',
-          content: 'You are back online. Aligning transmissions seamlessly.',
-          senderName: ''
-        }
-      ]);
-      
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== toastId));
-      }, 5000);
+      enqueueToast({
+        id: toastId,
+        type: 'online',
+        title: 'Connection Restored',
+        content: 'You are back online. Aligning transmissions seamlessly.',
+        senderName: ''
+      });
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       const toastId = 'disconnect-' + Date.now();
-      setToasts(prev => [
-        ...prev,
-        {
-          id: toastId,
-          type: 'offline',
-          title: 'Offline Mode Active',
-          content: 'You are offline. Viewing your cached lesson schedules and messages.',
-          senderName: ''
-        }
-      ]);
-      
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== toastId));
-      }, 6000);
+      enqueueToast({
+        id: toastId,
+        type: 'offline',
+        title: 'Offline Mode Active',
+        content: 'You are offline. Viewing your cached lesson schedules and messages.',
+        senderName: ''
+      });
     };
 
     window.addEventListener('online', handleOnline);
@@ -267,24 +312,18 @@ export default function MessageToastCenter() {
 
   // Monitor incoming messages for Toast triggering
   useEffect(() => {
-    if (!currentUser) {
-      initializedRef.current = false;
-      return;
-    }
-
-    // On initial mount or auth transition, register ALL existing messages to seen list so old ones never trigger toasts
-    if (!initializedRef.current) {
-      messages.forEach(m => {
-        notifiedIdsRef.current.add(m.id);
-        storeNotifiedId(m.id);
-      });
-      if (messages.length > 0 || useAppStore.getState().isInitialized) {
-        initializedRef.current = true;
-      }
-      return;
-    }
+    if (!currentUser) return;
 
     messages.forEach(m => {
+      // 1. If message was sent before current session started, record it and skip toast
+      const msgTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+      if (msgTime < sessionStartTimeRef.current) {
+        notifiedIdsRef.current.add(m.id);
+        storeNotifiedId(m.id);
+        return;
+      }
+
+      // 2. Process real-time unread messages
       if (m.receiverId === currentUser.id && !m.isRead && !notifiedIdsRef.current.has(m.id)) {
         notifiedIdsRef.current.add(m.id);
         storeNotifiedId(m.id);
@@ -297,23 +336,16 @@ export default function MessageToastCenter() {
           const senderName = sender ? sender.name : 'Unknown User';
           const senderAvatar = sender?.profileImage;
 
-          const msgKey = `msg_${m.id}_${m.content}`;
-          if (isDuplicateNotificationKey(msgKey)) return;
+          const msgKey = `msg_${m.id}`;
+          const contentKey = `msg_text_${senderName}_${m.content}`;
+          if (isDuplicateNotificationKey(msgKey, contentKey)) return;
 
-          setToasts(prev => {
-            if (prev.some(t => t.id === m.id || (t.type === 'message' && t.content === m.content && t.senderName === senderName))) {
-              return prev;
-            }
-            return [
-              ...prev,
-              {
-                id: m.id,
-                type: 'message',
-                content: m.content,
-                senderName,
-                senderAvatar
-              }
-            ];
+          enqueueToast({
+            id: m.id,
+            type: 'message',
+            content: m.content,
+            senderName,
+            senderAvatar
           });
 
           triggerNativeNotification(`New Message from ${senderName}`, m.content, {
@@ -321,10 +353,6 @@ export default function MessageToastCenter() {
             tag: 'edutrack-msg-' + m.senderId,
             onClickUrl: '/messages'
           });
-
-          setTimeout(() => {
-            setToasts(prev => prev.filter(t => t.id !== m.id));
-          }, 6000);
         }
       }
     });
@@ -332,47 +360,34 @@ export default function MessageToastCenter() {
 
   // Monitor incoming general notifications for Toast & Native trigger
   useEffect(() => {
-    if (!currentUser) {
-      initialNotifsRegisteredRef.current = false;
-      return;
-    }
-
-    // On initial mount or auth transition, register ALL existing notifications to seen list so old ones never trigger toasts
-    if (!initialNotifsRegisteredRef.current) {
-      notifications.forEach(n => {
-        notifiedNotifIdsRef.current.add(n.id);
-        storeNotifiedId(n.id);
-      });
-      if (notifications.length > 0 || useAppStore.getState().isInitialized) {
-        initialNotifsRegisteredRef.current = true;
-      }
-      return;
-    }
+    if (!currentUser) return;
 
     notifications.forEach(n => {
+      // 1. If notification was created before current session started, record it and skip toast
+      const notifTime = n.timestamp ? new Date(n.timestamp).getTime() : 0;
+      if (notifTime < sessionStartTimeRef.current) {
+        notifiedNotifIdsRef.current.add(n.id);
+        storeNotifiedId(n.id);
+        return;
+      }
+
+      // 2. Process real-time unread notifications
       if (n.userId === currentUser.id && !n.isRead && !notifiedNotifIdsRef.current.has(n.id)) {
         notifiedNotifIdsRef.current.add(n.id);
         storeNotifiedId(n.id);
 
         const notifTitle = n.title || 'System Notification';
-        const notifKey = `notif_${n.id}_${notifTitle}_${n.message}`;
-        if (isDuplicateNotificationKey(notifKey)) return;
+        const notifKey = `notif_${n.id}`;
+        const contentKey = `notif_text_${notifTitle}_${n.message}`;
+        if (isDuplicateNotificationKey(notifKey, contentKey)) return;
 
-        setToasts(prev => {
-          if (prev.some(t => t.id === n.id || (t.type === 'notification' && t.title === notifTitle && t.content === n.message))) {
-            return prev;
-          }
-          return [
-            ...prev,
-            {
-              id: n.id,
-              type: 'notification',
-              title: notifTitle,
-              content: n.message,
-              senderName: 'EduTrack Alert',
-              notifType: n.type
-            }
-          ];
+        enqueueToast({
+          id: n.id,
+          type: 'notification',
+          title: notifTitle,
+          content: n.message,
+          senderName: 'EduTrack Alert',
+          notifType: n.type
         });
 
         triggerNativeNotification(notifTitle, n.message, {
@@ -380,27 +395,40 @@ export default function MessageToastCenter() {
           tag: 'edutrack-notif-' + n.id,
           onClickUrl: '/'
         });
-
-        setTimeout(() => {
-          setToasts(prev => prev.filter(t => t.id !== n.id));
-        }, 6000);
       }
     });
   }, [notifications, currentUser]);
 
   const handleDismiss = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setToasts(prev => prev.filter(t => t.id !== id));
+    if (activeToastTimerRef.current) {
+      clearTimeout(activeToastTimerRef.current);
+    }
+    setToasts(prev => {
+      const remaining = prev.filter(t => t.id !== id);
+      setTimeout(() => {
+        processNextToastInQueue();
+      }, 300);
+      return remaining;
+    });
   };
 
   const handleToastClick = (toast: ActiveToast) => {
+    if (activeToastTimerRef.current) {
+      clearTimeout(activeToastTimerRef.current);
+    }
     if (toast.type === 'message') {
       navigate('/messages');
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
     } else if (toast.type === 'notification') {
       useAppStore.getState().markAsRead(toast.id);
-      setToasts(prev => prev.filter(t => t.id !== toast.id));
     }
+    setToasts(prev => {
+      const remaining = prev.filter(t => t.id !== toast.id);
+      setTimeout(() => {
+        processNextToastInQueue();
+      }, 300);
+      return remaining;
+    });
   };
 
   return (
