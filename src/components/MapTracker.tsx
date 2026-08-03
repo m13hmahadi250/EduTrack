@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useAppStore } from '../store';
-import { ZoomIn, ZoomOut, Focus, Navigation, MapPin } from 'lucide-react';
+import { ZoomIn, ZoomOut, Focus, Navigation, MapPin, Crosshair } from 'lucide-react';
 import { getCurrentAccuratePosition, watchAccuratePosition } from '../utils/geocoding';
 
 // Fix typical leaflet marker icon assets
@@ -103,6 +103,27 @@ function CustomMapHUD({
   setIsPinningMode: (val: boolean) => void;
   hasUser: boolean;
 }) {
+  const { currentUser, updateLocation } = useAppStore();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncGPS = () => {
+    if (!currentUser?.id) return;
+    setIsSyncing(true);
+    getCurrentAccuratePosition(
+      (pos) => {
+        updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude);
+        setIsSyncing(false);
+        if (map) {
+          map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+        }
+      },
+      (err) => {
+        console.warn("GPS sync error:", err);
+        setIsSyncing(false);
+      }
+    );
+  };
+
   const fitAllBounds = () => {
     if (!map) return;
     const coords: [number, number][] = [];
@@ -140,63 +161,86 @@ function CustomMapHUD({
       fitAllBounds();
     }, 600);
     return () => clearTimeout(timer);
-  }, [map, studentLocation, tutorLocation, tutors?.length, students?.length]);
+  }, [map, studentLocation?.[0], studentLocation?.[1], tutorLocation?.[0], tutorLocation?.[1], tutors?.length, students?.length]);
 
   return (
-    <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1.5 p-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-colors">
-      <button 
-        type="button"
-        onClick={handleZoomIn}
-        className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
-        title="Zoom In"
-      >
-        <ZoomIn className="w-4 h-4 stroke-[2.5]" />
-      </button>
-
-      <button 
-        type="button"
-        onClick={handleZoomOut}
-        className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
-        title="Zoom Out"
-      >
-        <ZoomOut className="w-4 h-4 stroke-[2.5]" />
-      </button>
-
-      <div className="h-[1px] bg-slate-200/60 dark:bg-slate-800 mx-1" />
-
+    <>
       {hasUser && (
-        <button 
-          type="button"
-          onClick={() => setIsPinningMode(!isPinningMode)}
-          className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all cursor-pointer border ${
-            isPinningMode 
-              ? 'bg-amber-500 text-white border-amber-400 animate-pulse shadow-md' 
-              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white border-transparent'
-          }`}
-          title={isPinningMode ? "Click Map to Set Location" : "Map Pin Placement (Manual Location Calibration)"}
-        >
-          <MapPin className="w-4 h-4 stroke-[2.5]" />
-        </button>
+        <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg border border-slate-200/60 dark:border-slate-800/80">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-[10px] font-bold tracking-wider text-slate-700 dark:text-slate-200 uppercase">
+            Device GPS Live
+          </span>
+          <button
+            type="button"
+            onClick={handleSyncGPS}
+            disabled={isSyncing}
+            className="ml-1 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
+            title="Sync Device GPS Location Now"
+          >
+            <Crosshair className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-500' : ''}`} />
+          </button>
+        </div>
       )}
 
-      <button 
-        type="button"
-        onClick={handleRecenter}
-        className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
-        title="Recenter Map"
-      >
-        <Navigation className="w-4 h-4 stroke-[2.5] rotate-45" />
-      </button>
+      <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1.5 p-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-colors">
+        <button 
+          type="button"
+          onClick={handleZoomIn}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
+          title="Zoom In"
+        >
+          <ZoomIn className="w-4 h-4 stroke-[2.5]" />
+        </button>
 
-      <button 
-        type="button"
-        onClick={fitAllBounds}
-        className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
-        title="Fit All in View"
-      >
-        <Focus className="w-4 h-4 stroke-[2.5]" />
-      </button>
-    </div>
+        <button 
+          type="button"
+          onClick={handleZoomOut}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
+          title="Zoom Out"
+        >
+          <ZoomOut className="w-4 h-4 stroke-[2.5]" />
+        </button>
+
+        <div className="h-[1px] bg-slate-200/60 dark:bg-slate-800 mx-1" />
+
+        {hasUser && (
+          <button 
+            type="button"
+            onClick={() => setIsPinningMode(!isPinningMode)}
+            className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all cursor-pointer border ${
+              isPinningMode 
+                ? 'bg-amber-500 text-white border-amber-400 animate-pulse shadow-md' 
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white border-transparent'
+            }`}
+            title={isPinningMode ? "Click Map to Set Location" : "Map Pin Placement (Manual Location Calibration)"}
+          >
+            <MapPin className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        )}
+
+        <button 
+          type="button"
+          onClick={handleRecenter}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
+          title="Recenter Map"
+        >
+          <Navigation className="w-4 h-4 stroke-[2.5] rotate-45" />
+        </button>
+
+        <button 
+          type="button"
+          onClick={fitAllBounds}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] dark:hover:text-white transition-all cursor-pointer border border-transparent hover:border-blue-200 dark:hover:border-transparent"
+          title="Fit All in View"
+        >
+          <Focus className="w-4 h-4 stroke-[2.5]" />
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -608,7 +652,7 @@ const MapTracker = memo(({
       });
     }
 
-  }, [mapInstance, tutorLocation, studentLocation, tutorName, studentName, tutorImage, studentImage, eta, tutors, students, selectedTutorId, selectedTutorObj]);
+  }, [mapInstance, tutorLocation?.[0], tutorLocation?.[1], studentLocation?.[0], studentLocation?.[1], tutorName, studentName, tutorImage, studentImage, eta, JSON.stringify(tutors), JSON.stringify(students), selectedTutorId, selectedTutorObj]);
 
   return (
     <div className="relative w-full h-full min-h-[320px] @container [container-type:size] overflow-hidden">

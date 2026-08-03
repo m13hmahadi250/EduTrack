@@ -643,30 +643,24 @@ export default function StudentDashboard() {
     navigate(pathMap[tab]);
   };
 
-  // Background position tracking for student during transit
+  // Continuous position tracking for student using device GPS
   useEffect(() => {
     let currentWatchId: number | null = null;
     
-    if (activeTab === 'transit' && currentUser?.id) {
+    if (currentUser?.id) {
       if ('geolocation' in navigator) {
         currentWatchId = watchAccuratePosition(
           (position) => {
             updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
           },
           (error) => {
-            console.warn("Error watching student position, launching fallback:", error);
+            console.warn("Error watching student position via device GPS:", error);
             getCurrentAccuratePosition(
               (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
-              (err) => {
-                console.warn("Student position fallback default (Dhaka coordinates) selected:", err);
-                updateLocation(currentUser.id, 23.8103, 90.4125);
-              }
+              (err) => console.warn("Student device GPS position unavailable:", err)
             );
           }
         );
-      } else {
-        // Fallback for missing GPS
-        updateLocation(currentUser.id, 23.8103, 90.4125);
       }
     }
 
@@ -675,7 +669,7 @@ export default function StudentDashboard() {
         navigator.geolocation.clearWatch(currentWatchId);
       }
     };
-  }, [activeTab, currentUser?.id]);
+  }, [currentUser?.id, updateLocation]);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [accountForm, setAccountForm] = useState({
@@ -904,7 +898,10 @@ export default function StudentDashboard() {
     e.preventDefault();
     if (!currentUser) return;
     setIsUpdating(true);
-    const coords = getCoordinatesForLocation(accountForm.district || '', accountForm.thana || '', currentUser.id);
+    
+    // Preserve existing device GPS location if present
+    const existingLocation = currentUser.location ? currentUser.location : undefined;
+
     await useAppStore.getState().updateUser(currentUser.id, {
       name: accountForm.name,
       phone: accountForm.phone,
@@ -918,7 +915,7 @@ export default function StudentDashboard() {
       gender: accountForm.gender,
       district: accountForm.district,
       thana: accountForm.thana,
-      location: { lat: coords[0], lng: coords[1] }
+      ...(existingLocation ? { location: existingLocation } : {})
     });
     setIsEditingAccount(false);
     setIsUpdating(false);

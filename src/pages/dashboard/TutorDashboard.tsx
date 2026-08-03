@@ -593,11 +593,11 @@ export default function TutorDashboard() {
     }
   };
 
-  // Geolocation tracking logic
+  // Device GPS tracking logic
   useEffect(() => {
     let currentWatchId: number | null = null;
 
-    if (currentUser?.isTrackingOn) {
+    if (currentUser?.id) {
       if ("geolocation" in navigator) {
         currentWatchId = watchAccuratePosition(
           (position) => {
@@ -608,7 +608,7 @@ export default function TutorDashboard() {
             );
           },
           (error) => {
-            console.warn("Active tracking watch unavailable, falling back to standard placement:", error);
+            console.warn("Tutor device GPS tracking unavailable:", error);
             getCurrentAccuratePosition(
               (pos) =>
                 updateLocation(
@@ -616,16 +616,10 @@ export default function TutorDashboard() {
                   pos.coords.latitude,
                   pos.coords.longitude,
                 ),
-              (err) => {
-                console.warn("Standard position failed, applying default Dhaka metropolitan context alignment:", err);
-                updateLocation(currentUser.id, 23.8103, 90.4125);
-              }
+              (err) => console.warn("Tutor device GPS position unavailable:", err)
             );
           }
         );
-      } else {
-        // Device lacks geolocation hardware/support
-        updateLocation(currentUser.id, 23.8103, 90.4125);
       }
     }
 
@@ -634,7 +628,7 @@ export default function TutorDashboard() {
         navigator.geolocation.clearWatch(currentWatchId);
       }
     };
-  }, [currentUser?.isTrackingOn, currentUser?.id, updateLocation]);
+  }, [currentUser?.id, updateLocation]);
 
   if (!currentUser) return null;
 
@@ -645,12 +639,12 @@ export default function TutorDashboard() {
     if (!currentUser) return;
     setIsUpdating(true);
     try {
-      const coords = getCoordinatesForLocation(profileForm.district || "", profileForm.thana || "", currentUser.id);
+      const existingLocation = currentUser.location ? currentUser.location : undefined;
       await updateUser(currentUser.id, {
         ...profileForm,
         hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
-        location: { lat: coords[0], lng: coords[1] }
+        ...(existingLocation ? { location: existingLocation } : {})
       });
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
