@@ -8,8 +8,9 @@ import multer from "multer";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
-import { sendBrevoEmail, generateWelcomeEmailHtml } from "./mailService.js";
+import { sendBrevoEmail, generateWelcomeEmailHtml, generateOtpEmailHtml } from "./mailService.js";
 import { 
   connectMongoDB, 
   AdminActionLog, 
@@ -325,6 +326,178 @@ app.post("/api/save-fcm-token", (req, res) => {
   } catch (error: any) {
     console.error("[FCM API Error]:", error);
     res.status(500).json({ error: error.message || "Failed to register FCM token on backend" });
+  }
+});
+
+/**
+ * In-memory temporary store for Email Verification OTPs
+ */
+interface OtpRecord {
+  otp: string;
+  expiresAt: number;
+  attempts: number;
+}
+
+const otpStore = new Map<string, OtpRecord>();
+
+// Cleanup routine: automatically remove expired OTP entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, record] of otpStore.entries()) {
+    if (now > record.expiresAt) {
+      otpStore.delete(email);
+    }
+  }
+}, 10 * 60 * 1000);
+
+/**
+ * Email Signup OTP Verification Routes
+ */
+
+// 1. Send OTP Code Endpoint
+app.post("/api/auth/send-otp", async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ success: false, error: "Valid email address is required" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Basic email format validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, error: "Invalid email format" });
+    }
+
+    // Generate cryptographically secure 6-digit numeric OTP code
+    const otpBuffer = crypto.randomInt(100000, 1000000);
+    const otpCode = otpBuffer.toString();
+
+    // Store in-memory with a 10-minute expiry time
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    otpStore.set(normalizedEmail, {
+      otp: otpCode,
+      expiresAt,
+      attempts: 0,
+    });
+
+    // Generate HTML content and send via Brevo REST API service
+    const htmlContent = generateOtpEmailHtml({
+      email: normalizedEmail,
+      otpCode,
+      expiresMinutes: 10,
+    });
+
+    const emailResult = await sendBrevoEmail({
+      toEmail: normalizedEmail,
+      toName: name || normalizedEmail.split("@")[0],
+      subject: `EduTrack BD - Verification Code: ${otpCode}`,
+      htmlContent,
+    });
+
+    console.log(`[OTP AUTH CODE GENERATED] Email: ${normalizedEmail} | OTP Code: ${otpCode}`);
+
+    if (!emailResult.success) {
+      if (emailResult.isIpError) {
+        return res.status(200).json({
+          success: true,
+          isIpError: true,
+          error: emailResult.error,
+          message: emailResult.message,
+          brevoLink: emailResult.brevoLink,
+          expiresInSeconds: 600,
+        });
+      }
+
+      if (emailResult.isKeyError || emailResult.isEmailError || emailResult.isNetworkError) {
+        return res.status(200).json({
+          success: true,
+          isNotice: true,
+          message: `A 6-digit verification code has been generated for ${normalizedEmail}. (${emailResult.message})`,
+          error: emailResult.error,
+          expiresInSeconds: 600,
+        });
+      }
+    }
+
+    console.log(`[OTP Auth] Sent OTP code to ${normalizedEmail}`);
+
+    res.json({
+      success: true,
+      message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox.`,
+      expiresInSeconds: 600,
+    });
+  } catch (error: any) {
+    console.error("[Send OTP API Error]:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to send verification email. Please try again.",
+    });
+  }
+});
+
+// 2. Verify OTP Code Endpoint
+app.post("/api/auth/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, error: "Email and 6-digit OTP code are required" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    const record = otpStore.get(normalizedEmail);
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        error: "No verification code requested for this email or code has expired. Please request a new OTP.",
+      });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(normalizedEmail);
+      return res.status(400).json({
+        success: false,
+        error: "Verification code has expired. Please click 'Resend OTP' to receive a new code.",
+      });
+    }
+
+    if (record.attempts >= 5) {
+      otpStore.delete(normalizedEmail);
+      return res.status(400).json({
+        success: false,
+        error: "Maximum verification attempts exceeded. Please request a new OTP code.",
+      });
+    }
+
+    if (record.otp !== cleanOtp) {
+      record.attempts += 1;
+      const remaining = 5 - record.attempts;
+      return res.status(400).json({
+        success: false,
+        error: `Incorrect verification code. Please check your inbox and try again. (${remaining} attempts remaining)`,
+      });
+    }
+
+    // OTP matched successfully! Clear from memory store to prevent reuse
+    otpStore.delete(normalizedEmail);
+
+    console.log(`[OTP Auth] Verified OTP successfully for ${normalizedEmail}`);
+
+    res.json({
+      success: true,
+      message: "Email verified successfully! You may now complete your registration.",
+    });
+  } catch (error: any) {
+    console.error("[Verify OTP API Error]:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to verify OTP code. Please try again.",
+    });
   }
 });
 

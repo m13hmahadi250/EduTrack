@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore, consumePostLoginDestination } from '../store';
-import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award, CheckCircle2 } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck, ShieldAlert, ChevronDown, Award, CheckCircle2, ShieldCheck, Mail, RefreshCw, ArrowLeft, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 
@@ -16,6 +16,28 @@ export default function Signup() {
   const [searchParams] = useSearchParams();
   const [referralCodeInput, setReferralCodeInput] = useState(searchParams.get('ref') || '');
   
+  // OTP Verification Flow State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(60);
+  const [resendSuccessMsg, setResendSuccessMsg] = useState('');
+  const [ipNoticeMsg, setIpNoticeMsg] = useState('');
+  const otpInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (showOtpModal && resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showOtpModal, resendTimer]);
+
   const signup = useAppStore(state => state.signup);
   const currentUser = useAppStore(state => state.currentUser);
   const navigate = useNavigate();
@@ -120,6 +142,7 @@ export default function Signup() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIpNoticeMsg('');
     
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
@@ -142,57 +165,190 @@ export default function Signup() {
 
     setLoading(true);
     try {
+      // Step 1: Send 6-Digit OTP verification email before creating Firebase user account
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          name: formData.name,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || (!data.success && !data.isIpError)) {
+        throw new Error(data.error || 'Failed to send OTP verification code to your email.');
+      }
+
+      if (data.isIpError) {
+        setIpNoticeMsg(data.message || data.error);
+      }
+
+      // Step 2: Open OTP Verification Modal
+      setOtpDigits(['', '', '', '', '', '']);
+      setOtpError('');
+      setResendSuccessMsg('');
+      setResendTimer(60);
+      setShowOtpModal(true);
+      setLoading(false);
+
+      // Auto-focus first input field after modal animation initializes
+      setTimeout(() => {
+        if (otpInputRefs.current[0]) {
+          otpInputRefs.current[0].focus();
+        }
+      }, 250);
+
+    } catch (err: any) {
+      console.error("OTP trigger error:", err);
+      let msg = err.message || 'Failed to send verification email. Please check your address.';
+      if (msg.includes('auth/email-already-in-use')) {
+        msg = 'This email is already registered. Please sign in instead.';
+      }
+      setError(msg);
+      setLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0 || otpLoading) return;
+
+    setOtpLoading(true);
+    setOtpError('');
+    setResendSuccessMsg('');
+    setIpNoticeMsg('');
+
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          name: formData.name,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || (!data.success && !data.isIpError)) {
+        throw new Error(data.error || 'Failed to resend verification code.');
+      }
+
+      if (data.isIpError) {
+        setIpNoticeMsg(data.message || data.error);
+      }
+
+      setResendSuccessMsg('A new 6-digit OTP code has been sent to your inbox.');
+      setResendTimer(60);
+      setOtpDigits(['', '', '', '', '', '']);
+
+      setTimeout(() => {
+        if (otpInputRefs.current[0]) {
+          otpInputRefs.current[0].focus();
+        }
+      }, 150);
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to resend verification code.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyAndCompleteSignup = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const code = otpDigits.join('').trim();
+    if (code.length !== 6) {
+      setOtpError('Please enter all 6 digits of the OTP code received in your inbox.');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+
+    try {
+      // Step 1: Verify OTP with Express Backend
+      const verifyRes = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          otp: code,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.success) {
+        throw new Error(verifyData.error || 'Invalid or expired OTP code.');
+      }
+
+      // Step 2: OTP Verified! Trigger Firebase createUserWithEmailAndPassword & setDoc
       const password = formData.password;
       const data = { ...formData };
       delete data.password;
-      
+
       await signup({ ...data, role }, password, referralCodeInput);
-      
+
       setSignupSuccess(true);
+      setShowOtpModal(false);
       await new Promise(resolve => setTimeout(resolve, 600));
-      
+
       const targetDest = consumePostLoginDestination('/dashboard');
       navigate(targetDest, { replace: true });
+
     } catch (err: any) {
-      console.error("Signup error:", err);
-      let msg = 'Registration failed. Please try again.';
-      const errStr = String(err);
+      console.error("OTP verification / Firebase signup error:", err);
+      let msg = err.message || 'Verification or signup failed. Please try again.';
       
-      let errMsg = err.message || errStr;
-      let errCode = err.code;
-
-      if (errMsg && errMsg.trim().startsWith('{')) {
-        try {
-          const parsed = JSON.parse(errMsg);
-          if (parsed && parsed.error) {
-            errMsg = parsed.error;
-            if (parsed.error.includes('auth/weak-password')) {
-              errCode = 'auth/weak-password';
-            } else if (parsed.error.includes('auth/email-already-in-use')) {
-              errCode = 'auth/email-already-in-use';
-            } else if (parsed.error.includes('auth/invalid-email')) {
-              errCode = 'auth/invalid-email';
-            }
-          }
-        } catch (_) {}
+      const errStr = String(err);
+      if (msg.includes('auth/email-already-in-use') || errStr.includes('auth/email-already-in-use')) {
+        msg = 'This email is already registered in Firebase. Please sign in instead.';
+      } else if (msg.includes('auth/weak-password') || errStr.includes('auth/weak-password')) {
+        msg = 'Password is too short. Please go back and pick at least 8 characters.';
       }
 
-      if (errCode === 'auth/email-already-in-use' || errMsg.includes('auth/email-already-in-use')) {
-        msg = 'This email is already registered. Please sign in instead.';
-      } else if (errCode === 'auth/invalid-email' || errMsg.includes('auth/invalid-email')) {
-        msg = 'The email address is badly formatted.';
-      } else if (errCode === 'auth/weak-password' || errMsg.includes('auth/weak-password')) {
-        msg = 'Password is too short. Please use at least 8 characters.';
-      } else if (errCode === 'auth/invalid-credential' || errMsg.includes('auth/invalid-credential')) {
-        msg = 'Registration Error. Please check your information and try again.';
-      } else {
-        msg = errMsg;
-      }
+      setOtpError(msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
-      setError(msg);
-      setSignupSuccess(false);
-      setLoading(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleOtpDigitChange = (index: number, value: string) => {
+    if (value.length > 1) {
+      // User pasted full 6-digit OTP code
+      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
+      const newDigits = [...otpDigits];
+      digits.forEach((d, idx) => {
+        if (idx < 6) newDigits[idx] = d;
+      });
+      setOtpDigits(newDigits);
+      const lastIdx = Math.min(digits.length - 1, 5);
+      if (otpInputRefs.current[lastIdx]) {
+        otpInputRefs.current[lastIdx]?.focus();
+      }
+      return;
+    }
+
+    const cleanVal = value.replace(/\D/g, '');
+    const newDigits = [...otpDigits];
+    newDigits[index] = cleanVal;
+    setOtpDigits(newDigits);
+
+    if (cleanVal && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
     }
   };
 
@@ -802,6 +958,165 @@ export default function Signup() {
         </p>
       </>
     )}
+
+        {/* Email OTP Verification Modal */}
+        <AnimatePresence>
+          {showOtpModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-lg bg-white dark:bg-[#111A2E] rounded-3xl shadow-2xl border-2 border-slate-200 dark:border-slate-800 overflow-hidden my-8"
+              >
+                {/* Top Accent Gradient Line */}
+                <div className="h-2 w-full bg-linear-to-r from-[#0D5BFF] via-emerald-500 to-amber-500" />
+
+                {/* Modal Header */}
+                <div className="p-6 sm:p-8 pb-4 text-center relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpModal(false)}
+                    className="absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    title="Close and edit form"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 border-2 border-blue-200 dark:border-blue-800/80 mb-4 shadow-xs">
+                    <ShieldCheck className="w-9 h-9" />
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Verify Your Email Address
+                  </h2>
+
+                  <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium max-w-md mx-auto leading-relaxed">
+                    We've sent a 6-digit One-Time Password (OTP) code to:
+                    <br />
+                    <span className="font-bold text-[#0D5BFF] dark:text-blue-400 text-sm sm:text-base break-all inline-block mt-1 bg-blue-50 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/60">
+                      {formData.email}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Modal Body */}
+                <form onSubmit={handleVerifyAndCompleteSignup} className="px-6 sm:px-8 pb-8 space-y-6">
+                  
+                  {/* IP Notice Banner if present */}
+                  {ipNoticeMsg && (
+                    <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-bold uppercase tracking-wider text-[11px]">Server API Security Notice</p>
+                        <p className="font-medium leading-normal">{ipNoticeMsg}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Alert */}
+                  {otpError && (
+                    <div className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border-2 border-rose-300 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-200 flex items-start gap-2.5 animate-shake">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <p className="font-bold leading-relaxed">{otpError}</p>
+                    </div>
+                  )}
+
+                  {/* Resend Success Toast */}
+                  {resendSuccessMsg && (
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border-2 border-emerald-300 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <p className="font-bold">{resendSuccessMsg}</p>
+                    </div>
+                  )}
+
+                  {/* 6-Digit Code Inputs */}
+                  <div className="space-y-2">
+                    <label className="block text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Enter 6-Digit Code Below
+                    </label>
+
+                    <div className="grid grid-cols-6 gap-2 sm:gap-3 py-2">
+                      {otpDigits.map((digit, index) => (
+                        <input
+                          key={index}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          ref={(el) => { otpInputRefs.current[index] = el; }}
+                          value={digit}
+                          onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                          className={`w-full h-12 sm:h-14 text-center font-mono font-black text-xl sm:text-2xl rounded-xl border-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none transition-all shadow-xs ${
+                            digit
+                              ? 'border-[#0D5BFF] dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/30'
+                              : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-[#0D5BFF] focus:ring-4 focus:ring-blue-500/20'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timer & Resend Option */}
+                  <div className="flex items-center justify-between text-xs font-semibold px-1">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-blue-500" />
+                      Code valid for 10 mins
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resendTimer > 0 || otpLoading}
+                      className={`flex items-center gap-1.5 font-bold uppercase tracking-wider transition-colors ${
+                        resendTimer > 0 || otpLoading
+                          ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                          : 'text-[#0D5BFF] dark:text-blue-400 hover:underline cursor-pointer'
+                      }`}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${otpLoading ? 'animate-spin' : ''}`} />
+                      {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : 'Resend Code'}
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="space-y-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={otpLoading || otpDigits.join('').length !== 6}
+                      className="w-full py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {otpLoading ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Verifying OTP...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4" />
+                          Verify & Complete Signup
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpModal(false)}
+                      className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Edit Signup Details
+                    </button>
+                  </div>
+
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>
