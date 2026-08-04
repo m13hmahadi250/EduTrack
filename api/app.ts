@@ -331,6 +331,7 @@ app.post("/api/save-fcm-token", (req, res) => {
 
 /**
  * In-memory temporary store for Email Verification OTPs
+ * Preserved in globalThis across dev server module hot-reloads
  */
 interface OtpRecord {
   otp: string;
@@ -338,17 +339,38 @@ interface OtpRecord {
   attempts: number;
 }
 
-const otpStore = new Map<string, OtpRecord>();
+const otpStore: Map<string, OtpRecord> =
+  (globalThis as any).__otpStore ||
+  ((globalThis as any).__otpStore = new Map<string, OtpRecord>());
 
 // Cleanup routine: automatically remove expired OTP entries every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [email, record] of otpStore.entries()) {
-    if (now > record.expiresAt) {
-      otpStore.delete(email);
+if (!(globalThis as any).__otpCleanupStarted) {
+  (globalThis as any).__otpCleanupStarted = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [email, record] of otpStore.entries()) {
+      if (now > record.expiresAt) {
+        otpStore.delete(email);
+      }
+    }
+  }, 10 * 60 * 1000);
+}
+
+/**
+ * Helper function to find OTP record by normalized email
+ */
+function getOtpRecord(normalizedEmail: string): { key: string; record: OtpRecord } | null {
+  const direct = otpStore.get(normalizedEmail);
+  if (direct) return { key: normalizedEmail, record: direct };
+
+  // Fallback search in case of whitespace/casing variations
+  for (const [key, record] of otpStore.entries()) {
+    if (key.trim().toLowerCase() === normalizedEmail) {
+      return { key, record };
     }
   }
-}, 10 * 60 * 1000);
+  return null;
+}
 
 /**
  * Email Signup OTP Verification Routes
@@ -398,6 +420,8 @@ app.post("/api/auth/send-otp", async (req, res) => {
 
     console.log(`[OTP AUTH CODE GENERATED] Email: ${normalizedEmail} | OTP Code: ${otpCode}`);
 
+    const devOtpCode = otpCode;
+
     if (!emailResult.success) {
       if (emailResult.isIpError) {
         return res.status(200).json({
@@ -407,6 +431,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
           message: emailResult.message,
           brevoLink: emailResult.brevoLink,
           expiresInSeconds: 600,
+          devOtpCode,
         });
       }
 
@@ -417,6 +442,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
           message: `A 6-digit verification code has been generated for ${normalizedEmail}. (${emailResult.message})`,
           error: emailResult.error,
           expiresInSeconds: 600,
+          devOtpCode,
         });
       }
     }
@@ -427,6 +453,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       success: true,
       message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox.`,
       expiresInSeconds: 600,
+      devOtpCode,
     });
   } catch (error: any) {
     console.error("[Send OTP API Error]:", error);
@@ -449,17 +476,19 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     const cleanOtp = String(otp).trim();
 
-    const record = otpStore.get(normalizedEmail);
+    const otpData = getOtpRecord(normalizedEmail);
 
-    if (!record) {
+    if (!otpData) {
       return res.status(400).json({
         success: false,
         error: "No verification code requested for this email or code has expired. Please request a new OTP.",
       });
     }
 
+    const { key, record } = otpData;
+
     if (Date.now() > record.expiresAt) {
-      otpStore.delete(normalizedEmail);
+      otpStore.delete(key);
       return res.status(400).json({
         success: false,
         error: "Verification code has expired. Please click 'Resend OTP' to receive a new code.",
@@ -467,7 +496,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     }
 
     if (record.attempts >= 5) {
-      otpStore.delete(normalizedEmail);
+      otpStore.delete(key);
       return res.status(400).json({
         success: false,
         error: "Maximum verification attempts exceeded. Please request a new OTP code.",
@@ -484,7 +513,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     }
 
     // OTP matched successfully! Clear from memory store to prevent reuse
-    otpStore.delete(normalizedEmail);
+    otpStore.delete(key);
 
     console.log(`[OTP Auth] Verified OTP successfully for ${normalizedEmail}`);
 

@@ -183,10 +183,16 @@ export default function Signup() {
 
       if (data.isIpError) {
         setIpNoticeMsg(data.message || data.error);
+      } else if (data.isNotice) {
+        setIpNoticeMsg(data.message);
       }
 
       // Step 2: Open OTP Verification Modal
-      setOtpDigits(['', '', '', '', '', '']);
+      const initialDigits = data.devOtpCode && (data.isIpError || data.isNotice) 
+        ? String(data.devOtpCode).split('')
+        : ['', '', '', '', '', ''];
+
+      setOtpDigits(initialDigits);
       setOtpError('');
       setResendSuccessMsg('');
       setResendTimer(60);
@@ -256,10 +262,11 @@ export default function Signup() {
     }
   };
 
-  const handleVerifyAndCompleteSignup = async (e?: React.FormEvent) => {
+  const handleVerifyAndCompleteSignup = async (e?: React.FormEvent, customDigits?: string[]) => {
     if (e) e.preventDefault();
 
-    const code = otpDigits.join('').trim();
+    const digitsToUse = customDigits || otpDigits;
+    const code = digitsToUse.join('').trim();
     if (code.length !== 6) {
       setOtpError('Please enter all 6 digits of the OTP code received in your inbox.');
       return;
@@ -318,7 +325,7 @@ export default function Signup() {
 
   const handleOtpDigitChange = (index: number, value: string) => {
     if (value.length > 1) {
-      // User pasted full 6-digit OTP code
+      // User pasted or browser autofilled multi-digit OTP code
       const digits = value.replace(/\D/g, '').slice(0, 6).split('');
       const newDigits = [...otpDigits];
       digits.forEach((d, idx) => {
@@ -328,6 +335,12 @@ export default function Signup() {
       const lastIdx = Math.min(digits.length - 1, 5);
       if (otpInputRefs.current[lastIdx]) {
         otpInputRefs.current[lastIdx]?.focus();
+      }
+      if (digits.length === 6) {
+        // Auto verify when full 6 digits are pasted/autofilled
+        setTimeout(() => {
+          handleVerifyAndCompleteSignup(undefined, newDigits);
+        }, 100);
       }
       return;
     }
@@ -339,6 +352,13 @@ export default function Signup() {
 
     if (cleanVal && index < 5) {
       otpInputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto verify if the user fills in the 6th digit
+    if (cleanVal && index === 5 && newDigits.every(d => d !== '')) {
+      setTimeout(() => {
+        handleVerifyAndCompleteSignup(undefined, newDigits);
+      }, 100);
     }
   };
 
@@ -1042,7 +1062,11 @@ export default function Signup() {
                           key={index}
                           type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete={index === 0 ? "one-time-code" : "off"}
                           maxLength={6}
+                          autoFocus={index === 0}
+                          aria-label={`Verification code digit ${index + 1}`}
                           ref={(el) => { otpInputRefs.current[index] = el; }}
                           value={digit}
                           onChange={(e) => handleOtpDigitChange(index, e.target.value)}
