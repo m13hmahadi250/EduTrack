@@ -573,6 +573,20 @@ const resetTokenStore: Map<string, ResetTokenRecord> =
   (globalThis as any).__resetTokenStore ||
   ((globalThis as any).__resetTokenStore = loadResetTokensFromFile());
 
+function getResetTokenRecord(rawToken: string): ResetTokenRecord | undefined {
+  if (!rawToken) return undefined;
+  const cleanToken = String(rawToken).trim().replace(/^["']|["']$/g, '');
+  let record = resetTokenStore.get(cleanToken);
+  if (!record) {
+    const fileStore = loadResetTokensFromFile();
+    record = fileStore.get(cleanToken);
+    if (record) {
+      resetTokenStore.set(cleanToken, record);
+    }
+  }
+  return record;
+}
+
 // Cleanup routine: automatically remove expired reset tokens every 15 minutes
 if (!(globalThis as any).__resetTokenCleanupStarted) {
   (globalThis as any).__resetTokenCleanupStarted = true;
@@ -688,32 +702,34 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 app.get("/api/auth/verify-reset-token", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
   try {
-    const token = String(req.query.token || "").trim();
-    const email = String(req.query.email || "").trim().toLowerCase();
+    const rawToken = String(req.query.token || "").trim();
+    const emailQuery = String(req.query.email || "").trim().toLowerCase();
 
-    if (!token || !email) {
+    if (!rawToken) {
       return res.status(400).json({
         valid: false,
-        error: "Missing reset token or email address.",
+        error: "Missing password reset token in link.",
       });
     }
 
-    let record = resetTokenStore.get(token);
-    if (!record) {
-      const fileStore = loadResetTokensFromFile();
-      record = fileStore.get(token);
-      if (record) resetTokenStore.set(token, record);
-    }
+    const record = getResetTokenRecord(rawToken);
 
-    if (!record || record.email !== email || record.used) {
+    if (!record) {
       return res.status(400).json({
         valid: false,
-        error: "Invalid or already used password reset link. Please request a new link.",
+        error: "Invalid or expired password reset link. Please request a new link.",
+      });
+    }
+
+    if (record.used) {
+      return res.status(400).json({
+        valid: false,
+        error: "This password reset link has already been used. Please request a new link.",
       });
     }
 
     if (Date.now() > record.expiresAt) {
-      resetTokenStore.delete(token);
+      resetTokenStore.delete(record.token);
       saveResetTokensToFile(resetTokenStore);
       return res.status(400).json({
         valid: false,
@@ -737,17 +753,14 @@ app.get("/api/auth/verify-reset-token", (req, res) => {
 // 3. Reset Password with Token
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
-    const { token, email, newPassword } = req.body;
+    const { token, newPassword } = req.body;
 
-    if (!token || !email || !newPassword) {
+    if (!token || !newPassword) {
       return res.status(400).json({
         success: false,
-        error: "Token, email, and new password are required.",
+        error: "Reset token and new password are required.",
       });
     }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const cleanToken = String(token).trim();
 
     if (newPassword.length < 6) {
       return res.status(400).json({
@@ -756,22 +769,17 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    let record = resetTokenStore.get(cleanToken);
-    if (!record) {
-      const fileStore = loadResetTokensFromFile();
-      record = fileStore.get(cleanToken);
-      if (record) resetTokenStore.set(cleanToken, record);
-    }
+    const record = getResetTokenRecord(String(token));
 
-    if (!record || record.email !== normalizedEmail || record.used) {
+    if (!record || record.used) {
       return res.status(400).json({
         success: false,
-        error: "Invalid or expired reset link. Please request a new link.",
+        error: "Invalid or already used password reset link. Please request a new link.",
       });
     }
 
     if (Date.now() > record.expiresAt) {
-      resetTokenStore.delete(cleanToken);
+      resetTokenStore.delete(record.token);
       saveResetTokensToFile(resetTokenStore);
       return res.status(400).json({
         success: false,
@@ -779,12 +787,12 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    // Mark token as used and invalidate
+    // Mark token as used and delete record
     record.used = true;
-    resetTokenStore.delete(cleanToken);
+    resetTokenStore.delete(record.token);
     saveResetTokensToFile(resetTokenStore);
 
-    console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${normalizedEmail}`);
+    console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${record.email}`);
 
     res.json({
       success: true,

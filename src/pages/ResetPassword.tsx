@@ -29,20 +29,23 @@ export default function ResetPassword() {
   // Verify token on component mount
   useEffect(() => {
     async function verifyToken() {
-      if (!token || !emailParam) {
+      if (!token) {
         setVerifying(false);
         setTokenValid(false);
-        setTokenError('Invalid or missing password reset link parameters. Please request a new link from the Sign In page.');
+        setTokenError('Invalid or missing password reset link token. Please request a new link from the Sign In page.');
         return;
       }
 
       try {
-        const response = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}&email=${encodeURIComponent(emailParam)}`);
+        const queryParams = new URLSearchParams({ token });
+        if (emailParam) queryParams.set('email', emailParam);
+
+        const response = await fetch(`/api/auth/verify-reset-token?${queryParams.toString()}`);
         const data = await response.json();
 
         if (data.valid) {
           setTokenValid(true);
-          setVerifiedEmail(data.email || emailParam);
+          setVerifiedEmail(data.email || emailParam || 'your account');
         } else {
           setTokenValid(false);
           setTokenError(data.error || 'This password reset link is invalid or has expired.');
@@ -51,7 +54,7 @@ export default function ResetPassword() {
         console.error('[Verify Token Error]:', err);
         // Fall back to assuming valid token so user isn't locked out due to network glitch
         setTokenValid(true);
-        setVerifiedEmail(emailParam);
+        setVerifiedEmail(emailParam || 'your account');
       } finally {
         setVerifying(false);
       }
