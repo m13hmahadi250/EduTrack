@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap, Check, X } from 'lucide-react';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -60,27 +60,41 @@ export default function ResetPassword() {
     verifyToken();
   }, [token, emailParam]);
 
-  // Calculate password strength score (0 to 4)
-  const calculateStrength = (pass: string) => {
+  // Real-time password criteria evaluation
+  const checkPasswordCriteria = (pass: string) => {
+    return {
+      minLength: pass.length >= 8,
+      upperAndLower: /[A-Z]/.test(pass) && /[a-z]/.test(pass),
+      hasNumber: /[0-9]/.test(pass),
+      hasSpecial: /[^A-Za-z0-9]/.test(pass),
+    };
+  };
+
+  const criteria = checkPasswordCriteria(newPassword);
+  
+  const calculateStrengthScore = (pass: string) => {
+    if (!pass) return 0;
     let score = 0;
-    if (pass.length >= 6) score++;
-    if (pass.length >= 10) score++;
-    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass) || /[^A-Za-z0-9]/.test(pass)) score++;
-    return score;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+    return score; // 0 to 5
   };
 
-  const strength = calculateStrength(newPassword);
+  const strengthScore = calculateStrengthScore(newPassword);
 
-  const getStrengthLabel = (s: number) => {
-    if (!newPassword) return { label: '', color: 'bg-slate-200 dark:bg-slate-700' };
-    if (s <= 1) return { label: 'Weak', color: 'bg-rose-500' };
-    if (s === 2) return { label: 'Fair', color: 'bg-amber-500' };
-    if (s === 3) return { label: 'Good', color: 'bg-blue-500' };
-    return { label: 'Strong', color: 'bg-emerald-500' };
+  const getStrengthMeta = (score: number) => {
+    if (!newPassword) return { label: 'Enter Password', percentage: 0, color: 'bg-slate-200 dark:bg-slate-700', textColor: 'text-slate-400' };
+    if (score <= 1) return { label: 'Very Weak', percentage: 20, color: 'bg-rose-500', textColor: 'text-rose-500' };
+    if (score === 2) return { label: 'Weak', percentage: 40, color: 'bg-orange-500', textColor: 'text-orange-500' };
+    if (score === 3) return { label: 'Fair', percentage: 60, color: 'bg-amber-500', textColor: 'text-amber-500' };
+    if (score === 4) return { label: 'Good', percentage: 80, color: 'bg-blue-500', textColor: 'text-blue-500' };
+    return { label: 'Strong & Secure', percentage: 100, color: 'bg-emerald-500', textColor: 'text-emerald-500' };
   };
 
-  const strengthInfo = getStrengthLabel(strength);
+  const strengthMeta = getStrengthMeta(strengthScore);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,36 +300,94 @@ export default function ResetPassword() {
                   </button>
                 </div>
 
-                {/* Password Strength Meter */}
-                {newPassword && (
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Password Strength
-                      </span>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                        {strengthInfo.label}
-                      </span>
+                {/* Real-time Password Strength Meter & Visual Criteria Feedback */}
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      Password Security Level
+                    </span>
+                    <span className={`text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${strengthMeta.textColor}`}>
+                      {strengthMeta.label}
+                    </span>
+                  </div>
+
+                  {/* Dynamic Progress Bar */}
+                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-slate-800 flex gap-1">
+                    {[20, 40, 60, 80, 100].map((levelThreshold) => (
+                      <div
+                        key={levelThreshold}
+                        className={`h-full flex-1 rounded-full transition-all duration-300 ${
+                          strengthMeta.percentage >= levelThreshold
+                            ? strengthMeta.color
+                            : 'bg-slate-200/70 dark:bg-slate-800'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Real-time Criteria Checklist */}
+                  <div className="pt-2 grid grid-cols-2 gap-1.5">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                      criteria.minLength
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                    }`}>
+                      {criteria.minLength ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      <span>8+ characters</span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-1">
-                      {[1, 2, 3, 4].map((step) => (
-                        <div
-                          key={step}
-                          className={`h-full flex-1 transition-all duration-300 ${
-                            strength >= step ? strengthInfo.color : 'bg-slate-200 dark:bg-slate-800'
-                          }`}
-                        />
-                      ))}
+
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                      criteria.upperAndLower
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                    }`}>
+                      {criteria.upperAndLower ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      <span>Upper & Lower</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                      criteria.hasNumber
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                    }`}>
+                      {criteria.hasNumber ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      <span>At least 1 number</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                      criteria.hasSpecial
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                    }`}>
+                      {criteria.hasSpecial ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      <span>Special symbol (!@#$)</span>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Confirm Password Input */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  Confirm New Password <span className="text-[#0D5BFF]">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    Confirm New Password <span className="text-[#0D5BFF]">*</span>
+                  </label>
+                  {confirmPassword && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                      newPassword === confirmPassword ? 'text-emerald-500' : 'text-rose-500'
+                    }`}>
+                      {newPassword === confirmPassword ? (
+                        <>
+                          <Check className="w-3 h-3" /> Passwords match
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-3 h-3" /> Passwords do not match
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}

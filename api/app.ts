@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import fs from "fs";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
 import compression from "compression";
@@ -522,8 +523,8 @@ app.post("/api/auth/verify-otp", async (req, res) => {
 });
 
 /**
- * In-memory temporary store for Password Reset Tokens
- * Preserved in globalThis across dev server module hot-reloads
+ * Persistent store for Password Reset Tokens with disk caching
+ * Ensures reset tokens survive dev server reloads and process restarts for full 15 min lifetime
  */
 interface ResetTokenRecord {
   token: string;
@@ -532,9 +533,45 @@ interface ResetTokenRecord {
   used: boolean;
 }
 
+const RESET_CACHE_FILE = path.join(process.cwd(), ".reset_tokens_cache.json");
+
+function loadResetTokensFromFile(): Map<string, ResetTokenRecord> {
+  const map = new Map<string, ResetTokenRecord>();
+  try {
+    if (fs.existsSync(RESET_CACHE_FILE)) {
+      const data = fs.readFileSync(RESET_CACHE_FILE, "utf-8");
+      const list: ResetTokenRecord[] = JSON.parse(data);
+      const now = Date.now();
+      for (const item of list) {
+        if (item && item.token && item.expiresAt > now && !item.used) {
+          map.set(item.token, item);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[Reset Token Cache] Error loading file cache:", e);
+  }
+  return map;
+}
+
+function saveResetTokensToFile(store: Map<string, ResetTokenRecord>) {
+  try {
+    const now = Date.now();
+    const list: ResetTokenRecord[] = [];
+    for (const record of store.values()) {
+      if (record && record.expiresAt > now && !record.used) {
+        list.push(record);
+      }
+    }
+    fs.writeFileSync(RESET_CACHE_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("[Reset Token Cache] Error saving file cache:", e);
+  }
+}
+
 const resetTokenStore: Map<string, ResetTokenRecord> =
   (globalThis as any).__resetTokenStore ||
-  ((globalThis as any).__resetTokenStore = new Map<string, ResetTokenRecord>());
+  ((globalThis as any).__resetTokenStore = loadResetTokensFromFile());
 
 // Cleanup routine: automatically remove expired reset tokens every 15 minutes
 if (!(globalThis as any).__resetTokenCleanupStarted) {
@@ -546,6 +583,7 @@ if (!(globalThis as any).__resetTokenCleanupStarted) {
         resetTokenStore.delete(token);
       }
     }
+    saveResetTokensToFile(resetTokenStore);
   }, 15 * 60 * 1000);
 }
 
@@ -574,15 +612,17 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
     // Generate cryptographically secure random 32-byte token (hex encoded)
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes validity
+    const expiresAt = Date.now() + 15 * 60 * 1000; // Strictly 15 minutes validity
 
-    // Store in-memory reset token record
-    resetTokenStore.set(token, {
+    // Store in-memory and persistent reset token record
+    const record: ResetTokenRecord = {
       token,
       email: normalizedEmail,
       expiresAt,
       used: false,
-    });
+    };
+    resetTokenStore.set(token, record);
+    saveResetTokensToFile(resetTokenStore);
 
     // Build absolute URL for reset password page
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
@@ -605,7 +645,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       htmlContent,
     });
 
-    console.log(`[FORGOT PASSWORD LINK GENERATED] Email: ${normalizedEmail} | Link: ${resetLink}`);
+    console.log(`[FORGOT PASSWORD LINK GENERATED] Email: ${normalizedEmail} | Expires in: 15m | Link: ${resetLink}`);
 
     if (!emailResult.success) {
       if (emailResult.isIpError) {
@@ -646,6 +686,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
 // 2. Verify Password Reset Token Validity
 app.get("/api/auth/verify-reset-token", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
   try {
     const token = String(req.query.token || "").trim();
     const email = String(req.query.email || "").trim().toLowerCase();
@@ -657,7 +698,12 @@ app.get("/api/auth/verify-reset-token", (req, res) => {
       });
     }
 
-    const record = resetTokenStore.get(token);
+    let record = resetTokenStore.get(token);
+    if (!record) {
+      const fileStore = loadResetTokensFromFile();
+      record = fileStore.get(token);
+      if (record) resetTokenStore.set(token, record);
+    }
 
     if (!record || record.email !== email || record.used) {
       return res.status(400).json({
@@ -668,6 +714,7 @@ app.get("/api/auth/verify-reset-token", (req, res) => {
 
     if (Date.now() > record.expiresAt) {
       resetTokenStore.delete(token);
+      saveResetTokensToFile(resetTokenStore);
       return res.status(400).json({
         valid: false,
         error: "This password reset link has expired (15-minute limit). Please request a new link.",
@@ -709,7 +756,12 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    const record = resetTokenStore.get(cleanToken);
+    let record = resetTokenStore.get(cleanToken);
+    if (!record) {
+      const fileStore = loadResetTokensFromFile();
+      record = fileStore.get(cleanToken);
+      if (record) resetTokenStore.set(cleanToken, record);
+    }
 
     if (!record || record.email !== normalizedEmail || record.used) {
       return res.status(400).json({
@@ -720,15 +772,17 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     if (Date.now() > record.expiresAt) {
       resetTokenStore.delete(cleanToken);
+      saveResetTokensToFile(resetTokenStore);
       return res.status(400).json({
         success: false,
-        error: "This reset link has expired. Please request a new link.",
+        error: "This reset link has expired (15-minute limit). Please request a new link.",
       });
     }
 
     // Mark token as used and invalidate
     record.used = true;
     resetTokenStore.delete(cleanToken);
+    saveResetTokensToFile(resetTokenStore);
 
     console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${normalizedEmail}`);
 
