@@ -143,6 +143,133 @@ export function generateOtpEmailHtml({
 </html>`;
 }
 
+export function generatePasswordResetEmailHtml({
+  email,
+  resetLink,
+  expiresMinutes = 15,
+}: {
+  email: string;
+  resetLink: string;
+  expiresMinutes?: number;
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your EduTrack BD Password</title>
+  <style>
+    .btn-reset:hover {
+      background-color: #0b4ad6 !important;
+      box-shadow: 0 10px 25px rgba(13, 91, 255, 0.4) !important;
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; color: #334155; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; padding: 40px 12px;">
+    <tr>
+      <td align="center">
+        
+        <!-- Main Card Container -->
+        <table role="presentation" width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+          
+          <!-- Top Accent Branding Stripe -->
+          <tr>
+            <td style="background: linear-gradient(90deg, #0D5BFF 0%, #3B82F6 50%, #7C3AED 100%); height: 6px;"></td>
+          </tr>
+
+          <!-- Hero Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0B132B 0%, #111A2E 60%, #0D5BFF 100%); padding: 38px 32px; text-align: center;">
+              
+              <!-- Brand Badge -->
+              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 16px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                <span style="color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
+                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
+              </div>
+
+              <!-- Main Title -->
+              <h1 style="color: #ffffff; font-size: 22px; font-weight: 900; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                Password Reset Request
+              </h1>
+
+              <!-- Subtitle -->
+              <p style="color: #93c5fd; font-size: 12px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
+                Secure Account Access Recovery
+              </p>
+            </td>
+          </tr>
+
+          <!-- Main Content Body -->
+          <tr>
+            <td style="padding: 36px 32px 28px 32px;">
+              
+              <div style="margin-bottom: 24px;">
+                <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0;">
+                  Need to reset your password?
+                </h2>
+                <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0;">
+                  We received a request to reset the password for your EduTrack Bangladesh account associated with <strong>${email}</strong>. Click the button below to set a new password.
+                </p>
+              </div>
+
+              <!-- Primary Action CTA Button -->
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${resetLink}" target="_blank" class="btn-reset" style="display: inline-block; background-color: #0D5BFF; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 900; padding: 16px 36px; border-radius: 14px; letter-spacing: 1px; text-transform: uppercase; transition: all 0.2s ease-in-out; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.3);">
+                  Reset Your Password Now
+                </a>
+              </div>
+
+              <!-- Notice Box -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+                <p style="font-size: 12px; font-weight: 700; color: #64748b; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ⏰ Important Security Details:
+                </p>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                  <li>This link will automatically expire in <strong>${expiresMinutes} minutes</strong>.</li>
+                  <li>This link is single-use and will be invalidated once used.</li>
+                  <li>If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</li>
+                </ul>
+              </div>
+
+              <!-- Fallback Direct URL -->
+              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
+                <p style="font-size: 11px; color: #64748b; margin: 0 0 6px 0;">
+                  If the button above does not work, copy and paste this URL into your browser:
+                </p>
+                <div style="word-break: break-all; font-family: monospace; font-size: 11px; color: #0D5BFF; background-color: #f1f5f9; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1;">
+                  ${resetLink}
+                </div>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer Section -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #f1f5f9; padding: 24px 32px; text-align: center;">
+              <p style="color: #64748b; font-size: 12px; font-weight: 700; margin: 0 0 6px 0;">
+                EduTrack Bangladesh Security Team
+              </p>
+              <p style="color: #94a3b8; font-size: 11px; margin: 0 0 12px 0;">
+                Empowering Education & Tuition Management across Bangladesh
+              </p>
+              <p style="color: #cbd5e1; font-size: 10px; margin: 0;">
+                © ${new Date().getFullYear()} EduTrack Bangladesh. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export function generateWelcomeEmailHtml({
   name,
   role,

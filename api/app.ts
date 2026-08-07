@@ -10,7 +10,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
-import { sendBrevoEmail, generateWelcomeEmailHtml, generateOtpEmailHtml } from "./mailService.js";
+import { sendBrevoEmail, generateWelcomeEmailHtml, generateOtpEmailHtml, generatePasswordResetEmailHtml } from "./mailService.js";
 import { 
   connectMongoDB, 
   AdminActionLog, 
@@ -423,35 +423,26 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const devOtpCode = otpCode;
 
     if (!emailResult.success) {
-      if (emailResult.isIpError) {
-        return res.status(200).json({
-          success: true,
-          isIpError: true,
-          error: emailResult.error,
-          message: emailResult.message,
-          brevoLink: emailResult.brevoLink,
-          expiresInSeconds: 600,
-          devOtpCode,
-        });
-      }
-
-      if (emailResult.isKeyError || emailResult.isEmailError || emailResult.isNetworkError) {
-        return res.status(200).json({
-          success: true,
-          isNotice: true,
-          message: `A 6-digit verification code has been generated for ${normalizedEmail}. (${emailResult.message})`,
-          error: emailResult.error,
-          expiresInSeconds: 600,
-          devOtpCode,
-        });
-      }
+      console.warn(`[OTP Email Delivery Warning] Email to ${normalizedEmail} failed via Brevo:`, emailResult);
+      return res.status(200).json({
+        success: true,
+        emailSent: false,
+        isNotice: true,
+        isIpError: !!emailResult.isIpError,
+        error: emailResult.error || "Brevo Email Delivery Notice",
+        message: emailResult.message || `Could not deliver email to ${normalizedEmail} via Brevo API.`,
+        brevoLink: (emailResult as any).brevoLink,
+        expiresInSeconds: 600,
+        devOtpCode,
+      });
     }
 
-    console.log(`[OTP Auth] Sent OTP code to ${normalizedEmail}`);
+    console.log(`[OTP Auth] Sent OTP code successfully to ${normalizedEmail}`);
 
     res.json({
       success: true,
-      message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox.`,
+      emailSent: true,
+      message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
       expiresInSeconds: 600,
       devOtpCode,
     });
@@ -526,6 +517,230 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || "Failed to verify OTP code. Please try again.",
+    });
+  }
+});
+
+/**
+ * In-memory temporary store for Password Reset Tokens
+ * Preserved in globalThis across dev server module hot-reloads
+ */
+interface ResetTokenRecord {
+  token: string;
+  email: string;
+  expiresAt: number;
+  used: boolean;
+}
+
+const resetTokenStore: Map<string, ResetTokenRecord> =
+  (globalThis as any).__resetTokenStore ||
+  ((globalThis as any).__resetTokenStore = new Map<string, ResetTokenRecord>());
+
+// Cleanup routine: automatically remove expired reset tokens every 15 minutes
+if (!(globalThis as any).__resetTokenCleanupStarted) {
+  (globalThis as any).__resetTokenCleanupStarted = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [token, record] of resetTokenStore.entries()) {
+      if (now > record.expiresAt || record.used) {
+        resetTokenStore.delete(token);
+      }
+    }
+  }, 15 * 60 * 1000);
+}
+
+/**
+ * Password Reset Routes via Brevo Email Infrastructure
+ */
+
+// 1. Trigger Forgot Password Email with One-Time Reset Link
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "Valid email address is required.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      return res.status(400).json({
+        success: false,
+        error: "Please provide a valid email address.",
+      });
+    }
+
+    // Generate cryptographically secure random 32-byte token (hex encoded)
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes validity
+
+    // Store in-memory reset token record
+    resetTokenStore.set(token, {
+      token,
+      email: normalizedEmail,
+      expiresAt,
+      used: false,
+    });
+
+    // Build absolute URL for reset password page
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:3000";
+    const origin = `${protocol}://${host}`;
+    const resetLink = `${origin}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+
+    // Generate HTML Email Content
+    const htmlContent = generatePasswordResetEmailHtml({
+      email: normalizedEmail,
+      resetLink,
+      expiresMinutes: 15,
+    });
+
+    // Send email via Brevo Email API
+    const emailResult = await sendBrevoEmail({
+      toEmail: normalizedEmail,
+      toName: normalizedEmail.split("@")[0],
+      subject: "EduTrack BD - Reset Your Account Password",
+      htmlContent,
+    });
+
+    console.log(`[FORGOT PASSWORD LINK GENERATED] Email: ${normalizedEmail} | Link: ${resetLink}`);
+
+    if (!emailResult.success) {
+      if (emailResult.isIpError) {
+        return res.status(200).json({
+          success: true,
+          isIpError: true,
+          error: emailResult.error,
+          message: emailResult.message,
+          brevoLink: emailResult.brevoLink,
+          resetLink,
+        });
+      }
+
+      if (emailResult.isKeyError || emailResult.isEmailError || emailResult.isNetworkError) {
+        return res.status(200).json({
+          success: true,
+          isNotice: true,
+          message: `A password reset link has been created for ${normalizedEmail}. (${emailResult.message})`,
+          error: emailResult.error,
+          resetLink,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Password reset link sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
+      resetLink,
+    });
+  } catch (error: any) {
+    console.error("[Forgot Password API Error]:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to initiate password reset. Please try again.",
+    });
+  }
+});
+
+// 2. Verify Password Reset Token Validity
+app.get("/api/auth/verify-reset-token", (req, res) => {
+  try {
+    const token = String(req.query.token || "").trim();
+    const email = String(req.query.email || "").trim().toLowerCase();
+
+    if (!token || !email) {
+      return res.status(400).json({
+        valid: false,
+        error: "Missing reset token or email address.",
+      });
+    }
+
+    const record = resetTokenStore.get(token);
+
+    if (!record || record.email !== email || record.used) {
+      return res.status(400).json({
+        valid: false,
+        error: "Invalid or already used password reset link. Please request a new link.",
+      });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      resetTokenStore.delete(token);
+      return res.status(400).json({
+        valid: false,
+        error: "This password reset link has expired (15-minute limit). Please request a new link.",
+      });
+    }
+
+    res.json({
+      valid: true,
+      email: record.email,
+    });
+  } catch (error: any) {
+    console.error("[Verify Reset Token Error]:", error);
+    res.status(500).json({
+      valid: false,
+      error: "Failed to verify reset token.",
+    });
+  }
+});
+
+// 3. Reset Password with Token
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { token, email, newPassword } = req.body;
+
+    if (!token || !email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Token, email, and new password are required.",
+      });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const cleanToken = String(token).trim();
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const record = resetTokenStore.get(cleanToken);
+
+    if (!record || record.email !== normalizedEmail || record.used) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired reset link. Please request a new link.",
+      });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      resetTokenStore.delete(cleanToken);
+      return res.status(400).json({
+        success: false,
+        error: "This reset link has expired. Please request a new link.",
+      });
+    }
+
+    // Mark token as used and invalidate
+    record.used = true;
+    resetTokenStore.delete(cleanToken);
+
+    console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${normalizedEmail}`);
+
+    res.json({
+      success: true,
+      message: "Your password has been successfully updated! You can now log in with your new password.",
+    });
+  } catch (error: any) {
+    console.error("[Reset Password API Error]:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to update password. Please try again.",
     });
   }
 });

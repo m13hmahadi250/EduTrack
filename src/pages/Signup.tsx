@@ -177,24 +177,24 @@ export default function Signup() {
 
       const data = await res.json();
 
-      if (!res.ok || (!data.success && !data.isIpError)) {
+      if (!res.ok || (!data.success && !data.isIpError && !data.isNotice)) {
         throw new Error(data.error || 'Failed to send OTP verification code to your email.');
       }
 
-      if (data.isIpError) {
-        setIpNoticeMsg(data.message || data.error);
-      } else if (data.isNotice) {
-        setIpNoticeMsg(data.message);
+      if (data.emailSent === false || data.isNotice || data.isIpError) {
+        setIpNoticeMsg(data.message || 'Email delivery failed via Brevo. Verification code pre-filled for testing.');
+      } else {
+        setIpNoticeMsg('');
       }
 
       // Step 2: Open OTP Verification Modal
-      const initialDigits = data.devOtpCode && (data.isIpError || data.isNotice) 
+      const initialDigits = data.devOtpCode && (data.emailSent === false || data.isIpError || data.isNotice) 
         ? String(data.devOtpCode).split('')
         : ['', '', '', '', '', ''];
 
       setOtpDigits(initialDigits);
       setOtpError('');
-      setResendSuccessMsg('');
+      setResendSuccessMsg(data.emailSent ? `Verification code dispatched to ${formData.email}. Please check your inbox or spam folder.` : '');
       setResendTimer(60);
       setShowOtpModal(true);
       setLoading(false);
@@ -238,17 +238,23 @@ export default function Signup() {
 
       const data = await res.json();
 
-      if (!res.ok || (!data.success && !data.isIpError)) {
+      if (!res.ok || (!data.success && !data.isIpError && !data.isNotice)) {
         throw new Error(data.error || 'Failed to resend verification code.');
       }
 
-      if (data.isIpError) {
-        setIpNoticeMsg(data.message || data.error);
+      if (data.emailSent === false || data.isNotice || data.isIpError) {
+        setIpNoticeMsg(data.message || data.error || 'Brevo email delivery notice. Code pre-filled below.');
+        if (data.devOtpCode) {
+          setOtpDigits(String(data.devOtpCode).split(''));
+        }
+        setResendSuccessMsg('');
+      } else {
+        setIpNoticeMsg('');
+        setResendSuccessMsg(`A new 6-digit OTP code has been sent to ${formData.email}. Please check your inbox or spam folder.`);
+        setOtpDigits(['', '', '', '', '', '']);
       }
 
-      setResendSuccessMsg('A new 6-digit OTP code has been sent to your inbox.');
       setResendTimer(60);
-      setOtpDigits(['', '', '', '', '', '']);
 
       setTimeout(() => {
         if (otpInputRefs.current[0]) {

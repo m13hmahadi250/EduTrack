@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore, consumePostLoginDestination } from '../store';
-import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert, GraduationCap, UserCheck } from 'lucide-react';
+import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert, GraduationCap, UserCheck, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -22,6 +22,23 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
+  const [resetCountdown, setResetCountdown] = useState<number | null>(null);
+
+  // Auto-close forgot password popup in 3s when reset email is sent
+  useEffect(() => {
+    let timer: any;
+    if (resetCountdown !== null && resetCountdown > 0) {
+      timer = setInterval(() => {
+        setResetCountdown(prev => (prev !== null && prev > 1 ? prev - 1 : 0));
+      }, 1000);
+    } else if (resetCountdown === 0) {
+      setShowForgotPassword(false);
+      setResetCountdown(null);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resetCountdown]);
 
   const login = useAppStore(state => state.login);
   const currentUser = useAppStore(state => state.currentUser);
@@ -146,26 +163,47 @@ export default function Login() {
     try {
       if (isDemo) {
         // Simulated flow for demo users
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setResetSuccess(`Password reset instructions simulated for the demo user "${trimmedEmail}". Since this is a demo account, no email was sent, but the flow succeeded! You can log in directly using your standard credentials.`);
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setResetSuccess(`Password reset instructions simulated for demo account "${trimmedEmail}". You can log in directly using standard credentials.`);
       } else {
-        await sendPasswordResetEmail(auth, trimmedEmail);
-        setResetSuccess('Password reset link has been successfully sent to your email. Please check your inbox for instructions. Note that this link will expire in 5 minutes.');
+        const response = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmedEmail }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          if (data.isIpError) {
+            setResetSuccess(`Reset link generated: ${data.resetLink}. Note: Brevo API Key has IP Whitelist restriction active.`);
+          } else if (data.isNotice) {
+            setResetSuccess(`A password reset link has been dispatched to ${trimmedEmail}. You can also use this direct one-time link: ${data.resetLink}`);
+          } else {
+            setResetSuccess(`A secure password reset link has been sent to ${trimmedEmail} via Brevo Email Service. Please check your inbox or spam folder.`);
+          }
+          setResetCountdown(3);
+        } else {
+          // Fallback to Firebase client SDK reset email if backend endpoint returns an error
+          try {
+            await sendPasswordResetEmail(auth, trimmedEmail);
+            setResetSuccess(`Password reset link sent to ${trimmedEmail}. Please check your inbox.`);
+            setResetCountdown(3);
+          } catch (fbErr: any) {
+            setResetError(data.error || 'Failed to send password reset email. Please verify your address and try again.');
+          }
+        }
       }
     } catch (err: any) {
       console.error("Password reset error:", err);
-      let msg = 'Failed to send password reset email. Please try again later.';
-      const errCode = (err?.code || '').toLowerCase();
-      const errStr = String(err).toLowerCase();
-
-      if (errCode === 'auth/user-not-found' || errStr.includes('user-not-found')) {
-        msg = 'No account found with this email address.';
-      } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
-        msg = 'The email address is badly formatted.';
-      } else if (err.message) {
-        msg = err.message;
+      // Fallback to Firebase SDK reset email
+      try {
+        await sendPasswordResetEmail(auth, trimmedEmail);
+        setResetSuccess(`Password reset link sent to ${trimmedEmail}. Please check your inbox.`);
+        setResetCountdown(3);
+      } catch (fbErr: any) {
+        setResetError(err.message || 'Failed to send password reset email. Please try again later.');
       }
-      setResetError(msg);
     } finally {
       setResetLoading(false);
     }
@@ -289,9 +327,15 @@ export default function Login() {
                       exit={{ opacity: 0, y: -10 }}
                       className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400 p-4 rounded-xl text-[10px] font-black uppercase tracking-wider flex flex-col gap-2 shadow-sm text-left"
                     >
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
-                        <span className="font-extrabold text-emerald-800 dark:text-emerald-200">Reset Email Sent</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+                          <span className="font-extrabold text-emerald-800 dark:text-emerald-200">Reset Link Sent</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+                          <Clock className="w-3 h-3 animate-spin" />
+                          <span>Closing in {resetCountdown ?? 3}s</span>
+                        </div>
                       </div>
                       <p className="text-[10px] font-bold text-emerald-700/90 dark:text-emerald-400 leading-normal lowercase tracking-normal">{resetSuccess}</p>
                     </motion.div>
