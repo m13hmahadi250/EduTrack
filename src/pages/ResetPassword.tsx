@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap, Check, X } from 'lucide-react';
+import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap, Check, X, ArrowRight, Clock } from 'lucide-react';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -25,6 +25,24 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+
+  // Auto-redirect countdown timer when password reset is successful
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resetSuccess && redirectCountdown !== null && redirectCountdown > 0) {
+      timer = setInterval(() => {
+        setRedirectCountdown((prev) => (prev !== null && prev > 1 ? prev - 1 : 0));
+      }, 1000);
+    } else if (resetSuccess && redirectCountdown === 0) {
+      navigate('/login', {
+        state: { successMessage: 'Your password has been updated successfully. Please sign in with your new password.' },
+      });
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resetSuccess, redirectCountdown, navigate]);
 
   // Verify token on component mount
   useEffect(() => {
@@ -130,6 +148,7 @@ export default function ResetPassword() {
 
       if (data.success) {
         setResetSuccess(true);
+        setRedirectCountdown(3);
       } else {
         setFormError(data.error || 'Failed to update password. Please try again.');
       }
@@ -142,7 +161,69 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20">
+    <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20 relative">
+      {/* Toast Notification Banner for Successful Password Reset */}
+      <AnimatePresence>
+        {resetSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            id="password-reset-success-toast"
+            className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[9999] sm:max-w-md w-full bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-md border-2 border-emerald-500/80 dark:border-emerald-500/60 rounded-2xl shadow-[0_12px_40px_-8px_rgba(16,185,129,0.3)] p-4 sm:p-5 overflow-hidden"
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-6 h-6 animate-pulse" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                    Password Reset Successful
+                  </h4>
+                  <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-300/50 dark:border-emerald-800/50 shrink-0">
+                    <Clock className="w-3 h-3 animate-spin" />
+                    <span>{redirectCountdown ?? 3}s</span>
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                  Your password for <strong className="text-slate-900 dark:text-white">{verifiedEmail}</strong> has been updated. Redirecting to sign in...
+                </p>
+
+                <div className="mt-3.5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    id="toast-sign-in-now-btn"
+                    onClick={() =>
+                      navigate('/login', {
+                        state: { successMessage: 'Your password has been updated successfully. Please sign in with your new password.' },
+                      })
+                    }
+                    className="px-4 py-2 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Sign In Now</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Depleting progress bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <motion.div
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: 3, ease: 'linear' }}
+                className="h-full bg-emerald-500"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, scale: 0.98, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -231,22 +312,33 @@ export default function ResetPassword() {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center py-4"
           >
-            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-200 dark:border-emerald-900/30">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-200 dark:border-emerald-900/30 shadow-xs">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 animate-bounce" />
             </div>
             <h2 className="text-xl font-black uppercase tracking-wide text-slate-900 dark:text-white mb-2">
               Password Updated!
             </h2>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
-              Your password for <strong className="text-slate-800 dark:text-slate-200">{verifiedEmail}</strong> has been successfully updated. You can now sign in with your new credentials.
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+              Your password for <strong className="text-slate-800 dark:text-slate-200">{verifiedEmail}</strong> has been successfully updated.
             </p>
+
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs font-bold mb-6">
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>Redirecting to Login in {redirectCountdown ?? 3}s...</span>
+            </div>
 
             <button
               type="button"
-              onClick={() => navigate('/login')}
-              className="w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 cursor-pointer"
+              id="card-sign-in-now-btn"
+              onClick={() =>
+                navigate('/login', {
+                  state: { successMessage: 'Your password has been updated successfully. Please sign in with your new password.' },
+                })
+              }
+              className="w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
             >
-              Sign In Now
+              <span>Sign In Now</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
         ) : (

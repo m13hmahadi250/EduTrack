@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAppStore, consumePostLoginDestination } from '../store';
 import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert, GraduationCap, UserCheck, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,6 +7,11 @@ import { auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
 export default function Login() {
+  const location = useLocation();
+  const [pageSuccessMessage, setPageSuccessMessage] = useState<string>(
+    location.state?.successMessage || ''
+  );
+
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -475,6 +480,26 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               <AnimatePresence>
+                {pageSuccessMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 p-4 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-3 shadow-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" />
+                      <span>{pageSuccessMessage}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPageSuccessMessage('')}
+                      className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-200 p-1 rounded-md"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                )}
                 {error && (
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}

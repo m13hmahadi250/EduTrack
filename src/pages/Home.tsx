@@ -83,7 +83,7 @@ export default function Home() {
         if (active) {
           const fetched = querySnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() as any }))
-            .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false);
+            .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false && Boolean(u.isVerified || u.verified || u.isApproved));
           setRealTutors(fetched);
           try {
             localStorage.setItem('edutrack_cached_home_tutors', JSON.stringify(fetched));
@@ -222,6 +222,10 @@ export default function Home() {
       const matchesDistrict = 
         selectedDistrict === 'All' ||
         (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
+
+      // Must be a verified teacher
+      const isVerified = Boolean(t.isVerified || t.verified || t.isApproved);
+      if (!isVerified) return false;
 
       return matchesFavorites && matchesSearch && matchesSubject && matchesTags && matchesDistrict;
     });

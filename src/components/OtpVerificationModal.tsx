@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Sparkles } from 'lucide-react';
+import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2 } from 'lucide-react';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
@@ -32,6 +32,7 @@ export default function OtpVerificationModal({
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const [isVerified, setIsVerified] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Motion Choreography Phases: 'idle' | 'curl' | 'spin' | 'screw' | 'completed'
   const [motionPhase, setMotionPhase] = useState<'idle' | 'curl' | 'spin' | 'screw' | 'completed'>('idle');
@@ -45,6 +46,7 @@ export default function OtpVerificationModal({
       setDigits(['', '', '', '']);
       setLocalError('');
       setMotionPhase('idle');
+      setIsSubmitting(false);
       setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
@@ -149,7 +151,10 @@ export default function OtpVerificationModal({
       setLocalError('Please enter all 4 digits of the verification code.');
       return;
     }
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
       setLocalError('');
       // Run cinematic 3-beat motion sequence
       await runThreeBeatAnimation();
@@ -160,6 +165,8 @@ export default function OtpVerificationModal({
     } catch (err: any) {
       setMotionPhase('idle');
       setLocalError(err.message || 'Invalid verification code. Please check your email.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -192,16 +199,16 @@ export default function OtpVerificationModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 dark:bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          initial={{ opacity: 0, scale: 0.94, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: 20 }}
+          exit={{ opacity: 0, scale: 0.94, y: 16 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="relative w-full max-w-md bg-white dark:bg-[#111A2E] border-2 border-slate-200 dark:border-slate-700/80 rounded-[32px] shadow-2xl shadow-blue-500/10 text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
+          className="relative w-full max-w-md bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl shadow-blue-500/10 text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
         >
-          {/* Top Brand Gradient Line matching EduTrack identity */}
-          <div className="h-1.5 w-full bg-linear-to-r from-[#0D5BFF] via-blue-500 to-emerald-500" />
+          {/* EduTrack Primary Brand Gradient Accent Line */}
+          <div className="h-1.5 w-full bg-linear-to-r from-[#0D5BFF] via-blue-500 to-indigo-600" />
 
           {/* Close Button */}
           <button
@@ -217,7 +224,7 @@ export default function OtpVerificationModal({
           <div className="px-6 pt-6 pb-2 text-center relative z-10">
             {!isVerified ? (
               <>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
                   <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] dark:text-blue-400" />
                   <span>EDUTRACK BD • VERIFICATION</span>
                 </div>
@@ -227,13 +234,13 @@ export default function OtpVerificationModal({
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                   Enter the 4-digit security code sent to{' '}
-                  <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-bold block mt-1 bg-blue-50 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/40 w-fit mx-auto text-xs sm:text-sm">
+                  <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-bold block mt-1 bg-blue-50/80 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/50 w-fit mx-auto text-xs sm:text-sm">
                     {maskEmail(email)}
                   </span>
                 </p>
               </>
             ) : (
-              /* VERIFIED APPROVED HEADINGS (Matches screenshot) */
+              /* VERIFIED APPROVED HEADINGS */
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -253,7 +260,7 @@ export default function OtpVerificationModal({
           {/* Main Body */}
           <div className="px-6 pb-7 space-y-5">
 
-            {/* Error Banner: RED REFUSAL VERDICT ONLY */}
+            {/* Error Banner */}
             {(errorMsg || localError) && !isVerified && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -275,7 +282,7 @@ export default function OtpVerificationModal({
 
             {/* STAGE: THREE-BEAT MOTION CANVAS OR APPROVED STATE */}
             {!isVerified ? (
-              <div className="py-2 relative min-h-[190px] flex items-center justify-center">
+              <div className="py-2 relative min-h-[190px] flex flex-col items-center justify-center">
 
                 {/* Central Hub Energy Point for Orbit & Spin */}
                 <div
@@ -306,7 +313,7 @@ export default function OtpVerificationModal({
                 )}
 
                 {/* 4 DIGIT SLOTS MATCHING SITE BRAND COLORS */}
-                <div className="relative w-full max-w-[290px] h-40 flex items-center justify-center">
+                <div className="relative w-full max-w-[290px] h-32 flex items-center justify-center">
                   {digits.map((digit, idx) => {
                     const isFilled = digit !== '';
                     const hasError = Boolean(errorMsg || localError);
@@ -365,8 +372,8 @@ export default function OtpVerificationModal({
                           hasError
                             ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)] animate-shake'
                             : isFilled
-                            ? 'bg-blue-50/90 dark:bg-[#152238] border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-300 shadow-[0_0_22px_rgba(13,91,255,0.35)]'
-                            : 'bg-slate-50 dark:bg-[#0F172A] border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-500 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/50 dark:focus-within:bg-[#152238] focus-within:shadow-[0_0_20px_rgba(13,91,255,0.3)]'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-400 shadow-[0_0_20px_rgba(13,91,255,0.3)]'
+                            : 'bg-slate-50 dark:bg-[#152238] border-2 border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/50 dark:focus-within:bg-blue-950/40 focus-within:shadow-[0_0_20px_rgba(13,91,255,0.25)]'
                         }`}
                       >
                         <motion.input
@@ -380,17 +387,39 @@ export default function OtpVerificationModal({
                           transition={{ duration: 0.85, ease: [0.62, 0, 0.38, 1] }}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
-                          disabled={motionPhase !== 'idle'}
-                          className="w-full h-full text-center font-mono font-black text-2xl bg-transparent outline-none cursor-pointer"
+                          disabled={motionPhase !== 'idle' || isSubmitting}
+                          className="w-full h-full text-center font-mono font-extrabold text-2xl bg-transparent outline-none cursor-pointer"
                         />
                       </motion.div>
                     );
                   })}
                 </div>
 
+                {/* Primary Action Button using EduTrack primary color palette */}
+                <div className="w-full mt-4">
+                  <button
+                    type="button"
+                    onClick={() => triggerVerification(digits.join(''))}
+                    disabled={digits.some(d => !d) || isSubmitting || motionPhase !== 'idle'}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-[#0D5BFF] hover:bg-[#0047E1] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-bold text-sm tracking-wide transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSubmitting || loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verify Code</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
               </div>
             ) : (
-              /* STAGE: VERIFICATION APPROVED CELEBRATION ANIMATION (Matches screenshot layout) */
+              /* STAGE: VERIFICATION APPROVED CELEBRATION ANIMATION */
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -465,7 +494,7 @@ export default function OtpVerificationModal({
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="w-full py-4 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base tracking-wide transition-all shadow-[0_0_30px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
+                  className="w-full py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base tracking-wide transition-all shadow-[0_0_30px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
                 >
                   <span>Continue to Dashboard</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -481,9 +510,9 @@ export default function OtpVerificationModal({
                   <button
                     type="button"
                     onClick={onResend}
-                    disabled={resendTimer > 0 || loading}
+                    disabled={resendTimer > 0 || loading || isSubmitting}
                     className={`font-mono font-bold transition-colors ${
-                      resendTimer > 0 || loading
+                      resendTimer > 0 || loading || isSubmitting
                         ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
                         : 'text-[#0D5BFF] dark:text-blue-400 hover:underline cursor-pointer'
                     }`}
@@ -507,3 +536,4 @@ export default function OtpVerificationModal({
     </AnimatePresence>
   );
 }
+
