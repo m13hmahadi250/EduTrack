@@ -257,9 +257,9 @@ export default function Signup() {
   };
 
   const handleVerifyAndCompleteSignup = async (code: string) => {
-    if (code.length !== 6) {
-      setOtpError('Please enter all 6 digits of the OTP code received in your inbox.');
-      throw new Error('Please enter all 6 digits of the OTP code received in your inbox.');
+    if (code.length !== 4) {
+      setOtpError('Please enter all 4 digits of the OTP code received in your inbox.');
+      throw new Error('Please enter all 4 digits of the OTP code received in your inbox.');
     }
 
     setOtpLoading(true);
@@ -924,7 +924,6 @@ export default function Signup() {
         <OtpVerificationModal
           isOpen={showOtpModal}
           email={formData.email || ''}
-          devOtpCode={devOtpCode}
           ipNoticeMsg={ipNoticeMsg}
           errorMsg={otpError}
           successMsg={resendSuccessMsg}

@@ -393,8 +393,8 @@ app.post("/api/auth/send-otp", async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid email format" });
     }
 
-    // Generate cryptographically secure 6-digit numeric OTP code
-    const otpBuffer = crypto.randomInt(100000, 1000000);
+    // Generate cryptographically secure 4-digit numeric OTP code
+    const otpBuffer = crypto.randomInt(1000, 10000);
     const otpCode = otpBuffer.toString();
 
     // Store in-memory with a 10-minute expiry time
@@ -443,9 +443,8 @@ app.post("/api/auth/send-otp", async (req, res) => {
     res.json({
       success: true,
       emailSent: true,
-      message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
+      message: `A 4-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
       expiresInSeconds: 600,
-      devOtpCode,
     });
   } catch (error: any) {
     console.error("[Send OTP API Error]:", error);
@@ -462,7 +461,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ success: false, error: "Email and 6-digit OTP code are required" });
+      return res.status(400).json({ success: false, error: "Email and 4-digit OTP code are required" });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
