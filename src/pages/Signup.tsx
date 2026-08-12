@@ -288,13 +288,8 @@ export default function Signup() {
       delete data.password;
 
       await signup({ ...data, role }, password, referralCodeInput);
-
       setSignupSuccess(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const targetDest = consumePostLoginDestination('/dashboard');
-      navigate(targetDest, { replace: true });
-
+      // Note: Navigation will happen when user completes the Approved animation screen
     } catch (err: any) {
       console.error("OTP verification / Firebase signup error:", err);
       let msg = err.message || 'Verification or signup failed. Please try again.';
@@ -311,6 +306,12 @@ export default function Signup() {
     } finally {
       setOtpLoading(false);
     }
+  };
+
+  const handleCompleteRedirect = () => {
+    setShowOtpModal(false);
+    const targetDest = consumePostLoginDestination('/dashboard');
+    navigate(targetDest, { replace: true });
   };
 
   const accentColor = role === 'student' ? '#0D5BFF' : '#F59E0B';
@@ -931,6 +932,7 @@ export default function Signup() {
           resendTimer={resendTimer}
           onClose={() => setShowOtpModal(false)}
           onVerify={handleVerifyAndCompleteSignup}
+          onComplete={handleCompleteRedirect}
           onResend={handleResendOtp}
         />
 

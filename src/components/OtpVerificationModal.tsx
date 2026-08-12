@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, AlertCircle, ShieldCheck, Check } from 'lucide-react';
+import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Sparkles } from 'lucide-react';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface OtpVerificationModalProps {
   resendTimer?: number;
   onClose: () => void;
   onVerify: (code: string) => Promise<void>;
+  onComplete?: () => void;
   onResend: () => Promise<void>;
 }
 
@@ -25,6 +26,7 @@ export default function OtpVerificationModal({
   resendTimer = 60,
   onClose,
   onVerify,
+  onComplete,
   onResend,
 }: OtpVerificationModalProps) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
@@ -50,6 +52,21 @@ export default function OtpVerificationModal({
       }, 200);
     }
   }, [isOpen, isVerified]);
+
+  // Auto-proceed to dashboard 3.5s after showing approved animation if user doesn't click
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isVerified) {
+      timer = setTimeout(() => {
+        if (onComplete) {
+          onComplete();
+        } else {
+          onClose();
+        }
+      }, 3500);
+    }
+    return () => clearTimeout(timer);
+  }, [isVerified, onComplete, onClose]);
 
   const handleDigitChange = (index: number, val: string) => {
     setLocalError('');
@@ -109,11 +126,11 @@ export default function OtpVerificationModal({
     return new Promise<void>((resolve) => {
       setMotionPhase('curl');
 
-      // Beat 1: The Curl (350ms)
+      // Beat 1: The Curl (380ms)
       setTimeout(() => {
         setMotionPhase('spin');
 
-        // Beat 2: The Spin (800ms)
+        // Beat 2: The Cosmic Spin (850ms)
         setTimeout(() => {
           setMotionPhase('screw');
 
@@ -123,7 +140,7 @@ export default function OtpVerificationModal({
             resolve();
           }, 500);
         }, 850);
-      }, 400);
+      }, 380);
     });
   };
 
@@ -134,9 +151,11 @@ export default function OtpVerificationModal({
     }
     try {
       setLocalError('');
-      // Run the cinematic 3-beat motion sequence
+      // Run cinematic 3-beat motion sequence
       await runThreeBeatAnimation();
+      // Verify OTP with backend & complete signup
       await onVerify(codeStr);
+      // Show Approved Verdict Animation!
       setIsVerified(true);
     } catch (err: any) {
       setMotionPhase('idle');
@@ -159,46 +178,56 @@ export default function OtpVerificationModal({
 
   const orbitRadius = 68;
 
+  // Particle positions for celebration confetti
+  const particles = [
+    { id: 1, x: -60, delay: 0 },
+    { id: 2, x: 50, delay: 0.1 },
+    { id: 3, x: -30, delay: 0.2 },
+    { id: 4, x: 70, delay: 0.15 },
+    { id: 5, x: -80, delay: 0.25 },
+    { id: 6, x: 20, delay: 0.05 },
+    { id: 7, x: -45, delay: 0.3 },
+    { id: 8, x: 85, delay: 0.2 },
+  ];
+
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 dark:bg-slate-950/85 backdrop-blur-md overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 15 }}
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: 15 }}
+          exit={{ opacity: 0, scale: 0.92, y: 20 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="relative w-full max-w-sm bg-[#0B1120] border-2 border-slate-800 rounded-[32px] shadow-2xl shadow-blue-500/10 text-slate-100 overflow-hidden my-auto"
+          className="relative w-full max-w-md bg-white dark:bg-[#111A2E] border-2 border-slate-200 dark:border-slate-700/80 rounded-[32px] shadow-2xl shadow-blue-500/10 text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
         >
-          {/* Top subtle bar handle */}
-          <div className="pt-3.5 pb-1 text-center">
-            <div className="w-12 h-1 bg-slate-700/60 rounded-full mx-auto" />
-          </div>
+          {/* Top Brand Gradient Line matching EduTrack identity */}
+          <div className="h-1.5 w-full bg-linear-to-r from-[#0D5BFF] via-blue-500 to-emerald-500" />
 
           {/* Close Button */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer z-20"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer z-20"
             title="Close"
           >
             <X className="w-4 h-4" />
           </button>
 
           {/* Header Section */}
-          <div className="px-6 pt-2 pb-2 text-center relative z-10">
+          <div className="px-6 pt-6 pb-2 text-center relative z-10">
             {!isVerified ? (
               <>
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-950/60 border border-blue-800/60 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest mb-3">
-                  <ShieldCheck className="w-3 h-3 text-[#0D5BFF]" />
-                  <span>EduTrack BD • OTP</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] dark:text-blue-400" />
+                  <span>EDUTRACK BD • VERIFICATION</span>
                 </div>
 
-                <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   Verify Your Email
                 </h2>
-                <p className="mt-2 text-xs text-slate-400 font-medium leading-relaxed">
+                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                   Enter the 4-digit security code sent to{' '}
-                  <span className="font-mono text-blue-400 font-bold block mt-1 bg-blue-950/40 px-2.5 py-0.5 rounded-md border border-blue-800/40 w-fit mx-auto">
+                  <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-bold block mt-1 bg-blue-50 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/40 w-fit mx-auto text-xs sm:text-sm">
                     {maskEmail(email)}
                   </span>
                 </p>
@@ -211,10 +240,10 @@ export default function OtpVerificationModal({
                 transition={{ duration: 0.4 }}
                 className="pt-2 pb-1"
               >
-                <h2 className="text-2xl sm:text-3xl font-bold text-emerald-400 tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold bg-linear-to-r from-emerald-500 via-teal-400 to-emerald-400 bg-clip-text text-transparent tracking-tight">
                   Verified successfully
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-slate-400 font-medium">
+                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
                   Your email address has been verified.
                 </p>
               </motion.div>
@@ -222,52 +251,74 @@ export default function OtpVerificationModal({
           </div>
 
           {/* Main Body */}
-          <div className="px-6 pb-6 space-y-5">
+          <div className="px-6 pb-7 space-y-5">
 
             {/* Error Banner: RED REFUSAL VERDICT ONLY */}
             {(errorMsg || localError) && !isVerified && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-xl text-xs text-rose-300 flex items-center gap-2.5 shadow-md"
+                className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800/80 rounded-2xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5 shadow-md"
               >
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                 <span className="font-semibold leading-tight">{errorMsg || localError}</span>
               </motion.div>
             )}
 
             {/* IP Notice if any */}
             {ipNoticeMsg && !isVerified && (
-              <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl text-[11px] text-slate-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+              <div className="p-3 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                 <span className="leading-snug">{ipNoticeMsg}</span>
               </div>
             )}
 
             {/* STAGE: THREE-BEAT MOTION CANVAS OR APPROVED STATE */}
             {!isVerified ? (
-              <div className="py-2 relative min-h-[180px] flex items-center justify-center">
+              <div className="py-2 relative min-h-[190px] flex items-center justify-center">
 
-                {/* Central Hub Ref Point for Spin & Screw Down */}
+                {/* Central Hub Energy Point for Orbit & Spin */}
                 <div
                   ref={hubRef}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-slate-500/30 pointer-events-none z-10"
-                />
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center pointer-events-none z-10"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#0D5BFF] dark:bg-blue-400 animate-ping" />
+                </div>
 
-                {/* 4 DIGIT SLOTS WITH EDUTRACK BRAND BLUE LIGHT */}
-                <div className="relative w-full max-w-[280px] h-40 flex items-center justify-center">
+                {/* Orbit Trail Rings */}
+                {motionPhase === 'spin' && (
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1.2, opacity: 0.6 }}
+                    className="absolute w-36 h-36 rounded-full border-2 border-dashed border-[#0D5BFF]/40 pointer-events-none animate-spin"
+                    style={{ animationDuration: '3s' }}
+                  />
+                )}
+
+                {/* Screw Down Energy Burst Flash */}
+                {motionPhase === 'screw' && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0.8 }}
+                    animate={{ scale: 2.2, opacity: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="absolute w-24 h-24 rounded-full bg-linear-to-r from-[#0D5BFF] to-emerald-400 blur-md pointer-events-none z-30"
+                  />
+                )}
+
+                {/* 4 DIGIT SLOTS MATCHING SITE BRAND COLORS */}
+                <div className="relative w-full max-w-[290px] h-40 flex items-center justify-center">
                   {digits.map((digit, idx) => {
                     const isFilled = digit !== '';
                     const hasError = Boolean(errorMsg || localError);
 
-                    // Target polar position on the 4-point circle (Beat 1: The Curl)
+                    // Target polar positions on orbit ring
                     const angles = [270, 0, 90, 180];
                     const targetAngleRad = (angles[idx] * Math.PI) / 180;
                     const polarX = Math.round(Math.cos(targetAngleRad) * orbitRadius);
                     const polarY = Math.round(Math.sin(targetAngleRad) * orbitRadius);
 
                     // Linear X offset for standard row layout
-                    const linearX = (idx - 1.5) * 62;
+                    const linearX = (idx - 1.5) * 64;
 
                     let currentX = linearX;
                     let currentY = 0;
@@ -288,7 +339,7 @@ export default function OtpVerificationModal({
                       currentX = 0;
                       currentY = 0;
                       rotationDeg = 720;
-                      scaleVal = 0.3;
+                      scaleVal = 0.2;
                       opacityVal = 0;
                     }
 
@@ -304,18 +355,18 @@ export default function OtpVerificationModal({
                           opacity: opacityVal,
                         }}
                         transition={{
-                          duration: motionPhase === 'curl' ? 0.38 : motionPhase === 'spin' ? 0.8 : 0.5,
+                          duration: motionPhase === 'curl' ? 0.38 : motionPhase === 'spin' ? 0.85 : 0.5,
                           ease: [0.62, 0, 0.38, 1],
                         }}
                         style={{
                           transformOrigin: motionPhase === 'spin' || motionPhase === 'screw' ? '0px 0px' : 'center',
                         }}
-                        className={`absolute z-20 w-13 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                        className={`absolute z-20 w-13 sm:w-14 h-15 rounded-2xl flex items-center justify-center transition-all duration-200 ${
                           hasError
-                            ? 'bg-rose-950/40 border-2 border-rose-500 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.35)] animate-shake'
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)] animate-shake'
                             : isFilled
-                            ? 'bg-[#152238] border-2 border-[#0D5BFF] text-white shadow-[0_0_16px_rgba(13,91,255,0.4)]'
-                            : 'bg-[#0F172A] border-2 border-slate-700 text-slate-200 hover:border-slate-500 focus-within:border-[#0D5BFF] focus-within:bg-[#152238] focus-within:shadow-[0_0_18px_rgba(13,91,255,0.35)]'
+                            ? 'bg-blue-50/90 dark:bg-[#152238] border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-300 shadow-[0_0_22px_rgba(13,91,255,0.35)]'
+                            : 'bg-slate-50 dark:bg-[#0F172A] border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-500 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/50 dark:focus-within:bg-[#152238] focus-within:shadow-[0_0_20px_rgba(13,91,255,0.3)]'
                         }`}
                       >
                         <motion.input
@@ -326,7 +377,7 @@ export default function OtpVerificationModal({
                           ref={(el) => { digitInputRefs.current[idx] = el; }}
                           value={digit}
                           animate={{ rotate: digitUnwindDeg }}
-                          transition={{ duration: 0.8, ease: [0.62, 0, 0.38, 1] }}
+                          transition={{ duration: 0.85, ease: [0.62, 0, 0.38, 1] }}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
                           disabled={motionPhase !== 'idle'}
@@ -339,31 +390,41 @@ export default function OtpVerificationModal({
 
               </div>
             ) : (
-              /* STAGE: VERIFICATION APPROVED ANIMATION (Matches screenshot layout) */
+              /* STAGE: VERIFICATION APPROVED CELEBRATION ANIMATION (Matches screenshot layout) */
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className="py-6 text-center space-y-8"
+                className="py-4 text-center space-y-7 relative"
               >
+                {/* Floating Confetti Sparks */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  {particles.map((p) => (
+                    <motion.div
+                      key={p.id}
+                      initial={{ y: 20, opacity: 1, x: 0, scale: 0.8 }}
+                      animate={{ y: -90, opacity: 0, x: p.x, scale: 1.2 }}
+                      transition={{ duration: 1.6, delay: p.delay, ease: 'easeOut' }}
+                      className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
+                    />
+                  ))}
+                </div>
+
                 {/* Central Emerald Squircle Node with Pulsing Glow & Check Drawing */}
-                <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-                  {/* Pulsing Backlight Halo */}
-                  <motion.div
-                    animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
-                    className="absolute inset-0 bg-emerald-500/30 rounded-3xl blur-xl"
-                  />
+                <div className="relative w-24 h-24 mx-auto flex items-center justify-center pt-2">
+                  {/* Pulsing Backlight Halo Rings */}
+                  <div className="absolute inset-0 bg-emerald-500/25 dark:bg-emerald-500/35 rounded-3xl blur-2xl animate-pulse" />
+                  <div className="absolute inset-0 bg-emerald-400/20 rounded-3xl animate-ping" style={{ animationDuration: '3s' }} />
 
                   {/* Main Glowing Squircle Icon Container */}
                   <motion.div
-                    initial={{ scale: 0.5, rotate: -20 }}
+                    initial={{ scale: 0.4, rotate: -25 }}
                     animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                    className="relative w-20 h-20 rounded-[22px] bg-[#0A1D16] border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.45)]"
+                    transition={{ type: 'spring', stiffness: 350, damping: 18 }}
+                    className="relative w-22 h-22 rounded-[24px] bg-slate-900 dark:bg-[#0A1D16] border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.5)]"
                   >
                     <svg
-                      className="w-10 h-10 stroke-emerald-400"
+                      className="w-11 h-11 stroke-emerald-400"
                       viewBox="0 0 24 24"
                       fill="none"
                       strokeWidth="3.5"
@@ -374,7 +435,7 @@ export default function OtpVerificationModal({
                         d="M20 6L9 17l-5-5"
                         initial={{ pathLength: 0, opacity: 0 }}
                         animate={{ pathLength: 1, opacity: 1 }}
-                        transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
+                        transition={{ duration: 0.55, delay: 0.2, ease: "easeOut" }}
                       />
                     </svg>
                   </motion.div>
@@ -385,22 +446,29 @@ export default function OtpVerificationModal({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-400"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-sm"
                 >
-                  <Lock className="w-4 h-4 text-emerald-400" />
+                  <Lock className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span>Verified and secure</span>
                 </motion.div>
 
                 {/* Continue Action Pill Button */}
                 <motion.button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    if (onComplete) {
+                      onComplete();
+                    } else {
+                      onClose();
+                    }
+                  }}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="w-full py-3.5 px-6 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-sm transition-all shadow-[0_0_25px_rgba(16,185,129,0.4)] cursor-pointer active:scale-95"
+                  className="w-full py-4 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base tracking-wide transition-all shadow-[0_0_30px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
                 >
-                  Continue
+                  <span>Continue to Dashboard</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </motion.button>
               </motion.div>
             )}
@@ -408,7 +476,7 @@ export default function OtpVerificationModal({
             {/* Resend Link */}
             {!isVerified && (
               <div className="text-center pt-1">
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                   Didn't receive the code?{' '}
                   <button
                     type="button"
@@ -416,8 +484,8 @@ export default function OtpVerificationModal({
                     disabled={resendTimer > 0 || loading}
                     className={`font-mono font-bold transition-colors ${
                       resendTimer > 0 || loading
-                        ? 'text-slate-500 cursor-not-allowed'
-                        : 'text-blue-400 hover:text-blue-300 underline cursor-pointer'
+                        ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                        : 'text-[#0D5BFF] dark:text-blue-400 hover:underline cursor-pointer'
                     }`}
                   >
                     {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
@@ -428,7 +496,7 @@ export default function OtpVerificationModal({
 
             {/* Subtitle Footnote */}
             {!isVerified && (
-              <p className="text-[11px] font-mono text-slate-500 text-center leading-normal pt-1">
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center leading-normal pt-1">
                 Please check your email inbox or spam folder for the 4-digit code.
               </p>
             )}
