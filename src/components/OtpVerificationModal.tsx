@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Lock, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { X, Lock, AlertCircle, ShieldCheck, Check } from 'lucide-react';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
@@ -105,7 +105,6 @@ export default function OtpVerificationModal({
   };
 
   // THREE-BEAT ANIMATION EXECUTION
-  // Beat 1: Polar Curl -> Beat 2: Native Hub Spin (450 deg) -> Beat 3: Screw Down Spiral
   const runThreeBeatAnimation = async () => {
     return new Promise<void>((resolve) => {
       setMotionPhase('curl');
@@ -158,76 +157,81 @@ export default function OtpVerificationModal({
 
   if (!isOpen) return null;
 
-  const orbitRadius = 68; // exact radius in px for radial ring
+  const orbitRadius = 68;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 15 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="relative w-full max-w-sm bg-[#0a0c10] border border-slate-800/80 rounded-[32px] shadow-2xl text-slate-100 overflow-hidden my-auto"
+          className="relative w-full max-w-sm bg-[#0B1120] border-2 border-slate-800 rounded-[32px] shadow-2xl shadow-blue-500/10 text-slate-100 overflow-hidden my-auto"
         >
           {/* Top subtle bar handle */}
           <div className="pt-3.5 pb-1 text-center">
-            <div className="w-9 h-1 bg-slate-800/80 rounded-full mx-auto" />
+            <div className="w-12 h-1 bg-slate-700/60 rounded-full mx-auto" />
           </div>
 
           {/* Close Button */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer z-20"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer z-20"
             title="Close"
           >
             <X className="w-4 h-4" />
           </button>
 
           {/* Header Section */}
-          <div className="px-6 pt-2 pb-3 text-center relative z-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900 border border-slate-700/60 text-slate-300 text-[10px] font-mono font-bold uppercase tracking-widest mb-3">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>EMAIL VERIFICATION</span>
-            </div>
-
+          <div className="px-6 pt-2 pb-2 text-center relative z-10">
             {!isVerified ? (
               <>
-                <h2 className="text-2xl font-extrabold text-slate-50 tracking-tight">
-                  Enter Verification Code
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-950/60 border border-blue-800/60 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest mb-3">
+                  <ShieldCheck className="w-3 h-3 text-[#0D5BFF]" />
+                  <span>EduTrack BD • OTP</span>
+                </div>
+
+                <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                  Verify Your Email
                 </h2>
-                <p className="mt-2 text-xs text-slate-400 font-medium">
-                  We sent a 4-digit security code to{' '}
-                  <span className="font-mono text-slate-200 font-semibold">
+                <p className="mt-2 text-xs text-slate-400 font-medium leading-relaxed">
+                  Enter the 4-digit security code sent to{' '}
+                  <span className="font-mono text-blue-400 font-bold block mt-1 bg-blue-950/40 px-2.5 py-0.5 rounded-md border border-blue-800/40 w-fit mx-auto">
                     {maskEmail(email)}
                   </span>
                 </p>
               </>
             ) : (
-              <>
-                {/* MINT VERDICT HEADING */}
-                <h2 className="text-2xl font-black text-emerald-400 tracking-tight">
-                  Verified Successfully
+              /* VERIFIED APPROVED HEADINGS (Matches screenshot) */
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="pt-2 pb-1"
+              >
+                <h2 className="text-2xl sm:text-3xl font-bold text-emerald-400 tracking-tight">
+                  Verified successfully
                 </h2>
-                <p className="mt-1.5 text-xs text-slate-400 font-medium">
+                <p className="mt-2 text-xs sm:text-sm text-slate-400 font-medium">
                   Your email address has been verified.
                 </p>
-              </>
+              </motion.div>
             )}
           </div>
 
           {/* Main Body */}
-          <div className="px-6 pb-6 space-y-4">
+          <div className="px-6 pb-6 space-y-5">
 
             {/* Error Banner: RED REFUSAL VERDICT ONLY */}
             {(errorMsg || localError) && !isVerified && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="p-3 bg-red-950/50 border border-red-800/80 rounded-xl text-xs text-red-300 flex items-center gap-2.5 shadow-md"
+                className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-xl text-xs text-rose-300 flex items-center gap-2.5 shadow-md"
               >
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                 <span className="font-semibold leading-tight">{errorMsg || localError}</span>
               </motion.div>
             )}
@@ -240,23 +244,23 @@ export default function OtpVerificationModal({
               </div>
             )}
 
-            {/* STAGE: THREE-BEAT MOTION CANVAS */}
+            {/* STAGE: THREE-BEAT MOTION CANVAS OR APPROVED STATE */}
             {!isVerified ? (
-              <div className="py-4 relative min-h-[200px] flex items-center justify-center">
+              <div className="py-2 relative min-h-[180px] flex items-center justify-center">
 
                 {/* Central Hub Ref Point for Spin & Screw Down */}
                 <div
                   ref={hubRef}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-slate-400/40 pointer-events-none z-10"
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-slate-500/30 pointer-events-none z-10"
                 />
 
-                {/* 4 DIGIT SLOTS WITH COLD BLUE-WHITE LIGHT ATTENTION */}
-                <div className="relative w-full max-w-[280px] h-44 flex items-center justify-center">
+                {/* 4 DIGIT SLOTS WITH EDUTRACK BRAND BLUE LIGHT */}
+                <div className="relative w-full max-w-[280px] h-40 flex items-center justify-center">
                   {digits.map((digit, idx) => {
                     const isFilled = digit !== '';
                     const hasError = Boolean(errorMsg || localError);
 
-                    // Calculate target polar position on the 4-point circle (Beat 1: The Curl)
+                    // Target polar position on the 4-point circle (Beat 1: The Curl)
                     const angles = [270, 0, 90, 180];
                     const targetAngleRad = (angles[idx] * Math.PI) / 180;
                     const polarX = Math.round(Math.cos(targetAngleRad) * orbitRadius);
@@ -306,12 +310,12 @@ export default function OtpVerificationModal({
                         style={{
                           transformOrigin: motionPhase === 'spin' || motionPhase === 'screw' ? '0px 0px' : 'center',
                         }}
-                        className={`absolute z-20 w-13 h-14 rounded-2xl flex items-center justify-center transition-colors duration-200 ${
+                        className={`absolute z-20 w-13 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 ${
                           hasError
-                            ? 'bg-red-950/40 border-2 border-red-500 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-shake'
+                            ? 'bg-rose-950/40 border-2 border-rose-500 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.35)] animate-shake'
                             : isFilled
-                            ? 'bg-[#121824] border-2 border-sky-200 text-sky-100 shadow-[0_0_16px_rgba(56,189,248,0.35)]'
-                            : 'bg-[#121620] border-2 border-slate-800 text-slate-300 hover:border-slate-700 focus-within:border-sky-300 focus-within:bg-[#151c2a] focus-within:shadow-[0_0_16px_rgba(56,189,248,0.3)]'
+                            ? 'bg-[#152238] border-2 border-[#0D5BFF] text-white shadow-[0_0_16px_rgba(13,91,255,0.4)]'
+                            : 'bg-[#0F172A] border-2 border-slate-700 text-slate-200 hover:border-slate-500 focus-within:border-[#0D5BFF] focus-within:bg-[#152238] focus-within:shadow-[0_0_18px_rgba(13,91,255,0.35)]'
                         }`}
                       >
                         <motion.input
@@ -335,35 +339,69 @@ export default function OtpVerificationModal({
 
               </div>
             ) : (
-              /* STAGE: VERIFIED OUTCOME (MINT VERDICT ONLY) */
+              /* STAGE: VERIFICATION APPROVED ANIMATION (Matches screenshot layout) */
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className="py-8 text-center space-y-6"
+                className="py-6 text-center space-y-8"
               >
-                {/* Central Mint Node */}
-                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                  <div className="absolute inset-0 bg-emerald-500/25 rounded-2xl blur-lg animate-pulse" />
-                  <div className="relative w-14 h-14 rounded-2xl bg-[#0d1814] border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-[0_0_24px_rgba(16,185,129,0.45)]">
-                    <Check className="w-7 h-7 stroke-[3]" />
-                  </div>
+                {/* Central Emerald Squircle Node with Pulsing Glow & Check Drawing */}
+                <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+                  {/* Pulsing Backlight Halo */}
+                  <motion.div
+                    animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+                    className="absolute inset-0 bg-emerald-500/30 rounded-3xl blur-xl"
+                  />
+
+                  {/* Main Glowing Squircle Icon Container */}
+                  <motion.div
+                    initial={{ scale: 0.5, rotate: -20 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                    className="relative w-20 h-20 rounded-[22px] bg-[#0A1D16] border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.45)]"
+                  >
+                    <svg
+                      className="w-10 h-10 stroke-emerald-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <motion.path
+                        d="M20 6L9 17l-5-5"
+                        initial={{ pathLength: 0, opacity: 0 }}
+                        animate={{ pathLength: 1, opacity: 1 }}
+                        transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
+                      />
+                    </svg>
+                  </motion.div>
                 </div>
 
-                {/* Verified badge */}
-                <div className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-emerald-400 bg-emerald-950/40 px-3.5 py-1 rounded-full border border-emerald-800/60">
-                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                {/* Lock Badge: Verified and secure */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-400"
+                >
+                  <Lock className="w-4 h-4 text-emerald-400" />
                   <span>Verified and secure</span>
-                </div>
+                </motion.div>
 
-                {/* Mint Continue Button */}
-                <button
+                {/* Continue Action Pill Button */}
+                <motion.button
                   type="button"
                   onClick={onClose}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)] cursor-pointer active:scale-95"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="w-full py-3.5 px-6 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-sm transition-all shadow-[0_0_25px_rgba(16,185,129,0.4)] cursor-pointer active:scale-95"
                 >
                   Continue
-                </button>
+                </motion.button>
               </motion.div>
             )}
 
@@ -379,7 +417,7 @@ export default function OtpVerificationModal({
                     className={`font-mono font-bold transition-colors ${
                       resendTimer > 0 || loading
                         ? 'text-slate-500 cursor-not-allowed'
-                        : 'text-slate-200 hover:text-white underline cursor-pointer'
+                        : 'text-blue-400 hover:text-blue-300 underline cursor-pointer'
                     }`}
                   >
                     {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
@@ -389,9 +427,11 @@ export default function OtpVerificationModal({
             )}
 
             {/* Subtitle Footnote */}
-            <p className="text-[11px] font-mono text-slate-500 text-center leading-normal pt-1">
-              Please check your email inbox or spam folder for the 4-digit code.
-            </p>
+            {!isVerified && (
+              <p className="text-[11px] font-mono text-slate-500 text-center leading-normal pt-1">
+                Please check your email inbox or spam folder for the 4-digit code.
+              </p>
+            )}
 
           </div>
         </motion.div>
