@@ -588,10 +588,12 @@ export default function Login() {
                 </div>
               </div>
 
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                whileHover={{ scale: 1.015 }}
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 mt-6 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg shadow-[#0d5bff]/25 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 mt-6 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg shadow-[#0d5bff]/25 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -604,9 +606,11 @@ export default function Login() {
                 ) : (
                   'Enter Dashboard'
                 )}
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                whileHover={{ scale: 1.015 }}
                 type="button"
                 onClick={async () => {
                   setLoading(true);
@@ -667,7 +671,7 @@ export default function Login() {
                   <path d="M12.24 4.74801C14.0074 4.74801 15.5951 5.35651 16.8419 6.54867L20.2695 3.12111C18.1969 1.18501 15.4744 0 12.24 0C7.7029 0 3.55371 2.55655 1.5166 6.60889L5.50705 9.69973C6.45946 6.86015 9.11388 4.74801 12.24 4.74801Z" fill="#EA4335"/>
                 </svg>
                 LOGIN WITH GOOGLE
-              </button>
+              </motion.button>
             </form>
 
             <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">

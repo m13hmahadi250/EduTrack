@@ -2606,9 +2606,11 @@ export default function StudentDashboard() {
                                   <Send className="w-4 h-4" />
                                   Message Expert
                                 </button>
-                                <button 
+                                <motion.button
+                                  whileTap={{ scale: 0.96 }}
+                                  whileHover={{ scale: 1.02 }}
                                   disabled={isBooking || !bookingDate || !bookingSlot || bookingSubject.length === 0}
-                                  className="py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                                  className="py-5 bg-[#0D5BFF] text-white rounded-3xl text-[11px] font-black uppercase italic tracking-[0.2em] shadow-2xl shadow-blue-200 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:shadow-none cursor-pointer"
                                 >
                                   {isBooking ? (
                                     <>
@@ -2621,7 +2623,7 @@ export default function StudentDashboard() {
                                       Confirm Session
                                     </>
                                   )}
-                                </button>
+                                </motion.button>
                               </div>
                             </form>
                           )}

@@ -267,22 +267,26 @@ export default function Home() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
-                <Link 
-                  to="/signup" 
-                  onMouseEnter={() => prefetchPage('Signup')}
-                  onFocus={() => prefetchPage('Signup')}
-                  className="group w-full sm:w-auto px-10 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-[0_20px_40px_-15px_rgba(13,91,255,0.4)] text-center flex items-center justify-center"
-                >
-                  Find a Tutor <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link 
-                  to="/signup" 
-                  onMouseEnter={() => prefetchPage('Signup')}
-                  onFocus={() => prefetchPage('Signup')}
-                  className="w-full sm:w-auto px-10 py-5 bg-transparent text-[#0B132B] dark:text-white border-2 border-[#0B132B] dark:border-slate-700 font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#0B132B] dark:hover:bg-white dark:hover:text-[#0B132B] transition-all text-center"
-                >
-                  Join as Teacher
-                </Link>
+                <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
+                  <Link 
+                    to="/signup" 
+                    onMouseEnter={() => prefetchPage('Signup')}
+                    onFocus={() => prefetchPage('Signup')}
+                    className="group w-full sm:w-auto px-10 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-[0_20px_40px_-15px_rgba(13,91,255,0.4)] text-center flex items-center justify-center cursor-pointer"
+                  >
+                    Find a Tutor <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
+                  <Link 
+                    to="/signup" 
+                    onMouseEnter={() => prefetchPage('Signup')}
+                    onFocus={() => prefetchPage('Signup')}
+                    className="w-full sm:w-auto px-10 py-5 bg-transparent text-[#0B132B] dark:text-white border-2 border-[#0B132B] dark:border-slate-700 font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#0B132B] dark:hover:bg-white dark:hover:text-[#0B132B] transition-all text-center block cursor-pointer"
+                  >
+                    Join as Teacher
+                  </Link>
+                </motion.div>
               </div>
 
 
@@ -761,22 +765,28 @@ export default function Home() {
                  Join thousands of parents who have already upgraded their child's education with EduTrack.
                </p>
                <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-                 <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center">
-                   Get Started Now
-                 </Link>
-                 <a 
-                    href={androidAppLink}
-                   target="_blank" 
-                   rel="noopener noreferrer" 
-                   onClick={() => logDownloadAttempt('footer_cta')}
-                   className="w-full sm:w-auto px-12 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
-                 >
-                   <Smartphone className="w-4.5 h-4.5" />
-                   Download APK
-                 </a>
-                 <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center">
-                   Learn More
-                 </Link>
+                 <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
+                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center block cursor-pointer">
+                     Get Started Now
+                   </Link>
+                 </motion.div>
+                 <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
+                   <a 
+                      href={androidAppLink}
+                     target="_blank" 
+                     rel="noopener noreferrer" 
+                     onClick={() => logDownloadAttempt('footer_cta')}
+                     className="w-full sm:w-auto px-12 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 cursor-pointer"
+                   >
+                     <Smartphone className="w-4.5 h-4.5" />
+                     Download APK
+                   </a>
+                 </motion.div>
+                 <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
+                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center block cursor-pointer">
+                     Learn More
+                   </Link>
+                 </motion.div>
                </div>
              </div>
           </div>

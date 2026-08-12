@@ -1,9 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, User as UserIcon, MessageSquare, Sun, Moon } from 'lucide-react';
+import { LogOut, User as UserIcon, MessageSquare, Sun, Moon, Menu, X } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { prefetchPage } from '../utils/prefetch';
 
 const getFormattedName = (fullName: string) => {
@@ -21,10 +21,12 @@ const Navbar = memo(() => {
   const { currentUser, logout, theme, toggleTheme } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+    setMobileMenuOpen(false);
   };
 
   const isHome = location.pathname === '/';
@@ -162,10 +164,18 @@ const Navbar = memo(() => {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer shrink-0"
+                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer shrink-0 hidden sm:flex"
                   title="Logout"
                 >
                   <LogOut className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="md:hidden p-1.5 sm:p-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/30 dark:border-slate-700/30 ml-1"
+                  aria-label="Toggle Mobile Menu"
+                >
+                  {mobileMenuOpen ? <X className="w-4 h-4 text-rose-500" /> : <Menu className="w-4 h-4 text-[#0D5BFF]" />}
                 </button>
               </div>
             ) : (
@@ -191,11 +201,100 @@ const Navbar = memo(() => {
                 >
                   Sign In
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="md:hidden p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/50 dark:border-slate-700/50"
+                  aria-label="Toggle Mobile Menu"
+                >
+                  {mobileMenuOpen ? <X className="w-5 h-5 text-rose-500" /> : <Menu className="w-5 h-5 text-[#0D5BFF]" />}
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown Overlay */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-6 py-6 shadow-2xl"
+          >
+            <div className="flex flex-col space-y-3 font-sans">
+              {!currentUser ? (
+                <>
+                  <Link
+                    to="/#find-tutors"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
+                  >
+                    Find Tutors
+                  </Link>
+                  <Link
+                    to="/#how-it-works"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
+                  >
+                    How it works
+                  </Link>
+                  <Link
+                    to="/#safety"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
+                  >
+                    Safety
+                  </Link>
+                  <div className="pt-2 flex flex-col gap-2">
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 bg-[#0D5BFF] text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md shadow-blue-500/20"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs uppercase tracking-widest rounded-2xl"
+                    >
+                      Create Account
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] font-black text-xs uppercase tracking-wider border border-[#0D5BFF]/30"
+                  >
+                    Go to Dashboard ({currentUser.role})
+                  </Link>
+                  <Link
+                    to="/messages"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+                  >
+                    Messages
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-xs uppercase tracking-wider border border-rose-500/20"
+                  >
+                    Sign Out Account
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 });

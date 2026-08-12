@@ -308,6 +308,7 @@ function LayoutWrapper() {
                 <Messages />
               </ProtectedRoute>
             } />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>

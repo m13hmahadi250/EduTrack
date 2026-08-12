@@ -833,10 +833,12 @@ export default function Signup() {
             </div>
           </div>
 
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.015 }}
             type="submit"
             disabled={loading}
-            className={`w-full py-4 mt-6 text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full py-4 mt-6 text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
               role === 'student' 
                 ? 'bg-[#0D5BFF] hover:bg-blue-700 shadow-[#0d5bff]/25' 
                 : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
@@ -853,7 +855,7 @@ export default function Signup() {
             ) : (
               `Create ${role === 'tutor' ? 'Tutor' : 'Student'} Account`
             )}
-          </button>
+          </motion.button>
         </form>
 
         <div className="relative my-8">
@@ -865,7 +867,9 @@ export default function Signup() {
           </div>
         </div>
 
-        <button
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          whileHover={{ scale: 1.015 }}
           type="button"
           onClick={async () => {
             setError('');
@@ -913,7 +917,7 @@ export default function Signup() {
             <path d="M12.24 4.74801C14.0074 4.74801 15.5951 5.35651 16.8419 6.54867L20.2695 3.12111C18.1969 1.18501 15.4744 0 12.24 0C7.7029 0 3.55371 2.55655 1.5166 6.60889L5.50705 9.69973C6.45946 6.86015 9.11388 4.74801 12.24 4.74801Z" fill="#EA4335"/>
           </svg>
           CREATE WITH GOOGLE
-        </button>
+        </motion.button>
          
         <p className="mt-8 text-center text-xs uppercase font-bold tracking-wider text-slate-600 dark:text-slate-400">
           Already registered? <button onClick={() => navigate('/login')} className="font-extrabold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Sign in instead</button>
