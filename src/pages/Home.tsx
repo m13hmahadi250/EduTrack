@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
-import heroImage from '../assets/images/regenerated_image_1779606039351.png';
+const heroImage = '/hero-education.png';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>(() => {
@@ -301,7 +301,9 @@ export default function Home() {
               <div className="relative z-10 rounded-[3rem] overflow-hidden border-[12px] border-white dark:border-slate-800 shadow-2xl rotate-2 transition-colors duration-300">
                 <img 
                   src={heroImage} 
-                  alt="Education" 
+                  alt="EduTrack Home Tutoring Education in Bangladesh" 
+                  width={600}
+                  height={600}
                   className="w-full h-[600px] object-cover"
                   loading="eager"
                   // @ts-ignore
