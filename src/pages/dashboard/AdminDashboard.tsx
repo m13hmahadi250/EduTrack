@@ -27,12 +27,13 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import AdminAnalytics from "../../components/admin/AdminAnalytics";
-import AdminUserDirectory from "../../components/admin/AdminUserDirectory";
-import AdminSessionAudits from "../../components/admin/AdminSessionAudits";
-import AdminMongoDatabase from "../../components/admin/AdminMongoDatabase";
-import ImageUpload from "../../components/ImageUpload";
-import ChatWindow from "../../components/ChatWindow";
+
+const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
+const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
+const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
+const AdminMongoDatabase = lazy(() => import("../../components/admin/AdminMongoDatabase"));
+const ImageUpload = lazy(() => import("../../components/ImageUpload"));
+const ChatWindow = lazy(() => import("../../components/ChatWindow"));
 
 export default function AdminDashboard() {
   const {
@@ -501,12 +502,14 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <AdminAnalytics 
-              users={users} 
-              payments={payments} 
-              withdrawals={withdrawals} 
-              sessions={sessions} 
-            />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminAnalytics 
+                users={users} 
+                payments={payments} 
+                withdrawals={withdrawals} 
+                sessions={sessions} 
+              />
+            </Suspense>
           </motion.div>
         )}
 
@@ -518,15 +521,17 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <AdminUserDirectory 
-              users={users} 
-              updateUser={updateUser} 
-              currentUser={currentUser} 
-              onMessageUser={(userId) => {
-                setSelectedRecipientId(userId);
-                handleTabChange("messages");
-              }}
-            />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminUserDirectory 
+                users={users} 
+                updateUser={updateUser} 
+                currentUser={currentUser} 
+                onMessageUser={(userId) => {
+                  setSelectedRecipientId(userId);
+                  handleTabChange("messages");
+                }}
+              />
+            </Suspense>
           </motion.div>
         )}
 
@@ -721,12 +726,14 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <AdminSessionAudits 
-              sessions={sessions} 
-              users={users} 
-              cancelSession={cancelSession} 
-              sendNotification={sendNotification} 
-            />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminSessionAudits 
+                sessions={sessions} 
+                users={users} 
+                cancelSession={cancelSession} 
+                sendNotification={sendNotification} 
+              />
+            </Suspense>
           </motion.div>
         )}
 
@@ -1414,7 +1421,9 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <AdminMongoDatabase />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminMongoDatabase />
+            </Suspense>
           </motion.div>
         )}
 

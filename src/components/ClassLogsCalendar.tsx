@@ -2,7 +2,6 @@ import React, { useState, useMemo, memo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppStore, ClassLog, User } from '../store';
 import { useShallow } from 'zustand/react/shallow';
-import { jsPDF } from 'jspdf';
 import { triggerConfetti } from '../utils/confetti';
 import { 
   ChevronLeft, 
@@ -227,7 +226,8 @@ Please show this to your tutor during your live tuition.
     document.body.removeChild(link);
   };
 
-  const downloadHomeworkPDF = (log: ClassLog) => {
+  const downloadHomeworkPDF = async (log: ClassLog) => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const margin = 20;
     let y = 25;
@@ -327,7 +327,8 @@ Please show this to your tutor during your live tuition.
     doc.save(`homework_${log.date}_${log.subject.replace(/\s+/g, '_')}.pdf`);
   };
 
-  const exportMonthToPDF = (mItem: any) => {
+  const exportMonthToPDF = async (mItem: any) => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const margin = 15;
     let y = 20;
@@ -664,7 +665,8 @@ Please show this to your tutor during your live tuition.
     document.body.removeChild(link);
   };
 
-  const exportYearToPDF = (yData: any) => {
+  const exportYearToPDF = async (yData: any) => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const margin = 15;
     let y = 20;

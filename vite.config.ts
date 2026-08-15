@@ -13,28 +13,37 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        'react': path.resolve(__dirname, 'node_modules/react'),
-        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
       },
-      dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom', 'motion'],
-    },
-    optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom', 'react-router', 'motion/react', 'zustand', 'leaflet', 'lucide-react'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     build: {
-      chunkSizeWarningLimit: 3000,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              if (id.includes('firebase')) return 'firebase';
-              if (id.includes('leaflet')) return 'leaflet';
-              if (id.includes('recharts') || id.includes('d3')) return 'charts';
+              // Heavy isolated libraries
+              if (id.includes('firebase') || id.includes('@firebase')) {
+                return 'firebase-vendor';
+              }
+              if (id.includes('leaflet')) {
+                return 'leaflet-vendor';
+              }
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'charts-vendor';
+              }
+              if (id.includes('jspdf') || id.includes('canvg') || id.includes('html2canvas') || id.includes('fflate')) {
+                return 'jspdf-vendor';
+              }
               return 'vendor';
+            }
+
+            // Code-split heavy admin sub-modules
+            if (id.includes('/src/components/admin/')) {
+              return 'admin-components';
             }
           },
         },

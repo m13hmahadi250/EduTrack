@@ -59,7 +59,6 @@ import {
   Pin,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import ReferralsTab from "../../components/ReferralsTab";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from "../../utils/geocoding";
 import {
@@ -74,9 +73,10 @@ import {
 const MapTracker = lazy(() => import("../../components/MapTracker"));
 const ImageUpload = lazy(() => import("../../components/ImageUpload"));
 const FileUpload = lazy(() => import("../../components/FileUpload"));
-import DemandHeatmap from "../../components/DemandHeatmap";
-import ClassLogsCalendar from "../../components/ClassLogsCalendar";
-import HomeworkDashboard from "../../components/HomeworkDashboard";
+const ReferralsTab = lazy(() => import("../../components/ReferralsTab"));
+const DemandHeatmap = lazy(() => import("../../components/DemandHeatmap"));
+const ClassLogsCalendar = lazy(() => import("../../components/ClassLogsCalendar"));
+const HomeworkDashboard = lazy(() => import("../../components/HomeworkDashboard"));
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -441,8 +441,7 @@ export default function TutorDashboard() {
             "success"
           );
         },
-        (err) => {
-          console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
+        () => {
           updateLocation(currentUser!.id, 23.8103, 90.4125);
           setIsRefreshingLocation(false);
         }
@@ -605,18 +604,6 @@ export default function TutorDashboard() {
               currentUser.id,
               position.coords.latitude,
               position.coords.longitude,
-            );
-          },
-          (error) => {
-            console.warn("Tutor device GPS tracking unavailable:", error);
-            getCurrentAccuratePosition(
-              (pos) =>
-                updateLocation(
-                  currentUser.id,
-                  pos.coords.latitude,
-                  pos.coords.longitude,
-                ),
-              (err) => console.warn("Tutor device GPS position unavailable:", err)
             );
           }
         );
@@ -2814,7 +2801,9 @@ export default function TutorDashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <ClassLogsCalendar role="tutor" />
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <ClassLogsCalendar role="tutor" />
+              </Suspense>
             </motion.div>
           )}
 
@@ -2848,11 +2837,13 @@ export default function TutorDashboard() {
                     slots={currentUser.availabilitySlots || {}}
                     onChange={(slots) => updateAvailabilitySlots(slots)}
                   />
-                  <DemandHeatmap
-                    slots={currentUser.availabilitySlots || {}}
-                    onChange={(slots) => updateAvailabilitySlots(slots)}
-                    sessions={sessions}
-                  />
+                  <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                    <DemandHeatmap
+                      slots={currentUser.availabilitySlots || {}}
+                      onChange={(slots) => updateAvailabilitySlots(slots)}
+                      sessions={sessions}
+                    />
+                  </Suspense>
                 </div>
                 <div className="space-y-8">
                   <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
@@ -3449,7 +3440,9 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              <ReferralsTab />
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <ReferralsTab />
+              </Suspense>
             </motion.div>
           )}
 
@@ -3461,7 +3454,9 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              <HomeworkDashboard />
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <HomeworkDashboard />
+              </Suspense>
             </motion.div>
           )}
         </motion.div>

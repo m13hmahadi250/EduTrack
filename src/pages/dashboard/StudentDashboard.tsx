@@ -57,9 +57,6 @@ const ImageUpload = lazy(() => import('../../components/ImageUpload'));
 const FileUpload = lazy(() => import('../../components/FileUpload'));
 const RatingModal = lazy(() => import('../../components/RatingModal'));
 const ChatWindow = lazy(() => import('../../components/ChatWindow'));
-import ReferralsTab from '../../components/ReferralsTab';
-import ClassLogsCalendar from '../../components/ClassLogsCalendar';
-import HomeworkDashboard from '../../components/HomeworkDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from '../../utils/geocoding';
@@ -67,7 +64,9 @@ import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VE
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
 
-import { jsPDF } from 'jspdf';
+const ReferralsTab = lazy(() => import('../../components/ReferralsTab'));
+const ClassLogsCalendar = lazy(() => import('../../components/ClassLogsCalendar'));
+const HomeworkDashboard = lazy(() => import('../../components/HomeworkDashboard'));
 
 const TutorRow = ({ index, style, rowProps }: any) => {
   const { filteredTutors, selectedTutor, setSelectedTutor, getDayName } = rowProps;
@@ -343,9 +342,10 @@ export default function StudentDashboard() {
   const [mapSubjectQuery, setMapSubjectQuery] = useState('');
   const [mapMinRating, setMapMinRating] = useState<number>(0);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!currentUser || myPayments.length === 0) return;
 
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     
     // Header Colors
@@ -612,8 +612,7 @@ export default function StudentDashboard() {
           "success"
         );
       },
-      (err) => {
-        console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
+      () => {
         updateLocation(currentUser!.id, 23.8103, 90.4125);
         setIsRefreshingLocation(false);
         useAppStore.getState().sendNotification(
@@ -652,13 +651,6 @@ export default function StudentDashboard() {
         currentWatchId = watchAccuratePosition(
           (position) => {
             updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
-          },
-          (error) => {
-            console.warn("Error watching student position via device GPS:", error);
-            getCurrentAccuratePosition(
-              (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
-              (err) => console.warn("Student device GPS position unavailable:", err)
-            );
           }
         );
       }
@@ -3162,7 +3154,9 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <ClassLogsCalendar role="student" />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <ClassLogsCalendar role="student" />
+            </Suspense>
           </motion.div>
         )}
 
@@ -3423,7 +3417,9 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <ReferralsTab />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <ReferralsTab />
+            </Suspense>
           </motion.div>
         )}
 
@@ -3435,7 +3431,9 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <HomeworkDashboard />
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <HomeworkDashboard />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>

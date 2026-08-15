@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
-import AIChatWidget from '../components/AIChatWidget';
+const AIChatWidget = React.lazy(() => import('../components/AIChatWidget'));
 import Logo from '../components/Logo';
 import { prefetchPage } from '../utils/prefetch';
 import { 
@@ -892,7 +892,9 @@ export default function Home() {
           </motion.div>
         </div>
       </footer>
-      <AIChatWidget />
+      <React.Suspense fallback={null}>
+        <AIChatWidget />
+      </React.Suspense>
 
       {/* One-time Android App Download Popup */}
       <AnimatePresence>

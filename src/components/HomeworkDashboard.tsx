@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import FileUpload from './FileUpload';
-import { jsPDF } from 'jspdf';
 
 export default function HomeworkDashboard() {
   const { 
@@ -93,7 +92,8 @@ export default function HomeworkDashboard() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // PDF Download of Homework Sheet
-  const downloadHomeworkPDF = (hw: HomeworkAssignment) => {
+  const downloadHomeworkPDF = async (hw: HomeworkAssignment) => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const studentName = getUserName(hw.studentId, 'student');
     const tutorName = getUserName(hw.tutorId, 'tutor');

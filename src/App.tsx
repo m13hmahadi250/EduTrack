@@ -17,8 +17,6 @@ import MessageToastCenter from './components/MessageToastCenter';
 import GuidedTour from './components/GuidedTour';
 
 import BeautifulSkeleton from './components/BeautifulSkeleton';
-import { collection, doc, setDoc } from 'firebase/firestore';
-import { db } from './lib/firebase';
 
 // Lazy load route-level components for optimal bundle splitting
 const Home = lazy(() => import('./pages/Home'));
@@ -36,6 +34,10 @@ const LoadingScreen = () => <BeautifulSkeleton />;
  */
 async function logErrorToFirebase(error: any, context?: string) {
   try {
+    const [{ collection, doc, setDoc }, { db }] = await Promise.all([
+      import('firebase/firestore'),
+      import('./lib/firebase'),
+    ]);
     const errorId = `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     const errorDocRef = doc(collection(db, 'error_logs'), errorId);
     
