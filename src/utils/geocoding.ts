@@ -148,8 +148,8 @@ export async function reverseGeocodeLocation(lat: number, lng: number): Promise<
 }
 
 /**
- * Gets the current real-time position using High Accuracy GPS with fallback to standard accuracy.
- * Handles permissions, timeouts, and hardware absence gracefully and silently.
+ * Gets the current real-time position using High Accuracy GPS with zero stale maximumAge.
+ * Falls back cleanly to standard accuracy if hardware GPS is unavailable or times out.
  */
 export function getCurrentAccuratePosition(
   onSuccess: (pos: GeolocationPosition) => void,
@@ -169,32 +169,27 @@ export function getCurrentAccuratePosition(
     return;
   }
 
-  // 1st Attempt: High Accuracy GPS positioning
+  // 1st Attempt: High Accuracy GPS positioning with 0 maximumAge (fresh real-time data)
   navigator.geolocation.getCurrentPosition(
     (pos) => onSuccess(pos),
     (err) => {
-      // If user explicitly denied permission, don't attempt standard fallback
-      if (err.code === 1) {
-        if (onError) onError(err);
-        return;
-      }
-
-      // 2nd Attempt: Standard accuracy fallback for desktops/VMs without GPS hardware
+      console.warn("High accuracy GPS timeout/failed, retrying with standard accuracy:", err);
+      // 2nd Attempt: Standard accuracy fallback for desktops/VMs without GPS chips
       navigator.geolocation.getCurrentPosition(
         (pos2) => onSuccess(pos2),
         (err2) => {
+          console.warn("Standard accuracy position lookup failed:", err2);
           if (onError) onError(err2);
         },
-        { enableHighAccuracy: false, timeout: 6000, maximumAge: 30000 }
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
       );
     },
-    { enableHighAccuracy: true, timeout: 6000, maximumAge: 10000, ...customOptions }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, ...customOptions }
   );
 }
 
 /**
- * Watches position continuously using GPS for real-time tracking.
- * Gracefully reports errors to callback without infinite retry storming.
+ * Watches position continuously using High Accuracy GPS for real-time tracking.
  */
 export function watchAccuratePosition(
   onSuccess: (pos: GeolocationPosition) => void,
@@ -204,17 +199,12 @@ export function watchAccuratePosition(
     return null;
   }
 
-  try {
-    return navigator.geolocation.watchPosition(
-      (pos) => onSuccess(pos),
-      (err) => {
-        if (onError) {
-          onError(err);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-    );
-  } catch {
-    return null;
-  }
+  return navigator.geolocation.watchPosition(
+    (pos) => onSuccess(pos),
+    (err) => {
+      console.warn("Watch position error, trying current position fallback:", err);
+      getCurrentAccuratePosition(onSuccess, onError);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
 }
