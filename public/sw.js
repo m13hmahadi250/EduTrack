@@ -1,6 +1,6 @@
 // Service Worker for EduTrack Web Notifications & Offline Caching Strategy
-const CACHE_NAME = 'edutrack-app-v3';
-const DYNAMIC_CACHE = 'edutrack-dynamic-v1';
+const CACHE_NAME = 'edutrack-app-v4';
+const DYNAMIC_CACHE = 'edutrack-dynamic-v2';
 
 // Core app assets to pre-cache on install
 const PRECACHE_ASSETS = [
@@ -8,7 +8,7 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/logo.svg',
-  '/favicon.ico',
+  '/favicon.svg',
   '/sw.js'
 ];
 
