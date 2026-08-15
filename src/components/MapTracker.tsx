@@ -119,8 +119,7 @@ function CustomMapHUD({
           map.setView([pos.coords.latitude, pos.coords.longitude], 15);
         }
       },
-      (err) => {
-        console.warn("GPS sync error:", err);
+      () => {
         setIsSyncing(false);
       }
     );
@@ -343,20 +342,8 @@ const MapTracker = memo(({
       currentWatchId = watchAccuratePosition(
         (position) => {
           updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
-        },
-        (error) => {
-          console.warn("High accuracy tracking unavailable, trying single accurate fix:", error);
-          getCurrentAccuratePosition(
-            (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
-            (err) => {
-              console.warn("Location fix failed, falling back to metropolitan center:", err);
-              updateLocation(currentUser.id, 23.8103, 90.4125);
-            }
-          );
         }
       );
-    } else {
-      updateLocation(currentUser.id, 23.8103, 90.4125);
     }
 
     return () => {

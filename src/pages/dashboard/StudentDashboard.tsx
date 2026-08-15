@@ -612,8 +612,7 @@ export default function StudentDashboard() {
           "success"
         );
       },
-      (err) => {
-        console.warn("Manual location request failed: aligning with metropolitan Dhaka fallback:", err);
+      () => {
         updateLocation(currentUser!.id, 23.8103, 90.4125);
         setIsRefreshingLocation(false);
         useAppStore.getState().sendNotification(
@@ -652,13 +651,6 @@ export default function StudentDashboard() {
         currentWatchId = watchAccuratePosition(
           (position) => {
             updateLocation(currentUser.id, position.coords.latitude, position.coords.longitude);
-          },
-          (error) => {
-            console.warn("Error watching student position via device GPS:", error);
-            getCurrentAccuratePosition(
-              (pos) => updateLocation(currentUser.id, pos.coords.latitude, pos.coords.longitude),
-              (err) => console.warn("Student device GPS position unavailable:", err)
-            );
           }
         );
       }
