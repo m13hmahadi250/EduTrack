@@ -304,7 +304,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase italic leading-[0.8] mb-4 text-balance">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase leading-[0.8] mb-4 text-balance">
             Admin Account
           </h1>
           <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
