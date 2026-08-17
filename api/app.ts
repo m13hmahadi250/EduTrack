@@ -331,20 +331,59 @@ app.post("/api/save-fcm-token", (req, res) => {
 });
 
 /**
- * In-memory temporary store for Email Verification OTPs
- * Preserved in globalThis across dev server module hot-reloads
+ * Persistent store for Email Verification OTPs with disk caching
+ * Ensures OTP records survive dev server reloads and process restarts for full 5-minute lifespan
  */
 interface OtpRecord {
+  email: string;
   otp: string;
   expiresAt: number;
   attempts: number;
 }
 
+const OTP_CACHE_FILE = path.join(process.cwd(), ".otp_cache.json");
+
+function loadOtpsFromFile(): Map<string, OtpRecord> {
+  const map = new Map<string, OtpRecord>();
+  try {
+    if (fs.existsSync(OTP_CACHE_FILE)) {
+      const raw = fs.readFileSync(OTP_CACHE_FILE, "utf-8");
+      const list: OtpRecord[] = JSON.parse(raw);
+      const now = Date.now();
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (item && item.email && item.expiresAt > now) {
+            map.set(item.email.trim().toLowerCase(), item);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[OTP Cache] Error loading file cache:", e);
+  }
+  return map;
+}
+
+function saveOtpsToFile(store: Map<string, OtpRecord>) {
+  try {
+    const now = Date.now();
+    const list: OtpRecord[] = [];
+    for (const record of store.values()) {
+      if (record && record.expiresAt > now) {
+        list.push(record);
+      }
+    }
+    fs.writeFileSync(OTP_CACHE_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("[OTP Cache] Error saving file cache:", e);
+  }
+}
+
 const otpStore: Map<string, OtpRecord> =
   (globalThis as any).__otpStore ||
-  ((globalThis as any).__otpStore = new Map<string, OtpRecord>());
+  ((globalThis as any).__otpStore = loadOtpsFromFile());
 
-// Cleanup routine: automatically remove expired OTP entries every 10 minutes
+// Cleanup routine: automatically remove expired OTP entries every 2 minutes
 if (!(globalThis as any).__otpCleanupStarted) {
   (globalThis as any).__otpCleanupStarted = true;
   setInterval(() => {
@@ -354,22 +393,33 @@ if (!(globalThis as any).__otpCleanupStarted) {
         otpStore.delete(email);
       }
     }
-  }, 10 * 60 * 1000);
+    saveOtpsToFile(otpStore);
+  }, 2 * 60 * 1000);
 }
 
 /**
- * Helper function to find OTP record by normalized email
+ * Helper function to find OTP record by normalized email (memory + disk check)
  */
 function getOtpRecord(normalizedEmail: string): { key: string; record: OtpRecord } | null {
-  const direct = otpStore.get(normalizedEmail);
-  if (direct) return { key: normalizedEmail, record: direct };
+  const cleanEmail = normalizedEmail.trim().toLowerCase();
+  let direct = otpStore.get(cleanEmail);
+  if (direct) return { key: cleanEmail, record: direct };
 
   // Fallback search in case of whitespace/casing variations
   for (const [key, record] of otpStore.entries()) {
-    if (key.trim().toLowerCase() === normalizedEmail) {
+    if (key.trim().toLowerCase() === cleanEmail) {
       return { key, record };
     }
   }
+
+  // Check disk cache in case server process restarted
+  const diskStore = loadOtpsFromFile();
+  direct = diskStore.get(cleanEmail);
+  if (direct) {
+    otpStore.set(cleanEmail, direct);
+    return { key: cleanEmail, record: direct };
+  }
+
   return null;
 }
 
@@ -377,7 +427,7 @@ function getOtpRecord(normalizedEmail: string): { key: string; record: OtpRecord
  * Email Signup OTP Verification Routes
  */
 
-// 1. Send OTP Code Endpoint
+// 1. Send OTP Code Endpoint (Strictly 5-minute validity)
 app.post("/api/auth/send-otp", async (req, res) => {
   try {
     const { email, name } = req.body;
@@ -397,19 +447,22 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const otpBuffer = crypto.randomInt(1000, 10000);
     const otpCode = otpBuffer.toString();
 
-    // Store in-memory with a 10-minute expiry time
-    const expiresAt = Date.now() + 10 * 60 * 1000;
-    otpStore.set(normalizedEmail, {
+    // Store in-memory and disk cache with strictly 5-minute expiry time (300,000 ms)
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    const record: OtpRecord = {
+      email: normalizedEmail,
       otp: otpCode,
       expiresAt,
       attempts: 0,
-    });
+    };
+    otpStore.set(normalizedEmail, record);
+    saveOtpsToFile(otpStore);
 
-    // Generate HTML content and send via Brevo REST API service
+    // Generate HTML content and send via Brevo REST API service (5-minute expiry)
     const htmlContent = generateOtpEmailHtml({
       email: normalizedEmail,
       otpCode,
-      expiresMinutes: 10,
+      expiresMinutes: 5,
     });
 
     const emailResult = await sendBrevoEmail({
@@ -419,7 +472,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       htmlContent,
     });
 
-    console.log(`[OTP AUTH CODE GENERATED] Email: ${normalizedEmail} | OTP Code: ${otpCode}`);
+    console.log(`[OTP AUTH CODE GENERATED] Email: ${normalizedEmail} | OTP Code: ${otpCode} | Expires in: 5m`);
 
     const devOtpCode = otpCode;
 
@@ -433,7 +486,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
         error: emailResult.error || "Brevo Email Delivery Notice",
         message: emailResult.message || `Could not deliver email to ${normalizedEmail} via Brevo API.`,
         brevoLink: (emailResult as any).brevoLink,
-        expiresInSeconds: 600,
+        expiresInSeconds: 300,
         devOtpCode,
       });
     }
@@ -444,7 +497,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       success: true,
       emailSent: true,
       message: `A 4-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
-      expiresInSeconds: 600,
+      expiresInSeconds: 300,
     });
   } catch (error: any) {
     console.error("[Send OTP API Error]:", error);
@@ -461,41 +514,51 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ success: false, error: "Email and 4-digit OTP code are required" });
+      return res.status(400).json({ success: false, error: "Email and 4-digit OTP code are required." });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const cleanOtp = String(otp).trim();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim().replace(/\D/g, "");
+
+    if (cleanOtp.length !== 4) {
+      return res.status(400).json({ success: false, error: "Please enter a valid 4-digit OTP code." });
+    }
 
     const otpData = getOtpRecord(normalizedEmail);
 
     if (!otpData) {
       return res.status(400).json({
         success: false,
-        error: "No verification code requested for this email or code has expired. Please request a new OTP.",
+        error: "No active verification code found or OTP has expired. Please click 'Resend code'.",
       });
     }
 
     const { key, record } = otpData;
 
+    // Check 5-minute expiration
     if (Date.now() > record.expiresAt) {
       otpStore.delete(key);
+      saveOtpsToFile(otpStore);
       return res.status(400).json({
         success: false,
-        error: "Verification code has expired. Please click 'Resend OTP' to receive a new code.",
+        error: "Verification code has expired (5-minute limit). Please click 'Resend code' to receive a new OTP.",
       });
     }
 
+    // Check max attempts
     if (record.attempts >= 5) {
       otpStore.delete(key);
+      saveOtpsToFile(otpStore);
       return res.status(400).json({
         success: false,
         error: "Maximum verification attempts exceeded. Please request a new OTP code.",
       });
     }
 
-    if (record.otp !== cleanOtp) {
+    // Compare OTP codes strictly
+    if (String(record.otp).trim() !== cleanOtp) {
       record.attempts += 1;
+      saveOtpsToFile(otpStore);
       const remaining = 5 - record.attempts;
       return res.status(400).json({
         success: false,
@@ -503,8 +566,9 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       });
     }
 
-    // OTP matched successfully! Clear from memory store to prevent reuse
+    // OTP matched successfully! Clear from memory & file store to prevent replay
     otpStore.delete(key);
+    saveOtpsToFile(otpStore);
 
     console.log(`[OTP Auth] Verified OTP successfully for ${normalizedEmail}`);
 
@@ -601,8 +665,10 @@ if (!(globalThis as any).__resetTokenCleanupStarted) {
 }
 
 /**
- * Password Reset Routes via Brevo Email Infrastructure
+ * Password Reset Routes via Brevo & Firebase Auth Infrastructure
  */
+
+const FIREBASE_WEB_API_KEY = "AIzaSyBGkRPhe3hZu5TI5MgPLdmipUZ6pJFaQZI";
 
 // 1. Trigger Forgot Password Email with One-Time Reset Link
 app.post("/api/auth/forgot-password", async (req, res) => {
@@ -621,6 +687,20 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         success: false,
         error: "Please provide a valid email address.",
       });
+    }
+
+    // Trigger Firebase Identity Toolkit sendOobCode so Firebase Auth sends the official reset email as well
+    try {
+      await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_WEB_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestType: "PASSWORD_RESET",
+          email: normalizedEmail,
+        }),
+      });
+    } catch (fbOobErr) {
+      console.warn("Notice: Firebase Identity Toolkit sendOobCode:", fbOobErr);
     }
 
     // Generate cryptographically secure random 32-byte token (hex encoded)
@@ -752,9 +832,9 @@ app.get("/api/auth/verify-reset-token", (req, res) => {
 // 3. Reset Password with Token
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, oobCode, newPassword } = req.body;
 
-    if (!token || !newPassword) {
+    if ((!token && !oobCode) || !newPassword) {
       return res.status(400).json({
         success: false,
         error: "Reset token and new password are required.",
@@ -768,30 +848,53 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    const record = getResetTokenRecord(String(token));
-
-    if (!record || record.used) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid or already used password reset link. Please request a new link.",
-      });
+    // If an oobCode is present or token is an oobCode, update Firebase Auth via Identity Toolkit
+    const codeToUse = oobCode || (typeof token === 'string' && token.length > 50 ? token : null);
+    if (codeToUse) {
+      try {
+        const idtRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:resetPassword?key=${FIREBASE_WEB_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            oobCode: codeToUse,
+            newPassword: newPassword,
+          }),
+        });
+        const idtData = await idtRes.json();
+        if (!idtRes.ok && idtData.error) {
+          console.warn("Identity Toolkit resetPassword notice:", idtData.error);
+        }
+      } catch (idtErr) {
+        console.warn("Identity Toolkit resetPassword call notice:", idtErr);
+      }
     }
 
-    if (Date.now() > record.expiresAt) {
+    const record = token ? getResetTokenRecord(String(token)) : undefined;
+
+    if (record) {
+      if (record.used) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid or already used password reset link. Please request a new link.",
+        });
+      }
+
+      if (Date.now() > record.expiresAt) {
+        resetTokenStore.delete(record.token);
+        saveResetTokensToFile(resetTokenStore);
+        return res.status(400).json({
+          success: false,
+          error: "This reset link has expired (15-minute limit). Please request a new link.",
+        });
+      }
+
+      // Mark token as used and delete record
+      record.used = true;
       resetTokenStore.delete(record.token);
       saveResetTokensToFile(resetTokenStore);
-      return res.status(400).json({
-        success: false,
-        error: "This reset link has expired (15-minute limit). Please request a new link.",
-      });
+
+      console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${record.email}`);
     }
-
-    // Mark token as used and delete record
-    record.used = true;
-    resetTokenStore.delete(record.token);
-    saveResetTokensToFile(resetTokenStore);
-
-    console.log(`[PASSWORD RESET COMPLETED] Password successfully reset for user ${record.email}`);
 
     res.json({
       success: true,

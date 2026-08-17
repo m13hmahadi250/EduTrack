@@ -315,6 +315,7 @@ export default function TutorDashboard() {
   }, [currentUser]);
 
   const filteredStudents = useMemo(() => {
+    if (!currentUser.isVerified) return [];
     const list = users.filter(user => {
       if (user.role !== "student") return false;
       
@@ -1781,17 +1782,20 @@ export default function TutorDashboard() {
                 </h3>
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
-                    // Logic: Students I have a session record with OR message history
+                    // Logic: Students I have a session record with OR message history + Admin Support
                     const myStudentIdsFromSessions = sessions.map(
                       (s) => s.studentId,
                     );
                     const myStudentIdsFromMessages = messages.map((m) =>
                       m.senderId === currentUser.id ? m.receiverId : m.senderId,
                     );
+                    const adminIds = users.filter((u) => u.role === "admin").map((u) => u.id);
                     const allContactIds = Array.from(
                       new Set([
                         ...myStudentIdsFromSessions,
                         ...myStudentIdsFromMessages,
+                        ...adminIds,
+                        ...(selectedRecipientId ? [selectedRecipientId] : []),
                       ]),
                     );
                     const contacts = users.filter((u) =>
@@ -2947,487 +2951,548 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                    Find Student
-                  </h3>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                    Find students who match your subject list & teachable parameters
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="px-5 py-2.5 bg-blue-50 dark:bg-blue-900/10 text-[#0D5BFF] border border-blue-100 dark:border-blue-900/20 rounded-2xl flex items-center space-x-3">
-                    <Users className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#0D5BFF]">
-                      {users.filter(u => u.role === "student").length} Total Active Students
+              {!currentUser.isVerified ? (
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-14 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto my-8">
+                  <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-3xl flex items-center justify-center border border-rose-100 dark:border-rose-900/30 text-rose-500">
+                    <ShieldAlert className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-rose-500 bg-rose-50 dark:bg-rose-950/40 px-3 py-1 rounded-full border border-rose-200/50 dark:border-rose-900/30">
+                      Teacher Verification Required
                     </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                      Verification Pending
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto leading-relaxed">
+                      To safeguard our student community and ensure quality education standards, only verified teachers can discover student profiles, send tuition offers, or access student contact channels.
+                    </p>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div className="lg:col-span-1 space-y-6">
-                  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider">
-                        Search Filters
-                      </h4>
-                      {(studentSearchTerm || filterStudentClass || filterStudentSubject || filterStudentAddress || filterStudentGender) && (
-                        <button
-                          onClick={() => {
-                            setStudentSearchTerm("");
-                            setFilterStudentClass("");
-                            setFilterStudentSubject("");
-                            setFilterStudentAddress("");
-                            setFilterStudentGender("");
-                          }}
-                          className="text-[9px] font-black text-rose-500 uppercase tracking-widest"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Direct Query (Name/School)
-                      </label>
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
-                        <input
-                          type="text"
-                          value={studentSearchTerm}
-                          onChange={e => setStudentSearchTerm(e.target.value)}
-                          placeholder="Search student names..."
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Grade / Class
-                      </label>
-                      <select
-                        value={filterStudentClass}
-                        onChange={e => setFilterStudentClass(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
-                      >
-                        <option value="">ALL GRADES</option>
-                        {AVAILABLE_CLASSES.map(cls => (
-                          <option key={cls} value={cls}>{cls}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Focus Subject
-                      </label>
-                      <select
-                        value={filterStudentSubject}
-                        onChange={e => setFilterStudentSubject(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
-                      >
-                        <option value="">ALL SUBJECTS</option>
-                        {AVAILABLE_SUBJECTS.map(sub => (
-                          <option key={sub} value={sub}>{sub}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Inbound Area / District
-                      </label>
-                      <div className="relative">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
-                        <input
-                          type="text"
-                          value={filterStudentAddress}
-                          onChange={e => setFilterStudentAddress(e.target.value)}
-                          placeholder="Type Area or District..."
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Student Gender
-                      </label>
-                      <select
-                        value={filterStudentGender}
-                        onChange={e => setFilterStudentGender(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
-                      >
-                        <option value="">ANY GENDER</option>
-                        <option value="Male">MALE</option>
-                        <option value="Female">FEMALE</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800/60">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                          Sort by Proximity
-                        </label>
-                        <span className="text-[8px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded uppercase">
-                          Closer Top
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSortStudentByLocation(!sortStudentByLocation)}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-black transition-all ${
-                          sortStudentByLocation
-                            ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 text-[#0D5BFF]'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400'
-                        }`}
-                      >
-                        <span className="uppercase text-[10px]">
-                          {sortStudentByLocation ? "Enabled (Closest Top)" : "Disabled (Default)"}
-                        </span>
-                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${sortStudentByLocation ? 'bg-[#0D5BFF]' : 'bg-slate-300 dark:bg-slate-700'}`}>
-                          <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-250 ${sortStudentByLocation ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </div>
-                      </button>
-                    </div>
+                  <div className="w-full bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 text-left space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      What happens after verification?
+                    </h4>
+                    <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1.5 list-disc pl-5">
+                      <li>Your teacher profile becomes publicly visible to all students across Bangladesh.</li>
+                      <li>Unlock access to student search, filter by proximity/class, and dispatch tuition offers.</li>
+                      <li>Receive the verified badge on your profile and direct guardian booking inquiries.</li>
+                    </ul>
                   </div>
-                </div>
 
-                <div className="lg:col-span-3 space-y-6">
-                  {(() => {
-                    const filtered = filteredStudents;
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-16 flex flex-col items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm text-center">
-                          <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] flex items-center justify-center mb-6">
-                            <Users className="w-10 h-10 text-slate-200 dark:text-slate-600" />
-                          </div>
-                          <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
-                            No students match your query
-                          </h4>
-                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest max-w-sm leading-relaxed">
-                            Try expanding your search credentials or clearing filters to locate other active students.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {filtered.map(student => {
-                          const distance = (() => {
-                            if (!tutorCoords) return null;
-                            const sCoords = student.location?.lat && student.location?.lng 
-                              ? [student.location.lat, student.location.lng] as [number, number]
-                              : (student.district ? getCoordinatesForLocation(student.district, student.thana, student.id) : null);
-                            if (!sCoords) return null;
-                            return getDistance(tutorCoords[0], tutorCoords[1], sCoords[0], sCoords[1]);
-                          })();
-
-                          return (
-                            <div
-                              key={student.id}
-                              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
-                            >
-                              <div>
-                                <div className="flex items-center space-x-4 mb-6">
-                                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950/40 rounded-[1.5rem] flex items-center justify-center text-lg font-black italic text-[#0D5BFF] uppercase group-hover:bg-[#0D5BFF] group-hover:text-white transition-colors duration-300">
-                                    {student.name.charAt(0)}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
-                                      <span className="truncate">{student.name}</span>
-                                      {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
-                                      {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
-                                    </h4>
-                                    <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
-                                      {student.school || "Autonomous Learner"}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="space-y-4 mb-6 border-b border-slate-50 dark:border-slate-800/50 pb-6">
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                      Class / Level
-                                    </span>
-                                    <span className="font-bold text-[#0B132B] dark:text-white uppercase">
-                                      {student.studentClass || "Not Specified"}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex justify-between items-start text-xs">
-                                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
-                                      Inbound Location
-                                    </span>
-                                    <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
-                                      {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
-                                    </span>
-                                  </div>
-
-                                  {distance !== null && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                        Proximity (Distance)
-                                      </span>
-                                      <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest">
-                                        {distance.toFixed(1)} KM AWAY
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                              <div className="space-y-2 mb-8">
-                                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
-                                  Focus Interest Area
-                                </span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {student.subjects && student.subjects.length > 0 ? (
-                                    student.subjects.map(sub => (
-                                      <span
-                                        key={sub}
-                                        className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-350 rounded-lg text-[9px] font-bold uppercase border border-slate-100/10"
-                                      >
-                                        {sub}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase italic">
-                                      General Syllabus Support
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setViewingProfileUser(student);
-                                  setViewingProfileSession(null);
-                                }}
-                                className="px-4 py-4 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-emerald-150/10 dark:border-emerald-800/20 cursor-pointer"
-                              >
-                                Profile
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedRecipientId(student.id);
-                                  handleTabChange("messages");
-                                }}
-                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 text-[#0B132B] dark:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
-                              >
-                                Message
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedStudentForProposal(student);
-                                  setProposalSubject(student.subjects?.[0] || AVAILABLE_SUBJECTS[0]);
-                                  setProposalDate(new Date().toISOString().split("T")[0]);
-                                  setProposalNotes("");
-                                }}
-                                className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-blue-100 dark:shadow-none cursor-pointer"
-                              >
-                                Offer Tuition
-                              </button>
-                            </div>
-                          </div>
+                  <div className="flex flex-wrap gap-3 justify-center pt-2">
+                    <button
+                      onClick={() => handleTabChange("pro_profile")}
+                      className="px-6 py-3.5 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer flex items-center gap-2"
+                    >
+                      <Award className="w-4 h-4" />
+                      Complete Pro Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        const adminUser = users.find(
+                          (u) =>
+                            u.role === "admin" ||
+                            u.email === "edutrackbangladesh@gmail.com" ||
+                            u.email === "m13hmahadi.personal@gmail.com"
                         );
-                      })}
-                      </div>
-                    );
-                  })()}
+                        if (adminUser) {
+                          setSelectedRecipientId(adminUser.id);
+                        }
+                        handleTabChange("messages");
+                      }}
+                      className="px-6 py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#0B132B] dark:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Contact Admin Support
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                      <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                        Find Student
+                      </h3>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-widest mt-1">
+                        Find students who match your subject list & teachable parameters
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="px-5 py-2.5 bg-blue-50 dark:bg-blue-900/10 text-[#0D5BFF] border border-blue-100 dark:border-blue-900/20 rounded-2xl flex items-center space-x-3">
+                        <Users className="w-4 h-4" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#0D5BFF]">
+                          {users.filter(u => u.role === "student").length} Total Active Students
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Proposal Modal Overlay */}
-              {selectedStudentForProposal && (
-                <div className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                    className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-lg p-8 sm:p-10 shadow-3xl text-left relative overflow-hidden"
-                  >
-                    {!proposalSuccess ? (
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          if (!proposalSubject || !proposalDate || !proposalSlot) {
-                            return;
-                          }
-                          setIsSendingProposal(true);
-                          try {
-                            const scheduledTime = `${proposalDate}T${proposalSlot}:00`;
-                            
-                            // Initialize lazy store acts
-                            await useAppStore.getState().bookSession({
-                              studentId: selectedStudentForProposal.id,
-                              tutorId: currentUser.id,
-                              subject: proposalSubject, status: "proposed_by_tutor",
-                              scheduledTime
-                            });
-
-                            triggerConfetti();
-
-                            await useAppStore.getState().sendNotification(
-                              selectedStudentForProposal.id,
-                              "New Tuition Proposal",
-                              `${currentUser.name} has sent a tuition invitation on ${proposalSubject} for ${new Date(scheduledTime).toLocaleString()}.`,
-                              "success"
-                            );
-
-                            await useAppStore.getState().sendMessage({
-                              senderId: currentUser.id,
-                              receiverId: selectedStudentForProposal.id,
-                              content: `Hello ${selectedStudentForProposal.name}! I reviewed your academic level and study interest. I have issued a live lesson offer for ${proposalSubject} scheduled on ${new Date(proposalDate).toLocaleDateString()} at ${proposalSlot}. Introduction: ${proposalNotes || "Ready to guide you through your academic curriculum!"}`
-                            });
-
-                            setProposalSuccess(true);
-                            setTimeout(() => {
-                              setProposalSuccess(false);
-                              setSelectedStudentForProposal(null);
-                            }, 2500);
-                          } catch (error) {
-                            console.error(error);
-                          } finally {
-                            setIsSendingProposal(false);
-                          }
-                        }}
-                        className="space-y-6"
-                      >
-                        <div className="space-y-2">
-                          <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block">
-                            Tuition Proposal Pipeline
-                          </span>
-                          <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                            Offer tuition to {selectedStudentForProposal.name}
-                          </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                            Set up tuition dates, times, and specialized introduction details.
-                          </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="lg:col-span-1 space-y-6">
+                      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase tracking-wider">
+                            Search Filters
+                          </h4>
+                          {(studentSearchTerm || filterStudentClass || filterStudentSubject || filterStudentAddress || filterStudentGender) && (
+                            <button
+                              onClick={() => {
+                                setStudentSearchTerm("");
+                                setFilterStudentClass("");
+                                setFilterStudentSubject("");
+                                setFilterStudentAddress("");
+                                setFilterStudentGender("");
+                              }}
+                              className="text-[9px] font-black text-rose-500 uppercase tracking-widest"
+                            >
+                              Clear
+                            </button>
+                          )}
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                            Tuition Subject
+                            Direct Query (Name/School)
+                          </label>
+                          <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+                            <input
+                              type="text"
+                              value={studentSearchTerm}
+                              onChange={e => setStudentSearchTerm(e.target.value)}
+                              placeholder="Search student names..."
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                            Grade / Class
                           </label>
                           <select
-                            value={proposalSubject}
-                            onChange={e => setProposalSubject(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                            value={filterStudentClass}
+                            onChange={e => setFilterStudentClass(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
                           >
-                            {selectedStudentForProposal.subjects && selectedStudentForProposal.subjects.length > 0 ? (
-                              selectedStudentForProposal.subjects.map(sub => (
-                                <option key={sub} value={sub}>{sub}</option>
-                              ))
-                            ) : (
-                              AVAILABLE_SUBJECTS.map(sub => (
-                                <option key={sub} value={sub}>{sub}</option>
-                              ))
-                            )}
+                            <option value="">ALL GRADES</option>
+                            {AVAILABLE_CLASSES.map(cls => (
+                              <option key={cls} value={cls}>{cls}</option>
+                            ))}
                           </select>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                              Proposed Date
-                            </label>
-                            <input
-                              type="date"
-                              value={proposalDate}
-                              min={new Date().toISOString().split("T")[0]}
-                              onChange={e => setProposalDate(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
-                            />
-                          </div>
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                            Focus Subject
+                          </label>
+                          <select
+                            value={filterStudentSubject}
+                            onChange={e => setFilterStudentSubject(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
+                          >
+                            <option value="">ALL SUBJECTS</option>
+                            {AVAILABLE_SUBJECTS.map(sub => (
+                              <option key={sub} value={sub}>{sub}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                          <div className="space-y-2">
-                            <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                              Proposed Time Slot
-                            </label>
-                            <select
-                              value={proposalSlot}
-                              onChange={e => setProposalSlot(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
-                            >
-                              {[
-                                "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-                                "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM",
-                                "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM"
-                              ].map(slot => {
-                                const [time, period] = slot.split(" ");
-                                let [hour, min] = time.split(":");
-                                let hourNum = parseInt(hour, 10);
-                                if (period === "PM" && hourNum !== 12) hourNum += 12;
-                                if (period === "AM" && hourNum === 12) hourNum = 0;
-                                const hourStr = hourNum.toString().padStart(2, "0");
-                                const value = `${hourStr}:${min}`;
-                                return (
-                                  <option key={slot} value={value}>
-                                    {slot}
-                                  </option>
-                                );
-                              })}
-                            </select>
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                            Inbound Area / District
+                          </label>
+                          <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+                            <input
+                              type="text"
+                              value={filterStudentAddress}
+                              onChange={e => setFilterStudentAddress(e.target.value)}
+                              placeholder="Type Area or District..."
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF]"
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                            Pitch remarks / Personal Greetings
+                            Student Gender
                           </label>
-                          <textarea
-                            value={proposalNotes}
-                            onChange={e => setProposalNotes(e.target.value)}
-                            placeholder="Introduce yourself, outline credentials, or propose specific rates..."
-                            rows={3}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-5 text-xs font-medium text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
-                          />
+                          <select
+                            value={filterStudentGender}
+                            onChange={e => setFilterStudentGender(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-slate-100 focus:outline-none focus:border-[#0D5BFF] uppercase cursor-pointer"
+                          >
+                            <option value="">ANY GENDER</option>
+                            <option value="Male">MALE</option>
+                            <option value="Female">FEMALE</option>
+                          </select>
                         </div>
 
-                        <div className="flex gap-4 pt-4">
+                        <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                              Sort by Proximity
+                            </label>
+                            <span className="text-[8px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded uppercase">
+                              Closer Top
+                            </span>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setSelectedStudentForProposal(null)}
-                            className="flex-1 py-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                            onClick={() => setSortStudentByLocation(!sortStudentByLocation)}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-black transition-all ${
+                              sortStudentByLocation
+                                ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 text-[#0D5BFF]'
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400'
+                            }`}
                           >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isSendingProposal}
-                            className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
-                          >
-                            {isSendingProposal ? (
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : (
-                              "Dispatch Offer"
-                            )}
+                            <span className="uppercase text-[10px]">
+                              {sortStudentByLocation ? "Enabled (Closest Top)" : "Disabled (Default)"}
+                            </span>
+                            <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${sortStudentByLocation ? 'bg-[#0D5BFF]' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                              <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-250 ${sortStudentByLocation ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </div>
                           </button>
                         </div>
-                      </form>
-                    ) : (
-                      <div className="py-12 flex flex-col items-center justify-center text-center">
-                        <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/10 rounded-[2rem] flex items-center justify-center mb-6">
-                          <CheckCircle className="w-10 h-10 text-emerald-500" />
-                        </div>
-                        <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
-                          Proposal Dispatched!
-                        </h4>
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest max-w-sm">
-                          Your proposal has been securely logged. The student has been notified.
-                        </p>
                       </div>
-                    )}
-                  </motion.div>
-                </div>
+                    </div>
+
+                    <div className="lg:col-span-3 space-y-6">
+                      {(() => {
+                        const filtered = filteredStudents;
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-16 flex flex-col items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm text-center">
+                              <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] flex items-center justify-center mb-6">
+                                <Users className="w-10 h-10 text-slate-200 dark:text-slate-600" />
+                              </div>
+                              <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
+                                No students match your query
+                              </h4>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest max-w-sm leading-relaxed">
+                                Try expanding your search credentials or clearing filters to locate other active students.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {filtered.map(student => {
+                              const distance = (() => {
+                                if (!tutorCoords) return null;
+                                const sCoords = student.location?.lat && student.location?.lng 
+                                  ? [student.location.lat, student.location.lng] as [number, number]
+                                  : (student.district ? getCoordinatesForLocation(student.district, student.thana, student.id) : null);
+                                if (!sCoords) return null;
+                                return getDistance(tutorCoords[0], tutorCoords[1], sCoords[0], sCoords[1]);
+                              })();
+
+                              return (
+                                <div
+                                  key={student.id}
+                                  className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
+                                >
+                                  <div>
+                                    <div className="flex items-center space-x-4 mb-6">
+                                      <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950/40 rounded-[1.5rem] flex items-center justify-center text-lg font-black italic text-[#0D5BFF] uppercase group-hover:bg-[#0D5BFF] group-hover:text-white transition-colors duration-300">
+                                        {student.name.charAt(0)}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
+                                          <span className="truncate">{student.name}</span>
+                                          {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
+                                          {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
+                                        </h4>
+                                        <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
+                                          {student.school || "Autonomous Learner"}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-4 mb-6 border-b border-slate-50 dark:border-slate-800/50 pb-6">
+                                      <div className="flex justify-between items-center text-xs">
+                                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                          Class / Level
+                                        </span>
+                                        <span className="font-bold text-[#0B132B] dark:text-white uppercase">
+                                          {student.studentClass || "Not Specified"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex justify-between items-start text-xs">
+                                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
+                                          Inbound Location
+                                        </span>
+                                        <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
+                                          {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
+                                        </span>
+                                      </div>
+
+                                      {distance !== null && (
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                            Proximity (Distance)
+                                          </span>
+                                          <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest">
+                                            {distance.toFixed(1)} KM AWAY
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                  <div className="space-y-2 mb-8">
+                                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                                      Focus Interest Area
+                                    </span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {student.subjects && student.subjects.length > 0 ? (
+                                        student.subjects.map(sub => (
+                                          <span
+                                            key={sub}
+                                            className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-350 rounded-lg text-[9px] font-bold uppercase border border-slate-100/10"
+                                          >
+                                            {sub}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase italic">
+                                          General Syllabus Support
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setViewingProfileUser(student);
+                                      setViewingProfileSession(null);
+                                    }}
+                                    className="px-4 py-4 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-emerald-150/10 dark:border-emerald-800/20 cursor-pointer"
+                                  >
+                                    Profile
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedRecipientId(student.id);
+                                      handleTabChange("messages");
+                                    }}
+                                    className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 text-[#0B132B] dark:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                                  >
+                                    Message
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedStudentForProposal(student);
+                                      setProposalSubject(student.subjects?.[0] || AVAILABLE_SUBJECTS[0]);
+                                      setProposalDate(new Date().toISOString().split("T")[0]);
+                                      setProposalNotes("");
+                                    }}
+                                    className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-blue-100 dark:shadow-none cursor-pointer"
+                                  >
+                                    Offer Tuition
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Proposal Modal Overlay */}
+                  {selectedStudentForProposal && (
+                    <div className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                        className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-lg p-8 sm:p-10 shadow-3xl text-left relative overflow-hidden"
+                      >
+                        {!proposalSuccess ? (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              if (!proposalSubject || !proposalDate || !proposalSlot) {
+                                return;
+                              }
+                              setIsSendingProposal(true);
+                              try {
+                                const scheduledTime = `${proposalDate}T${proposalSlot}:00`;
+                                
+                                // Initialize lazy store acts
+                                await useAppStore.getState().bookSession({
+                                  studentId: selectedStudentForProposal.id,
+                                  tutorId: currentUser.id,
+                                  subject: proposalSubject, status: "proposed_by_tutor",
+                                  scheduledTime
+                                });
+
+                                triggerConfetti();
+
+                                await useAppStore.getState().sendNotification(
+                                  selectedStudentForProposal.id,
+                                  "New Tuition Proposal",
+                                  `${currentUser.name} has sent a tuition invitation on ${proposalSubject} for ${new Date(scheduledTime).toLocaleString()}.`,
+                                  "success"
+                                );
+
+                                await useAppStore.getState().sendMessage({
+                                  senderId: currentUser.id,
+                                  receiverId: selectedStudentForProposal.id,
+                                  content: `Hello ${selectedStudentForProposal.name}! I reviewed your academic level and study interest. I have issued a live lesson offer for ${proposalSubject} scheduled on ${new Date(proposalDate).toLocaleDateString()} at ${proposalSlot}. Introduction: ${proposalNotes || "Ready to guide you through your academic curriculum!"}`
+                                });
+
+                                setProposalSuccess(true);
+                                setTimeout(() => {
+                                  setProposalSuccess(false);
+                                  setSelectedStudentForProposal(null);
+                                }, 2500);
+                              } catch (error) {
+                                console.error(error);
+                              } finally {
+                                setIsSendingProposal(false);
+                              }
+                            }}
+                            className="space-y-6"
+                          >
+                            <div className="space-y-2">
+                              <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block">
+                                Tuition Proposal Pipeline
+                              </span>
+                              <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                                Offer tuition to {selectedStudentForProposal.name}
+                              </h3>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                                Set up tuition dates, times, and specialized introduction details.
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                Tuition Subject
+                              </label>
+                              <select
+                                value={proposalSubject}
+                                onChange={e => setProposalSubject(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                              >
+                                {selectedStudentForProposal.subjects && selectedStudentForProposal.subjects.length > 0 ? (
+                                  selectedStudentForProposal.subjects.map(sub => (
+                                    <option key={sub} value={sub}>{sub}</option>
+                                  ))
+                                ) : (
+                                  AVAILABLE_SUBJECTS.map(sub => (
+                                    <option key={sub} value={sub}>{sub}</option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                  Proposed Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={proposalDate}
+                                  min={new Date().toISOString().split("T")[0]}
+                                  onChange={e => setProposalDate(e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                  Proposed Time Slot
+                                </label>
+                                <select
+                                  value={proposalSlot}
+                                  onChange={e => setProposalSlot(e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                                >
+                                  {[
+                                    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+                                    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM",
+                                    "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM"
+                                  ].map(slot => {
+                                    const [time, period] = slot.split(" ");
+                                    let [hour, min] = time.split(":");
+                                    let hourNum = parseInt(hour, 10);
+                                    if (period === "PM" && hourNum !== 12) hourNum += 12;
+                                    if (period === "AM" && hourNum === 12) hourNum = 0;
+                                    const hourStr = hourNum.toString().padStart(2, "0");
+                                    const value = `${hourStr}:${min}`;
+                                    return (
+                                      <option key={slot} value={value}>
+                                        {slot}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+                                Pitch remarks / Personal Greetings
+                              </label>
+                              <textarea
+                                value={proposalNotes}
+                                onChange={e => setProposalNotes(e.target.value)}
+                                placeholder="Introduce yourself, outline credentials, or propose specific rates..."
+                                rows={3}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-5 text-xs font-medium text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                              />
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStudentForProposal(null)}
+                                className="flex-1 py-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={isSendingProposal}
+                                className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
+                              >
+                                {isSendingProposal ? (
+                                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                  "Dispatch Offer"
+                                )}
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="py-12 flex flex-col items-center justify-center text-center">
+                            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/10 rounded-[2rem] flex items-center justify-center mb-6">
+                              <CheckCircle className="w-10 h-10 text-emerald-500" />
+                            </div>
+                            <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
+                              Proposal Dispatched!
+                            </h4>
+                            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest max-w-sm">
+                              Your proposal has been securely logged. The student has been notified.
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
           )}

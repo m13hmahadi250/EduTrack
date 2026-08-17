@@ -15,7 +15,7 @@ export interface SendWelcomeEmailParams {
 export function generateOtpEmailHtml({
   email,
   otpCode,
-  expiresMinutes = 10,
+  expiresMinutes = 5,
 }: {
   email: string;
   otpCode: string;
@@ -70,7 +70,7 @@ export function generateOtpEmailHtml({
 
               <!-- Subtitle -->
               <p style="color: #93c5fd; font-size: 12px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                Security Verification • Prevent Fake Registrations
+                Security Verification • Valid For ${expiresMinutes} Minutes
               </p>
             </td>
           </tr>
@@ -84,22 +84,22 @@ export function generateOtpEmailHtml({
                   Verify Your Account Registration
                 </h2>
                 <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0;">
-                  Welcome to <strong>EduTrack Bangladesh</strong>! Please use the following 6-digit One-Time Password (OTP) code to verify your email address (<strong>${email}</strong>) and complete your signup.
+                  Welcome to <strong>EduTrack Bangladesh</strong>! Please use the following 4-digit One-Time Password (OTP) code to verify your email address (<strong>${email}</strong>) and complete your signup.
                 </p>
               </div>
 
               <!-- OTP Code Display Card -->
               <div class="otp-card" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 2px dashed #0D5BFF; border-radius: 20px; padding: 28px 20px; text-align: center; margin: 28px 0; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.08);">
                 <span style="display: block; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #0D5BFF; letter-spacing: 2px; margin-bottom: 12px;">
-                  Your 6-Digit Verification Code
+                  Your 4-Digit Verification Code
                 </span>
                 
-                <div style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 900; color: #0B132B; letter-spacing: 14px; text-indent: 14px; padding: 12px 0;">
+                <div style="font-family: 'Courier New', Courier, monospace; font-size: 42px; font-weight: 900; color: #0B132B; letter-spacing: 16px; text-indent: 16px; padding: 12px 0;">
                   ${otpCode}
                 </div>
 
-                <div style="margin-top: 12px; display: inline-flex; align-items: center; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; padding: 4px 14px; border-radius: 12px; border: 1px solid #fde68a;">
-                  ⏱️ Expires in ${expiresMinutes} Minutes
+                <div style="margin-top: 12px; display: inline-flex; align-items: center; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; padding: 5px 16px; border-radius: 12px; border: 1px solid #fde68a;">
+                  ⏱️ Expires strictly in ${expiresMinutes} Minutes
                 </div>
               </div>
 

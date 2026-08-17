@@ -245,7 +245,7 @@ export default function Signup() {
         setResendSuccessMsg('');
       } else {
         setIpNoticeMsg('');
-        setResendSuccessMsg(`A new 6-digit OTP code has been sent to ${formData.email}. Please check your inbox or spam folder.`);
+        setResendSuccessMsg(`A new 4-digit verification code has been sent to ${formData.email}. Please check your inbox or spam folder.`);
       }
 
       setResendTimer(60);

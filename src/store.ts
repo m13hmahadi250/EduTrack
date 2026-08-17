@@ -416,7 +416,14 @@ export const useAppStore = create<AppState>((set, get) => {
       // User is signed in, fetch profile
       set({ isLoading: true });
       try {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        
+        // If doc not found immediately, retry after a short delay (in case signup/redirect is still writing to Firestore)
+        if (!userDoc.exists()) {
+          await new Promise((r) => setTimeout(r, 450));
+          userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        }
+
         if (userDoc.exists()) {
           let userData = userDoc.data() as User;
           const lowercaseEmail = firebaseUser.email?.toLowerCase();
@@ -440,7 +447,7 @@ export const useAppStore = create<AppState>((set, get) => {
               }
             }
           }
-          set({ currentUser: userData });
+          set({ currentUser: userData, isLoading: false, isInitialized: true });
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
           } catch (e) {}
@@ -448,8 +455,7 @@ export const useAppStore = create<AppState>((set, get) => {
           // Setup real-time listeners for data
           setupListeners(firebaseUser.uid, userData.role, set, get);
         } else {
-          // New user signed in (e.g., via redirect or popup where flow is asynchronous)
-          // Read from localStorage
+          // Fallback / Self-Healing: Create profile for signed-in Firebase user
           const requestedRoleStr = localStorage.getItem('google_auth_requested_role') as Role | null;
           let additionalUserData: any = {};
           try {
@@ -461,55 +467,51 @@ export const useAppStore = create<AppState>((set, get) => {
             console.error("Error parsing stored google additional user data:", e);
           }
 
-          // Clean up localStorage
+          // Clean up temporary registration storage
           localStorage.removeItem('google_auth_requested_role');
           localStorage.removeItem('google_auth_additional_user_data');
 
-          const lowerGEmail = firebaseUser.email?.toLowerCase();
+          const lowerGEmail = (firebaseUser.email || '').toLowerCase();
           const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
-
-          // UNREGISTERED USER GUARD: If user didn't initiate signup flow (no requestedRoleStr) and is not main admin, reject login!
-          if (!requestedRoleStr && !isMainAdmin) {
-            console.warn("Unregistered user attempted login without account creation.");
-            await signOut(auth);
-            cleanupListeners();
-            try {
-              localStorage.removeItem('edutrack_cached_user');
-            } catch (e) {}
-            set({ currentUser: null, isLoading: false, isInitialized: true });
-            return;
-          }
-
           const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
+          const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
+
           const newUser: User = {
             id: firebaseUser.uid,
-            email: firebaseUser.email!,
-            name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
-            phone: firebaseUser.phoneNumber || '',
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'EduTrack User')),
+            phone: firebaseUser.phoneNumber || (additionalUserData?.phone || ''),
             role: finalRole,
             balance: 0,
-            isVerified: isMainAdmin ? true : false,
+            isVerified: isMainAdmin || finalRole === 'student',
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
             profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
             showTour: true,
             createdAt: new Date().toISOString(),
+            referralCode,
             referralPoints: 0,
             serviceDiscounts: 0,
             ...additionalUserData
           };
 
           const cleanedUser = cleanUndefined(newUser);
-          await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
-          set({ currentUser: cleanedUser });
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
+          } catch (createErr) {
+            console.warn("Could not save initial user doc in onAuthStateChanged:", createErr);
+          }
 
-          // Send Brevo Welcome & App Detailed Email
-          sendWelcomeMail({
-            email: cleanedUser.email,
-            name: cleanedUser.name,
-            role: cleanedUser.role,
-            district: cleanedUser.district,
-          }).catch((mailErr) => console.error("Welcome mail error:", mailErr));
+          set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
+
+          if (cleanedUser.email) {
+            sendWelcomeMail({
+              email: cleanedUser.email,
+              name: cleanedUser.name,
+              role: cleanedUser.role,
+              district: cleanedUser.district,
+            }).catch((mailErr) => console.error("Welcome mail error:", mailErr));
+          }
 
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
@@ -518,12 +520,6 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
-        set({ currentUser: null });
-        try {
-          localStorage.removeItem('edutrack_cached_user');
-        } catch (e) {}
-        cleanupListeners();
-      } finally {
         set({ isLoading: false, isInitialized: true });
       }
     } else {
@@ -785,20 +781,68 @@ export const useAppStore = create<AppState>((set, get) => {
         const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
         const firebaseUser = result.user;
 
-        // Verify that the user document actually exists in Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        // Retrieve the user document from Firestore
+        let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (!userDoc.exists()) {
+          // Short retry in case it's in flight
+          await new Promise((r) => setTimeout(r, 400));
+          userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        }
+
+        let userData: User;
+        if (userDoc.exists()) {
+          userData = userDoc.data() as User;
+          const lowerEmail = trimmedEmail.toLowerCase();
+          if (lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') {
+            if (userData.role !== 'admin' || !userData.isVerified) {
+              userData = { ...userData, role: 'admin', isVerified: true };
+              try {
+                await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin', isVerified: true });
+              } catch (e) {
+                console.error("Error upgrading main admin role in login:", e);
+              }
+            }
+          }
+        } else {
+          // Self-heal user document if user authenticated in Firebase Auth
           const lowerEmail = trimmedEmail.toLowerCase();
           const isMainAdmin = lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com';
-          if (!isMainAdmin) {
-            await signOut(auth);
-            set({ currentUser: null, isLoading: false });
-            try {
-              localStorage.removeItem('edutrack_cached_user');
-            } catch (e) {}
-            throw new Error('Account not found. Unregistered users cannot log in. Please create an account first.');
+          const finalRole: Role = isMainAdmin ? 'admin' : 'student';
+          const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
+          
+          userData = {
+            id: firebaseUser.uid,
+            email: lowerEmail,
+            name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : lowerEmail.split('@')[0]),
+            phone: firebaseUser.phoneNumber || '',
+            role: finalRole,
+            balance: 0,
+            isVerified: isMainAdmin || finalRole === 'student',
+            isTrackingOn: false,
+            rating: isMainAdmin ? 5 : 0,
+            profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
+            showTour: true,
+            createdAt: new Date().toISOString(),
+            referralCode,
+            referralPoints: 0,
+            serviceDiscounts: 0,
+          };
+
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), cleanUndefined(userData));
+          } catch (createErr) {
+            console.warn("Could not save initial user doc in login:", createErr);
           }
         }
+
+        // Set state immediately so route guards immediately recognize the user
+        set({ currentUser: userData, isLoading: false, isInitialized: true });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+        } catch (e) {}
+
+        // Setup real-time listeners for data
+        setupListeners(firebaseUser.uid, userData.role, set, get);
       } catch (error: any) {
         // Auto-provision primary main admin on the fly if the credentials match
         const lowerEmail = trimmedEmail.toLowerCase();
@@ -822,7 +866,11 @@ export const useAppStore = create<AppState>((set, get) => {
               serviceDiscounts: 0,
             };
             await setDoc(doc(db, 'users', uid), newUser);
-            set({ currentUser: newUser, isLoading: false });
+            set({ currentUser: newUser, isLoading: false, isInitialized: true });
+            try {
+              localStorage.setItem('edutrack_cached_user', JSON.stringify(newUser));
+            } catch (e) {}
+            setupListeners(uid, newUser.role, set, get);
             return;
           } catch (signupErr) {
             console.error("Auto-provision of main admin failed:", signupErr);
@@ -1057,10 +1105,11 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Save to Firestore
         await setDoc(doc(db, 'users', uid), cleanedUser);
-        set({ currentUser: cleanedUser, isLoading: false });
+        set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
         } catch (e) {}
+        setupListeners(uid, cleanedUser.role, set, get);
 
         // Trigger Brevo Welcome & App Detailed Email
         sendWelcomeMail({
@@ -1880,9 +1929,10 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       }
       set({ currentUser: userData });
     } else {
-      // User document was deleted (e.g. removed by admin)
-      set({ currentUser: null });
-      auth.signOut();
+      // User document not found in snapshot: check if auth is still active before clearing
+      if (!auth.currentUser || auth.currentUser.uid !== uid) {
+        set({ currentUser: null });
+      }
     }
   }, (error) => {
     handleFirestoreError(error, OperationType.GET, `users/${uid}`);

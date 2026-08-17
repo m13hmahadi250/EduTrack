@@ -3047,10 +3047,11 @@ export default function StudentDashboard() {
                <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 px-2">Contacts</h3>
                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar hide-scrollbar">
                   {(() => {
-                    // Logic: Tutors I have a session record with OR message history
+                    // Logic: Tutors I have a session record with OR message history + Admin Support
                     const myTutorIdsFromSessions = mySessions.map(s => s.tutorId);
                     const myTutorIdsFromMessages = messages.map(m => m.senderId === currentUser.id ? m.receiverId : m.senderId);
-                    const allContactIds = Array.from(new Set([...myTutorIdsFromSessions, ...myTutorIdsFromMessages]));
+                    const adminIds = users.filter(u => u.role === 'admin').map(u => u.id);
+                    const allContactIds = Array.from(new Set([...myTutorIdsFromSessions, ...myTutorIdsFromMessages, ...adminIds, ...(selectedRecipientId ? [selectedRecipientId] : [])]));
                     const contacts = users.filter(u => allContactIds.includes(u.id)).sort((a, b) => {
                       const aMsgs = messages.filter(m => 
                         (m.senderId === currentUser.id && m.receiverId === a.id) || 

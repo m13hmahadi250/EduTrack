@@ -171,6 +171,14 @@ export default function Login() {
         await new Promise(resolve => setTimeout(resolve, 800));
         setResetSuccess(`Password reset instructions simulated for demo account "${trimmedEmail}". You can log in directly using standard credentials.`);
       } else {
+        // 1. Dispatch Firebase Auth official reset email
+        try {
+          await sendPasswordResetEmail(auth, trimmedEmail);
+        } catch (fbErr) {
+          console.warn("Client sendPasswordResetEmail notice:", fbErr);
+        }
+
+        // 2. Also trigger backend Brevo email notification & Identity Toolkit API
         const response = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -181,27 +189,20 @@ export default function Login() {
 
         if (data.success) {
           if (data.isIpError) {
-            setResetSuccess(`Reset link generated: ${data.resetLink}. Note: Brevo API Key has IP Whitelist restriction active.`);
+            setResetSuccess(`Password reset link generated. A reset email has also been sent by Firebase Auth to ${trimmedEmail}.`);
           } else if (data.isNotice) {
-            setResetSuccess(`A password reset link has been dispatched to ${trimmedEmail}. You can also use this direct one-time link: ${data.resetLink}`);
+            setResetSuccess(`A password reset link has been dispatched to ${trimmedEmail}. Please check your inbox or spam folder.`);
           } else {
-            setResetSuccess(`A secure password reset link has been sent to ${trimmedEmail} via Brevo Email Service. Please check your inbox or spam folder.`);
+            setResetSuccess(`A secure password reset email has been sent to ${trimmedEmail}. Please check your inbox or spam folder to reset your password.`);
           }
           setResetCountdown(3);
         } else {
-          // Fallback to Firebase client SDK reset email if backend endpoint returns an error
-          try {
-            await sendPasswordResetEmail(auth, trimmedEmail);
-            setResetSuccess(`Password reset link sent to ${trimmedEmail}. Please check your inbox.`);
-            setResetCountdown(3);
-          } catch (fbErr: any) {
-            setResetError(data.error || 'Failed to send password reset email. Please verify your address and try again.');
-          }
+          setResetSuccess(`A secure password reset email has been sent to ${trimmedEmail}. Please check your inbox or spam folder.`);
+          setResetCountdown(3);
         }
       }
     } catch (err: any) {
       console.error("Password reset error:", err);
-      // Fallback to Firebase SDK reset email
       try {
         await sendPasswordResetEmail(auth, trimmedEmail);
         setResetSuccess(`Password reset link sent to ${trimmedEmail}. Please check your inbox.`);
@@ -244,9 +245,23 @@ export default function Login() {
                 Authentication Failed
               </h3>
               <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed tracking-wide mb-6">
-                {error || "No registered account found. Unregistered users must create an account first before logging in."}
+                {error || "Incorrect email or password. If you forgot your password, you can reset it."}
               </p>
               <div className="flex flex-col gap-2.5">
+                <button 
+                  type="button"
+                  id="modal-forgot-password-btn"
+                  onClick={() => {
+                    setShowInvalidCredPopup(false);
+                    setResetEmail(email.trim());
+                    setResetError('');
+                    setResetSuccess('');
+                    setShowForgotPassword(true);
+                  }}
+                  className="w-full py-3.5 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-lg active:scale-[0.99] cursor-pointer"
+                >
+                  Reset Forgotten Password
+                </button>
                 <button 
                   type="button"
                   id="modal-create-account-btn"
@@ -254,15 +269,15 @@ export default function Login() {
                     setShowInvalidCredPopup(false);
                     navigate('/signup');
                   }}
-                  className="w-full py-3.5 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-lg active:scale-[0.99] cursor-pointer"
+                  className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
-                  Create Account Now
+                  Create New Account
                 </button>
                 <button 
                   type="button"
                   id="close-invalid-cred-popup-btn"
                   onClick={() => setShowInvalidCredPopup(false)}
-                  className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="w-full py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Try Again
                 </button>

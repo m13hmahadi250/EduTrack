@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap, Check, X, ArrowRight, Clock } from 'lucide-react';
+import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') || '';
+  const oobCode = searchParams.get('oobCode') || searchParams.get('code') || '';
+  const customToken = searchParams.get('token') || '';
+  const token = oobCode || customToken;
   const emailParam = searchParams.get('email') || '';
 
   const navigate = useNavigate();
@@ -44,16 +48,40 @@ export default function ResetPassword() {
     };
   }, [resetSuccess, redirectCountdown, navigate]);
 
-  // Verify token on component mount
+  // Verify token / oobCode on component mount
   useEffect(() => {
     async function verifyToken() {
       if (!token) {
         setVerifying(false);
         setTokenValid(false);
-        setTokenError('Invalid or missing password reset link token. Please request a new link from the Sign In page.');
+        setTokenError('Invalid or missing password reset link. Please request a new link from the Sign In page.');
         return;
       }
 
+      // If this is a Firebase Auth action code (oobCode)
+      if (oobCode) {
+        try {
+          const userEmail = await verifyPasswordResetCode(auth, oobCode);
+          setTokenValid(true);
+          setVerifiedEmail(userEmail || emailParam || 'your account');
+        } catch (fbErr: any) {
+          console.error('[Firebase Reset Code Verification Error]:', fbErr);
+          const errCode = fbErr?.code || '';
+          if (errCode === 'auth/invalid-action-code' || errCode === 'auth/expired-action-code') {
+            setTokenValid(false);
+            setTokenError('This password reset link is invalid, expired, or has already been used. Please request a new link.');
+          } else {
+            // Allow token to be tried on submit
+            setTokenValid(true);
+            setVerifiedEmail(emailParam || 'your account');
+          }
+        } finally {
+          setVerifying(false);
+        }
+        return;
+      }
+
+      // Otherwise verify custom token with backend API
       try {
         const queryParams = new URLSearchParams({ token });
         if (emailParam) queryParams.set('email', emailParam);
@@ -79,7 +107,7 @@ export default function ResetPassword() {
     }
 
     verifyToken();
-  }, [token, emailParam]);
+  }, [token, oobCode, emailParam]);
 
   // Real-time password criteria evaluation
   const checkPasswordCriteria = (pass: string) => {
@@ -134,11 +162,33 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
+      let firebaseConfirmed = false;
+
+      // 1. If we have a Firebase oobCode, perform direct client-side confirmPasswordReset
+      if (oobCode) {
+        try {
+          await confirmPasswordReset(auth, oobCode, newPassword);
+          firebaseConfirmed = true;
+        } catch (fbResetErr: any) {
+          console.error('[Firebase confirmPasswordReset error]:', fbResetErr);
+          const fbCode = fbResetErr?.code || '';
+          if (fbCode === 'auth/expired-action-code') {
+            throw new Error('This password reset link has expired. Please request a new link.');
+          } else if (fbCode === 'auth/invalid-action-code') {
+            throw new Error('This password reset link is invalid or has already been used.');
+          } else if (fbCode === 'auth/weak-password') {
+            throw new Error('Password is too weak. Please use at least 8 characters with numbers and letters.');
+          }
+        }
+      }
+
+      // 2. Also dispatch backend update to synchronize token state and backend service
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
+          oobCode: oobCode || undefined,
           email: verifiedEmail,
           newPassword,
         }),
@@ -146,7 +196,7 @@ export default function ResetPassword() {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (firebaseConfirmed || data.success) {
         setResetSuccess(true);
         setRedirectCountdown(3);
       } else {
