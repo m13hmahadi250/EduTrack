@@ -261,6 +261,28 @@ export default function TutorDashboard() {
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  const effectiveTutorLocation = useMemo<[number, number]>(() => {
+    if (currentUser?.location?.lat && currentUser?.location?.lng) {
+      return [currentUser.location.lat, currentUser.location.lng];
+    }
+    if (currentUser?.lastLocation?.lat && currentUser?.lastLocation?.lng) {
+      return [currentUser.lastLocation.lat, currentUser.lastLocation.lng];
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('edutrack_last_gps_location');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.lat && parsed.lng) return [parsed.lat, parsed.lng];
+        }
+      } catch (e) {}
+    }
+    if (currentUser?.district || currentUser?.thana || currentUser?.area) {
+      return getCoordinatesForLocation(currentUser.district || 'Dhaka', currentUser.thana || currentUser.area, currentUser?.id || 'me');
+    }
+    return [23.8103, 90.4125];
+  }, [currentUser?.location, currentUser?.lastLocation, currentUser?.district, currentUser?.thana, currentUser?.area, currentUser?.id]);
+
   const shareProfile = async () => {
     if (!currentUser) return;
     const profileUrl = `${window.location.origin}/teachers/${currentUser.id}`;
@@ -1612,65 +1634,49 @@ export default function TutorDashboard() {
                   </div>
 
                   <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
-                    {currentUser.isTrackingOn ? (
-                      <Suspense fallback={<MapLoading />}>
-                        <MapTracker
-                          tutorLocation={
-                            currentUser.location
-                              ? [
-                                  currentUser.location.lat,
-                                  currentUser.location.lng,
-                                ]
-                              : undefined
-                          }
-                          tutorName="Me (Tutor)"
-                          tutorImage={currentUser.profileImage}
-                          students={(() => {
-                            const uniqueStudents = new Map();
-                            sessions
-                              .filter(
-                                (s) =>
-                                  s.status === "active" ||
-                                  s.status === "scheduled",
-                              )
-                              .forEach((s) => {
-                                const student = users.find(
-                                  (u) => u.id === s.studentId,
-                                );
-                                if (
-                                  student?.location &&
-                                  !uniqueStudents.has(student.id)
-                                ) {
+                    <Suspense fallback={<MapLoading />}>
+                      <MapTracker
+                        tutorLocation={effectiveTutorLocation}
+                        tutorName="Me (Tutor)"
+                        tutorImage={currentUser.profileImage}
+                        students={(() => {
+                          const uniqueStudents = new Map();
+                          sessions
+                            .filter(
+                              (s) =>
+                                s.status === "active" ||
+                                s.status === "scheduled",
+                            )
+                            .forEach((s) => {
+                              const student = users.find(
+                                (u) => u.id === s.studentId,
+                              );
+                              if (student) {
+                                let coords: [number, number] | undefined;
+                                if (student.location?.lat && student.location?.lng) {
+                                  coords = [student.location.lat, student.location.lng];
+                                } else if (student.lastLocation?.lat && student.lastLocation?.lng) {
+                                  coords = [student.lastLocation.lat, student.lastLocation.lng];
+                                } else if (student.district || student.thana || student.area) {
+                                  coords = getCoordinatesForLocation(student.district || 'Dhaka', student.thana || student.area, student.id);
+                                }
+                                if (coords && !uniqueStudents.has(student.id)) {
                                   uniqueStudents.set(student.id, {
                                     id: student.id,
-                                    location: [
-                                      student.location.lat,
-                                      student.location.lng,
-                                    ] as [number, number],
+                                    location: coords,
                                     name: student.name,
                                     image: student.profileImage,
-                                    isOnline: student.isTrackingOn,
+                                    isOnline: student.isTrackingOn || student.isOnline,
+                                    isLastKnownLocation: !student.location && Boolean(student.lastLocation),
+                                    lastLocationUpdatedAt: student.lastLocationUpdatedAt || student.lastActiveAt,
                                   });
                                 }
-                              });
-                            return Array.from(uniqueStudents.values());
-                          })()}
-                        />
-                      </Suspense>
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-start md:items-center justify-center bg-slate-900/95 text-left md:text-center p-12">
-                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
-                          <MapPin className="w-10 h-10 text-slate-700" />
-                        </div>
-                        <h4 className="text-white text-xl font-black uppercase italic mb-4">
-                          Signal Blocked
-                        </h4>
-                        <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest leading-loose">
-                          Enable tracking to visualize proximity intel and
-                          student distance
-                        </p>
-                      </div>
-                    )}
+                              }
+                            });
+                          return Array.from(uniqueStudents.values());
+                        })()}
+                      />
+                    </Suspense>
                   </div>
 
                   {currentUser.location && (

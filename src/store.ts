@@ -106,6 +106,9 @@ export interface User {
   showOnHomePage?: boolean;
   showTour?: boolean;
   isOnline?: boolean;
+  lastLocation?: { lat: number; lng: number };
+  lastLocationUpdatedAt?: string;
+  lastActiveAt?: string;
   createdAt?: string;
   savedTutors?: string[];
   referralCode?: string;
@@ -248,6 +251,7 @@ interface AppState {
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   updateLocation: (id: string, lat: number, lng: number) => Promise<void>;
+  setUserActiveStatus: (id: string, isOnline: boolean) => Promise<void>;
   toggleTracking: (id: string, isOn: boolean) => Promise<void>;
   updateAvailabilitySlots: (slots: { [key: string]: string[] }) => Promise<void>;
   
@@ -1188,8 +1192,22 @@ export const useAppStore = create<AppState>((set, get) => {
 
     updateLocation: async (id, lat, lng) => {
       try {
+        const now = new Date().toISOString();
         const location = { lat, lng };
-        const updatesPayload: Record<string, any> = { location };
+        const updatesPayload: Record<string, any> = { 
+          location,
+          lastLocation: location,
+          lastLocationUpdatedAt: now,
+          lastActiveAt: now,
+          isOnline: true
+        };
+
+        // Cache to local storage immediately for fast restoration on reload
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('edutrack_last_gps_location', JSON.stringify({ lat, lng, updatedAt: now }));
+          } catch (e) {}
+        }
 
         // Attempt non-blocking reverse geocoding to keep user area & district accurate in real-time
         try {
@@ -1217,6 +1235,28 @@ export const useAppStore = create<AppState>((set, get) => {
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      }
+    },
+
+    setUserActiveStatus: async (id: string, isOnline: boolean) => {
+      try {
+        const now = new Date().toISOString();
+        const updatesPayload: Record<string, any> = {
+          isOnline,
+          lastActiveAt: now
+        };
+        await updateDoc(doc(db, 'users', id), updatesPayload);
+
+        const current = get().currentUser;
+        if (current?.id === id) {
+          set({ currentUser: { ...current, ...updatesPayload } });
+        }
+        const usersList = get().users;
+        set({
+          users: usersList.map(u => u.id === id ? { ...u, ...updatesPayload } : u)
+        });
+      } catch (error) {
+        // Non-critical presence update error
       }
     },
 

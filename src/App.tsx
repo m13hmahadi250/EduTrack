@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LogOut } from 'lucide-react';
 import { useAppStore, consumePostLoginDestination } from './store';
 import { prefetchPage, prefetchMultiple } from './utils/prefetch';
+import { getCurrentAccuratePosition, watchAccuratePosition } from './utils/geocoding';
 import Navbar from './components/Navbar';
 import DashboardLayout from './components/DashboardLayout';
 import PromotionalBanner from './components/PromotionalBanner';
@@ -246,6 +247,87 @@ function LayoutWrapper() {
       }
     }
   }, [currentUser]);
+
+  // Real-time GPS Location & Active Presence Lifecycle Sync
+  React.useEffect(() => {
+    if (!currentUser?.id) return;
+    const userId = currentUser.id;
+
+    // 1. Initial High Accuracy GPS scan on startup/login
+    getCurrentAccuratePosition(
+      (pos) => {
+        useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+      },
+      (err) => {
+        // Silently preserve last location if GPS permission is not granted or unavailable
+        console.log('[GPS Sync] Device GPS unavailable or permission prompt skipped, using last known location:', err?.message);
+      }
+    );
+
+    // 2. Watch position continuously as user moves
+    const watchId = watchAccuratePosition(
+      (pos) => {
+        useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+      }
+    );
+
+    // 3. Mark user online on active mount
+    useAppStore.getState().setUserActiveStatus(userId, true);
+
+    // 4. Tab visibility and browser close lifecycle handlers
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        useAppStore.getState().setUserActiveStatus(userId, false);
+      } else if (document.visibilityState === 'visible') {
+        useAppStore.getState().setUserActiveStatus(userId, true);
+        // Refresh GPS on re-focusing
+        getCurrentAccuratePosition((pos) => {
+          useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+        });
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      useAppStore.getState().setUserActiveStatus(userId, false);
+    };
+
+    // 5. Inactivity timer (marks user inactive if idle for 8 mins)
+    let idleTimer: any = null;
+    const resetIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      // If user was previously inactive and becomes active again
+      const currentOnline = useAppStore.getState().currentUser?.isOnline;
+      if (currentOnline === false && document.visibilityState === 'visible') {
+        useAppStore.getState().setUserActiveStatus(userId, true);
+      }
+      idleTimer = setTimeout(() => {
+        useAppStore.getState().setUserActiveStatus(userId, false);
+      }, 8 * 60 * 1000); // 8 minutes idle
+    };
+
+    resetIdleTimer();
+
+    const activityEvents = ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+    const onUserActivity = () => {
+      resetIdleTimer();
+    };
+
+    activityEvents.forEach(evt => window.addEventListener(evt, onUserActivity, { passive: true }));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        try {
+          navigator.geolocation.clearWatch(watchId);
+        } catch (e) {}
+      }
+      if (idleTimer) clearTimeout(idleTimer);
+      activityEvents.forEach(evt => window.removeEventListener(evt, onUserActivity));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser?.id]);
 
   React.useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {

@@ -29,6 +29,8 @@ import {
   ShieldAlert,
   Filter,
   Phone,
+  MapPin,
+  Compass,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -37,6 +39,7 @@ import { formatJoinDate } from "../../components/admin/AdminUserDirectory";
 
 const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
 const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
+const AdminUserMap = lazy(() => import("../../components/admin/AdminUserMap"));
 const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
 const AdminMongoDatabase = lazy(() => import("../../components/admin/AdminMongoDatabase"));
 const ImageUpload = lazy(() => import("../../components/ImageUpload"));
@@ -67,13 +70,14 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = useMemo<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/verifications")) return "verifications";
     if (path.endsWith("/payments")) return "payments";
     if (path.endsWith("/withdrawals")) return "withdrawals";
     if (path.endsWith("/users")) return "users";
+    if (path.endsWith("/map") || path.endsWith("/geo")) return "map";
     if (path.endsWith("/sessions")) return "sessions";
     if (path.endsWith("/messages")) return "messages";
     if (path.endsWith("/analytics")) return "analytics";
@@ -216,11 +220,12 @@ export default function AdminDashboard() {
   // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map",
   ) => {
     setSelectedTutorIds([]);
     const pathMap: Record<string, string> = {
       users: "/dashboard",
+      map: "/dashboard/map",
       verifications: "/dashboard/verifications",
       payments: "/dashboard/payments",
       withdrawals: "/dashboard/withdrawals",
@@ -469,6 +474,7 @@ export default function AdminDashboard() {
           {[
             { id: "analytics", label: "Command Center", icon: LayoutDashboard },
             { id: "users", label: "User directory", icon: Users },
+            { id: "map", label: "User Geo Map", icon: MapPin },
             { id: "verifications", label: "Identity protocol", icon: Shield },
             { id: "payments", label: "Inbound revenue", icon: CreditCard },
             { id: "withdrawals", label: "Tutor payouts", icon: Wallet },
@@ -519,6 +525,7 @@ export default function AdminDashboard() {
       <div className="lg:flex hidden space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
         {[
           { id: "users", label: "User directory" },
+          { id: "map", label: "Geo Map Matrix" },
           { id: "verifications", label: "Identity protocol" },
           { id: "analytics", label: "Command Center" },
           { id: "payments", label: "Inbound revenue" },
@@ -1663,6 +1670,26 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === "map" && (
+          <motion.div
+            key="map"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+          >
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminUserMap
+                users={users}
+                onMessageUser={(userId) => {
+                  setSelectedRecipientId(userId);
+                  handleTabChange("messages");
+                }}
+              />
+            </Suspense>
           </motion.div>
         )}
 

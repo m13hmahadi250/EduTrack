@@ -319,6 +319,28 @@ export default function StudentDashboard() {
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
 
+  const effectiveStudentLocation = useMemo<[number, number]>(() => {
+    if (currentUser?.location?.lat && currentUser?.location?.lng) {
+      return [currentUser.location.lat, currentUser.location.lng];
+    }
+    if (currentUser?.lastLocation?.lat && currentUser?.lastLocation?.lng) {
+      return [currentUser.lastLocation.lat, currentUser.lastLocation.lng];
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('edutrack_last_gps_location');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.lat && parsed.lng) return [parsed.lat, parsed.lng];
+        }
+      } catch (e) {}
+    }
+    if (currentUser?.district || currentUser?.thana || currentUser?.area) {
+      return getCoordinatesForLocation(currentUser.district || 'Dhaka', currentUser.thana || currentUser.area, currentUser?.id || 'me');
+    }
+    return [23.8103, 90.4125];
+  }, [currentUser?.location, currentUser?.lastLocation, currentUser?.district, currentUser?.thana, currentUser?.area, currentUser?.id]);
+
   const getMaskedPhone = (phone?: string) => {
     if (!phone) return 'Hidden for Privacy';
     const trimmed = phone.trim();
@@ -2821,117 +2843,87 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                     )}
-                    {!currentUser?.location ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
-                        <MapPin className="w-12 h-12 mb-4 text-[#0D5BFF] animate-bounce" />
-                        <h4 className="text-lg font-black uppercase tracking-widest">Active Radar Offline</h4>
-                        <p className="text-xs text-slate-300 uppercase tracking-wider mt-2 px-6 leading-relaxed bg-white/5 py-3 rounded-2xl border border-white/5">
-                          EduTrack requires your coordinates to scan your sector for nearby academic mentors.
-                        </p>
-                        <div className="flex flex-col sm:flex-row items-center gap-3 mt-6 w-full max-w-xs justify-center mx-auto">
-                          <button 
-                            onClick={refreshLocationManual}
-                            disabled={isRefreshingLocation}
-                            className="w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
-                          >
-                            <Compass className={`w-4 h-4 ${isRefreshingLocation ? 'animate-spin' : ''}`} />
-                            GPS Scan
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              await updateLocation(currentUser!.id, 23.7508, 90.3935);
-                              useAppStore.getState().sendNotification(
-                                currentUser!.id,
-                                "Dhaka Center Simulated",
-                                "Simulated location near student's Dhaka portal.",
-                                "success"
-                              );
-                            }}
-                            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg active:scale-95 text-center"
-                          >
-                            Demo Sandbox Scan
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative animate-fade-in">
-                        <Suspense fallback={<MapLoading />}>
-                          <MapTracker 
-                            studentLocation={[currentUser.location.lat, currentUser.location.lng]}
-                            studentName="Me"
-                            studentImage={currentUser.profileImage}
-                            tutors={(() => {
-                              if (transitMode === 'tracking') {
-                                const uniqueTutors = new Map();
-                                mySessions
-                                  .filter(s => s.status === 'active' || s.status === 'scheduled')
-                                  .forEach(s => {
-                                    const tutor = users.find(u => u.id === s.tutorId);
-                                    if (tutor) {
-                                      // Apply search filters
-                                      if (mapSubjectQuery) {
-                                        const tSub = tutor.subjects || [];
-                                        if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
-                                          return;
-                                        }
-                                      }
-                                      if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
+                    <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative animate-fade-in">
+                      <Suspense fallback={<MapLoading />}>
+                        <MapTracker 
+                          studentLocation={effectiveStudentLocation}
+                          studentName="Me"
+                          studentImage={currentUser?.profileImage}
+                          tutors={(() => {
+                            if (transitMode === 'tracking') {
+                              const uniqueTutors = new Map();
+                              mySessions
+                                .filter(s => s.status === 'active' || s.status === 'scheduled')
+                                .forEach(s => {
+                                  const tutor = users.find(u => u.id === s.tutorId);
+                                  if (tutor) {
+                                    // Apply search filters
+                                    if (mapSubjectQuery) {
+                                      const tSub = tutor.subjects || [];
+                                      if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
                                         return;
                                       }
+                                    }
+                                    if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
+                                      return;
+                                    }
 
-                                      const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
-                                      if (coords && !uniqueTutors.has(tutor.id)) {
-                                        uniqueTutors.set(tutor.id, {
-                                          id: tutor.id,
-                                          location: coords,
-                                          name: tutor.name,
-                                          image: tutor.profileImage,
-                                          isOnline: tutor.isTrackingOn,
-                                          subjects: tutor.subjects,
-                                          rating: tutor.rating
-                                        });
-                                      }
+                                    const coords = getTutorLocation(tutor.id, tutor.location || tutor.lastLocation, effectiveStudentLocation, tutor.district, tutor.thana);
+                                    if (coords && !uniqueTutors.has(tutor.id)) {
+                                      uniqueTutors.set(tutor.id, {
+                                        id: tutor.id,
+                                        location: coords,
+                                        name: tutor.name,
+                                        image: tutor.profileImage,
+                                        isOnline: tutor.isTrackingOn || tutor.isOnline,
+                                        isLastKnownLocation: !tutor.location && Boolean(tutor.lastLocation),
+                                        lastLocationUpdatedAt: tutor.lastLocationUpdatedAt || tutor.lastActiveAt,
+                                        subjects: tutor.subjects,
+                                        rating: tutor.rating
+                                      });
                                     }
-                                  });
-                                return Array.from(uniqueTutors.values());
-                              } else {
-                                return users
-                                  .filter(u => u.role === 'tutor' && u.isVerified)
-                                  .filter(u => {
-                                    if (mapSubjectQuery) {
-                                      const uSub = u.subjects || [];
-                                      if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
-                                        return false;
-                                      }
-                                    }
-                                    if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
+                                  }
+                                });
+                              return Array.from(uniqueTutors.values());
+                            } else {
+                              return users
+                                .filter(u => u.role === 'tutor' && u.isVerified)
+                                .filter(u => {
+                                  if (mapSubjectQuery) {
+                                    const uSub = u.subjects || [];
+                                    if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
                                       return false;
                                     }
-                                    return true;
-                                  })
-                                  .map(t => {
-                                    const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng], t.district, t.thana);
-                                    if (!coords) return null;
-                                    const dist = getDistance(currentUser.location!.lat, currentUser.location!.lng, coords[0], coords[1]);
-                                    if (dist > nearbyRadius) return null;
-                                    return {
-                                      id: t.id,
-                                      location: coords,
-                                      name: t.name,
-                                      image: t.profileImage,
-                                      isOnline: t.isTrackingOn,
-                                      subjects: t.subjects,
-                                      rating: t.rating
-                                    };
-                                  })
-                                  .filter((t): t is NonNullable<typeof t> => t !== null);
-                              }
-                            })()}
-                            eta={transitMode === 'tracking' ? eta : undefined}
-                          />
-                        </Suspense>
-                      </div>
-                    )}
+                                  }
+                                  if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
+                                    return false;
+                                  }
+                                  return true;
+                                })
+                                .map(t => {
+                                  const coords = getTutorLocation(t.id, t.location || t.lastLocation, effectiveStudentLocation, t.district, t.thana);
+                                  if (!coords) return null;
+                                  const dist = getDistance(effectiveStudentLocation[0], effectiveStudentLocation[1], coords[0], coords[1]);
+                                  if (dist > nearbyRadius) return null;
+                                  return {
+                                    id: t.id,
+                                    location: coords,
+                                    name: t.name,
+                                    image: t.profileImage,
+                                    isOnline: t.isTrackingOn || t.isOnline,
+                                    isLastKnownLocation: !t.location && Boolean(t.lastLocation),
+                                    lastLocationUpdatedAt: t.lastLocationUpdatedAt || t.lastActiveAt,
+                                    subjects: t.subjects,
+                                    rating: t.rating
+                                  };
+                                })
+                                .filter((t): t is NonNullable<typeof t> => t !== null);
+                            }
+                          })()}
+                          eta={transitMode === 'tracking' ? eta : undefined}
+                        />
+                      </Suspense>
+                    </div>
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">

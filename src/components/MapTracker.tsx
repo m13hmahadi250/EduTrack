@@ -23,6 +23,11 @@ interface UserMarker {
   name: string;
   image?: string;
   isOnline?: boolean;
+  lastActiveAt?: string;
+  lastLocationUpdatedAt?: string;
+  isLastKnownLocation?: boolean;
+  district?: string;
+  thana?: string;
   subjects?: string[];
   rating?: number;
 }
@@ -39,19 +44,48 @@ interface MapTrackerProps {
   students?: UserMarker[];
 }
 
+export function formatTimeAgo(isoString?: string): string {
+  if (!isoString) return 'Recently';
+  try {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    if (diffMs < 0 || isNaN(diffMs)) return 'Recently';
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
 // Custom Circular HTML DivIcon Generator for Ride-Sharing / Delivery Tracking UI
 const createCustomCircularMarker = (
   type: 'start' | 'destination' | 'tutor' | 'student',
   name: string,
   image?: string,
   isOnline?: boolean,
-  roleLabel?: string
+  roleLabel?: string,
+  isLastKnownLocation?: boolean
 ) => {
   const isStart = type === 'start' || type === 'tutor';
-  const themeColor = isStart ? '#10b981' : '#2dd4bf'; // Emerald Green for Start, Teal for Destination
-  const themeBg = isStart ? '#ecfdf5' : '#f0fdfa';
-  const badgeText = roleLabel || (isStart ? 'START' : 'DESTINATION');
-  const badgeBg = isStart ? '#10b981' : '#0d9488';
+  const isLive = isOnline !== false && !isLastKnownLocation;
+  
+  // Dynamic color palette: Emerald/Teal when live, Amber/Slate when showing last known position
+  const themeColor = isLive 
+    ? (isStart ? '#10b981' : '#06b6d4') 
+    : (isStart ? '#d97706' : '#64748b');
+  const themeBg = isLive
+    ? (isStart ? '#ecfdf5' : '#ecfeff')
+    : (isStart ? '#fffbeb' : '#f8fafc');
+  const badgeText = isLive 
+    ? (roleLabel || (isStart ? 'LIVE TUTOR' : 'LIVE STUDENT'))
+    : (isLastKnownLocation ? 'LAST LOCATION' : (roleLabel || 'OFFLINE'));
+  const badgeBg = isLive
+    ? (isStart ? '#10b981' : '#0891b2')
+    : (isStart ? '#b45309' : '#475569');
 
   const avatarContent = image 
     ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" />`
@@ -63,18 +97,20 @@ const createCustomCircularMarker = (
     className: 'custom-circular-marker',
     html: `
       <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        <!-- Pulsing Aura Ring -->
-        <div style="position: absolute; width: 48px; height: 48px; border-radius: 50%; background-color: ${themeColor}; opacity: 0.35; animation: custom-sonar 2s infinite ease-out; pointer-events: none; z-index: -1;"></div>
+        <!-- Pulsing Aura Ring (Only active when live) -->
+        ${isLive ? `
+          <div style="position: absolute; width: 48px; height: 48px; border-radius: 50%; background-color: ${themeColor}; opacity: 0.35; animation: custom-sonar 2s infinite ease-out; pointer-events: none; z-index: -1;"></div>
+        ` : ''}
         
         <!-- Circular Avatar Frame -->
         <div style="width: 40px; height: 40px; border-radius: 50%; background-color: #ffffff; border: 3px solid ${themeColor}; box-shadow: 0 10px 25px -3px rgba(0,0,0,0.3), 0 4px 10px -2px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
           ${avatarContent}
-          ${isOnline !== false ? `<div style="position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; background-color: #10b981; border-radius: 50%; border: 1.5px solid white;"></div>` : ''}
+          <div style="position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; background-color: ${isLive ? '#10b981' : '#94a3b8'}; border-radius: 50%; border: 1.5px solid white;"></div>
         </div>
 
-        <!-- Role Badge Tag -->
-        <div style="margin-top: 3px; background-color: ${badgeBg}; color: white; font-size: 7.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap;">
-          ${badgeText}
+        <!-- Role / Status Badge Tag -->
+        <div style="margin-top: 3px; background-color: ${badgeBg}; color: white; font-size: 7.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; display: flex; align-items: center; gap: 3px;">
+          ${isLive ? '● ' : '📍 '}${badgeText}
         </div>
       </div>
     `,
@@ -82,6 +118,42 @@ const createCustomCircularMarker = (
     iconAnchor: [24, 30],
     popupAnchor: [0, -32]
   });
+};
+
+export type MapLayerPresetId = 'streets' | 'dark' | 'satellite';
+
+export const MAP_LAYER_PRESETS: Record<MapLayerPresetId, {
+  id: MapLayerPresetId;
+  label: string;
+  shortLabel: string;
+  url: string;
+  attribution: string;
+  maxZoom: number;
+}> = {
+  streets: {
+    id: 'streets',
+    label: 'Clean Streets',
+    shortLabel: 'Streets',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 20,
+  },
+  dark: {
+    id: 'dark',
+    label: 'Tactical Dark',
+    shortLabel: 'Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  },
+  satellite: {
+    id: 'satellite',
+    label: 'Satellite Imagery',
+    shortLabel: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and GIS Community',
+    maxZoom: 18,
+  }
 };
 
 function CustomMapHUD({ 
@@ -93,7 +165,9 @@ function CustomMapHUD({
   students,
   isPinningMode,
   setIsPinningMode,
-  hasUser
+  hasUser,
+  activeLayer,
+  onSelectLayer,
 }: { 
   map: L.Map | null;
   center: [number, number]; 
@@ -104,6 +178,8 @@ function CustomMapHUD({
   isPinningMode: boolean;
   setIsPinningMode: (val: boolean) => void;
   hasUser: boolean;
+  activeLayer: MapLayerPresetId;
+  onSelectLayer: (layer: MapLayerPresetId) => void;
 }) {
   const { currentUser, updateLocation } = useAppStore();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -166,27 +242,70 @@ function CustomMapHUD({
 
   return (
     <>
+      {/* Top Left: Live GPS / Last Location Status Badge */}
       {hasUser && (
         <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg border border-slate-200/60 dark:border-slate-800/80">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-[10px] font-bold tracking-wider text-slate-700 dark:text-slate-200 uppercase">
-            Device GPS Live
-          </span>
+          {currentUser?.isOnline !== false && currentUser?.location ? (
+            <>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-black tracking-wider text-emerald-700 dark:text-emerald-400 uppercase">
+                Live GPS
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500 inline-block"></span>
+              </span>
+              <span className="text-[10px] font-black tracking-wider text-amber-700 dark:text-amber-400 uppercase flex items-center gap-1">
+                Last Location <span className="text-[8.5px] opacity-80 font-medium lowercase">({formatTimeAgo(currentUser?.lastLocationUpdatedAt || currentUser?.lastActiveAt)})</span>
+              </span>
+            </>
+          )}
           <button
             type="button"
             onClick={handleSyncGPS}
             disabled={isSyncing}
             className="ml-1 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
-            title="Sync Device GPS Location Now"
+            title="Refresh Live GPS Coordinates"
           >
             <Crosshair className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-500' : ''}`} />
           </button>
         </div>
       )}
 
+      {/* Bottom Left: Tile Layer Preset Selector */}
+      <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md p-1 rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80">
+        {(['streets', 'dark', 'satellite'] as MapLayerPresetId[]).map((layerId) => {
+          const preset = MAP_LAYER_PRESETS[layerId];
+          const isActive = activeLayer === layerId;
+          return (
+            <button
+              key={layerId}
+              type="button"
+              onClick={() => onSelectLayer(layerId)}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[8.5px] sm:text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                isActive
+                  ? layerId === 'satellite'
+                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/40'
+                    : layerId === 'dark'
+                      ? 'bg-[#0B132B] dark:bg-slate-950 text-white shadow-sm border border-slate-700/60 ring-1 ring-slate-700/40'
+                      : 'bg-[#0D5BFF] text-white shadow-sm ring-1 ring-blue-500/40'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80'
+              }`}
+              title={preset.label}
+            >
+              <span className="hidden sm:inline">{preset.label}</span>
+              <span className="sm:hidden">{preset.shortLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bottom Right: Map Zoom, Calibration Pin, Recenter & Focus Controls */}
       <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-1.5 p-1 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/60 dark:border-slate-800/80 transition-colors">
         <button 
           type="button"
@@ -260,6 +379,7 @@ const MapTracker = memo(({
 
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [isPinningMode, setIsPinningMode] = useState(false);
+  const [activeLayer, setActiveLayer] = useState<MapLayerPresetId>(theme === 'dark' ? 'dark' : 'streets');
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [routeDetails, setRouteDetails] = useState<{ distanceKm: string; durationMins: number } | null>(null);
 
@@ -305,10 +425,33 @@ const MapTracker = memo(({
   const activeStartLocation = tutorLocation || (selectedTutorObj ? selectedTutorObj.location : undefined);
 
   const center = useMemo<[number, number]>(() => {
+    // 1. Live GPS of current logged in user
+    if (currentUser?.location?.lat && currentUser?.location?.lng) {
+      return [currentUser.location.lat, currentUser.location.lng];
+    }
+    // 2. Last known location stored in currentUser
+    if (currentUser?.lastLocation?.lat && currentUser?.lastLocation?.lng) {
+      return [currentUser.lastLocation.lat, currentUser.lastLocation.lng];
+    }
+    // 3. LocalStorage cached last GPS location
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('edutrack_last_gps_location');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.lat && parsed.lng) return [parsed.lat, parsed.lng];
+        }
+      } catch (e) {}
+    }
+    // 4. Props passed (studentLocation or tutorLocation)
+    if (studentLocation) return studentLocation;
+    if (tutorLocation) return tutorLocation;
+    // 5. Surrounding markers
     if (tutors && tutors.length > 0) return tutors[0].location;
     if (students && students.length > 0) return students[0].location;
-    return tutorLocation || studentLocation || [23.8103, 90.4125];
-  }, [tutorLocation, studentLocation, tutors, students]);
+    // 6. Bangladesh / Dhaka default center
+    return [23.8103, 90.4125];
+  }, [currentUser?.location, currentUser?.lastLocation, tutorLocation, studentLocation, tutors, students]);
 
   // Safely initialize Leaflet defaults & marker cluster in client lifecycle
   useEffect(() => {
@@ -364,12 +507,10 @@ const MapTracker = memo(({
       attributionControl: false,
     });
 
-    const tileUrl = theme === 'dark' 
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-
-    const tileLayer = L.tileLayer(tileUrl, {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    const initialLayerConfig = MAP_LAYER_PRESETS[activeLayer];
+    const tileLayer = L.tileLayer(initialLayerConfig.url, {
+      attribution: initialLayerConfig.attribution,
+      maxZoom: initialLayerConfig.maxZoom,
     });
     tileLayer.on('tileerror', () => {
       // Ignore tile load failures when offline
@@ -436,13 +577,18 @@ const MapTracker = memo(({
     };
   }, [mapInstance]);
 
-  // Update Theme
+  // Update Tile Layer when preset changes
   useEffect(() => {
     if (!tileLayerRef.current) return;
-    const tileUrl = theme === 'dark' 
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-    tileLayerRef.current.setUrl(tileUrl);
+    const config = MAP_LAYER_PRESETS[activeLayer];
+    tileLayerRef.current.setUrl(config.url);
+  }, [activeLayer]);
+
+  // Sync with theme changes unless satellite view is explicitly active
+  useEffect(() => {
+    if (activeLayer !== 'satellite') {
+      setActiveLayer(theme === 'dark' ? 'dark' : 'streets');
+    }
   }, [theme]);
 
   // --------------------------------------------------------------------------
@@ -597,6 +743,7 @@ const MapTracker = memo(({
 
     // 3. Point A (Start / Tutor) Marker using Custom Circular DivIcon
     if (tutorLocation) {
+      const isStartLive = true;
       const popupHtml = `
         <div style="padding: 10px; min-width: 140px;">
           <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #10b981; margin-bottom: 4px;">
@@ -624,7 +771,7 @@ const MapTracker = memo(({
       `;
 
       L.marker(tutorLocation, { 
-        icon: createCustomCircularMarker('start', tutorName || 'Tutor', tutorImage, true, 'START / TUTOR') 
+        icon: createCustomCircularMarker('start', tutorName || 'Tutor', tutorImage, isStartLive, 'START / TUTOR', false) 
       })
       .bindPopup(popupHtml)
       .addTo(group);
@@ -649,7 +796,7 @@ const MapTracker = memo(({
       `;
 
       L.marker(studentLocation, { 
-        icon: createCustomCircularMarker('destination', studentName || 'Student', studentImage, true, 'DESTINATION') 
+        icon: createCustomCircularMarker('destination', studentName || 'Student', studentImage, true, 'DESTINATION', false) 
       })
       .bindPopup(popupHtml)
       .addTo(group);
@@ -663,6 +810,9 @@ const MapTracker = memo(({
       }) : L.layerGroup();
 
       tutors.forEach(tutor => {
+        const isLive = tutor.isOnline !== false && !tutor.isLastKnownLocation;
+        const lastSeenText = formatTimeAgo(tutor.lastLocationUpdatedAt || tutor.lastActiveAt);
+
         const subjectsHtml = tutor.subjects && tutor.subjects.length > 0 
           ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; max-width: 150px;">
               ${tutor.subjects.slice(0, 3).map(sub => `<span style="background-color: #ecfdf5; color: #047857; font-size: 7px; font-weight: 800; text-transform: uppercase; padding: 2px 4px; border-radius: 4px; border: 1px solid #a7f3d0;">${sub}</span>`).join('')}
@@ -670,9 +820,9 @@ const MapTracker = memo(({
           : '';
 
         const popupHtml = `
-          <div style="padding: 10px; min-width: 140px;">
-            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #10b981; margin-bottom: 2px;">
-              ${tutor.name} (Expert)
+          <div style="padding: 10px; min-width: 150px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: ${isLive ? '#10b981' : '#b45309'}; margin-bottom: 2px;">
+              ${tutor.name} (${isLive ? 'Online Mentor' : 'Mentor'})
             </div>
             ${tutor.rating !== undefined ? `
               <div style="font-size: 9.5px; font-weight: 900; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
@@ -680,8 +830,8 @@ const MapTracker = memo(({
               </div>
             ` : ''}
             ${subjectsHtml}
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
-              Status: ${tutor.isOnline ? 'Broadcasting' : 'Offline'}
+            <div style="font-size: 8px; font-weight: 700; color: ${isLive ? '#059669' : '#64748b'}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+              ${isLive ? '🟢 Live GPS Broadcasting' : `📍 Last Known Location (${lastSeenText})`}
             </div>
             ${studentLocation ? `
               <button type="button" data-tutor-id="${tutor.id}"
@@ -693,7 +843,7 @@ const MapTracker = memo(({
         `;
 
         const marker = L.marker(tutor.location, {
-          icon: createCustomCircularMarker('tutor', tutor.name, tutor.image, tutor.isOnline, 'TUTOR')
+          icon: createCustomCircularMarker('tutor', tutor.name, tutor.image, tutor.isOnline, isLive ? 'LIVE TUTOR' : 'LAST LOCATION', tutor.isLastKnownLocation)
         }).bindPopup(popupHtml);
 
         clusterGroup.addLayer(marker);
@@ -705,19 +855,22 @@ const MapTracker = memo(({
     // 6. Multiple students
     if (students && students.length > 0) {
       students.forEach(student => {
+        const isLive = student.isOnline !== false && !student.isLastKnownLocation;
+        const lastSeenText = formatTimeAgo(student.lastLocationUpdatedAt || student.lastActiveAt);
+
         const popupHtml = `
-          <div style="padding: 8px; min-width: 120px;">
-            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: #0d9488; margin-bottom: 4px;">
+          <div style="padding: 8px; min-width: 130px;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; font-style: italic; color: ${isLive ? '#0d9488' : '#64748b'}; margin-bottom: 4px;">
               ${student.name} (Student)
             </div>
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">
-              Status: ${student.isOnline ? 'Online' : 'Offline'}
+            <div style="font-size: 8px; font-weight: 700; color: ${isLive ? '#0d9488' : '#94a3b8'}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+              ${isLive ? '🟢 Active Now' : `📍 Last Known Location (${lastSeenText})`}
             </div>
           </div>
         `;
 
         L.marker(student.location, {
-          icon: createCustomCircularMarker('student', student.name, student.image, student.isOnline, 'STUDENT')
+          icon: createCustomCircularMarker('student', student.name, student.image, student.isOnline, isLive ? 'STUDENT' : 'LAST LOCATION', student.isLastKnownLocation)
         }).bindPopup(popupHtml).addTo(group);
       });
     }
@@ -742,6 +895,8 @@ const MapTracker = memo(({
         isPinningMode={isPinningMode}
         setIsPinningMode={setIsPinningMode}
         hasUser={!!currentUser}
+        activeLayer={activeLayer}
+        onSelectLayer={setActiveLayer}
       />
 
       {/* Ride-Sharing / Delivery Tracking Route Overlay HUD Banner */}

@@ -58,6 +58,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
     ] : []),
     ...(isAdmin ? [
         { id: 'users', label: 'User Directory', icon: Users, path: '/dashboard' },
+        { id: 'map', label: 'Geo Map Tracker', icon: MapPin, path: '/dashboard/map' },
         { id: 'verifications', label: 'Identity Protocol', icon: Shield, path: '/dashboard/verifications' },
         { id: 'payments', label: 'Inbound Revenue', icon: CreditCard, path: '/dashboard/payments' },
         { id: 'withdrawals', label: 'Tutor Payouts', icon: Wallet, path: '/dashboard/withdrawals' },
