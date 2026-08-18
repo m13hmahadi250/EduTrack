@@ -23,10 +23,17 @@ import {
   Smartphone,
   Download,
   Database,
+  Clock,
+  Calendar,
+  ArrowUpDown,
+  ShieldAlert,
+  Filter,
+  Phone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { formatJoinDate } from "../../components/admin/AdminUserDirectory";
 
 const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
 const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
@@ -123,6 +130,9 @@ export default function AdminDashboard() {
 
   const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [verificationSortOrder, setVerificationSortOrder] = useState<'newest' | 'oldest' | 'name' | 'pending'>('newest');
+  const [verificationSearch, setVerificationSearch] = useState('');
+  const [verificationStatusFilter, setVerificationStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
   const toggleSelectTutor = (tutorId: string) => {
     setSelectedTutorIds((prev) =>
@@ -133,11 +143,11 @@ export default function AdminDashboard() {
   };
 
   const toggleSelectAllTutors = () => {
-    if (tutors.length === 0) return;
-    if (selectedTutorIds.length === tutors.length) {
+    if (filteredTutors.length === 0) return;
+    if (selectedTutorIds.length === filteredTutors.length) {
       setSelectedTutorIds([]);
     } else {
-      setSelectedTutorIds(tutors.map((t) => t.id));
+      setSelectedTutorIds(filteredTutors.map((t) => t.id));
     }
   };
 
@@ -262,6 +272,53 @@ export default function AdminDashboard() {
       });
     return Array.from(tutorMap.values());
   }, [users]);
+
+  const filteredTutors = useMemo(() => {
+    return tutors.filter((tutor) => {
+      const query = verificationSearch.toLowerCase().trim();
+      const matchesSearch = !query ||
+        (tutor.name || '').toLowerCase().includes(query) ||
+        (tutor.email || '').toLowerCase().includes(query) ||
+        (tutor.phone || '').toLowerCase().includes(query) ||
+        (tutor.university || '').toLowerCase().includes(query) ||
+        (tutor.nidNumber || '').toLowerCase().includes(query) ||
+        (tutor.course || '').toLowerCase().includes(query);
+
+      let matchesStatus = true;
+      const isPending = tutor.nidStatus === 'pending' || tutor.academicStatus === 'pending' || !tutor.nidStatus || !tutor.academicStatus;
+      const isApproved = tutor.nidStatus === 'approved' && tutor.academicStatus === 'approved';
+      const isRejected = tutor.nidStatus === 'rejected' || tutor.academicStatus === 'rejected';
+
+      if (verificationStatusFilter === 'pending') matchesStatus = isPending;
+      else if (verificationStatusFilter === 'approved') matchesStatus = isApproved;
+      else if (verificationStatusFilter === 'rejected') matchesStatus = isRejected;
+
+      return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+      if (verificationSortOrder === 'pending') {
+        const aPending = (a.nidStatus === 'pending' || a.academicStatus === 'pending' || !a.nidStatus) ? 1 : 0;
+        const bPending = (b.nidStatus === 'pending' || b.academicStatus === 'pending' || !b.nidStatus) ? 1 : 0;
+        if (aPending !== bPending) return bPending - aPending;
+      }
+      if (verificationSortOrder === 'newest' || verificationSortOrder === 'pending') {
+        if (a.createdAt && b.createdAt) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        if (a.createdAt) return -1;
+        if (b.createdAt) return 1;
+        return b.id.localeCompare(a.id);
+      }
+      if (verificationSortOrder === 'oldest') {
+        if (a.createdAt && b.createdAt) {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+        if (a.createdAt) return -1;
+        if (b.createdAt) return 1;
+        return a.id.localeCompare(b.id);
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [tutors, verificationSearch, verificationStatusFilter, verificationSortOrder]);
 
   const pendingPayments = useMemo(() => {
     const paymentMap = new Map();
@@ -744,16 +801,159 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
-            className="space-y-8"
+            className="space-y-6"
           >
+            {/* Identity Protocol Controls Bar */}
+            <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm space-y-5">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-[#0B132B] italic flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[#0D5BFF]" />
+                    Identity Protocol Queue ({filteredTutors.length} experts matched)
+                  </h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Live registration ledger with exact join date, time & credential audit stream
+                  </p>
+                </div>
+
+                {/* Sort Order Selector Group */}
+                <div className="flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/70 shadow-inner flex-wrap gap-1">
+                  <div className="flex items-center gap-1.5 px-2.5 text-slate-400">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                    <span className="text-[8px] font-black uppercase tracking-wider hidden sm:inline">Sort:</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setVerificationSortOrder('newest')}
+                      className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                        verificationSortOrder === 'newest'
+                          ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                      title="Sort by Newest Registration"
+                    >
+                      <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                      <span>Newest Joined</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVerificationSortOrder('oldest')}
+                      className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                        verificationSortOrder === 'oldest'
+                          ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                      title="Sort by Oldest Registration"
+                    >
+                      <Clock className="w-2.5 h-2.5 shrink-0" />
+                      <span>Oldest</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVerificationSortOrder('pending')}
+                      className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                        verificationSortOrder === 'pending'
+                          ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                      title="Sort by Pending Verifications First"
+                    >
+                      <ShieldAlert className="w-2.5 h-2.5 shrink-0" />
+                      <span>Pending First</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVerificationSortOrder('name')}
+                      className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                        verificationSortOrder === 'name'
+                          ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                      title="Sort alphabetically by Name"
+                    >
+                      <span>Name (A-Z)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search & Filter Row */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={verificationSearch}
+                    onChange={(e) => setVerificationSearch(e.target.value)}
+                    placeholder="Search by name, email, phone, university, NID..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-[11px] font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D5BFF] transition-all"
+                  />
+                  {verificationSearch && (
+                    <button
+                      onClick={() => setVerificationSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  <button
+                    onClick={() => setVerificationStatusFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      verificationStatusFilter === 'all'
+                        ? 'bg-[#0B132B] text-white'
+                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    All ({tutors.length})
+                  </button>
+                  <button
+                    onClick={() => setVerificationStatusFilter('pending')}
+                    className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 ${
+                      verificationStatusFilter === 'pending'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Pending
+                  </button>
+                  <button
+                    onClick={() => setVerificationStatusFilter('approved')}
+                    className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      verificationStatusFilter === 'approved'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                    }`}
+                  >
+                    Approved
+                  </button>
+                  <button
+                    onClick={() => setVerificationStatusFilter('rejected')}
+                    className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      verificationStatusFilter === 'rejected'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                    }`}
+                  >
+                    Rejected
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Bulk Actions Control Bar */}
-            {tutors.length > 0 && (
-              <div className="bg-white rounded-[2rem] p-6 border border-slate-150 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            {filteredTutors.length > 0 && (
+              <div className="bg-white rounded-[2rem] p-5 border border-slate-150 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     id="select-all-tutors-header"
-                    checked={tutors.length > 0 && selectedTutorIds.length === tutors.length}
+                    checked={filteredTutors.length > 0 && selectedTutorIds.length === filteredTutors.length}
                     onChange={toggleSelectAllTutors}
                     className="w-5 h-5 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF] cursor-pointer accent-[#0D5BFF]"
                   />
@@ -761,7 +961,7 @@ export default function AdminDashboard() {
                     htmlFor="select-all-tutors-header"
                     className="text-[10px] sm:text-xs font-black text-[#0B132B] uppercase tracking-wider cursor-pointer select-none"
                   >
-                    Select All Experts ({selectedTutorIds.length} of {tutors.length} selected)
+                    Select All Matched ({selectedTutorIds.length} of {filteredTutors.length} selected)
                   </label>
                 </div>
 
@@ -769,7 +969,7 @@ export default function AdminDashboard() {
                   <button
                     disabled={selectedTutorIds.length === 0 || bulkLoading}
                     onClick={() => handleBulkAction("approved")}
-                    className={`px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                    className={`px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
                       selectedTutorIds.length === 0 || bulkLoading
                         ? "opacity-40 cursor-not-allowed"
                         : "shadow-md shadow-emerald-600/10 active:scale-95 cursor-pointer"
@@ -781,7 +981,7 @@ export default function AdminDashboard() {
                   <button
                     disabled={selectedTutorIds.length === 0 || bulkLoading}
                     onClick={() => handleBulkAction("rejected")}
-                    className={`px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                    className={`px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
                       selectedTutorIds.length === 0 || bulkLoading
                         ? "opacity-40 cursor-not-allowed"
                         : "shadow-md shadow-rose-600/10 active:scale-95 cursor-pointer"
@@ -794,17 +994,19 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            <div className="grid lg:grid-cols-1 gap-8">
-              {tutors.map((tutor) => (
+            <div className="grid lg:grid-cols-1 gap-6">
+              {filteredTutors.map((tutor) => {
+                const joinInfo = formatJoinDate(tutor.createdAt);
+                return (
                 <div
                   key={tutor.id}
-                  className="bg-white rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-8 md:p-12 border border-slate-100 shadow-sm flex flex-col lg:flex-row items-center lg:items-center justify-between gap-6 sm:gap-8 lg:gap-12 group transition-all hover:shadow-xl"
+                  className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border border-slate-100 shadow-sm flex flex-col lg:flex-row items-center lg:items-center justify-between gap-6 group transition-all hover:shadow-xl"
                 >
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 lg:gap-8 text-center sm:text-left w-full">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left w-full flex-1">
                     {/* Multi-select Checkbox */}
                     <div 
                       onClick={(e) => e.stopPropagation()} 
-                      className="flex items-center justify-center shrink-0 p-2 rounded-xl bg-slate-50 border border-slate-150 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer mr-0 sm:mr-4 self-center"
+                      className="flex items-center justify-center shrink-0 p-2 rounded-xl bg-slate-50 border border-slate-150 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer mr-0 sm:mr-2 self-center"
                     >
                       <input
                         type="checkbox"
@@ -815,7 +1017,7 @@ export default function AdminDashboard() {
                       />
                     </div>
 
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden shrink-0">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden shrink-0">
                       {tutor.profileImage ? (
                         <img
                           src={tutor.profileImage}
@@ -828,16 +1030,56 @@ export default function AdminDashboard() {
                         tutor.name.charAt(0)
                       )}
                     </div>
+                    
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-base sm:text-lg md:text-xl font-black text-[#0B132B] uppercase italic">
-                        {tutor.name}
-                      </h4>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose truncate">
-                        {tutor.university || "Independent Expert"}
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <h4 className="text-base sm:text-lg font-black text-[#0B132B] uppercase italic">
+                          {tutor.name}
+                        </h4>
+                        <span className="text-[8px] font-black font-mono text-[#0D5BFF] bg-blue-50 px-2 py-0.5 rounded-md">
+                          ID: {tutor.id}
+                        </span>
+                      </div>
+                      
+                      <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                        {tutor.university || "Independent Expert"} • {tutor.course || "General Tutor"}
                       </p>
-                      <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3 sm:mt-4">
+
+                      {/* Joined Date & Time display */}
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2.5 text-[9px] font-bold text-slate-500">
+                        <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 font-mono">
+                          <Calendar className="w-3 h-3 text-[#0D5BFF] shrink-0" />
+                          <span className="font-black text-slate-700">Joined: {joinInfo.date}</span>
+                          {joinInfo.time && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{joinInfo.time}</span>
+                            </>
+                          )}
+                          {joinInfo.relative && (
+                            <span className="bg-blue-100/70 text-[#0D5BFF] text-[7.5px] font-black px-1.5 py-0.5 rounded ml-1">
+                              {joinInfo.relative}
+                            </span>
+                          )}
+                        </div>
+
+                        {tutor.email && (
+                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-400">
+                            <Mail className="w-3 h-3 shrink-0" /> {tutor.email}
+                          </span>
+                        )}
+                        {tutor.phone && (
+                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-400">
+                            <Phone className="w-3 h-3 shrink-0" /> {tutor.phone}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Verification Status Badges */}
+                      <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
                         <span
-                          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[8.5px] font-black uppercase tracking-widest border flex items-center gap-1.5 sm:gap-2 ${
+                          className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
                             tutor.nidStatus === "approved"
                               ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                               : tutor.nidStatus === "rejected"
@@ -858,7 +1100,7 @@ export default function AdminDashboard() {
                         </span>
 
                         <span
-                          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[8.5px] font-black uppercase tracking-widest border flex items-center gap-1.5 sm:gap-2 ${
+                          className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
                             tutor.academicStatus === "approved"
                               ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                               : tutor.academicStatus === "rejected"
@@ -881,23 +1123,34 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="w-full lg:w-auto">
-                    <div className="p-4 sm:p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-3 sm:space-y-4 text-center">
+                  <div className="w-full lg:w-auto shrink-0">
+                    <div className="p-4 bg-slate-50 rounded-[1.8rem] border border-slate-100 space-y-2.5 text-center">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
                         Protocol Actions
                       </p>
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => setSelectedTutor(tutor)}
-                          className="w-full sm:w-auto px-6 py-3 bg-[#0B132B] text-white rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-200 hover:bg-[#0D5BFF] transition-all whitespace-nowrap"
-                        >
-                          Open Profile
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setSelectedTutor(tutor)}
+                        className="w-full sm:w-auto px-6 py-3 bg-[#0B132B] text-white rounded-xl text-[8.5px] font-black uppercase tracking-widest border border-transparent hover:bg-[#0D5BFF] transition-all whitespace-nowrap shadow-md cursor-pointer"
+                      >
+                        Audit Credentials
+                      </button>
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
+
+              {filteredTutors.length === 0 && (
+                <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-100">
+                  <ShieldAlert className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm font-black uppercase tracking-widest text-[#0B132B]">
+                    No matching expert verification records found
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1">
+                    Try adjusting your search query or status filter.
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -1633,6 +1886,22 @@ export default function AdminDashboard() {
                       <p className="text-[10px] font-bold text-[#0B132B]">
                         {selectedTutor.birthDate || "Not Provided"}
                       </p>
+                    </div>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 sm:col-span-2 flex items-center justify-between">
+                      <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                          Account Registration Date & Time
+                        </p>
+                        <p className="text-xs font-black text-[#0D5BFF] font-mono flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {formatJoinDate(selectedTutor.createdAt).full}
+                        </p>
+                      </div>
+                      {formatJoinDate(selectedTutor.createdAt).relative && (
+                        <span className="bg-blue-50 text-[#0D5BFF] text-[8px] font-black px-2 py-1 rounded-lg font-mono">
+                          {formatJoinDate(selectedTutor.createdAt).relative}
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -19,6 +19,7 @@ import {
   BookOpen,
   MapPin,
   Calendar,
+  Clock,
   DollarSign,
   Briefcase,
   Activity,
@@ -26,9 +27,59 @@ import {
   Eye,
   EyeOff,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowUpDown,
+  Sparkles
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
+
+// Helper to format user registration date and time
+export const formatJoinDate = (createdAt?: string) => {
+  if (!createdAt) return { date: 'Initial Record', time: '', full: 'Initial Record (Legacy)', relative: '' };
+  try {
+    const d = new Date(createdAt);
+    if (isNaN(d.getTime())) return { date: 'Initial Record', time: '', full: 'Initial Record', relative: '' };
+    
+    const date = d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }); // e.g. "18 Aug 2026"
+    
+    const time = d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }); // e.g. "02:45 PM"
+    
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    let relative = '';
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        relative = diffMins <= 1 ? 'Just now' : `${diffMins}m ago`;
+      } else {
+        relative = `${diffHours}h ago`;
+      }
+    } else if (diffDays === 1) {
+      relative = 'Yesterday';
+    } else if (diffDays < 30) {
+      relative = `${diffDays}d ago`;
+    }
+
+    return { 
+      date, 
+      time, 
+      full: `${date} at ${time}`,
+      relative
+    };
+  } catch {
+    return { date: 'Initial Record', time: '', full: 'Initial Record', relative: '' };
+  }
+};
 
 interface AdminUserDirectoryProps {
   users: User[];
@@ -56,6 +107,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'unverified' | 'pending'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'other' | 'none'>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [balanceInput, setBalanceInput] = useState<string>('');
@@ -143,14 +195,25 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
 
       return matchesSearch && matchesRole && matchesVerification && matchesStatus && matchesGender;
     }).sort((a, b) => {
-      if (a.createdAt && b.createdAt) {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (sortOrder === 'newest') {
+        if (a.createdAt && b.createdAt) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        if (a.createdAt) return -1;
+        if (b.createdAt) return 1;
+        return b.id.localeCompare(a.id);
       }
-      if (a.createdAt) return -1;
-      if (b.createdAt) return 1;
-      return b.id.localeCompare(a.id);
+      if (sortOrder === 'oldest') {
+        if (a.createdAt && b.createdAt) {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+        if (a.createdAt) return -1;
+        if (b.createdAt) return 1;
+        return a.id.localeCompare(b.id);
+      }
+      return (a.name || '').localeCompare(b.name || '');
     });
-  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter]);
+  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter, sortOrder]);
 
   // Block or Unblock user
   const handleToggleBlock = (user: User) => {
@@ -467,27 +530,82 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
       {/* Directory Table Grid */}
       <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2.5rem] shadow-sm overflow-hidden">
         
-        <div className="p-6 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
-          <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">
-            Ledger User Array ({filteredUsers.length} records matched)
-          </h4>
+        <div className="p-6 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">
+              User Directory ({filteredUsers.length} records matched)
+            </h4>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+              Live registration ledger with exact join date & time
+            </p>
+          </div>
           
-          {/* Scroll Navigation Controls */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleScroll('left')}
-              className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
-              title="Scroll Left"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleScroll('right')}
-              className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
-              title="Scroll Right"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sort Order Selector Group */}
+            <div className="flex items-center bg-slate-100/90 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-inner">
+              <div className="flex items-center gap-1.5 px-2.5 text-slate-400 dark:text-slate-500">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                <span className="text-[8px] font-black uppercase tracking-wider hidden md:inline">Sort:</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('newest')}
+                  className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                    sortOrder === 'newest'
+                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  }`}
+                  title="Sort by Newest Registration"
+                >
+                  <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                  <span>Newest Joined</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('oldest')}
+                  className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                    sortOrder === 'oldest'
+                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  }`}
+                  title="Sort by Oldest Registration"
+                >
+                  <Clock className="w-2.5 h-2.5 shrink-0" />
+                  <span>Oldest</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('name')}
+                  className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                    sortOrder === 'name'
+                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  }`}
+                  title="Sort alphabetically by Name"
+                >
+                  <span>Name (A-Z)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scroll Navigation Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleScroll('left')}
+                className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
+                title="Scroll Left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleScroll('right')}
+                className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
+                title="Scroll Right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -496,6 +614,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             <thead>
               <tr className="border-b border-slate-50 dark:border-slate-800/40">
                 <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">User Identity</th>
+                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Joined Date & Time</th>
                 <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Security Scope/Role</th>
                 <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Gender</th>
                 <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Verification Ledger</th>
@@ -508,6 +627,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 // @ts-ignore
                 const isBlocked = !!user.isBlocked;
                 const isUserTutor = user.role === 'tutor';
+                const joinInfo = formatJoinDate(user.createdAt);
 
                 return (
                   <tr 
@@ -553,6 +673,27 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             {user.phone && <span className="flex items-center gap-1"><Smartphone className="w-2.5 h-2.5 shrink-0" /> {user.phone}</span>}
                           </div>
                         </div>
+                      </div>
+                    </td>
+
+                    {/* Joined Date & Time */}
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-0.5 min-w-[110px]">
+                        <div className="flex items-center gap-1 text-[8.5px] font-black text-slate-800 dark:text-slate-200">
+                          <Calendar className="w-2.5 h-2.5 text-[#0D5BFF] shrink-0" />
+                          <span className="font-mono">{joinInfo.date}</span>
+                        </div>
+                        {joinInfo.time ? (
+                          <div className="flex items-center gap-1 text-[7.5px] font-bold text-slate-400 dark:text-slate-500 font-mono">
+                            <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                            <span>{joinInfo.time}</span>
+                            {joinInfo.relative && (
+                              <span className="bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] text-[6.5px] font-black px-1 rounded">
+                                {joinInfo.relative}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     </td>
 
@@ -788,7 +929,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
 
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
+                  <td colSpan={7} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
                     No corresponding user profiles found in database constraints.
                   </td>
                 </tr>
@@ -860,9 +1001,15 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                       <ShieldCheck className="w-4 h-4 text-emerald-500 fill-emerald-500/15" />
                     )}
                   </h3>
-                  <p className="text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase mt-0.5">
-                    ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()} LEDGER NODE
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    <p className="text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase">
+                      ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()} LEDGER NODE
+                    </p>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 font-mono flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5 text-[#0D5BFF]" />
+                      Joined: {formatJoinDate(inspectingUser.createdAt).full}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button
@@ -999,6 +1146,20 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     <div>
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Date of Birth</span>
                       <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.birthDate || 'NOT CONFIGURED'}</p>
+                    </div>
+                    <div className="sm:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                      <div>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Account Registration Date & Time</span>
+                        <p className="text-xs font-black text-[#0D5BFF] mt-1 font-mono flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {formatJoinDate(inspectingUser.createdAt).full}
+                        </p>
+                      </div>
+                      {formatJoinDate(inspectingUser.createdAt).relative && (
+                        <span className="bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] text-[8px] font-black px-2 py-1 rounded-lg">
+                          {formatJoinDate(inspectingUser.createdAt).relative}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
