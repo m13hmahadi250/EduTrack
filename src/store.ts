@@ -117,6 +117,7 @@ export interface User {
   fcmToken?: string;
   whatsappNumber?: string;
   badges?: string[];
+  notifyTutorIds?: string[];
 }
 
 export interface Referral {
@@ -296,6 +297,7 @@ interface AppState {
   // Notifications
   sendNotification: (userId: string, title: string, message: string, type?: Notification['type']) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
+  toggleNotifyTutor: (tutorId: string) => Promise<boolean>;
   
   // Typing
   setTyping: (targetId: string, isTyping: boolean) => Promise<void>;
@@ -508,11 +510,14 @@ export const useAppStore = create<AppState>((set, get) => {
 
           set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
 
-          if (cleanedUser.email) {
+          if (cleanedUser.email && cleanedUser.role === 'tutor') {
             sendWelcomeMail({
+              userId: cleanedUser.id,
               email: cleanedUser.email,
               name: cleanedUser.name,
               role: cleanedUser.role,
+              university: cleanedUser.university,
+              course: cleanedUser.course,
               district: cleanedUser.district,
             }).catch((mailErr) => console.error("Welcome mail error:", mailErr));
           }
@@ -995,12 +1000,17 @@ export const useAppStore = create<AppState>((set, get) => {
             await setDoc(userDocRef, cleanedUser);
             userData = cleanedUser;
 
-            sendWelcomeMail({
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              district: userData.district,
-            }).catch((mailErr) => console.error("Welcome mail error on Google Auth:", mailErr));
+            if (userData.email && userData.role === 'tutor') {
+              sendWelcomeMail({
+                userId: userData.id,
+                email: userData.email,
+                name: userData.name,
+                role: userData.role,
+                university: userData.university,
+                course: userData.course,
+                district: userData.district,
+              }).catch((mailErr) => console.error("Welcome mail error on Google Auth:", mailErr));
+            }
           }
 
           set({ currentUser: userData, isLoading: false });
@@ -1115,17 +1125,20 @@ export const useAppStore = create<AppState>((set, get) => {
         } catch (e) {}
         setupListeners(uid, cleanedUser.role, set, get);
 
-        // Trigger Brevo Welcome & App Detailed Email
-        sendWelcomeMail({
-          email: cleanedUser.email,
-          name: cleanedUser.name,
-          role: cleanedUser.role,
-          studentClass: cleanedUser.studentClass,
-          school: cleanedUser.school,
-          university: cleanedUser.university,
-          course: cleanedUser.course,
-          district: cleanedUser.district,
-        }).catch((mailErr) => console.error("Welcome mail error on signup:", mailErr));
+        // Trigger Brevo Welcome & App Detailed Email (Profile link included for teachers)
+        if (cleanedUser.email && cleanedUser.role === 'tutor') {
+          sendWelcomeMail({
+            userId: cleanedUser.id,
+            email: cleanedUser.email,
+            name: cleanedUser.name,
+            role: cleanedUser.role,
+            studentClass: cleanedUser.studentClass,
+            school: cleanedUser.school,
+            university: cleanedUser.university,
+            course: cleanedUser.course,
+            district: cleanedUser.district,
+          }).catch((mailErr) => console.error("Welcome mail error on signup:", mailErr));
+        }
 
         if (referredByCode) {
           try {
@@ -1879,6 +1892,53 @@ export const useAppStore = create<AppState>((set, get) => {
         await updateDoc(doc(db, 'notifications', id), { isRead: true });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+      }
+    },
+
+    toggleNotifyTutor: async (tutorId: string) => {
+      const currentUser = get().currentUser;
+      if (!currentUser) return false;
+
+      const currentList = Array.isArray(currentUser.notifyTutorIds) ? currentUser.notifyTutorIds : [];
+      const isAlreadySubscribed = currentList.includes(tutorId);
+      const updatedList = isAlreadySubscribed
+        ? currentList.filter(id => id !== tutorId)
+        : [...currentList, tutorId];
+
+      const tutor = get().users.find(u => u.id === tutorId);
+      const tutorName = tutor?.name || 'Your Tutor';
+
+      try {
+        await updateDoc(doc(db, 'users', currentUser.id), {
+          notifyTutorIds: updatedList
+        });
+
+        const updatedUser = { ...currentUser, notifyTutorIds: updatedList };
+        set({ currentUser: updatedUser });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedUser));
+        } catch (e) {}
+
+        if (!isAlreadySubscribed) {
+          await get().sendNotification(
+            currentUser.id,
+            '🔔 Class Alerts Activated',
+            `You will receive a push notification 30 minutes before every scheduled class starts with ${tutorName}.`,
+            'success'
+          );
+        } else {
+          await get().sendNotification(
+            currentUser.id,
+            '🔕 Class Alerts Muted',
+            `You will no longer receive 30-minute pre-class push alerts for ${tutorName}.`,
+            'info'
+          );
+        }
+
+        return !isAlreadySubscribed;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
+        return isAlreadySubscribed;
       }
     },
 

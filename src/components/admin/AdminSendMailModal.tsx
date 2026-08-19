@@ -13,39 +13,39 @@ interface AdminSendMailModalProps {
 export function computeMissingFieldsList(user: User): string[] {
   const missing: string[] = [];
 
+  const hasAvailability = !!(user.daysPerWeek || (user.availabilitySlots && Object.keys(user.availabilitySlots).length > 0));
+  if (!hasAvailability) {
+    missing.push("Your preferred Tuition Days & Time");
+  }
+
   const isVerified = user.isVerified || (user.nidStatus === 'approved' && user.academicStatus === 'approved');
   const hasIdProof = !!(user.nidFrontImg || user.nidBackImg || (user.documents && user.documents.length > 0));
   if (!isVerified || !hasIdProof) {
-    missing.push("A clear photo of your NID or University Student ID Card (for Identity Verification)");
-  }
-
-  const hasAvailability = !!(user.daysPerWeek || (user.availabilitySlots && Object.keys(user.availabilitySlots).length > 0));
-  if (!hasAvailability) {
-    missing.push("Your preferred Tuition Days (e.g. 3-4 days/week) & Available Time slots");
+    missing.push("A clear photo of your NID or University Student ID Card");
   }
 
   if (user.role === 'tutor') {
     if (!user.university && !user.school) {
-      missing.push("Your Current Educational Institution (University / College) & Department");
+      missing.push("Your Current University / College & Department Name");
     }
     if (!user.subjects || (Array.isArray(user.subjects) && user.subjects.length === 0)) {
       missing.push("Your preferred Tutoring Subjects & Class Levels");
     }
     if (!user.hourlyRate) {
-      missing.push("Your Expected Tuition Salary / Hourly Rate");
+      missing.push("Your Expected Tuition Salary / Rate");
     }
   } else {
     if (!user.studentClass && !user.course && !user.subject) {
-      missing.push("Current Class / Grade Level & Required Tuition Subjects");
+      missing.push("Current Class Level & Required Tuition Subjects");
     }
   }
 
   if (!user.district || (!user.thana && !user.area)) {
-    missing.push("Your Preferred Tuition Location (District & Thana / Area)");
+    missing.push("Your Preferred Tuition Location (District & Area)");
   }
 
   if (missing.length === 0) {
-    missing.push("Your preferred Tuition Days & Time schedule confirmation");
+    missing.push("Your preferred Tuition Days & Time");
     missing.push("A clear photo of your NID or University Student ID Card");
   }
 
@@ -53,38 +53,21 @@ export function computeMissingFieldsList(user: User): string[] {
 }
 
 export function buildReminderEmailTemplate(user: User): string {
-  const userName = user.name || "Tutor / Student";
+  const userName = user.name ? ` ${user.name}` : "";
   const missingList = computeMissingFieldsList(user);
-  const formattedMissing = missingList.map((item) => `• ${item}`).join('\n');
-  const portalLink = "https://edutrackbd.vercel.app";
+  const formattedMissing = missingList.map((item) => `• ${item}`).join('\n\n');
 
-  return `Hello ${userName},
+  return `Hello${userName},
 
-Thank you for registering on EduTrack Bangladesh! We are excited to welcome you to our trusted nationwide tutor-student matching network.
-
-To complete your tuition setup and profile verification on EduTrack, please provide us with the following missing items:
+To complete your tuition setup and profile verification on EduTrack, please send us:
 
 ${formattedMissing}
 
-🌟 Why completing this matters:
-• Trust & Safety: Verified profiles earn the official "Verified Badge" which establishes instant credibility with students, parents, and guardians.
-• Priority Placement: Verified members appear at the top of local search results and live GPS radar matching.
-• Faster Tuition Matching: Complete availability schedules allow our system to match you with nearby tuition inquiries immediately without delays.
+This helps us keep the platform safe and verified for everyone. Thank you!
 
-🚀 How to complete your profile (Takes less than 2 minutes):
-1. Log in to your EduTrack dashboard at: ${portalLink}
-2. Navigate to your Profile / Verification section
-3. Upload your ID document and update your preferred tuition days and times
-(You can also simply reply directly to this email with the requested information!)
-
-This helps us keep the EduTrack platform secure, transparent, and verified for everyone across Bangladesh.
-
-If you have any questions or need guidance, our administrative team is always here to assist you at edutrackbangladesh@gmail.com.
-
-Warm regards,
-EduTrack Bangladesh Team
-🌐 ${portalLink}
-📍 Dhaka, Bangladesh`;
+EduTrack Bangladesh
+🌐 https://edutrackbd.vercel.app
+📧 edutrackbangladesh@gmail.com`;
 }
 
 export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSendMailModalProps) {
@@ -97,7 +80,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
 
   const initialSubject = useMemo(() => {
     if (isProfileIncomplete) {
-      return `Action Required: Complete Your Profile & Tuition Verification on EduTrack BD 🎓`;
+      return `Complete your tuition setup & profile verification - EduTrack`;
     }
     return `Welcome to EduTrack Bangladesh, ${user.name || 'Member'}! 🎓`;
   }, [isProfileIncomplete, user.name]);
@@ -115,7 +98,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
     setMailType(type);
     setError(null);
     if (type === 'reminder') {
-      setSubject(`Action Required: Complete Your Profile & Tuition Verification on EduTrack BD 🎓`);
+      setSubject(`Complete your tuition setup & profile verification - EduTrack`);
       setCustomMessage(buildReminderEmailTemplate(user));
     } else if (type === 'welcome') {
       setSubject(`Welcome to EduTrack Bangladesh, ${user.name || 'Member'}! 🎓`);
@@ -145,6 +128,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
       let res;
       if (mailType === 'welcome' && !customMessage.trim()) {
         res = await sendWelcomeMail({
+          userId: user.id,
           email: user.email,
           name: user.name,
           role: user.role,

@@ -1,6 +1,7 @@
 import { mirrorAdminDataToMongoDB } from './mongoSyncService';
 
 export interface WelcomeEmailData {
+  userId?: string;
   email: string;
   name: string;
   role: 'student' | 'tutor' | 'admin';
@@ -10,14 +11,23 @@ export interface WelcomeEmailData {
   course?: string;
   district?: string;
   customMessage?: string;
+  profileUrl?: string;
+  baseUrl?: string;
 }
 
 export async function sendWelcomeMail(data: WelcomeEmailData) {
   try {
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : "https://edutrackbd.vercel.app";
+    const payload: WelcomeEmailData = {
+      ...data,
+      baseUrl: data.baseUrl || origin,
+      profileUrl: data.profileUrl || (data.userId && data.role === 'tutor' ? `${data.baseUrl || origin}/teachers/${data.userId}` : undefined),
+    };
+
     const res = await fetch('/api/mail/send-welcome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     const result = await res.json();
     return result;

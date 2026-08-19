@@ -300,7 +300,7 @@ export default function AIChatWidget() {
 
                   {/* Bubble */}
                   <div className="space-y-1">
-                    <div className={`p-4 rounded-3xl text-sm ${
+                    <div className={`p-4 rounded-3xl text-sm text-left whitespace-pre-wrap break-words leading-relaxed ${
                       m.role === 'user'
                         ? 'bg-[#0D5BFF] text-white rounded-tr-none'
                         : 'bg-white dark:bg-[#1C2541] text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100/50 dark:border-slate-800 shadow-sm'

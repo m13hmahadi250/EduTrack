@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import BadgeDisplay from '../components/BadgeDisplay';
+import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import { 
   ArrowLeft, 
   Mail, 
@@ -682,7 +683,15 @@ export default function TeacherProfile() {
                   </button>
                 </div>
               </div>
-                      {/* Direct Contact Ledger - Security Lockdown Zone */}
+            </motion.div>
+
+            {/* 30-Minute Class Push Alert Subscription Card */}
+            <TutorNotifyMeCard 
+              tutor={tutor} 
+              onRequireAuth={() => navigate(`/login?redirect=${encodeURIComponent(`/teacher/${tutor.id}`)}`)} 
+            />
+
+            {/* Direct Contact Ledger - Security Lockdown Zone */}
             <div className={`rounded-[2.5rem] p-6 border-2 transition-all overflow-hidden relative shadow-xl ${
               !currentUser 
                 ? 'bg-blue-50/10 border-[#0D5BFF]/15 dark:bg-blue-950/5 dark:border-blue-900/20'
@@ -844,7 +853,7 @@ export default function TeacherProfile() {
                 </div>
               )}
 
-            </div>    </motion.div>
+            </div>
 
           </div>
 

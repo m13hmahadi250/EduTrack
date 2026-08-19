@@ -914,27 +914,35 @@ app.post("/api/auth/reset-password", async (req, res) => {
  */
 app.post("/api/mail/send-welcome", async (req, res) => {
   try {
-    const { email, name, role, studentClass, school, university, course, district, customMessage } = req.body;
+    const { userId, email, name, role, studentClass, school, university, course, district, customMessage, profileUrl, baseUrl } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: "Recipient email is required" });
     }
 
+    const isTutor = role === 'tutor';
+    const computedBaseUrl = baseUrl || (req.headers["x-forwarded-proto"] && req.headers.host ? `${req.headers["x-forwarded-proto"]}://${req.headers.host}` : "https://edutrackbd.vercel.app");
+
     const htmlContent = generateWelcomeEmailHtml({
+      userId,
       email,
-      name: name || "Member",
+      name: name || (isTutor ? "Teacher" : "Member"),
       role: role || "student",
       studentClass,
       school,
       university,
       course,
       district,
-      customMessage
+      customMessage,
+      profileUrl,
+      baseUrl: computedBaseUrl,
     });
 
     const subject = customMessage 
       ? `EduTrack Bangladesh - Welcome & Special Message for ${name || 'User'}`
-      : `Welcome to EduTrack Bangladesh, ${name || 'Member'}! 🎓`;
+      : isTutor 
+        ? `Welcome to EduTrack Bangladesh, Teacher ${name || 'Educator'}! Your Profile is Live 🎓`
+        : `Welcome to EduTrack Bangladesh, ${name || 'Member'}! 🎓`;
 
     const result = await sendBrevoEmail({
       toEmail: email,

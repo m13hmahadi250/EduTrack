@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 export interface SendWelcomeEmailParams {
+  userId?: string;
   email: string;
   name: string;
   role: 'student' | 'tutor' | 'admin';
@@ -10,6 +11,8 @@ export interface SendWelcomeEmailParams {
   course?: string;
   district?: string;
   customMessage?: string;
+  profileUrl?: string;
+  baseUrl?: string;
 }
 
 export function generateOtpEmailHtml({
@@ -271,6 +274,7 @@ export function generatePasswordResetEmailHtml({
 }
 
 export function generateWelcomeEmailHtml({
+  userId,
   name,
   role,
   studentClass,
@@ -279,16 +283,20 @@ export function generateWelcomeEmailHtml({
   course,
   district,
   customMessage,
+  profileUrl,
+  baseUrl,
 }: SendWelcomeEmailParams): string {
   const isTutor = role === 'tutor';
-  const targetDashboardUrl = "https://edutrackbd.vercel.app/dashboard";
+  const appBaseUrl = (baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
+  const targetDashboardUrl = `${appBaseUrl}/dashboard`;
+  const teacherProfileUrl = profileUrl || (userId ? `${appBaseUrl}/teachers/${userId}` : `${appBaseUrl}/dashboard`);
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to EduTrack Bangladesh</title>
+  <title>${isTutor ? 'Welcome Teacher - EduTrack Bangladesh' : 'Welcome to EduTrack Bangladesh'}</title>
   <style>
     @keyframes glowPulse {
       0% { box-shadow: 0 0 8px rgba(13, 91, 255, 0.3); }
@@ -327,12 +335,12 @@ export function generateWelcomeEmailHtml({
 
               <!-- Main Title -->
               <h1 style="color: #ffffff; font-size: 26px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2;">
-                Welcome to the Future of Education!
+                ${isTutor ? 'Welcome to EduTrack Teacher Network!' : 'Welcome to the Future of Education!'}
               </h1>
 
               <!-- Subtitle -->
               <p style="color: #93c5fd; font-size: 13px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                Bangladesh's #1 Security-First Home & Online Tutoring Ecosystem
+                ${isTutor ? 'Your Teacher Profile is Live & Ready to Connect with Students' : "Bangladesh's #1 Security-First Home & Online Tutoring Ecosystem"}
               </p>
             </td>
           </tr>
@@ -344,10 +352,10 @@ export function generateWelcomeEmailHtml({
               <!-- Greeting -->
               <div style="margin-bottom: 24px;">
                 <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0;">
-                  Hello ${name || 'Valued Educator & Scholar'},
+                  Hello ${name || (isTutor ? 'Honorable Teacher' : 'Valued Member')},
                 </h2>
                 <p style="font-size: 14px; line-height: 1.65; color: #475569; margin: 0;">
-                  Congratulations and welcome to <strong>EduTrack Bangladesh</strong>! Your account has been officially created as a <span style="display: inline-block; background-color: ${isTutor ? '#fef3c7' : '#dbeafe'}; color: ${isTutor ? '#b45309' : '#1d4ed8'}; font-weight: 800; padding: 2px 10px; border-radius: 8px; font-size: 11px; text-transform: uppercase; border: 1px solid ${isTutor ? '#fcd34d' : '#bfdbfe'};">${role}</span>.
+                  Congratulations and welcome to <strong>EduTrack Bangladesh</strong>! Your account has been officially registered as a <span style="display: inline-block; background-color: ${isTutor ? '#fef3c7' : '#dbeafe'}; color: ${isTutor ? '#b45309' : '#1d4ed8'}; font-weight: 800; padding: 2px 10px; border-radius: 8px; font-size: 11px; text-transform: uppercase; border: 1px solid ${isTutor ? '#fcd34d' : '#bfdbfe'};">${isTutor ? 'Verified Tutor / Teacher' : role}</span>.
                 </p>
               </div>
 
@@ -379,7 +387,7 @@ export function generateWelcomeEmailHtml({
                   </tr>
                   <tr>
                     <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Registered Role:</td>
-                    <td style="padding: 4px 0; color: #0D5BFF; font-weight: 800; text-transform: capitalize;">${role}</td>
+                    <td style="padding: 4px 0; color: #0D5BFF; font-weight: 800; text-transform: capitalize;">${isTutor ? 'Tutor / Teacher' : role}</td>
                   </tr>
                   <tr>
                     <td style="padding: 4px 0; color: #64748b; font-weight: 600;">District / Area:</td>
@@ -387,8 +395,16 @@ export function generateWelcomeEmailHtml({
                   </tr>
                   ${isTutor ? `
                   <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Academic Institution:</td>
+                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Institution / Degree:</td>
                     <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">${university || course || 'University Scholar'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Teacher Profile Link:</td>
+                    <td style="padding: 4px 0;">
+                      <a href="${teacherProfileUrl}" target="_blank" style="color: #0D5BFF; font-weight: 800; text-decoration: underline; font-size: 12px; word-break: break-all;">
+                        ${teacherProfileUrl}
+                      </a>
+                    </td>
                   </tr>
                   ` : `
                   <tr>
@@ -399,22 +415,67 @@ export function generateWelcomeEmailHtml({
                   <tr>
                     <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Security Status:</td>
                     <td style="padding: 4px 0; color: #059669; font-weight: 800;">
-                      <span style="display: inline-block; background-color: #d1fae5; color: #047857; padding: 1px 8px; border-radius: 6px; font-size: 10px; uppercase">Protected Account</span>
+                      <span style="display: inline-block; background-color: #d1fae5; color: #047857; padding: 1px 8px; border-radius: 6px; font-size: 10px; text-transform: uppercase;">Protected Account</span>
                     </td>
                   </tr>
                 </table>
               </div>
 
-              <!-- Primary Action Button Section -->
+              ${isTutor ? `
+              <!-- TEACHER-EXCLUSIVE PROFILE ACCESS CARD -->
+              <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 2px solid #bfdbfe; border-radius: 20px; padding: 26px 22px; margin-bottom: 30px; box-shadow: 0 10px 25px rgba(13, 91, 255, 0.08); text-align: center;">
+                
+                <div style="display: inline-flex; align-items: center; background-color: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 900; padding: 4px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #bfdbfe;">
+                  <span style="margin-right: 6px;">🌟</span> YOUR OFFICIAL TEACHER PROFILE
+                </div>
+
+                <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Access & Share Your Teacher Profile
+                </h3>
+
+                <p style="font-size: 13px; line-height: 1.6; color: #334155; margin: 0 0 18px 0;">
+                  Your dedicated teacher profile has been created! Use the button below to review your live profile or share your link with students, parents, and guardians across Bangladesh.
+                </p>
+
+                <!-- Primary Big Action Button for Teacher Profile -->
+                <div style="margin-bottom: 16px;">
+                  <a href="${teacherProfileUrl}" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0D5BFF 0%, #0040C9 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; padding: 16px 36px; border-radius: 14px; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.35); border: 1px solid rgba(255,255,255,0.3);">
+                    <span>VIEW YOUR TEACHER PROFILE</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                </div>
+
+                <!-- Monospace Direct Profile Link Box -->
+                <div style="background-color: #ffffff; border: 1px dashed #3b82f6; border-radius: 12px; padding: 12px 16px; margin: 14px auto 0 auto; max-width: 520px; text-align: center;">
+                  <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; margin: 0 0 4px 0; letter-spacing: 1px;">
+                    Direct Teacher Profile URL (Click or Copy):
+                  </p>
+                  <a href="${teacherProfileUrl}" target="_blank" style="font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: 700; color: #0D5BFF; text-decoration: underline; word-break: break-all;">
+                    ${teacherProfileUrl}
+                  </a>
+                </div>
+
+                <!-- Secondary Dashboard Link -->
+                <div style="margin-top: 14px;">
+                  <a href="${targetDashboardUrl}" target="_blank" style="font-size: 12px; font-weight: 700; color: #047857; text-decoration: none; display: inline-flex; align-items: center;">
+                    <span style="text-decoration: underline;">Or access your full Teacher Dashboard</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                  </a>
+                </div>
+
+              </div>
+              ` : `
+              <!-- Primary Action Button Section for Non-Tutors (Students) -->
               <div style="text-align: center; margin: 32px 0;">
                 <a href="${targetDashboardUrl}" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0D5BFF 0%, #0040C9 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; padding: 18px 42px; border-radius: 16px; box-shadow: 0 10px 25px rgba(13, 91, 255, 0.4); border: 1px solid rgba(255,255,255,0.2);">
                   <span>OPEN YOUR DASHBOARD</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 10px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </a>
                 <p style="font-size: 11px; color: #94a3b8; margin-top: 10px; font-weight: 600;">
-                  Direct Portal URL: <a href="${targetDashboardUrl}" style="color: #0D5BFF; text-decoration: none;">https://edutrackbd.vercel.app/dashboard</a>
+                  Direct Portal URL: <a href="${targetDashboardUrl}" style="color: #0D5BFF; text-decoration: none;">${targetDashboardUrl}</a>
                 </p>
               </div>
+              `}
 
               <!-- Tailored Walkthrough for Role -->
               <div style="background-color: #f1f5f9; border-radius: 20px; padding: 24px; margin-bottom: 32px; border: 1px solid #e2e8f0;">
@@ -425,56 +486,56 @@ export function generateWelcomeEmailHtml({
 
                 ${isTutor ? `
                 <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">1</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">1</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Complete Verification:</strong> Upload your NID / Birth Certificate & Student ID Card under your dashboard's <em>Verification</em> tab for full account badge approval.
+                    <strong>Check Your Profile:</strong> Use the profile link above to review your live teaching credentials, expected salary, and bio.
                   </div>
                 </div>
 
                 <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">2</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">2</div>
+                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
+                    <strong>Complete Verification:</strong> Upload your NID / University Student ID Card in your dashboard to earn the official <em>Verified Badge</em>.
+                  </div>
+                </div>
+
+                <div style="margin-bottom: 12px; display: flex; align-items: start;">
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">3</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
                     <strong>Set Subjects & Salary:</strong> Specify your preferred teaching classes, subjects, district areas, and expected monthly salary.
                   </div>
                 </div>
 
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">3</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Accept Tuition Requests & GPS:</strong> Receive direct tuition booking requests from guardians and use live location tracking for attendance verification.
-                  </div>
-                </div>
-
                 <div style="display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">4</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">4</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Instant Payouts:</strong> Request instant withdrawals to <strong>bKash</strong>, <strong>Nagad</strong>, or direct Bank transfer upon class completion.
+                    <strong>Accept Tuition Inquiries:</strong> Receive tuition booking requests from students and start managing sessions.
                   </div>
                 </div>
                 ` : `
                 <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">1</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">1</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
                     <strong>Search & Filter Tutors:</strong> Explore thousands of verified teachers filtered by District, Subject, Class, Institution, and Gender preference.
                   </div>
                 </div>
 
                 <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">2</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">2</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
                     <strong>Hire & Track Live Location:</strong> Monitor your tutor's live GPS route to your house and get real-time lesson arrival updates.
                   </div>
                 </div>
 
                 <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">3</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">3</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
                     <strong>Digital Class Diary:</strong> Access detailed lesson logs, homework assignments, class duration reports, and performance metrics.
                   </div>
                 </div>
 
                 <div style="display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; shrink: 0;">4</div>
+                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">4</div>
                   <div style="font-size: 13px; color: #334155; line-height: 1.5;">
                     <strong>Safe Mobile Payments:</strong> Pay tuition fees securely via bKash, Nagad, or Bank transfer with automated digital receipts.
                   </div>

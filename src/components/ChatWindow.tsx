@@ -29,8 +29,19 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
 
   const isRecipientTyping = typingStatus[recipientId] === currentUser?.id;
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea height as user types multiline messages
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, 120)}px`;
+    }
+  }, [content]);
+
   // Handle typing indicator
-  const handleContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setContent(value);
 
@@ -45,6 +56,14 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
       setIsTypingLocal(false);
       setTyping(recipientId, false);
     }, 2000);
+  };
+
+  // Allow Enter to go to new line, and Ctrl+Enter or Cmd+Enter to send
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSend(e);
+    }
   };
 
   // Filter messages for this conversation
@@ -190,12 +209,12 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
                   key={msg.id} 
                   className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[80%] sm:max-w-[75%] ${isMe ? 'text-right' : 'text-left'} flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className={`
-                      px-3.5 py-2 rounded-[1.25rem] sm:rounded-[1.5rem] text-sm font-medium leading-relaxed select-text whitespace-pre-wrap break-words
+                      px-4 py-2.5 rounded-[1.25rem] sm:rounded-[1.5rem] text-[13.5px] sm:text-sm font-normal leading-relaxed select-text whitespace-pre-wrap break-words text-left
                       ${isMe 
-                        ? 'bg-[#0D5BFF] text-white rounded-br-[0.25rem] shadow-sm shadow-[#0D5BFF]/10' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-[#F8F9FA] rounded-bl-[0.25rem] border border-slate-200/40 dark:border-slate-800/60'}
+                        ? 'bg-[#0D5BFF] text-white rounded-br-[0.25rem] shadow-sm shadow-[#0D5BFF]/15' 
+                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-[#F8F9FA] rounded-bl-[0.25rem] border border-slate-200/80 dark:border-slate-700/60 shadow-xs'}
                     `}>
                       {msg.content}
                     </div>
@@ -266,17 +285,21 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
           </div>
         </div>
 
-        <div className="relative flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.5rem] p-1 pr-1.5 pl-3 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
-          <input 
+        <div className="relative flex items-end bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.25rem] sm:rounded-[1.5rem] p-1.5 pr-2 pl-3 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
+          <textarea 
+            ref={textareaRef}
+            rows={1}
             value={content}
             onChange={handleContentChange}
-            placeholder="Type your message..."
-            className="flex-1 bg-transparent py-1.5 sm:py-2 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0"
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message (Press Enter for new line)..."
+            className="flex-1 bg-transparent py-1.5 text-sm font-normal text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0 resize-none max-h-32 min-h-[36px] leading-normal custom-scrollbar"
           />
           <button 
             type="submit"
             disabled={!content.trim()}
-            className="bg-[#0D5BFF] text-white h-8 w-8 rounded-full flex items-center justify-center shadow-lg shadow-blue-100/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 shrink-0 cursor-pointer"
+            className="bg-[#0D5BFF] text-white h-8.5 w-8.5 rounded-full flex items-center justify-center shadow-md shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 shrink-0 cursor-pointer mb-0.5"
+            title="Send message (or press Ctrl+Enter)"
           >
             <Send className="w-3.5 h-3.5" />
           </button>
