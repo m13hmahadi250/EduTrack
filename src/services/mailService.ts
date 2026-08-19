@@ -38,31 +38,53 @@ export async function sendWelcomeMail(data: WelcomeEmailData) {
 }
 
 export async function sendCustomAdminMail({
+  userId,
   toEmail,
   toName,
   subject,
   messageBody,
   role,
   district,
+  studentClass,
+  school,
+  university,
+  course,
+  profileUrl,
+  baseUrl,
 }: {
+  userId?: string;
   toEmail: string;
   toName: string;
   subject: string;
   messageBody: string;
   role?: string;
   district?: string;
+  studentClass?: string;
+  school?: string;
+  university?: string;
+  course?: string;
+  profileUrl?: string;
+  baseUrl?: string;
 }) {
   try {
+    const computedProfileUrl = profileUrl || (userId && role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${userId}` : undefined);
     const res = await fetch('/api/mail/send-custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        userId,
         toEmail,
         toName,
         subject,
         messageBody,
         role,
         district,
+        studentClass,
+        school,
+        university,
+        course,
+        profileUrl: computedProfileUrl,
+        baseUrl: baseUrl || "https://edutrackbd.vercel.app",
       }),
     });
     const result = await res.json();
@@ -71,7 +93,7 @@ export async function sendCustomAdminMail({
     mirrorAdminDataToMongoDB({
       actionType: 'SEND_ADMIN_MAIL',
       entityType: 'mail',
-      payload: { toEmail, toName, subject, messageBody, role, district }
+      payload: { userId, toEmail, toName, subject, messageBody, role, district, profileUrl: computedProfileUrl }
     });
 
     return result;

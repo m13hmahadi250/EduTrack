@@ -56,12 +56,15 @@ export function buildReminderEmailTemplate(user: User): string {
   const userName = user.name ? ` ${user.name}` : "";
   const missingList = computeMissingFieldsList(user);
   const formattedMissing = missingList.map((item) => `• ${item}`).join('\n\n');
+  const profileLinkSection = user.role === 'tutor' && user.id 
+    ? `\n\n🔗 Your Teacher Profile Link:\nhttps://edutrackbd.vercel.app/teachers/${user.id}` 
+    : '';
 
   return `Hello${userName},
 
 To complete your tuition setup and profile verification on EduTrack, please send us:
 
-${formattedMissing}
+${formattedMissing}${profileLinkSection}
 
 This helps us keep the platform safe and verified for everyone. Thank you!
 
@@ -140,12 +143,18 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
         });
       } else {
         res = await sendCustomAdminMail({
+          userId: user.id,
           toEmail: user.email,
           toName: user.name,
           subject: subject.trim() || `Message from EduTrack Bangladesh Administration`,
           messageBody: customMessage.trim(),
           role: user.role,
           district: user.district,
+          studentClass: user.studentClass,
+          school: user.school,
+          university: user.university,
+          course: user.course,
+          profileUrl: user.role === 'tutor' && user.id ? `https://edutrackbd.vercel.app/teachers/${user.id}` : undefined,
         });
       }
 

@@ -513,6 +513,7 @@ export const useAppStore = create<AppState>((set, get) => {
           if (cleanedUser.email && cleanedUser.role === 'tutor') {
             sendWelcomeMail({
               userId: cleanedUser.id,
+              profileUrl: `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}`,
               email: cleanedUser.email,
               name: cleanedUser.name,
               role: cleanedUser.role,
@@ -1003,6 +1004,7 @@ export const useAppStore = create<AppState>((set, get) => {
             if (userData.email && userData.role === 'tutor') {
               sendWelcomeMail({
                 userId: userData.id,
+                profileUrl: `https://edutrackbd.vercel.app/teachers/${userData.id}`,
                 email: userData.email,
                 name: userData.name,
                 role: userData.role,
@@ -1129,6 +1131,7 @@ export const useAppStore = create<AppState>((set, get) => {
         if (cleanedUser.email && cleanedUser.role === 'tutor') {
           sendWelcomeMail({
             userId: cleanedUser.id,
+            profileUrl: `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}`,
             email: cleanedUser.email,
             name: cleanedUser.name,
             role: cleanedUser.role,

@@ -287,9 +287,11 @@ export function generateWelcomeEmailHtml({
   baseUrl,
 }: SendWelcomeEmailParams): string {
   const isTutor = role === 'tutor';
-  const appBaseUrl = (baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
-  const targetDashboardUrl = `${appBaseUrl}/dashboard`;
-  const teacherProfileUrl = profileUrl || (userId ? `${appBaseUrl}/teachers/${userId}` : `${appBaseUrl}/dashboard`);
+  const productionBaseUrl = "https://edutrackbd.vercel.app";
+  const targetDashboardUrl = `${productionBaseUrl}/dashboard`;
+  
+  // Real teacher profile URL format: https://edutrackbd.vercel.app/teachers/{userId}
+  const teacherProfileUrl = profileUrl || (userId ? `https://edutrackbd.vercel.app/teachers/${userId}` : (isTutor ? `https://edutrackbd.vercel.app/teachers` : `${productionBaseUrl}/dashboard`));
 
   return `<!DOCTYPE html>
 <html>

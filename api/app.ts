@@ -914,17 +914,45 @@ app.post("/api/auth/reset-password", async (req, res) => {
  */
 app.post("/api/mail/send-welcome", async (req, res) => {
   try {
-    const { userId, email, name, role, studentClass, school, university, course, district, customMessage, profileUrl, baseUrl } = req.body;
+    const { 
+      userId, 
+      id, 
+      uid, 
+      tutorId, 
+      teacherId, 
+      email, 
+      name, 
+      role, 
+      studentClass, 
+      school, 
+      university, 
+      course, 
+      district, 
+      customMessage, 
+      profileUrl, 
+      baseUrl 
+    } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: "Recipient email is required" });
     }
 
+    let finalUserId = userId || id || uid || tutorId || teacherId;
+    if (!finalUserId && email) {
+      try {
+        const mirroredUser = await (UserMirror as any).findOne({ email: email.toLowerCase() });
+        if (mirroredUser?.firestoreId) {
+          finalUserId = mirroredUser.firestoreId;
+        }
+      } catch (e) {}
+    }
+
     const isTutor = role === 'tutor';
-    const computedBaseUrl = baseUrl || (req.headers["x-forwarded-proto"] && req.headers.host ? `${req.headers["x-forwarded-proto"]}://${req.headers.host}` : "https://edutrackbd.vercel.app");
+    const computedProfileUrl = profileUrl || (finalUserId && isTutor ? `https://edutrackbd.vercel.app/teachers/${finalUserId}` : undefined);
+    const computedBaseUrl = baseUrl || "https://edutrackbd.vercel.app";
 
     const htmlContent = generateWelcomeEmailHtml({
-      userId,
+      userId: finalUserId,
       email,
       name: name || (isTutor ? "Teacher" : "Member"),
       role: role || "student",
@@ -934,7 +962,7 @@ app.post("/api/mail/send-welcome", async (req, res) => {
       course,
       district,
       customMessage,
-      profileUrl,
+      profileUrl: computedProfileUrl,
       baseUrl: computedBaseUrl,
     });
 
@@ -970,18 +998,57 @@ app.post("/api/mail/send-welcome", async (req, res) => {
 
 app.post("/api/mail/send-custom", async (req, res) => {
   try {
-    const { toEmail, toName, subject, messageBody, role, district } = req.body;
+    const { 
+      userId, 
+      id, 
+      uid, 
+      tutorId, 
+      teacherId, 
+      toEmail, 
+      toName, 
+      subject, 
+      messageBody, 
+      role, 
+      district, 
+      studentClass, 
+      school, 
+      university, 
+      course, 
+      profileUrl, 
+      baseUrl 
+    } = req.body;
     
     if (!toEmail || !messageBody) {
       return res.status(400).json({ error: "toEmail and messageBody are required" });
     }
 
+    let finalUserId = userId || id || uid || tutorId || teacherId;
+    if (!finalUserId && toEmail) {
+      try {
+        const mirroredUser = await (UserMirror as any).findOne({ email: toEmail.toLowerCase() });
+        if (mirroredUser?.firestoreId) {
+          finalUserId = mirroredUser.firestoreId;
+        }
+      } catch (e) {}
+    }
+
+    const isTutor = role === 'tutor';
+    const computedProfileUrl = profileUrl || (finalUserId && isTutor ? `https://edutrackbd.vercel.app/teachers/${finalUserId}` : undefined);
+    const computedBaseUrl = baseUrl || "https://edutrackbd.vercel.app";
+
     const htmlContent = generateWelcomeEmailHtml({
+      userId: finalUserId,
       email: toEmail,
       name: toName || toEmail,
       role: role || "student",
       district,
-      customMessage: messageBody
+      studentClass,
+      school,
+      university,
+      course,
+      customMessage: messageBody,
+      profileUrl: computedProfileUrl,
+      baseUrl: computedBaseUrl,
     });
 
     const finalSubject = subject || `Message from EduTrack Bangladesh Administration`;
