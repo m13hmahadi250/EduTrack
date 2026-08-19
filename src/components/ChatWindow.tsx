@@ -77,29 +77,54 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
     setContent('');
   };
 
-  const quickReplies = useMemo(() => {
+  interface QuickReplyItem {
+    label: string;
+    text: string;
+  }
+
+  const quickReplies: QuickReplyItem[] = useMemo(() => {
+    if (currentUser?.role === 'admin') {
+      return [
+        {
+          label: "📋 Verification & Tuition Setup",
+          text: `Hello,\n\nTo complete your tuition setup and profile verification on EduTrack, please send us:\n\nYour preferred Tuition Days & Time\n\nA clear photo of your NID or University Student ID Card\n\nThis helps us keep the platform safe and verified for everyone. Thank you!`
+        },
+        {
+          label: "🔍 Documents Under Review",
+          text: "Hello! Your verification documents have been received and are currently under administrative review."
+        },
+        {
+          label: "⚠️ Update Profile Bio",
+          text: "Please update your profile details and documents to complete verification."
+        },
+        {
+          label: "👋 General Admin Support",
+          text: "Hello! How can EduTrack administration assist you today?"
+        }
+      ];
+    }
     if (currentUser?.role === 'tutor') {
       return [
-        "Yes, I can tutor this subject.",
-        "My availability is flexible. What times work for you?",
-        "What is your budget per hour?",
-        "Sure, let's schedule a session!"
+        { label: "Yes, I can tutor this subject.", text: "Yes, I can tutor this subject." },
+        { label: "My availability is flexible. What times work for you?", text: "My availability is flexible. What times work for you?" },
+        { label: "What is your budget per hour?", text: "What is your budget per hour?" },
+        { label: "Sure, let's schedule a session!", text: "Sure, let's schedule a session!" }
       ];
     }
     return [
-      "What is your availability?",
-      "Can you tutor this subject?",
-      "Are you free for a session today?",
-      "What are your hourly rates?"
+      { label: "What is your availability?", text: "What is your availability?" },
+      { label: "Can you tutor this subject?", text: "Can you tutor this subject?" },
+      { label: "Are you free for a session today?", text: "Are you free for a session today?" },
+      { label: "What are your hourly rates?", text: "What are your hourly rates?" }
     ];
   }, [currentUser?.role]);
 
-  const handleQuickReply = async (reply: string) => {
+  const handleQuickReply = async (replyText: string) => {
     if (!currentUser) return;
     await sendMessage({
       senderId: currentUser.id,
       receiverId: recipientId,
-      content: reply
+      content: replyText
     });
   };
 
@@ -223,16 +248,19 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
       <form onSubmit={handleSend} className="p-3 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/85 flex flex-col gap-2 shadow-md">
         {/* Quick Replies section */}
         <div className="flex flex-col gap-1">
-          <span className="text-[8px] font-bold uppercase tracking-widest text-[#0B132B]/40 dark:text-slate-400/40">Suggested Replies</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-[#0B132B]/40 dark:text-slate-400/40">
+            {currentUser?.role === 'admin' ? 'Admin Quick Suggestions' : 'Suggested Replies'}
+          </span>
           <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-none scroll-smooth">
-            {quickReplies.map((replyText, idx) => (
+            {quickReplies.map((reply, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleQuickReply(replyText)}
-                className="px-3 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-bold text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer"
+                onClick={() => handleQuickReply(reply.text)}
+                title={reply.text}
+                className="px-3 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-bold text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer max-w-[280px] sm:max-w-[340px] truncate"
               >
-                {replyText}
+                {reply.label}
               </button>
             ))}
           </div>

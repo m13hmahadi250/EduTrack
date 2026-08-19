@@ -818,11 +818,11 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <Search className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Send Brevo Welcome / Custom Mail */}
+                        {/* Send Email (Verification Reminder / Welcome / Custom) */}
                         <button
                           onClick={() => setEmailModalUser(user)}
                           className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 hover:bg-indigo-600 hover:text-white border border-indigo-100/20 hover:scale-105 active:scale-95"
-                          title="Send Brevo Welcome & Custom Email"
+                          title="Send Email (Verification Reminder / Welcome / Custom)"
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
@@ -1104,6 +1104,18 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                       <span className="font-mono text-indigo-500">{inspectingUser.showOnHomePage !== false ? "VISIBLE" : "HIDDEN"}</span>
                     </button>
                   )}
+
+                  {/* Send Email / Verification Reminder */}
+                  <button
+                    onClick={() => {
+                      setEmailModalUser(inspectingUser);
+                      setInspectingUser(null);
+                    }}
+                    className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 hover:bg-indigo-600 hover:text-white border border-indigo-100/20"
+                  >
+                    <span>Send Reminder / Email</span>
+                    <Send className="w-3 h-3" />
+                  </button>
 
                   {/* Send Direct Messages */}
                   {inspectingUser.id !== currentUser.id && onMessageUser && (
