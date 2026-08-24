@@ -34,27 +34,6 @@ function escapeXml(unsafe: string): string {
 }
 
 export async function generateSitemap(req: Request, res: Response) {
-  // If static sitemap file exists on disk, we can serve it directly for maximum speed
-  try {
-    const candidatePaths = [
-      path.join(process.cwd(), 'dist', 'sitemap.xml'),
-      path.join(process.cwd(), 'public', 'sitemap.xml'),
-    ];
-
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        const fileContent = fs.readFileSync(p, 'utf-8');
-        if (fileContent && fileContent.includes('<urlset')) {
-          res.header('Content-Type', 'application/xml');
-          res.header('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-          return res.status(200).send(fileContent);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[Sitemap Route] Static read fallback:', err);
-  }
-
   try {
     // 1. Get host/domain dynamically or use fallback canonical domain
     const host = req.get('host') || 'edutrackbd.vercel.app';
@@ -65,35 +44,36 @@ export async function generateSitemap(req: Request, res: Response) {
 
     // 2. Load Firebase Configuration from root config file
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (!fs.existsSync(configPath)) {
-      throw new Error('firebase-applet-config.json not found');
-    }
-    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    let tutors: any[] = [];
 
-    // 3. Initialize Firebase safely
-    const appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    const db = initializeFirestore(appInstance, {
-      experimentalForceLongPolling: true,
-    }, firebaseConfig.firestoreDatabaseId);
+    if (fs.existsSync(configPath)) {
+      try {
+        const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        const appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+        const db = initializeFirestore(appInstance, {
+          experimentalForceLongPolling: true,
+        }, firebaseConfig.firestoreDatabaseId);
 
-    // 4. Query public-facing tutor profiles
-    const tutorsQuery = query(
-      collection(db, 'users'),
-      where('role', '==', 'tutor')
-    );
-    const querySnapshot = await getDocs(tutorsQuery);
-    
-    const tutors: any[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.id && !data.isBlocked) {
-        tutors.push(data);
+        const tutorsQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'tutor')
+        );
+        const querySnapshot = await getDocs(tutorsQuery);
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.id && !data.isBlocked) {
+            tutors.push(data);
+          }
+        });
+      } catch (dbErr) {
+        console.warn('[Sitemap Generator] Firestore query skipped:', dbErr);
       }
-    });
+    }
 
     const currentDate = formatDate();
 
-    // 5. Build Sitemap XML
+    // 3. Build Rich Sitemap XML
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
     xml += `        xmlns:xhtml="http://www.w3.org/1999/xhtml"\n`;
@@ -107,12 +87,13 @@ export async function generateSitemap(req: Request, res: Response) {
         priority: '1.0',
         image: {
           loc: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&h=630&q=80',
-          title: 'EduTrack - #1 Tutor Finder & Home Tuition Platform in Bangladesh',
-          caption: 'Find verified tutors from BUET, DU, Medical, and top universities in Dhaka and all divisions in Bangladesh'
+          title: 'EduTrack Bangladesh - #1 Home Tutor & Tuition Platform in Bangladesh',
+          caption: 'Find verified home & online tutors from BUET, DU, Medical, and top universities in Dhaka, Chittagong, Sylhet, and all divisions'
         }
       },
       { path: '/signup', changefreq: 'weekly', priority: '0.9' },
       { path: '/login', changefreq: 'monthly', priority: '0.8' },
+      { path: '/reset-password', changefreq: 'monthly', priority: '0.5' },
     ];
 
     staticPages.forEach((page) => {
@@ -121,6 +102,8 @@ export async function generateSitemap(req: Request, res: Response) {
       xml += `    <lastmod>${currentDate}</lastmod>\n`;
       xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
       xml += `    <priority>${page.priority}</priority>\n`;
+      xml += `    <xhtml:link rel="alternate" hreflang="en-BD" href="${escapeXml(`${baseUrl}${page.path}`)}" />\n`;
+      xml += `    <xhtml:link rel="alternate" hreflang="bn-BD" href="${escapeXml(`${baseUrl}${page.path}`)}" />\n`;
       if (page.image) {
         xml += `    <image:image>\n`;
         xml += `      <image:loc>${escapeXml(page.image.loc)}</image:loc>\n`;
@@ -138,14 +121,16 @@ export async function generateSitemap(req: Request, res: Response) {
       const tutorName = tutor.name || 'Verified Tutor';
       const districtText = tutor.district ? ` in ${tutor.district}` : ' in Bangladesh';
       const univText = tutor.university ? ` (${tutor.university})` : '';
-      const title = `${tutorName} - Tuition Teacher${districtText}${univText}`;
-      const caption = `Hire ${tutorName} for home and online tuition on EduTrack Bangladesh. Verified background and trusted education track record.`;
+      const title = `${tutorName} - Verified Tuition Teacher${districtText}${univText}`;
+      const caption = `Hire ${tutorName} for home and online tuition on EduTrack Bangladesh. Verified NID, student background, and academic track record.`;
 
       xml += `  <url>\n`;
       xml += `    <loc>${escapeXml(tutorUrl)}</loc>\n`;
       xml += `    <lastmod>${lastmod}</lastmod>\n`;
       xml += `    <changefreq>weekly</changefreq>\n`;
-      xml += `    <priority>${tutor.isVerified ? '0.9' : '0.85'}</priority>\n`;
+      xml += `    <priority>${tutor.isVerified ? '0.95' : '0.85'}</priority>\n`;
+      xml += `    <xhtml:link rel="alternate" hreflang="en-BD" href="${escapeXml(tutorUrl)}" />\n`;
+      xml += `    <xhtml:link rel="alternate" hreflang="bn-BD" href="${escapeXml(tutorUrl)}" />\n`;
 
       if (tutor.profileImage && tutor.profileImage.startsWith('http')) {
         xml += `    <image:image>\n`;
@@ -159,14 +144,14 @@ export async function generateSitemap(req: Request, res: Response) {
 
     xml += `</urlset>\n`;
 
-    // 6. Return XML response
+    // 4. Return XML response
     res.header('Content-Type', 'application/xml');
-    res.header('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    res.header('Cache-Control', 'public, max-age=1800, s-maxage=3600');
     res.status(200).send(xml);
   } catch (error: any) {
     console.error('[Sitemap Generator Error]:', error);
     
-    // Fallback static sitemap if Firestore/Firebase initialization fails
+    // Fallback static sitemap
     const baseUrl = 'https://edutrackbd.vercel.app';
     const currentDate = formatDate();
 
@@ -189,6 +174,12 @@ export async function generateSitemap(req: Request, res: Response) {
     fallbackXml += `    <lastmod>${currentDate}</lastmod>\n`;
     fallbackXml += `    <changefreq>monthly</changefreq>\n`;
     fallbackXml += `    <priority>0.8</priority>\n`;
+    fallbackXml += `  </url>\n`;
+    fallbackXml += `  <url>\n`;
+    fallbackXml += `    <loc>${baseUrl}/reset-password</loc>\n`;
+    fallbackXml += `    <lastmod>${currentDate}</lastmod>\n`;
+    fallbackXml += `    <changefreq>monthly</changefreq>\n`;
+    fallbackXml += `    <priority>0.5</priority>\n`;
     fallbackXml += `  </url>\n`;
     fallbackXml += `</urlset>\n`;
 

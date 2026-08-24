@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
+import SEOHead from '../components/SEOHead';
 import { 
   ArrowLeft, 
   Mail, 
@@ -280,6 +281,76 @@ export default function TeacherProfile() {
     ? reviews.length 
     : (tutor?.totalRatings || 0);
 
+  const seoTitle = `${tutor.name} - Verified ${tutor.university || 'Home'} Tutor in ${tutor.district || tutor.area || 'Bangladesh'} | EduTrack`;
+  const seoDescription = `Hire ${tutor.name} (${tutor.course || 'Expert Mentor'}) from ${tutor.university || 'top institutions'}. Subjects: ${tutor.subjects?.join(', ') || 'Academic Curriculums'}. NID verified with ${displayRating.toFixed(1)}/5 rating on EduTrack Bangladesh.`;
+  const seoKeywords = `${tutor.name}, home tutor ${tutor.district || 'dhaka'}, ${tutor.university || 'tutor'}, ${tutor.subjects?.join(', ') || 'tuition'}, ssc hsc tutor, private tutor bangladesh, ${tutor.area || 'dhaka'}`;
+
+  const tutorJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "ProfilePage",
+        "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#webpage`,
+        "url": `https://edutrackbd.vercel.app/teachers/${tutor.id}`,
+        "name": `${tutor.name} - Verified Tutor Profile`,
+        "description": seoDescription,
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://edutrackbd.vercel.app/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Tutors",
+              "item": "https://edutrackbd.vercel.app/#tutors"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": tutor.name,
+              "item": `https://edutrackbd.vercel.app/teachers/${tutor.id}`
+            }
+          ]
+        },
+        "mainEntity": {
+          "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#person`
+        }
+      },
+      {
+        "@type": "Person",
+        "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#person`,
+        "name": tutor.name,
+        "jobTitle": "Academic Tutor & Educator",
+        "description": tutor.bio || seoDescription,
+        "image": tutor.profileImage || "https://edutrackbd.vercel.app/og-image.png",
+        "url": `https://edutrackbd.vercel.app/teachers/${tutor.id}`,
+        "alumniOf": {
+          "@type": "EducationalOrganization",
+          "name": tutor.university || "Bangladesh University"
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": tutor.area || "Dhaka",
+          "addressRegion": tutor.district || "Dhaka",
+          "addressCountry": "BD"
+        },
+        "knowsAbout": tutor.subjects || ["Mathematics", "Science", "English"],
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": Number(displayRating).toFixed(1),
+          "reviewCount": Math.max(displayTotalReviews, 1).toString(),
+          "bestRating": "5",
+          "worstRating": "1"
+        }
+      }
+    ]
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -289,6 +360,15 @@ export default function TeacherProfile() {
       className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" 
       id={`teacher-profile-root-${tutor.id}`}
     >
+      <SEOHead
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        canonicalUrl={`https://edutrackbd.vercel.app/teachers/${tutor.id}`}
+        ogImage={tutor.profileImage || "https://edutrackbd.vercel.app/og-image.png"}
+        ogType="profile"
+        jsonLd={tutorJsonLd}
+      />
       
       {/* Top Banner & Navigation */}
       <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">

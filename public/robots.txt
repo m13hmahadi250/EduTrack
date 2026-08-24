@@ -1,9 +1,28 @@
-# robots.txt for EduTrack
+# robots.txt for EduTrack Bangladesh (https://edutrackbd.vercel.app)
+# Designed for maximum SEO indexability and Googlebot crawling
+
 User-agent: *
 Allow: /
-Disallow: /dashboard
-Disallow: /messages
-Disallow: /api/
+Allow: /teachers/
+Allow: /signup
+Allow: /login
+Allow: /reset-password
+Allow: /sitemap.xml
+Allow: /favicon.ico
+Allow: /manifest.json
+Allow: /og-image.png
 
-# Sitemap reference for Google Search Console and crawlers
+# Protect private user authentication & admin endpoints from indexing
+Disallow: /dashboard/
+Disallow: /dashboard/*
+Disallow: /messages
+Disallow: /messages/*
+Disallow: /api/admin/
+Disallow: /api/admin/*
+
+# Crawl Delay
+Crawl-delay: 1
+
+# Major Search Engine Sitemaps
 Sitemap: https://edutrackbd.vercel.app/sitemap.xml
+

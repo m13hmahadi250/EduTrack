@@ -5,6 +5,7 @@ import { X, AlertCircle, Eye, EyeOff, Key, Mail, CheckCircle2, ShieldAlert, Grad
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import SEOHead from '../components/SEOHead';
 
 export default function Login() {
   const location = useLocation();
@@ -221,6 +222,12 @@ export default function Login() {
       animate={{ opacity: 1 }}
       className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20"
     >
+      <SEOHead
+        title="Sign In to EduTrack | Bangladesh's #1 Tuition & Tutor Platform"
+        description="Log in to your EduTrack Bangladesh account. Access student session records, tuition schedules, GPS transit tracking, and secure bKash billing."
+        keywords="login edutrack, tutor login bangladesh, student login tuition, edutrack account"
+        canonicalUrl="https://edutrackbd.vercel.app/login"
+      />
       {/* Invalid Credentials Screen Alert */}
       <AnimatePresence>
         {showInvalidCredPopup && (

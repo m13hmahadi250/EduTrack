@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 const AIChatWidget = React.lazy(() => import('../components/AIChatWidget'));
 import Logo from '../components/Logo';
+import SEOHead from '../components/SEOHead';
 import { prefetchPage } from '../utils/prefetch';
 import { 
   ShieldCheck, 
@@ -35,7 +36,10 @@ import {
   Eye,
   EyeOff,
   Smartphone,
-  Download
+  Download,
+  Sparkles,
+  GraduationCap,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
@@ -233,6 +237,13 @@ export default function Home() {
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
+      <SEOHead
+        title="EduTrack Bangladesh | #1 Home Tutor & Tuition Platform in Bangladesh"
+        description="Hire trusted, NID-verified home & online tutors in Dhaka, Chittagong, and all 64 districts of Bangladesh. Real-time GPS transit tracking, expert teachers from BUET, DU, Medical, and automated bKash payments."
+        keywords="home tutor bd, tutor in dhaka, tuition media bangladesh, find tutor bangladesh, private tutor dhaka, online tutor bangladesh, buet tutor, du tutor, ssc hsc tutor, english medium tutor edexcel cambridge"
+        canonicalUrl="https://edutrackbd.vercel.app/"
+        ogType="website"
+      />
 
       {/* Hero Section - Magazine Style */}
       <section className="relative min-h-[90vh] flex items-center pt-20 overflow-hidden bg-white dark:bg-[#111A2E] transition-colors duration-300">
@@ -749,6 +760,147 @@ export default function Home() {
           <div className="space-y-4">
             <FAQAccordionList />
           </div>
+        </div>
+      </section>
+
+      {/* SEO Directory & Academic Curriculums across Bangladesh */}
+      <section className="py-24 bg-slate-50/70 dark:bg-[#111A2E]/50 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300" id="curriculums">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Header */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest mb-4">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Nationwide Educational Coverage</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+              Home & Online Tutors for <span className="text-[#0D5BFF]">Every Curriculum</span>
+            </h2>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-3 max-w-2xl mx-auto">
+              From English Medium Cambridge & Edexcel to National Curriculum SSC, HSC, and BUET/Medical Admission Mentors.
+            </p>
+          </div>
+
+          {/* Curriculum Categories Bento Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            
+            <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] flex items-center justify-center mb-4">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-[#0B132B] dark:text-white uppercase tracking-tight mb-2">
+                English Medium
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4">
+                Specialized tutors for Cambridge (CIE) & Edexcel curriculums: IGCSE, O Level, and A Level Pure Math, Physics, Chemistry, Economics & Biology.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">O Level</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">A Level</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">Edexcel / CIE</span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center mb-4">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-[#0B132B] dark:text-white uppercase tracking-tight mb-2">
+                SSC & HSC Science
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4">
+                High-scoring mentors for National Curriculum Bangla & English Version: Higher Mathematics, Physics, Chemistry, Biology, and ICT.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">SSC 2025/26</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">HSC Science</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">English Version</span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center mb-4">
+                <Award className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-[#0B132B] dark:text-white uppercase tracking-tight mb-2">
+                Admission Coaching
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4">
+                Learn from top university toppers from BUET, Dhaka University (DU 'Ka' & IBA), Medical Colleges, and GST University Clusters.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">BUET Engg</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">Medical / DMC</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">DU 'Ka' / IBA</span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-500 flex items-center justify-center mb-4">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-[#0B132B] dark:text-white uppercase tracking-tight mb-2">
+                Languages & Skills
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4">
+                Personalized 1-on-1 tutoring for Spoken English, IELTS preparation, Holy Quran & Tajweed recitation, and Python / Web Programming.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">Spoken English</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">IELTS 7.5+</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">Quran / Arabic</span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Quick District Directory Navigation for Local SEO */}
+          <div className="bg-white dark:bg-[#1E293B] p-8 md:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase tracking-tight flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[#0D5BFF]" />
+                  <span>Explore Verified Tutors by District</span>
+                </h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1">
+                  Click any district to filter teachers in real-time
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDistrict('All');
+                  const el = document.getElementById('tutors');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="text-xs font-black uppercase text-[#0D5BFF] hover:underline cursor-pointer self-start md:self-auto"
+              >
+                View All Districts (64) →
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {BANGLADESH_DISTRICTS.slice(0, 24).map((dist) => (
+                <button
+                  key={dist}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDistrict(dist);
+                    const el = document.getElementById('tutors');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedDistrict === dist
+                      ? 'bg-[#0D5BFF] text-white shadow-sm'
+                      : 'bg-slate-50 dark:bg-[#0B132B] text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-[#0D5BFF] border border-slate-100 dark:border-slate-800'
+                  }`}
+                >
+                  Tutors in {dist}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
 

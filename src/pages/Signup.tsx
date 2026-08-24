@@ -5,6 +5,7 @@ import { X, AlertCircle, Eye, EyeOff, GraduationCap, BookOpen, MapPin, UserCheck
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS, BANGLADESH_DIV_TO_DIST, BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 import OtpVerificationModal from '../components/OtpVerificationModal';
+import SEOHead from '../components/SEOHead';
 
 export default function Signup() {
   const [role, setRole] = useState<'student' | 'tutor'>('student');
@@ -318,6 +319,12 @@ export default function Signup() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20">
+      <SEOHead
+        title="Register as a Student or Tutor | EduTrack Bangladesh"
+        description="Join EduTrack Bangladesh today. Create an account to hire verified home tutors from BUET, DU, Medical, or apply to become a certified tutor with verified NID credentials."
+        keywords="tutor registration bangladesh, find tutor signup, join edutrack, tuition media registration bd, private tutor register"
+        canonicalUrl="https://edutrackbd.vercel.app/signup"
+      />
       <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-2xl border-2 border-slate-200 dark:border-slate-700/80 p-6 sm:p-10 relative overflow-hidden">
         {loading ? (
           <motion.div 

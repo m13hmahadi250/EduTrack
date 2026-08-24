@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, GraduationCap, Check, X, ArrowRight, Clock } from 'lucide-react';
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import SEOHead from '../components/SEOHead';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -212,6 +213,12 @@ export default function ResetPassword() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/40 dark:bg-slate-950/20 relative">
+      <SEOHead
+        title="Reset Account Password | EduTrack Bangladesh"
+        description="Securely reset and update your EduTrack Bangladesh account password. Enter your new password to regain access to your tutor or student profile."
+        keywords="reset password edutrack, recover password, tutor account recovery, student account recovery"
+        canonicalUrl="https://edutrackbd.vercel.app/reset-password"
+      />
       {/* Toast Notification Banner for Successful Password Reset */}
       <AnimatePresence>
         {resetSuccess && (

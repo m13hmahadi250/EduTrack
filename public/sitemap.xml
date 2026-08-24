@@ -4,25 +4,40 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://edutrackbd.vercel.app/</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en-BD" href="https://edutrackbd.vercel.app/" />
+    <xhtml:link rel="alternate" hreflang="bn-BD" href="https://edutrackbd.vercel.app/" />
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&amp;fit=crop&amp;w=1200&amp;h=630&amp;q=80</image:loc>
-      <image:title>EduTrack - #1 Tutor Finder &amp; Home Tuition Platform in Bangladesh</image:title>
-      <image:caption>Find verified tutors from BUET, DU, Medical, and top universities in Dhaka and Bangladesh</image:caption>
+      <image:title>EduTrack Bangladesh - #1 Home Tutor &amp; Tuition Platform in Bangladesh</image:title>
+      <image:caption>Find verified home &amp; online tutors from BUET, DU, Medical, and top universities in Dhaka, Chittagong, Sylhet, and all divisions</image:caption>
     </image:image>
   </url>
   <url>
     <loc>https://edutrackbd.vercel.app/signup</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en-BD" href="https://edutrackbd.vercel.app/signup" />
+    <xhtml:link rel="alternate" hreflang="bn-BD" href="https://edutrackbd.vercel.app/signup" />
   </url>
   <url>
     <loc>https://edutrackbd.vercel.app/login</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en-BD" href="https://edutrackbd.vercel.app/login" />
+    <xhtml:link rel="alternate" hreflang="bn-BD" href="https://edutrackbd.vercel.app/login" />
+  </url>
+  <url>
+    <loc>https://edutrackbd.vercel.app/reset-password</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en-BD" href="https://edutrackbd.vercel.app/reset-password" />
+    <xhtml:link rel="alternate" hreflang="bn-BD" href="https://edutrackbd.vercel.app/reset-password" />
   </url>
 </urlset>
+
