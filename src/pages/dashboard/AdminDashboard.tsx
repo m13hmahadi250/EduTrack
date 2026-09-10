@@ -44,6 +44,7 @@ const AdminUserMap = lazy(() => import("../../components/admin/AdminUserMap"));
 const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
 const AdminMongoDatabase = lazy(() => import("../../components/admin/AdminMongoDatabase"));
 const AdminBroadcastCenter = lazy(() => import("../../components/admin/AdminBroadcastCenter"));
+const AdminBulkEmailer = lazy(() => import("../../components/admin/AdminBulkEmailer"));
 const AdminReferralOperations = lazy(() => import("../../components/admin/AdminReferralOperations"));
 const AdminSystemHub = lazy(() => import("../../components/admin/AdminSystemHub"));
 const ImageUpload = lazy(() => import("../../components/ImageUpload"));
@@ -75,7 +76,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = useMemo<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/verifications")) return "verifications";
@@ -87,6 +88,7 @@ export default function AdminDashboard() {
     if (path.endsWith("/messages")) return "messages";
     if (path.endsWith("/analytics")) return "analytics";
     if (path.endsWith("/broadcasts") || path.endsWith("/broadcast")) return "broadcasts";
+    if (path.endsWith("/bulk-email") || path.endsWith("/bulk-mail") || path.endsWith("/campaigns") || path.endsWith("/mailer")) return "bulk-email";
     if (path.endsWith("/referrals") || path.endsWith("/growth")) return "referrals";
     if (path.endsWith("/system") || path.endsWith("/export")) return "system";
     if (path.endsWith("/banner")) return "banner";
@@ -228,7 +230,7 @@ export default function AdminDashboard() {
   // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email",
   ) => {
     setSelectedTutorIds([]);
     const pathMap: Record<string, string> = {
@@ -245,6 +247,7 @@ export default function AdminDashboard() {
       downloads: "/dashboard/downloads",
       mongodb: "/dashboard/mongodb",
       broadcasts: "/dashboard/broadcasts",
+      "bulk-email": "/dashboard/bulk-email",
       referrals: "/dashboard/referrals",
       system: "/dashboard/system",
     };
@@ -491,6 +494,7 @@ export default function AdminDashboard() {
             { id: "withdrawals", label: "Tutor payouts", icon: Wallet },
             { id: "sessions", label: "Session audits", icon: History },
             { id: "broadcasts", label: "Broadcasts & Push", icon: Megaphone },
+            { id: "bulk-email", label: "Brevo Bulk Mailer", icon: Mail },
             { id: "referrals", label: "Referrals & Growth", icon: Gift },
             { id: "system", label: "System & Export", icon: Activity },
             { id: "messages", label: "Secure messages", icon: MessageSquare },
@@ -543,6 +547,7 @@ export default function AdminDashboard() {
           { id: "verifications", label: "Identity protocol" },
           { id: "analytics", label: "Command Center" },
           { id: "broadcasts", label: "Broadcasts & Push" },
+          { id: "bulk-email", label: "Brevo Bulk Mailer" },
           { id: "referrals", label: "Referrals & Growth" },
           { id: "system", label: "System & Export" },
           { id: "payments", label: "Inbound revenue" },
@@ -1739,6 +1744,24 @@ export default function AdminDashboard() {
                 sendNotification={sendNotification}
                 promotionalBannerText={promotionalBannerText}
                 updatePromotionalBannerText={updatePromotionalBannerText}
+              />
+            </Suspense>
+          </motion.div>
+        )}
+
+        {activeTab === "bulk-email" && (
+          <motion.div
+            key="bulk-email"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.04, ease: "easeOut" }}
+          >
+            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+              <AdminBulkEmailer
+                users={users}
+                currentUser={currentUser!}
+                sendNotification={sendNotification}
               />
             </Suspense>
           </motion.div>

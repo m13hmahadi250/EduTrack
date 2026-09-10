@@ -102,3 +102,48 @@ export async function sendCustomAdminMail({
     return { success: false, error: String(error) };
   }
 }
+
+export interface BulkCampaignMailParams {
+  recipients: Array<{
+    id?: string;
+    email: string;
+    name?: string;
+    role?: string;
+    district?: string;
+  }>;
+  subject: string;
+  preheader?: string;
+  headline?: string;
+  messageBody: string;
+  category?: 'promotional' | 'announcement' | 'update' | 'custom';
+  actionButtonText?: string;
+  actionButtonUrl?: string;
+  adminEmail?: string;
+  campaignName?: string;
+}
+
+export async function sendBulkCampaignMail(params: BulkCampaignMailParams) {
+  try {
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : "https://edutrackbd.vercel.app";
+    const res = await fetch('/api/mail/send-bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        baseUrl: origin,
+      }),
+    });
+    const result = await res.json();
+    return result;
+  } catch (error) {
+    console.error("[Mail Service Client] Failed to dispatch bulk campaign:", error);
+    return { 
+      success: false, 
+      error: String(error), 
+      total: params.recipients.length,
+      sentCount: 0, 
+      failedCount: params.recipients.length,
+      results: [] 
+    };
+  }
+}

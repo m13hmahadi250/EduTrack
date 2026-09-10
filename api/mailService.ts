@@ -645,6 +645,228 @@ export function generateWelcomeEmailHtml({
 </html>`;
 }
 
+export interface BulkCampaignEmailParams {
+  recipientName?: string;
+  recipientEmail: string;
+  recipientRole?: string;
+  recipientDistrict?: string;
+  subject: string;
+  preheader?: string;
+  headline?: string;
+  messageBody: string;
+  category?: 'promotional' | 'announcement' | 'update' | 'custom';
+  actionButtonText?: string;
+  actionButtonUrl?: string;
+  baseUrl?: string;
+}
+
+export function generateBulkCampaignEmailHtml({
+  recipientName,
+  recipientEmail,
+  recipientRole = 'member',
+  recipientDistrict,
+  subject,
+  preheader,
+  headline,
+  messageBody,
+  category = 'update',
+  actionButtonText,
+  actionButtonUrl,
+  baseUrl = "https://edutrackbd.vercel.app",
+}: BulkCampaignEmailParams): string {
+  const displayName = recipientName?.trim() || recipientEmail.split('@')[0];
+  const roleLabel = recipientRole === 'tutor' ? 'Tutor / Educator' : recipientRole === 'student' ? 'Student / Guardian' : 'Platform Member';
+  
+  // Replace dynamic template variables in message body
+  let processedBody = messageBody
+    .replace(/\{\{\s*name\s*\}\}/gi, displayName)
+    .replace(/\{\{\s*email\s*\}\}/gi, recipientEmail)
+    .replace(/\{\{\s*role\s*\}\}/gi, roleLabel)
+    .replace(/\{\{\s*district\s*\}\}/gi, recipientDistrict || 'Bangladesh');
+
+  // Convert double newlines to paragraph blocks and lines starting with - or • to styled list items
+  const paragraphs = processedBody.split(/\n\s*\n/).map(block => {
+    const trimmed = block.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+      const items = trimmed.split('\n').map(line => {
+        const clean = line.replace(/^[•\-]\s*/, '').trim();
+        return clean ? `<li style="margin-bottom: 8px; color: #334155; line-height: 1.6;">${clean}</li>` : '';
+      }).join('');
+      return `<ul style="margin: 16px 0; padding-left: 24px; color: #0D5BFF;">${items}</ul>`;
+    }
+    return `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #334155; font-size: 15px;">${trimmed.replace(/\n/g, '<br/>')}</p>`;
+  }).join('');
+
+  // Category Theme Attributes
+  let badgeText = "Platform Announcement";
+  let badgeBg = "rgba(13, 91, 255, 0.15)";
+  let badgeColor = "#60a5fa";
+  let topGradient = "linear-gradient(90deg, #0D5BFF 0%, #00C853 50%, #7C3AED 100%)";
+  let headerBg = "linear-gradient(135deg, #0B132B 0%, #111A2E 55%, #0D5BFF 100%)";
+  let ctaBg = "#0D5BFF";
+
+  if (category === 'promotional') {
+    badgeText = "Special Promotion & Offer";
+    badgeBg = "rgba(16, 185, 129, 0.2)";
+    badgeColor = "#34d399";
+    topGradient = "linear-gradient(90deg, #10B981 0%, #0D5BFF 50%, #F59E0B 100%)";
+    headerBg = "linear-gradient(135deg, #064E3B 0%, #0B132B 60%, #10B981 100%)";
+    ctaBg = "#059669";
+  } else if (category === 'announcement') {
+    badgeText = "Important Announcement";
+    badgeBg = "rgba(124, 58, 237, 0.25)";
+    badgeColor = "#c084fc";
+    topGradient = "linear-gradient(90deg, #7C3AED 0%, #0D5BFF 100%)";
+    headerBg = "linear-gradient(135deg, #1E1B4B 0%, #0B132B 55%, #7C3AED 100%)";
+    ctaBg = "#7C3AED";
+  } else if (category === 'custom') {
+    badgeText = "Official Notice";
+    badgeBg = "rgba(255, 255, 255, 0.15)";
+    badgeColor = "#93c5fd";
+    topGradient = "linear-gradient(90deg, #3B82F6 0%, #6366F1 100%)";
+    headerBg = "linear-gradient(135deg, #0B132B 0%, #1E293B 100%)";
+    ctaBg = "#0B132B";
+  }
+
+  const defaultHeadline = headline || subject;
+  const snippet = preheader || defaultHeadline;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; color: #334155; -webkit-font-smoothing: antialiased;">
+  <!-- Hidden inbox preheader snippet -->
+  <div style="display:none;font-size:1px;color:#0f172a;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    ${snippet}
+  </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; padding: 36px 12px;">
+    <tr>
+      <td align="center">
+        
+        <!-- Main Email Container -->
+        <table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);">
+          
+          <!-- Top Accent Stripe -->
+          <tr>
+            <td style="background: ${topGradient}; height: 6px;"></td>
+          </tr>
+
+          <!-- Header Section -->
+          <tr>
+            <td style="background: ${headerBg}; padding: 40px 32px 36px 32px; text-align: center;">
+              
+              <!-- Brand Badge -->
+              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 18px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.18); margin-bottom: 20px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                <span style="color: #ffffff; font-size: 16px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
+                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 8px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
+              </div>
+
+              <!-- Category Tag -->
+              <div style="margin-bottom: 12px;">
+                <span style="display: inline-block; background-color: ${badgeBg}; color: ${badgeColor}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1.5px; border: 1px solid rgba(255,255,255,0.1);">
+                  ${badgeText}
+                </span>
+              </div>
+
+              <!-- Main Title -->
+              <h1 style="color: #ffffff; font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3;">
+                ${defaultHeadline}
+              </h1>
+
+              <p style="color: rgba(255, 255, 255, 0.7); font-size: 13px; margin: 0; font-weight: 500;">
+                Official Platform Dispatch • ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 36px 32px 28px 32px;">
+              
+              <!-- Greeting & Recipient Pill -->
+              <div style="margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h3 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 800;">
+                    Hello ${displayName},
+                  </h3>
+                  <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">
+                    Role: <strong style="color: #0D5BFF;">${roleLabel}</strong> ${recipientDistrict ? `• District: <strong>${recipientDistrict}</strong>` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Main Message Paragraphs -->
+              <div style="color: #334155; font-size: 15px; line-height: 1.7;">
+                ${paragraphs}
+              </div>
+
+              <!-- Call to Action Button (if configured) -->
+              ${actionButtonText && actionButtonUrl ? `
+              <div style="text-align: center; margin: 34px 0 24px 0;">
+                <a href="${actionButtonUrl}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; text-decoration: none; padding: 15px 36px; border-radius: 14px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 8px 24px rgba(13, 91, 255, 0.35);">
+                  ${actionButtonText} →
+                </a>
+              </div>
+              ` : ''}
+
+              <!-- Platform Assurance Callout Box -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-top: 28px; text-align: left;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td width="32" valign="top" style="padding-top: 2px;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D5BFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </td>
+                    <td style="padding-left: 10px;">
+                      <p style="margin: 0; font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Verified Platform Communication
+                      </p>
+                      <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.5;">
+                        This notice is dispatched via EduTrack Bangladesh Brevo email relay. If you have questions, reach our 24/7 administrative desk at 
+                        <a href="mailto:edutrackbangladesh@gmail.com" style="color: #0D5BFF; text-decoration: none; font-weight: 600;">edutrackbangladesh@gmail.com</a>.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer Section -->
+          <tr>
+            <td style="background-color: #f1f5f9; padding: 24px 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 1px;">
+                EduTrack Bangladesh
+              </p>
+              <p style="margin: 0 0 12px 0; font-size: 11px; color: #64748b;">
+                The Premier Verified Tuition & Educator Network • Dhaka, Bangladesh
+              </p>
+              <div style="font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                <span>Web: <a href="${baseUrl}" style="color: #0D5BFF; text-decoration: none;">${baseUrl.replace('https://', '')}</a></span> •
+                <span>Inquiries: <a href="mailto:edutrackbangladesh@gmail.com" style="color: #0D5BFF; text-decoration: none;">edutrackbangladesh@gmail.com</a></span>
+              </div>
+              <p style="margin: 14px 0 0 0; font-size: 10px; color: #94a3b8;">
+                You received this operational update as a registered member of EduTrack Bangladesh.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export async function sendBrevoEmail({
   toEmail,
   toName,

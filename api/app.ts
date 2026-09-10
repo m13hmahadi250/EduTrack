@@ -11,7 +11,13 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
-import { sendBrevoEmail, generateWelcomeEmailHtml, generateOtpEmailHtml, generatePasswordResetEmailHtml } from "./mailService.js";
+import { 
+  sendBrevoEmail, 
+  generateWelcomeEmailHtml, 
+  generateOtpEmailHtml, 
+  generatePasswordResetEmailHtml,
+  generateBulkCampaignEmailHtml
+} from "./mailService.js";
 import { 
   connectMongoDB, 
   AdminActionLog, 
@@ -1076,6 +1082,188 @@ app.post("/api/mail/send-custom", async (req, res) => {
       });
     }
     res.status(500).json({ error: msg });
+  }
+});
+
+// 3. Bulk Promotional & System Update Email Campaign Endpoint
+app.post("/api/mail/send-bulk", async (req, res) => {
+  try {
+    const {
+      recipients,
+      subject,
+      preheader,
+      headline,
+      messageBody,
+      category = "update",
+      actionButtonText,
+      actionButtonUrl,
+      adminEmail = "admin@edutrack.bd",
+      campaignName,
+      baseUrl = "https://edutrackbd.vercel.app",
+    } = req.body;
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: "recipients array is required and cannot be empty." });
+    }
+
+    if (!subject || !messageBody) {
+      return res.status(400).json({ error: "subject and messageBody are required." });
+    }
+
+    // Filter and sanitize valid recipient emails (deduplicate by lowercase email)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const seenEmails = new Set<string>();
+    const validRecipients: Array<{
+      id?: string;
+      email: string;
+      name?: string;
+      role?: string;
+      district?: string;
+    }> = [];
+
+    for (const r of recipients) {
+      if (!r || !r.email) continue;
+      const cleanEmail = String(r.email).trim().toLowerCase();
+      if (!emailRegex.test(cleanEmail)) continue;
+      if (seenEmails.has(cleanEmail)) continue;
+      seenEmails.add(cleanEmail);
+      validRecipients.push({
+        id: r.id,
+        email: cleanEmail,
+        name: r.name ? String(r.name).trim() : cleanEmail.split("@")[0],
+        role: r.role || "member",
+        district: r.district || "",
+      });
+    }
+
+    if (validRecipients.length === 0) {
+      return res.status(400).json({ error: "No valid, deliverable recipient email addresses found." });
+    }
+
+    console.log(`[Bulk Mail API] Initiating bulk campaign "${campaignName || subject}" for ${validRecipients.length} target recipients via Brevo...`);
+
+    const results: Array<{
+      email: string;
+      name?: string;
+      status: "sent" | "failed";
+      messageId?: string;
+      error?: string;
+    }> = [];
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let detectedIpError = false;
+    let ipErrorNotice = "";
+
+    // Process in gentle batches of 3 with small throttling delay
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < validRecipients.length; i += BATCH_SIZE) {
+      const batch = validRecipients.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (target) => {
+          try {
+            const htmlContent = generateBulkCampaignEmailHtml({
+              recipientName: target.name,
+              recipientEmail: target.email,
+              recipientRole: target.role,
+              recipientDistrict: target.district,
+              subject,
+              preheader,
+              headline,
+              messageBody,
+              category,
+              actionButtonText,
+              actionButtonUrl,
+              baseUrl,
+            });
+
+            const sendRes = await sendBrevoEmail({
+              toEmail: target.email,
+              toName: target.name || target.email.split("@")[0],
+              subject,
+              htmlContent,
+            });
+
+            if (sendRes.success) {
+              sentCount++;
+              results.push({
+                email: target.email,
+                name: target.name,
+                status: "sent",
+                messageId: sendRes.messageId,
+              });
+            } else {
+              failedCount++;
+              if (sendRes.isIpError) {
+                detectedIpError = true;
+                ipErrorNotice = sendRes.message || "Brevo IP Whitelist restriction active";
+              }
+              results.push({
+                email: target.email,
+                name: target.name,
+                status: "failed",
+                error: sendRes.message || sendRes.error || "Failed to deliver via Brevo",
+              });
+            }
+          } catch (err: any) {
+            failedCount++;
+            results.push({
+              email: target.email,
+              name: target.name,
+              status: "failed",
+              error: err?.message || "Unexpected exception during delivery",
+            });
+          }
+        })
+      );
+
+      // Throttling sleep between batches (80ms)
+      if (i + BATCH_SIZE < validRecipients.length) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+    }
+
+    console.log(`[Bulk Mail API] Campaign complete. Sent: ${sentCount}, Failed: ${failedCount}, Total: ${validRecipients.length}`);
+
+    // Secondary DB mirror trigger
+    try {
+      if (AdminActionLog) {
+        await AdminActionLog.create({
+          actionType: "BULK_EMAIL_CAMPAIGN",
+          entityType: "mail",
+          payload: {
+            campaignName: campaignName || subject,
+            subject,
+            category,
+            totalTargeted: validRecipients.length,
+            sentCount,
+            failedCount,
+            adminEmail,
+            actionButtonText,
+            actionButtonUrl,
+          },
+          adminEmail,
+        });
+      }
+    } catch (mirrorErr) {
+      console.warn("[Bulk Mail API] Non-critical mirror log warning:", mirrorErr);
+    }
+
+    return res.json({
+      success: sentCount > 0 || !detectedIpError,
+      total: validRecipients.length,
+      sentCount,
+      failedCount,
+      results,
+      isIpError: detectedIpError,
+      brevoLink: detectedIpError ? "https://app.brevo.com/security/authorised_ips" : undefined,
+      message: detectedIpError 
+        ? `Brevo Security Notice: Your Brevo API key has IP restrictions enabled. Sent ${sentCount}/${validRecipients.length}. Go to https://app.brevo.com/security/authorised_ips to authorize server IPs.`
+        : `Dispatched campaign to ${sentCount} recipients (${failedCount} failed).`,
+    });
+  } catch (error: any) {
+    console.error("[Bulk Mail API Exception]:", error);
+    return res.status(500).json({ error: error?.message || "Internal server error during bulk mail dispatch." });
   }
 });
 

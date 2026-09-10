@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../../store';
 import { 
   Megaphone, 
@@ -17,7 +18,8 @@ import {
   Zap,
   Check,
   Search,
-  Filter
+  Filter,
+  Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
@@ -89,6 +91,7 @@ export default function AdminBroadcastCenter({
   promotionalBannerText,
   updatePromotionalBannerText
 }: AdminBroadcastCenterProps) {
+  const navigate = useNavigate();
   const [broadcasts, setBroadcasts] = useState<BroadcastRecord[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
 
@@ -319,6 +322,27 @@ export default function AdminBroadcastCenter({
               <span className="text-lg font-black text-emerald-400 font-mono">{audienceStats.students}</span>
             </div>
           </div>
+        </div>
+
+        {/* Brevo Bulk Mailer Cross-Link Banner */}
+        <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-[#0D5BFF] flex items-center justify-center shrink-0">
+              <Mail className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white">Need to send official promotional or update emails?</p>
+              <p className="text-[10px] text-slate-400">Launch personalized email newsletters and announcements through Brevo SMTP API.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/bulk-email')}
+            className="px-4 py-2 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 shadow-md cursor-pointer"
+          >
+            <span>Open Brevo Bulk Mailer</span>
+            <span>→</span>
+          </button>
         </div>
       </div>
 
