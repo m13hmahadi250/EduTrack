@@ -221,9 +221,36 @@
         "userAgent": { "type": "string" }
       },
       "required": ["id", "timestamp", "platform", "source"]
+    },
+    "TuitionPost": {
+      "title": "TuitionPost",
+      "description": "Public tuition circulars and student tutoring requirements.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "district": { "type": "string" },
+        "area": { "type": "string" },
+        "salary": { "type": "number" },
+        "daysPerWeek": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "filled", "cancelled", "pending"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "subject", "district", "status"]
     }
   },
   "firestore": {
+    "/tuitions/{tuitionId}": {
+      "schema": "TuitionPost",
+      "description": "Public tuition circulars"
+    },
+    "/tuition_posts/{postId}": {
+      "schema": "TuitionPost",
+      "description": "Public tuition posts"
+    },
     "/download_attempts/{attemptId}": {
       "schema": "DownloadAttempt",
       "description": "Records of Android APK download attempts"

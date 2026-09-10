@@ -4,6 +4,8 @@
 User-agent: *
 Allow: /
 Allow: /teachers/
+Allow: /tuitions/
+Allow: /tuitions
 Allow: /signup
 Allow: /login
 Allow: /reset-password

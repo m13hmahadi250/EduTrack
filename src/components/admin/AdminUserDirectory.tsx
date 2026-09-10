@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, useAppStore } from '../../store';
 import { 
   Search, 
@@ -29,7 +29,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
-  Sparkles
+  Sparkles,
+  Pencil,
+  Check
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
 
@@ -113,6 +115,81 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [balanceInput, setBalanceInput] = useState<string>('');
   const [inspectingUser, setInspectingUser] = useState<User | null>(null);
   const [emailModalUser, setEmailModalUser] = useState<User | null>(null);
+
+  // Rate and Availability editing states for inspecting modal
+  const [editingRate, setEditingRate] = useState<boolean>(false);
+  const [rateInput, setRateInput] = useState<string>('');
+  const [savingRate, setSavingRate] = useState<boolean>(false);
+
+  const [editingAvailability, setEditingAvailability] = useState<boolean>(false);
+  const [availabilityInput, setAvailabilityInput] = useState<string>('');
+  const [savingAvailability, setSavingAvailability] = useState<boolean>(false);
+
+  // Sync editing fields when inspecting user changes
+  useEffect(() => {
+    setEditingRate(false);
+    setEditingAvailability(false);
+    if (inspectingUser) {
+      setRateInput((inspectingUser.hourlyRate || 0).toString());
+      setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
+    }
+  }, [inspectingUser?.id]);
+
+  const startEditingRate = () => {
+    if (!inspectingUser) return;
+    setRateInput((inspectingUser.hourlyRate || 0).toString());
+    setEditingRate(true);
+  };
+
+  const handleSaveRate = async () => {
+    if (!inspectingUser) return;
+    const clean = rateInput.replace(/[^0-9]/g, '');
+    const num = clean ? Number(clean) : 0;
+    if (isNaN(num) || num < 0) {
+      showToast('Please enter a valid rate amount', 'error');
+      return;
+    }
+    setSavingRate(true);
+    try {
+      await updateUser(inspectingUser.id, { hourlyRate: num });
+      setInspectingUser(prev => prev ? { ...prev, hourlyRate: num } : null);
+      showToast(`Hourly rate updated to ৳${num.toLocaleString()} / hr`);
+      setEditingRate(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update tutor rate', 'error');
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
+  const startEditingAvailability = () => {
+    if (!inspectingUser) return;
+    setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
+    setEditingAvailability(true);
+  };
+
+  const handleSaveAvailability = async () => {
+    if (!inspectingUser) return;
+    const clean = availabilityInput.replace(/[^0-9]/g, '');
+    const num = clean ? Number(clean) : 0;
+    if (isNaN(num) || num < 0 || num > 7) {
+      showToast('Availability must be between 0 and 7 days / week', 'error');
+      return;
+    }
+    setSavingAvailability(true);
+    try {
+      await updateUser(inspectingUser.id, { daysPerWeek: num });
+      setInspectingUser(prev => prev ? { ...prev, daysPerWeek: num } : null);
+      showToast(`Teaching availability updated to ${num} Days / Week`);
+      setEditingAvailability(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update availability', 'error');
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -715,6 +792,24 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                             🎓 {user.university}
                           </span>
                         )}
+
+                        {isUserTutor && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInspectingUser(user);
+                              setRateInput((user.hourlyRate || 0).toString());
+                              setAvailabilityInput((user.daysPerWeek || 3).toString());
+                              setEditingRate(true);
+                            }}
+                            className="text-[7px] font-black text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1 hover:underline cursor-pointer text-left"
+                            title="Tutor Rate & Availability. Click to inspect and edit."
+                          >
+                            <span>৳{user.hourlyRate || 0}/hr</span>
+                            <span>•</span>
+                            <span>{user.daysPerWeek || 0}d/wk</span>
+                          </button>
+                        )}
                       </div>
                     </td>
 
@@ -1219,13 +1314,166 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">National Identity NID (Unmasked)</span>
                           <p className="text-xs font-black text-slate-800 dark:text-white mt-1 font-mono tracking-widest">{inspectingUser.nidNumber || 'NOT SUBMITTED'}</p>
                         </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Hourly Rate Quote</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">৳{inspectingUser.hourlyRate || 0} / Hour</p>
+                        <div className="bg-slate-50/80 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 transition-all hover:border-blue-400/50 hover:shadow-xs group/rate-card">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                              <DollarSign className="w-2.5 h-2.5 text-[#0D5BFF]" />
+                              Hourly Rate Quote
+                            </span>
+                            {!editingRate ? (
+                              <button
+                                type="button"
+                                onClick={startEditingRate}
+                                className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 hover:bg-[#0D5BFF] hover:text-white text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <Pencil className="w-2 h-2" />
+                                Edit Rate
+                              </button>
+                            ) : null}
+                          </div>
+                          <p 
+                            onClick={startEditingRate}
+                            className={`text-xs font-black text-slate-800 dark:text-white mt-1 flex items-center justify-between cursor-pointer hover:text-[#0D5BFF] transition-colors ${
+                              editingRate ? 'hidden' : ''
+                            }`}
+                            title="Click to edit tutor hourly rate"
+                          >
+                            <span className="font-mono text-sm">৳{(inspectingUser.hourlyRate || 0).toLocaleString()} <span className="text-[9px] font-bold text-slate-400 uppercase">/ Hour</span></span>
+                            <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 group-hover/rate-card:text-[#0D5BFF] flex items-center gap-1 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                              <Pencil className="w-2 h-2" /> Edit
+                            </span>
+                          </p>
+                          {editingRate && (
+                            <div className="mt-1.5 space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="relative flex-1">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">৳</span>
+                                  <input
+                                    type="text"
+                                    value={rateInput}
+                                    onChange={(e) => setRateInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                    placeholder="1000"
+                                    className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-blue-500 rounded-xl text-xs font-black text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-[#0D5BFF]"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveRate();
+                                      if (e.key === 'Escape') setEditingRate(false);
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveRate}
+                                  disabled={savingRate}
+                                  className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                  {savingRate ? <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingRate(false)}
+                                  disabled={savingRate}
+                                  className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                <span className="text-[7.5px] font-bold uppercase text-slate-400">Presets:</span>
+                                {[500, 800, 1000, 1500, 2000, 5000].map(val => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setRateInput(val.toString())}
+                                    className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-[7px] font-black text-slate-700 dark:text-slate-300 hover:text-[#0D5BFF] transition-colors cursor-pointer"
+                                  >
+                                    ৳{val}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Teaching Availability frequency</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.daysPerWeek || 0} Days / Week</p>
+                        <div className="bg-slate-50/80 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 transition-all hover:border-blue-400/50 hover:shadow-xs group/avail-card">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5 text-[#0D5BFF]" />
+                              Teaching Availability frequency
+                            </span>
+                            {!editingAvailability ? (
+                              <button
+                                type="button"
+                                onClick={startEditingAvailability}
+                                className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 hover:bg-[#0D5BFF] hover:text-white text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <Pencil className="w-2 h-2" />
+                                Edit Availability
+                              </button>
+                            ) : null}
+                          </div>
+                          <p 
+                            onClick={startEditingAvailability}
+                            className={`text-xs font-black text-slate-800 dark:text-white mt-1 flex items-center justify-between cursor-pointer hover:text-[#0D5BFF] transition-colors ${
+                              editingAvailability ? 'hidden' : ''
+                            }`}
+                            title="Click to edit teaching availability"
+                          >
+                            <span className="font-mono text-sm">{inspectingUser.daysPerWeek || 0} <span className="text-[9px] font-bold text-slate-400 uppercase">Days / Week</span></span>
+                            <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 group-hover/avail-card:text-[#0D5BFF] flex items-center gap-1 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                              <Pencil className="w-2 h-2" /> Edit
+                            </span>
+                          </p>
+                          {editingAvailability && (
+                            <div className="mt-1.5 space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={availabilityInput}
+                                  onChange={(e) => setAvailabilityInput(e.target.value)}
+                                  className="flex-1 px-2.5 py-1 bg-white dark:bg-slate-900 border border-blue-500 rounded-xl text-xs font-black text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-[#0D5BFF] cursor-pointer"
+                                  autoFocus
+                                >
+                                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
+                                    <option key={num} value={num}>{num} Days / Week</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveAvailability}
+                                  disabled={savingAvailability}
+                                  className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                  {savingAvailability ? <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-2.5 h-2.5" />}
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingAvailability(false)}
+                                  disabled={savingAvailability}
+                                  className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                <span className="text-[7.5px] font-bold uppercase text-slate-400">Quick:</span>
+                                {[1, 2, 3, 4, 5, 6, 7].map(val => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setAvailabilityInput(val.toString())}
+                                    className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase transition-colors cursor-pointer ${
+                                      availabilityInput === val.toString()
+                                        ? 'bg-[#0D5BFF] text-white'
+                                        : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#0D5BFF]'
+                                    }`}
+                                  >
+                                    {val}d
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

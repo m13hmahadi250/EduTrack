@@ -82,6 +82,8 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/sitemap.xml", generateSitemap);
+app.get("/api/sitemap.xml", generateSitemap);
+app.get("/api/sitemap", generateSitemap);
 
 /**
  * Modern Server-side Image Upload & Compression Endpoint

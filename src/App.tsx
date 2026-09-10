@@ -26,6 +26,7 @@ const Signup = lazy(() => import('./pages/Signup'));
 const DashboardRouter = lazy(() => import('./pages/DashboardRouter'));
 const Messages = lazy(() => import('./pages/Messages'));
 const TeacherProfile = lazy(() => import('./pages/TeacherProfile'));
+const TuitionDetail = lazy(() => import('./pages/TuitionDetail'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 const LoadingScreen = () => <BeautifulSkeleton />;
@@ -382,6 +383,8 @@ function LayoutWrapper() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/teachers/:id" element={<TeacherProfile />} />
+            <Route path="/tuitions/:id" element={<TuitionDetail />} />
+            <Route path="/tuitions" element={<Navigate to="/#curriculums" replace />} />
             <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <DashboardRouter />

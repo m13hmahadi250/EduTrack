@@ -393,5 +393,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // --- Tuition Posts & Circulars Collection ---
+    match /tuitions/{tuitionId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSignedIn();
+    }
+
+    match /tuition_posts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSignedIn();
+    }
   }
 }
