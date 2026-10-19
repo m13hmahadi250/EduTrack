@@ -122,6 +122,8 @@ const createCustomCircularMarker = (
 
 export type MapLayerPresetId = 'streets' | 'dark' | 'satellite';
 
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY || 'cb1_4oqt_1_47aa608d8c912d66e171fd88';
+
 export const MAP_LAYER_PRESETS: Record<MapLayerPresetId, {
   id: MapLayerPresetId;
   label: string;
@@ -134,7 +136,7 @@ export const MAP_LAYER_PRESETS: Record<MapLayerPresetId, {
     id: 'streets',
     label: 'Clean Streets',
     shortLabel: 'Streets',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
   },
@@ -142,7 +144,7 @@ export const MAP_LAYER_PRESETS: Record<MapLayerPresetId, {
     id: 'dark',
     label: 'Tactical Dark',
     shortLabel: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: `https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 19,
   },

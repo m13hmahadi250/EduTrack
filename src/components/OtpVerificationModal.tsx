@@ -55,11 +55,13 @@ export default function OtpVerificationModal({
       setIsSubmitting(false);
       setIsShaking(false);
       setExpirySeconds(300); // Strictly 5 minutes (300s)
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
+          digitInputRefs.current[0].select();
         }
-      }, 200);
+      }, 80);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, isVerified]);
 
@@ -91,6 +93,7 @@ export default function OtpVerificationModal({
       setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
+          digitInputRefs.current[0].select();
         }
       }, 100);
     }
@@ -111,9 +114,32 @@ export default function OtpVerificationModal({
     return () => clearTimeout(timer);
   }, [isVerified, onComplete, onClose]);
 
+  // Clipboard Paste Handler - supports desktop Ctrl+V and mobile Long-Press Paste
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const cleanDigits = pasted.replace(/\D/g, '').slice(0, 4).split('');
+    if (cleanDigits.length > 0) {
+      setLocalError('');
+      const newDigits = ['', '', '', ''];
+      cleanDigits.forEach((d, i) => {
+        if (i < 4) newDigits[i] = d;
+      });
+      setDigits(newDigits);
+      const nextIndex = Math.min(cleanDigits.length, 3);
+      if (digitInputRefs.current[nextIndex]) {
+        digitInputRefs.current[nextIndex]?.focus();
+        digitInputRefs.current[nextIndex]?.select();
+      }
+      if (cleanDigits.length === 4) {
+        triggerVerification(newDigits.join(''));
+      }
+    }
+  };
+
   const handleDigitChange = (index: number, val: string) => {
     setLocalError('');
-    // Handle pasted full code
+    // Handle multi-character paste or autofill in onChange
     if (val.length > 1) {
       const cleanDigits = val.replace(/\D/g, '').slice(0, 4).split('');
       const newDigits = ['', '', '', ''];
@@ -124,6 +150,7 @@ export default function OtpVerificationModal({
       const nextIndex = Math.min(cleanDigits.length, 3);
       if (digitInputRefs.current[nextIndex]) {
         digitInputRefs.current[nextIndex]?.focus();
+        digitInputRefs.current[nextIndex]?.select();
       }
       if (cleanDigits.length === 4) {
         triggerVerification(newDigits.join(''));
@@ -138,6 +165,7 @@ export default function OtpVerificationModal({
 
     if (clean && index < 3) {
       digitInputRefs.current[index + 1]?.focus();
+      digitInputRefs.current[index + 1]?.select();
     }
 
     if (newDigits.every(d => d !== '')) {
@@ -146,21 +174,43 @@ export default function OtpVerificationModal({
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Direct digit handling for instant replacement and auto-focus
+    if (e.key >= '0' && e.key <= '9') {
+      e.preventDefault();
+      setLocalError('');
+      const newDigits = [...digits];
+      newDigits[index] = e.key;
+      setDigits(newDigits);
+      if (index < 3) {
+        digitInputRefs.current[index + 1]?.focus();
+        digitInputRefs.current[index + 1]?.select();
+      }
+      if (newDigits.every(d => d !== '')) {
+        triggerVerification(newDigits.join(''));
+      }
+      return;
+    }
+
     if (e.key === 'Backspace') {
-      if (!digits[index] && index > 0) {
-        const newDigits = [...digits];
+      e.preventDefault();
+      const newDigits = [...digits];
+      if (digits[index]) {
+        newDigits[index] = '';
+        setDigits(newDigits);
+      } else if (index > 0) {
         newDigits[index - 1] = '';
         setDigits(newDigits);
         digitInputRefs.current[index - 1]?.focus();
-      } else {
-        const newDigits = [...digits];
-        newDigits[index] = '';
-        setDigits(newDigits);
+        digitInputRefs.current[index - 1]?.select();
       }
     } else if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
       digitInputRefs.current[index - 1]?.focus();
+      digitInputRefs.current[index - 1]?.select();
     } else if (e.key === 'ArrowRight' && index < 3) {
+      e.preventDefault();
       digitInputRefs.current[index + 1]?.focus();
+      digitInputRefs.current[index + 1]?.select();
     }
   };
 
@@ -516,7 +566,11 @@ export default function OtpVerificationModal({
                         style={{
                           transformOrigin: motionPhase === 'spin' || motionPhase === 'screw' ? '0px 0px' : 'center',
                         }}
-                        className={`absolute z-20 w-13 sm:w-14 h-15 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                        onClick={() => {
+                          digitInputRefs.current[idx]?.focus();
+                          digitInputRefs.current[idx]?.select();
+                        }}
+                        className={`absolute z-20 w-13 sm:w-14 h-15 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-text select-none ${
                           hasError
                             ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)]'
                             : isFilled
@@ -529,15 +583,18 @@ export default function OtpVerificationModal({
                           inputMode="numeric"
                           pattern="[0-9]*"
                           maxLength={1}
+                          autoComplete={idx === 0 ? "one-time-code" : "off"}
                           ref={(el) => { digitInputRefs.current[idx] = el; }}
                           value={digit}
                           animate={{ rotate: digitUnwindDeg }}
                           transition={{ duration: 0.85, ease: [0.62, 0, 0.38, 1] }}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
+                          onPaste={handlePaste}
+                          onFocus={(e) => e.target.select()}
                           disabled={motionPhase !== 'idle' || isSubmitting || expirySeconds === 0}
                           placeholder={expirySeconds === 0 ? "—" : "•"}
-                          className="w-full h-full text-center font-mono font-extrabold text-2xl bg-transparent outline-none cursor-pointer placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                          className="w-full h-full text-center font-mono font-extrabold text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text"
                         />
                       </motion.div>
                     );

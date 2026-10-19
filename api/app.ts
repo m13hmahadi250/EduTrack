@@ -506,6 +506,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       emailSent: true,
       message: `A 4-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
       expiresInSeconds: 300,
+      devOtpCode,
     });
   } catch (error: any) {
     console.error("[Send OTP API Error]:", error);

@@ -195,15 +195,19 @@ export default function Home() {
     return realTutors;
   }, [realTutors]);
 
+  // Non-blocking deferred search query for instant 60fps typing responsiveness
+  const deferredSearchQuery = React.useDeferredValue(searchQuery);
+
   // Compute live search filter results
   const filteredTutors = React.useMemo(() => {
     const favoriteIds = currentUser?.savedTutors || localFavorites;
+    const queryStr = deferredSearchQuery.toLowerCase().trim();
+
     return allTutors.filter(t => {
       // 0. Favorites filter match
       const matchesFavorites = !showFavoritesOnly || favoriteIds.includes(t.id);
 
       // 1. Text Search query matching Name, University, or listed Subjects
-      const queryStr = searchQuery.toLowerCase().trim();
       const matchesSearch = 
         queryStr === '' ||
         (t.name && t.name.toLowerCase().includes(queryStr)) ||
@@ -233,7 +237,7 @@ export default function Home() {
 
       return matchesFavorites && matchesSearch && matchesSubject && matchesTags && matchesDistrict;
     });
-  }, [allTutors, searchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
+  }, [allTutors, deferredSearchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
 
   return (
     <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
@@ -335,7 +339,8 @@ export default function Home() {
                     <div key={idx} className="w-10 h-10 rounded-full border-4 border-white dark:border-[#1E293B] bg-slate-200 overflow-hidden">
                        <img 
                          src={`https://i.pravatar.cc/100?u=${idx}`} 
-                         alt="user" 
+                         alt="verified tutor" 
+                         className="w-full h-full object-cover blur-[3px] hover:blur-none transition-all duration-300"
                          loading="lazy" 
                          referrerPolicy="no-referrer" 
                        />
@@ -378,8 +383,18 @@ export default function Home() {
                 placeholder="Search by name, university, or subject..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
+                className="w-full pl-12 pr-11 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Dropdown Filters */}
@@ -2356,7 +2371,20 @@ const TutorPreviewCard = React.memo(({
       <div>
         <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
           {img ? (
-            <img src={img} alt={name} className="w-full h-full object-cover grayscale blur-[12px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" referrerPolicy="no-referrer" loading="lazy" />
+            <div className="w-full h-full relative overflow-hidden">
+              <img 
+                src={img} 
+                alt={name} 
+                className="w-full h-full object-cover blur-[14px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" 
+                referrerPolicy="no-referrer" 
+                loading="lazy" 
+              />
+              {/* Privacy protection pill */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-[#0B132B]/80 dark:bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center space-x-1.5 shadow-sm border border-white/10 pointer-events-none group-hover:opacity-0 transition-opacity duration-300 whitespace-nowrap">
+                <ShieldCheck className="w-3 h-3 text-[#0D5BFF]" />
+                <span className="text-[9px] font-bold text-white uppercase tracking-wider">Privacy Blurred</span>
+              </div>
+            </div>
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
               <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">

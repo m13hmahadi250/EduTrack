@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "short_name": "EduTrack",
   "name": "EduTrack - #1 Tutor Finder & Home Tuition Platform in Bangladesh",
   "description": "Find verified home & online tutors in Dhaka and across Bangladesh with real-time GPS tracking and bKash payments.",
@@ -12,24 +13,32 @@
     {
       "src": "/favicon-32x32.png",
       "type": "image/png",
-      "sizes": "32x32"
+      "sizes": "32x32",
+      "purpose": "any"
     },
     {
       "src": "/apple-touch-icon.png",
       "type": "image/png",
-      "sizes": "180x180"
+      "sizes": "180x180",
+      "purpose": "any"
     },
     {
       "src": "/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/android-chrome-512x512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": "/",
