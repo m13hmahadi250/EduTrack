@@ -161,9 +161,9 @@ export default function Messages() {
                 placeholder="SEARCH TRANSMISSIONS..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-white border border-slate-100 rounded-2xl sm:rounded-3xl px-5 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:border-[#0D5BFF] transition-all shadow-sm"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl px-5 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all shadow-sm"
               />
-              <Search className="absolute right-4 top-3.5 sm:top-4 w-4 h-4 text-slate-300" />
+              <Search className="absolute right-4 top-3.5 sm:top-4 w-4 h-4 text-slate-400 dark:text-slate-500" />
             </div>
           </div>
 
@@ -184,12 +184,12 @@ export default function Messages() {
                   className={`w-full p-6 rounded-[2.5rem] transition-all flex items-center space-x-4 relative overflow-hidden group ${
                     selectedUserId === partner.id 
                     ? 'bg-[#0D5BFF] text-white shadow-xl shadow-blue-100 translate-x-2' 
-                    : 'bg-transparent text-[#0B132B] hover:bg-white hover:shadow-lg'
+                    : 'bg-transparent text-[#0B132B] dark:text-white hover:bg-white dark:hover:bg-slate-800/80 hover:shadow-lg'
                   }`}
                 >
                   <div className="relative flex-shrink-0">
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm overflow-hidden ${
-                      selectedUserId === partner.id ? 'bg-white/20' : 'bg-slate-100 text-slate-300'
+                      selectedUserId === partner.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                     }`}>
                       {partner.profileImage ? (
                         <img src={partner.profileImage} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -209,21 +209,21 @@ export default function Messages() {
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
                       <h3 className={`text-xs font-black uppercase italic truncate pr-2 ${
-                        selectedUserId === partner.id ? 'text-white' : 'text-[#0B132B]'
+                        selectedUserId === partner.id ? 'text-white' : 'text-[#0B132B] dark:text-white'
                       }`}>
                         {partner.name}
                       </h3>
                       {lastMessage && (
-                        <span className={`text-[8px] font-black uppercase opacity-50 flex-shrink-0 ${
-                          selectedUserId === partner.id ? 'text-blue-100' : 'text-slate-400'
+                        <span className={`text-[8px] font-black uppercase flex-shrink-0 ${
+                          selectedUserId === partner.id ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'
                         }`}>
                           {new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className={`text-[9px] font-black uppercase italic tracking-widest truncate opacity-60 flex-1 ${
-                        selectedUserId === partner.id ? 'text-blue-50' : 'text-slate-400'
+                      <p className={`text-[9px] font-black uppercase italic tracking-widest truncate flex-1 ${
+                        selectedUserId === partner.id ? 'text-blue-50' : 'text-slate-600 dark:text-slate-400'
                       }`}>
                         {lastMessage ? (
                           <>
@@ -253,12 +253,12 @@ export default function Messages() {
                   <button
                     onClick={() => setSelectedUserId(null)}
                     type="button"
-                    className="lg:hidden p-1.5 -ml-1 text-slate-500 hover:text-[#0B132B] transition-colors cursor-pointer shrink-0"
+                    className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-[#0B132B] transition-colors cursor-pointer shrink-0"
                     title="Back to hubs"
                   >
                     <ArrowLeft className="w-4.5 h-4.5" />
                   </button>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-300 border border-slate-100 overflow-hidden shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-600 dark:text-slate-300 border border-slate-100 overflow-hidden shrink-0">
                     {selectedUser.profileImage ? (
                       <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -279,11 +279,11 @@ export default function Messages() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-1 w-1 sm:h-1.5 sm:w-1.5 bg-emerald-500"></span>
                       </span>
-                      <p className="text-[7.5px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active Connection</p>
+                      <p className="text-[7.5px] sm:text-[9px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Active Connection</p>
                     </div>
                   </div>
                 </div>
-                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-slate-300 hover:text-[#0B132B] transition-colors shrink-0">
+                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-slate-500 hover:text-[#0B132B] transition-colors shrink-0">
                    <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
@@ -296,8 +296,8 @@ export default function Messages() {
                 {conversation.length > 0 ? (
                   <div className="flex flex-col justify-end min-h-full space-y-2.5 sm:space-y-3.5">
                     <div className="flex flex-col items-center mb-1">
-                       <div className="bg-white/90 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 px-3.5 py-1 rounded-full shadow-sm">
-                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider text-center block">Handshake Secured & Encrypted</span>
+                       <div className="bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/60 px-3.5 py-1 rounded-full shadow-sm">
+                          <span className="text-[8.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-center block">Handshake Secured & Encrypted</span>
                        </div>
                     </div>
 
@@ -322,7 +322,7 @@ export default function Messages() {
                                 </p>
                               </div>
                               <div className={`mt-1 flex items-center space-x-2 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                 <span className="text-[8.5px] font-medium text-slate-400/80 uppercase tracking-wider">
+                                 <span className="text-[8.5px] font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                  </span>
                                  {isMe && (
@@ -334,8 +334,8 @@ export default function Messages() {
                                        </>
                                      ) : (
                                        <>
-                                         <Check className="w-3.5 h-3.5 text-slate-400" />
-                                         <span className="text-[8.5px] font-semibold text-slate-400 uppercase tracking-wider">Sent</span>
+                                         <Check className="w-3.5 h-3.5 text-slate-500" />
+                                         <span className="text-[8.5px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Sent</span>
                                        </>
                                      )}
                                    </div>
@@ -348,9 +348,9 @@ export default function Messages() {
                     </AnimatePresence>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full opacity-30 select-none pointer-events-none">
-                     <Zap className="w-16 h-16 text-slate-300 mb-4 animate-pulse" />
-                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] italic">Open Data Stream</p>
+                  <div className="flex flex-col items-center justify-center h-full opacity-60 select-none pointer-events-none">
+                     <Zap className="w-16 h-16 text-slate-400 mb-4 animate-pulse" />
+                     <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-[0.4em] italic">Open Data Stream</p>
                   </div>
                 )}
               </div>
@@ -359,14 +359,14 @@ export default function Messages() {
               <div className="p-3 bg-white dark:bg-[#0B132B] relative z-10 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2.5 shadow-md">
                 {/* Quick Replies section */}
                 <div className="flex flex-col gap-1">
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-[#0B132B]/40 dark:text-slate-400/40">Suggested Replies</span>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">Suggested Replies</span>
                   <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-none scroll-smooth">
                     {quickReplies.map((replyText, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => handleQuickReply(replyText)}
-                        className="px-3.5 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-medium text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer"
+                        className="px-3.5 py-1 bg-slate-50 hover:bg-[#0D5BFF] hover:text-white dark:bg-slate-900/60 text-[9px] font-medium text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-800 rounded-full shadow-sm transition-all shrink-0 cursor-pointer"
                       >
                         {replyText}
                       </button>
@@ -380,7 +380,7 @@ export default function Messages() {
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-1 bg-transparent py-1.5 sm:py-2.5 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0"
+                    className="flex-1 bg-transparent py-1.5 sm:py-2.5 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-0"
                   />
                   <button
                     type="submit"
@@ -394,11 +394,11 @@ export default function Messages() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-20 bg-slate-50/10">
-              <div className="w-32 h-32 bg-white rounded-[3rem] shadow-xl flex items-center justify-center mb-10 border border-slate-100">
+              <div className="w-32 h-32 bg-white dark:bg-slate-900 rounded-[3rem] shadow-xl flex items-center justify-center mb-10 border border-slate-100 dark:border-slate-800">
                 <MessageSquare className="w-12 h-12 text-[#0D5BFF]" />
               </div>
-              <h3 className="text-3xl font-black text-[#0B132B] uppercase italic mb-4 tracking-tighter">Satellite Uplink</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] max-w-xs leading-loose">
+              <h3 className="text-3xl font-black text-[#0B132B] dark:text-white uppercase italic mb-4 tracking-tighter">Satellite Uplink</h3>
+              <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-[0.3em] max-w-xs leading-loose">
                 Select an authorized operative from the secure terminal to establish a direct communication link.
               </p>
             </div>

@@ -5,6 +5,7 @@ import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, A
 interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
+  devOtpCode?: string | number;
   ipNoticeMsg?: string;
   errorMsg?: string;
   successMsg?: string;
@@ -19,6 +20,7 @@ interface OtpVerificationModalProps {
 export default function OtpVerificationModal({
   isOpen,
   email,
+  devOtpCode,
   ipNoticeMsg,
   errorMsg,
   successMsg,
@@ -393,10 +395,37 @@ export default function OtpVerificationModal({
 
             {/* IP Notice if any */}
             {ipNoticeMsg && !isVerified && (
-              <div className="p-3 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-2">
+              <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-2xl text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2 shadow-xs">
                 <AlertCircle className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
-                <span className="leading-snug">{ipNoticeMsg}</span>
+                <span className="leading-snug font-medium">{ipNoticeMsg}</span>
               </div>
+            )}
+
+            {/* Verification Code Quick Banner for instant entry */}
+            {devOtpCode && !isVerified && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-3 bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-700/80 rounded-2xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 shadow-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="font-extrabold tracking-wide">
+                    Verification Code: <span className="font-mono text-sm bg-amber-200/80 dark:bg-amber-900/80 px-2 py-0.5 rounded-md text-amber-950 dark:text-amber-100">{String(devOtpCode)}</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const codeArr = String(devOtpCode).padStart(4, '0').slice(0, 4).split('');
+                    setDigits(codeArr);
+                    triggerVerification(codeArr.join(''));
+                  }}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 uppercase tracking-wider"
+                >
+                  Auto-fill & Verify
+                </button>
+              </motion.div>
             )}
 
             {/* STAGE: THREE-BEAT MOTION CANVAS OR APPROVED STATE */}

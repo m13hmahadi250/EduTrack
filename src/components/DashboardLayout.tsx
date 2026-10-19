@@ -79,7 +79,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
             <span className="text-base font-black font-heading text-[#0B132B] dark:text-white leading-tight">
               EduTrack
             </span>
-            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider -mt-0.5">
+            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider -mt-0.5">
               {currentUser.role} App
             </span>
           </div>
@@ -90,7 +90,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
           {/* Quick Chat Shortcut with Badge */}
           <button
             onClick={() => navigate('/messages')}
-            className="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+            className="relative p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
             aria-label="Messages"
           >
             <MessageSquare className="w-5 h-5" />
@@ -132,12 +132,12 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
                  </div>
                  <div>
                    <h4 className="text-sm font-black text-slate-800 dark:text-white leading-tight">{currentUser.name}</h4>
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{currentUser.email}</p>
+                   <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{currentUser.email}</p>
                  </div>
                </div>
                <button 
                  onClick={() => setIsMobileMenuOpen(false)}
-                 className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full transition-colors"
+                 className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white rounded-full transition-colors"
                >
                  <X className="w-5 h-5" />
                </button>
@@ -172,7 +172,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
                 className={`relative px-4 py-1.5 rounded-full flex items-center justify-center transition-all duration-300 ${
                   active 
                     ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-105' 
-                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <item.icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.5px]' : 'stroke-2'}`} />
@@ -188,7 +188,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
                 className={`text-[9px] font-black uppercase tracking-wider text-center transition-colors duration-200 ${
                   active 
                     ? 'text-[#0D5BFF] dark:text-blue-400 font-black' 
-                    : 'text-slate-400 dark:text-slate-500 font-bold'
+                    : 'text-slate-600 dark:text-slate-400 font-bold'
                 }`}
               >
                 {item.label}

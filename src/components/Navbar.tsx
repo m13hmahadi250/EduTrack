@@ -72,7 +72,7 @@ const Navbar = memo(() => {
           </div>
           <div className="flex items-center space-x-1.5 sm:space-x-3">
             {!currentUser && (
-               <div className="hidden md:flex items-center space-x-2 text-[11px] font-black uppercase tracking-wider text-[#6B7280] dark:text-slate-400">
+               <div className="hidden md:flex items-center space-x-2 text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
                  <Link 
                    to="/#find-tutors" 
                    className={`${isActive('#find-tutors') ? 'text-[#0D5BFF] bg-blue-50/70 dark:bg-blue-950/20' : 'hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/30'} px-4 py-2 rounded-xl transition-all duration-200`}

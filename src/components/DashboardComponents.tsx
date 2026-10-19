@@ -6,8 +6,8 @@ export const MetricCard = memo(({ label, value, color = "text-[#0D5BFF]", icon: 
     <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:border-[#0D5BFF]/20 transition-all group overflow-hidden relative">
       <div className="absolute -top-10 -right-10 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-150 transition-all duration-500 font-bold"></div>
       <div className="flex justify-between items-start mb-4 relative z-10">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        {Icon && <Icon className={`w-4 h-4 ${color} opacity-30`} />}
+        <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{label}</p>
+        {Icon && <Icon className={`w-4 h-4 ${color} opacity-60`} />}
       </div>
       <div className={`text-4xl font-black font-heading ${color} uppercase italic relative z-10 tracking-tight`}>
         {value}
@@ -19,7 +19,7 @@ export const MetricCard = memo(({ label, value, color = "text-[#0D5BFF]", icon: 
 export const FilterGroup = memo(({ label, children }: { label: string, children: React.ReactNode }) => {
   return (
     <div className="space-y-4">
-      <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">{label}</h4>
+      <h4 className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-2">{label}</h4>
       {children}
     </div>
   );
@@ -28,14 +28,14 @@ export const FilterGroup = memo(({ label, children }: { label: string, children:
 export const DashboardInput = memo(({ label, value, onChange, placeholder, type = "text" }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, type?: string }) => {
   return (
     <div className="space-y-1.5 flex-grow">
-      <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{label}</label>
+      <label className="block text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-[0.2em] ml-2">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         required
-        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-[10px] font-black uppercase text-[#0B132B] placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"
+        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-[10px] font-black uppercase text-[#0B132B] placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all"
       />
     </div>
   );

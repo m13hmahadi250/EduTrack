@@ -963,18 +963,6 @@ export const useAppStore = create<AppState>((set, get) => {
             const lowerGEmail = firebaseUser.email?.toLowerCase();
             const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
 
-            // UNREGISTERED USER GUARD: If requestedRole is not provided (meaning user is trying to log in on /login) and is not main admin, reject login!
-            if (!requestedRole && !isMainAdmin) {
-              await signOut(auth);
-              set({ currentUser: null, isLoading: false });
-              try {
-                localStorage.removeItem('edutrack_cached_user');
-                localStorage.removeItem('google_auth_requested_role');
-                localStorage.removeItem('google_auth_additional_user_data');
-              } catch (e) {}
-              throw new Error('No registered account found with this Google email. Please create an account first.');
-            }
-
             const finalRole = isMainAdmin ? 'admin' : (requestedRole || 'student');
             const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
@@ -1088,9 +1076,30 @@ export const useAppStore = create<AppState>((set, get) => {
     signup: async (userData, password, referredByCode) => {
       set({ isLoading: true });
       try {
-        // Create auth user
-        const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
-        const uid = result.user.uid;
+        let uid = '';
+        try {
+          // Create auth user
+          const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
+          uid = result.user.uid;
+        } catch (authErr: any) {
+          const code = authErr?.code || '';
+          const errStr = String(authErr).toLowerCase();
+          if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
+            // Self-healing flow: attempt sign-in with password if user already exists
+            try {
+              const signinRes = await signInWithEmailAndPassword(auth, userData.email!, password);
+              uid = signinRes.user.uid;
+            } catch (signinErr) {
+              throw new Error('এই ইমেইল দিয়ে ইতোমধ্যে একাউন্ট খোলা রয়েছে। আপনার অ্যাকাউন্টে লগইন করতে "সাইন ইন" এ যান অথবা পাসওয়ার্ড রিসেট করুন। (An account with this email already exists. Please sign in or reset password.)');
+            }
+          } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
+            throw new Error('পাসওয়ার্ডটি খুব ছোট। অনুগ্রহ করে অন্তত ৮ টি অক্ষরের পাসওয়ার্ড ব্যবহার করুন। (Password must be at least 8 characters.)');
+          } else if (code === 'auth/invalid-email' || errStr.includes('invalid-email')) {
+            throw new Error('ইমেইল এড্রেসটি সঠিকভাবে প্রদান করুন। (Please enter a valid email address.)');
+          } else {
+            throw authErr;
+          }
+        }
 
         // Determine role - handle the requested admin email
         let finalRole: Role = userData.role as Role;
@@ -1119,8 +1128,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
         const cleanedUser = cleanUndefined(newUser);
 
-        // Save to Firestore
-        await setDoc(doc(db, 'users', uid), cleanedUser);
+        // Save/Merge to Firestore
+        await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
         set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
@@ -1150,13 +1159,18 @@ export const useAppStore = create<AppState>((set, get) => {
             console.error("Non-blocking referral signup processing failed:", refErr);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         set({ isLoading: false });
-        if (error instanceof Error && !error.message.includes('users/')) {
-          handleFirestoreError(error, OperationType.WRITE, `users`);
-        } else {
-          throw error;
+        const errMsg = error?.message || String(error);
+        if (errMsg.startsWith('{') && errMsg.includes('"error"')) {
+          try {
+            const parsed = JSON.parse(errMsg);
+            throw new Error(parsed.error || 'অ্যাকাউন্ট তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+          } catch (pErr) {
+            throw new Error(errMsg);
+          }
         }
+        throw error;
       }
     },
 

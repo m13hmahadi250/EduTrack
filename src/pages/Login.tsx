@@ -99,7 +99,7 @@ export default function Login() {
         }
       } catch (err: any) {
         console.error("Login error:", err);
-        let msg = 'Wrong email or password. Please try again.';
+        let msg = 'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। একাউন্ট না থাকলে "ক্রিয়েট একাউন্ট" বাটন চাপুন। (Wrong email or password. Please try again.)';
         const errStr = String(err).toLowerCase();
         const errCode = (err?.code || '').toLowerCase();
         
@@ -109,7 +109,7 @@ export default function Login() {
           errStr.includes('user-disabled') ||
           errStr.includes('user_disabled')
         ) {
-          msg = 'YOUR ACCOUNT IS TEMPORARILY RESTRICTED DUE TO SOME REASON';
+          msg = 'আপনার একাউন্টটি সাময়িকভাবে স্থগিত রয়েছে। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন। (Your account is temporarily restricted.)';
         } else if (
           errCode === 'auth/user-not-found' ||
           errStr.includes('user-not-found') ||
@@ -117,7 +117,7 @@ export default function Login() {
           errStr.includes('unregistered') ||
           errStr.includes('create an account first')
         ) {
-          msg = 'No registered account found for this email. Unregistered users must create an account first.';
+          msg = 'এই ইমেইল দিয়ে কোনো রেজিস্টার্ড একাউন্ট পাওয়া যায়নি। অনুগ্রহ করে একাউন্ট তৈরি করুন। (No registered account found. Please create an account first.)';
           setShowInvalidCredPopup(true);
         } else if (
           errCode === 'auth/wrong-password' || 
@@ -127,14 +127,16 @@ export default function Login() {
           errStr.includes('invalid-credential') || 
           errStr.includes('invalid_credential')
         ) {
-          msg = 'Incorrect email or password, or no account exists. Unregistered users must create an account first.';
+          msg = 'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। পাসওয়ার্ড ভুলে গেলে রিসেট করুন অথবা নতুন একাউন্ট খুলুন। (Incorrect email or password.)';
           setShowInvalidCredPopup(true);
         } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
-          msg = 'The email address is badly formatted.';
+          msg = 'ইমেইল এড্রেসটি সঠিকভাবে প্রদান করুন। (Please enter a valid email address.)';
         } else if (errCode === 'auth/too-many-requests' || errStr.includes('too-many-requests')) {
-          msg = 'Too many failed login attempts. Please try again later.';
-        } else if (err.message) {
+          msg = 'অনেকবার ভুল চেষ্টার কারণে একাউন্টটি সাময়িকভাবে লক হয়েছে। কিছুক্ষণ পর চেষ্টা করুন। (Too many failed login attempts. Please try again later.)';
+        } else if (err.message && !err.message.includes('{')) {
           msg = err.message;
+          setShowInvalidCredPopup(true);
+        } else {
           setShowInvalidCredPopup(true);
         }
 
@@ -284,7 +286,7 @@ export default function Login() {
                   type="button"
                   id="close-invalid-cred-popup-btn"
                   onClick={() => setShowInvalidCredPopup(false)}
-                  className="w-full py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="w-full py-2 text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Try Again
                 </button>
@@ -315,7 +317,7 @@ export default function Login() {
               <button 
                 type="button"
                 id="forgot-password-close-icon-btn"
-                className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10 p-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                className="absolute top-6 right-6 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-10 p-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 onClick={() => setShowForgotPassword(false)}
               >
                 <X className="w-4 h-4" />
@@ -328,8 +330,8 @@ export default function Login() {
               <h3 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white text-center mb-2 italic">
                 Forgot Password
               </h3>
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center leading-relaxed mb-6">
-                Enter your email. <span className="text-amber-500">Links expire in 5 min.</span>
+              <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest text-center leading-relaxed mb-6">
+                Enter your email. <span className="text-amber-500 font-bold">Links expire in 5 min.</span>
               </p>
 
               <form onSubmit={handleResetPassword} className="space-y-4" noValidate>
@@ -370,7 +372,7 @@ export default function Login() {
                 </AnimatePresence>
 
                 <div>
-                  <label className="block text-[10px] font-black font-heading uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-2 text-left">Email Address</label>
+                  <label className="block text-[10px] font-black font-heading uppercase text-slate-700 dark:text-slate-300 tracking-wider mb-2 text-left">Email Address</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -383,9 +385,9 @@ export default function Login() {
                       }}
                       placeholder="e.g. mahadi@gmail.com"
                       id="forgot-password-email-input"
-                      className="w-full pl-11 pr-4 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 rounded-xl text-xs font-bold text-[#0B132B] dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all outline-none"
+                      className="w-full pl-11 pr-4 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/80 rounded-xl text-xs font-bold text-[#0B132B] dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all outline-none"
                     />
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 
@@ -394,7 +396,7 @@ export default function Login() {
                     type="button"
                     id="forgot-password-cancel-btn"
                     onClick={() => setShowForgotPassword(false)}
-                    className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors"
+                    className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
@@ -443,7 +445,7 @@ export default function Login() {
                     className="absolute w-16 h-16 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent"
                     style={{ borderColor: `#0D5BFF transparent transparent transparent` }}
                   />
-                  <GraduationCap className={`w-6 h-6 text-slate-400 dark:text-slate-500 animate-pulse`} />
+                  <GraduationCap className={`w-6 h-6 text-slate-500 dark:text-slate-400 animate-pulse`} />
                 </div>
               </div>
             )}
@@ -451,14 +453,14 @@ export default function Login() {
             <h3 className="text-lg font-black font-heading text-slate-800 dark:text-white uppercase tracking-wide">
               {loginSuccess ? "Welcome Back!" : "Securing Session"}
             </h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold tracking-widest mt-1">
               {loginSuccess ? "Entering dashboard workspace" : "Please hold on..."}
             </p>
           </motion.div>
         ) : (
           <>
             <button 
-              className="absolute top-8 right-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
+              className="absolute top-8 right-8 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
               onClick={() => navigate('/')}
               aria-label="Close"
             >
@@ -469,7 +471,7 @@ export default function Login() {
               <h2 className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight uppercase">
                 Sign In
               </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">
                 EduTrack Bangladesh • Enter your credentials
               </p>
             </div>
@@ -479,7 +481,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setIsLogin(true)}
-                className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${isLogin ? 'text-[#0B132B] dark:text-white' : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'}`}
+                className={`relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer ${isLogin ? 'text-[#0B132B] dark:text-white' : 'text-slate-600 hover:text-[#0B132B] dark:text-slate-400 dark:hover:text-white'}`}
               >
                 {isLogin && (
                   <motion.div
@@ -494,7 +496,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => navigate('/signup')}
-                className="relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-[#0B132B] dark:hover:text-white"
+                className="relative flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-colors duration-200 z-10 flex items-center justify-center gap-2 cursor-pointer text-slate-600 hover:text-[#0B132B] dark:text-slate-400 dark:hover:text-white"
               >
                 <span>Register</span>
               </button>
@@ -551,7 +553,7 @@ export default function Login() {
                       setError('');
                     }}
                     placeholder="e.g. mahadi@gmail.com"
-                    className={`w-full px-4 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
+                    className={`w-full px-4 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
                       error 
                         ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-rose-500/20' 
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
@@ -576,7 +578,7 @@ export default function Login() {
                       setError('');
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-4 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
+                    className={`w-full pl-4 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15 transition-all duration-200 shadow-xs rounded-xl ${
                       error 
                         ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-rose-500/20' 
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
@@ -586,7 +588,7 @@ export default function Login() {
                     type="button"
                     id="toggle-login-password-visibility"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     title={showPassword ? "Hide Password" : "Show Password"}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -696,7 +698,7 @@ export default function Login() {
               </motion.button>
             </form>
 
-            <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="mt-8 text-center text-[10px] uppercase font-black tracking-wider text-slate-600 dark:text-slate-300">
               New to EduTrack? <button onClick={() => navigate('/signup')} className="font-bold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Create an account</button>
             </p>
           </>

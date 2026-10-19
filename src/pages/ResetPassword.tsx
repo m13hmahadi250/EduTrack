@@ -298,14 +298,14 @@ export default function ResetPassword() {
                 <span className="text-sm font-black uppercase tracking-wider text-[#0B132B] dark:text-white">EduTrack</span>
                 <span className="bg-[#0D5BFF] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md tracking-wider">BD</span>
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Security Operations Center
               </p>
             </div>
           </div>
           <Link
             to="/login"
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1 uppercase tracking-wider transition-colors"
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 uppercase tracking-wider transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Sign In
@@ -328,7 +328,7 @@ export default function ResetPassword() {
             <h3 className="text-base font-black uppercase tracking-wider text-slate-800 dark:text-white">
               Verifying Reset Token
             </h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">
               Authenticating one-time link...
             </p>
           </div>
@@ -341,7 +341,7 @@ export default function ResetPassword() {
             <h2 className="text-lg font-black uppercase tracking-wide text-slate-900 dark:text-white mb-2">
               Invalid or Expired Link
             </h2>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed mb-8">
               {tokenError || 'This password reset link is invalid or has already been used.'}
             </p>
 
@@ -356,7 +356,7 @@ export default function ResetPassword() {
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Return to Home
               </button>
@@ -375,8 +375,8 @@ export default function ResetPassword() {
             <h2 className="text-xl font-black uppercase tracking-wide text-slate-900 dark:text-white mb-2">
               Password Updated!
             </h2>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-              Your password for <strong className="text-slate-800 dark:text-slate-200">{verifiedEmail}</strong> has been successfully updated.
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              Your password for <strong className="text-slate-900 dark:text-slate-100">{verifiedEmail}</strong> has been successfully updated.
             </p>
 
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs font-bold mb-6">
@@ -405,7 +405,7 @@ export default function ResetPassword() {
               <h2 className="text-xl font-black uppercase tracking-tight text-[#0B132B] dark:text-white">
                 Set New Password
               </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider mt-1">
                 Account: <span className="text-[#0D5BFF]">{verifiedEmail}</span>
               </p>
             </div>
@@ -440,13 +440,13 @@ export default function ResetPassword() {
                       setFormError('');
                     }}
                     placeholder="Enter new password (min. 6 chars)"
-                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
+                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -455,7 +455,7 @@ export default function ResetPassword() {
                 {/* Real-time Password Strength Meter & Visual Criteria Feedback */}
                 <div className="pt-2 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                       Password Security Level
                     </span>
                     <span className={`text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${strengthMeta.textColor}`}>
@@ -482,36 +482,36 @@ export default function ResetPassword() {
                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
                       criteria.minLength
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
-                      {criteria.minLength ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      {criteria.minLength ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                       <span>8+ characters</span>
                     </div>
 
                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
                       criteria.upperAndLower
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
-                      {criteria.upperAndLower ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      {criteria.upperAndLower ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                       <span>Upper & Lower</span>
                     </div>
 
                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
                       criteria.hasNumber
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
-                      {criteria.hasNumber ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      {criteria.hasNumber ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                       <span>At least 1 number</span>
                     </div>
 
                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
                       criteria.hasSpecial
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                        : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                     }`}>
-                      {criteria.hasSpecial ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />}
+                      {criteria.hasSpecial ? <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" /> : <X className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                       <span>Special symbol (!@#$)</span>
                     </div>
                   </div>
@@ -550,13 +550,13 @@ export default function ResetPassword() {
                       setFormError('');
                     }}
                     placeholder="Re-enter new password"
-                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
+                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
                   <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

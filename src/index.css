@@ -51,6 +51,13 @@
     @apply bg-[#F8F9FA] text-[#0B132B] font-sans;
     -webkit-tap-highlight-color: transparent;
   }
+
+  input::placeholder,
+  textarea::placeholder,
+  select::placeholder {
+    color: #64748b;
+    opacity: 0.95;
+  }
 }
 
 @layer utilities {
@@ -263,24 +270,31 @@
 }
 
 /* Text color overrides with extreme dual-safety targeting */
+.text-\[\#0B132B\]\/30, [class*="text-[#0B132B]/30"] {
+  color: rgba(11, 19, 43, 0.72) !important;
+}
+.text-\[\#0B132B\]\/40, [class*="text-[#0B132B]/40"] {
+  color: rgba(11, 19, 43, 0.8) !important;
+}
+
 .dark .text-\[\#0B132B\] {
   color: #f8f9fa !important;
 }
 .dark .text-\[\#0B132B\]\/30 {
-  color: rgba(248, 249, 250, 0.45) !important;
+  color: rgba(248, 249, 250, 0.75) !important;
 }
 .dark .text-\[\#0B132B\]\/70 {
-  color: rgba(248, 249, 250, 0.8) !important;
+  color: rgba(248, 249, 250, 0.9) !important;
 }
 
 .dark [class*="text-[#0B132B]"] {
   color: #f8f9fa !important;
 }
 .dark [class*="text-[#0B132B]/30"] {
-  color: rgba(248, 249, 250, 0.45) !important;
+  color: rgba(248, 249, 250, 0.75) !important;
 }
 .dark [class*="text-[#0B132B]/70"] {
-  color: rgba(248, 249, 250, 0.8) !important;
+  color: rgba(248, 249, 250, 0.9) !important;
 }
 
 /* Semantic warning / status text overrides under dark mode to ensure clear visibility */
@@ -337,10 +351,10 @@
   color: #cbd5e1 !important;
 }
 .dark .text-slate-500 {
-  color: #94a3b8 !important;
+  color: #cbd5e1 !important;
 }
 .dark .text-slate-400 {
-  color: #94a3b8 !important;
+  color: #cbd5e1 !important;
 }
 
 /* Border overrides */
@@ -369,7 +383,7 @@
 }
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #64748b !important;
+  color: #94a3b8 !important;
 }
 .dark input:focus, 
 .dark select:focus, 

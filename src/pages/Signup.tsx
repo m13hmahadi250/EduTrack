@@ -358,14 +358,14 @@ export default function Signup() {
             <h3 className="text-lg font-black font-heading text-slate-800 dark:text-white uppercase tracking-wide">
               {signupSuccess ? "Account Provisioned!" : "Creating Account"}
             </h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold tracking-widest mt-1">
               {signupSuccess ? "Setting up workspace..." : "Please wait..."}
             </p>
           </motion.div>
         ) : (
           <>
             <button 
-              className="absolute top-8 right-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
+              className="absolute top-8 right-8 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-10 p-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer" 
               onClick={() => navigate('/')}
               aria-label="Close"
             >
@@ -376,7 +376,7 @@ export default function Signup() {
               <h2 className="text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight uppercase">
                 Create an Account
               </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">
                 EduTrack Bangladesh • Join our secure community
               </p>
             </div>
@@ -526,7 +526,7 @@ export default function Signup() {
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Gender</option>
+                    <option value="" disabled className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">Select Gender</option>
                     <option value="Male" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Male</option>
                     <option value="Female" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Female</option>
                   </select>
@@ -596,7 +596,7 @@ export default function Signup() {
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">Select Division</option>
+                    <option value="" disabled className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">Select Division</option>
                     {BANGLADESH_DIVISIONS.map((div) => (
                       <option key={div} value={div} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">{div}</option>
                     ))}
@@ -634,7 +634,7 @@ export default function Signup() {
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                    <option value="" disabled className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
                       {formData.division ? 'Select District' : 'Select Division First'}
                     </option>
                     {formData.division && (BANGLADESH_DIV_TO_DIST[formData.division] || []).map((dist) => (
@@ -674,7 +674,7 @@ export default function Signup() {
                         : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
                     }`}
                   >
-                    <option value="" disabled className="text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                    <option value="" disabled className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
                       {formData.district ? 'Select Thana' : 'Select District First'}
                     </option>
                     {formData.district && BANGLADESH_THANAS[formData.district]?.map((th) => (
@@ -821,7 +821,7 @@ export default function Signup() {
               <Award className="w-4 h-4 text-emerald-500 animate-pulse" />
               Referral Code (Optional)
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
               Were you invited by a friend or colleague? Enter their referral code or ID to reward them with exclusive badge points or service discounts!
             </p>
             <div className="relative group">
@@ -830,7 +830,7 @@ export default function Signup() {
                 placeholder="e.g. EDU-NAME-XXXX"
                 value={referralCodeInput}
                 onChange={(e) => setReferralCodeInput(e.target.value)}
-                className="w-full px-5 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white focus:outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 shadow-xs"
+                className="w-full px-5 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 shadow-xs"
               />
               {referralCodeInput && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
@@ -870,7 +870,7 @@ export default function Signup() {
             <div className="w-full border-t-2 border-slate-200 dark:border-slate-800"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest leading-none">
-            <span className="px-4 bg-white dark:bg-[#111A2E] text-slate-500 dark:text-slate-400">Or register with</span>
+            <span className="px-4 bg-white dark:bg-[#111A2E] text-slate-600 dark:text-slate-300 font-bold">Or register with</span>
           </div>
         </div>
 
@@ -926,7 +926,7 @@ export default function Signup() {
           CREATE WITH GOOGLE
         </motion.button>
          
-        <p className="mt-8 text-center text-xs uppercase font-bold tracking-wider text-slate-600 dark:text-slate-400">
+        <p className="mt-8 text-center text-xs uppercase font-bold tracking-wider text-slate-700 dark:text-slate-300">
           Already registered? <button onClick={() => navigate('/login')} className="font-extrabold underline text-[#0D5BFF] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase cursor-pointer ml-1">Sign in instead</button>
         </p>
       </>
@@ -936,6 +936,7 @@ export default function Signup() {
         <OtpVerificationModal
           isOpen={showOtpModal}
           email={formData.email || ''}
+          devOtpCode={devOtpCode}
           ipNoticeMsg={ipNoticeMsg}
           errorMsg={otpError}
           successMsg={resendSuccessMsg}
@@ -1004,7 +1005,7 @@ function Input({
           onChange={onChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all duration-200 shadow-xs ${
+          className={`w-full bg-white dark:bg-slate-900 border-2 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none transition-all duration-200 shadow-xs ${
             hasError 
               ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/20' 
               : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15'
@@ -1015,7 +1016,7 @@ function Input({
             type="button"
             id={`toggle-${name}-visibility`}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
             title={showPassword ? "Hide Password" : "Show Password"}
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1023,7 +1024,7 @@ function Input({
         )}
       </div>
       {helperText && !error && (
-        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 px-0.5 mt-1 leading-normal">
+        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 px-0.5 mt-1 leading-normal">
           {helperText}
         </p>
       )}

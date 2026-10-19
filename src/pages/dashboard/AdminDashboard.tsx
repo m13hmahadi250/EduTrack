@@ -398,7 +398,7 @@ export default function AdminDashboard() {
               <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 text-emerald-400">
                 System Active
               </p>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+              <p className="text-[8px] font-black text-slate-300 dark:text-slate-300 uppercase tracking-tighter">
                 Official Command node
               </p>
             </div>
@@ -529,7 +529,7 @@ export default function AdminDashboard() {
                   <p className={`text-[10px] font-black uppercase tracking-wider leading-tight truncate`}>
                     {tab.label}
                   </p>
-                  <p className={`text-[8px] font-medium tracking-tight uppercase truncate ${isActive ? 'text-white/60' : 'text-slate-400'}`}>
+                  <p className={`text-[8px] font-semibold tracking-tight uppercase truncate ${isActive ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'}`}>
                     {isActive ? "Active View" : "Click to view"}
                   </p>
                 </div>
@@ -540,7 +540,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Navigation Matrix */}
-      <div className="lg:flex hidden space-x-6 sm:space-x-12 border-b-2 border-slate-100 px-4 overflow-x-auto hide-scrollbar">
+      <div className="lg:flex hidden space-x-6 sm:space-x-12 border-b-2 border-slate-100 dark:border-slate-800 px-4 overflow-x-auto hide-scrollbar">
         {[
           { id: "users", label: "User directory" },
           { id: "map", label: "Geo Map Matrix" },
@@ -564,8 +564,8 @@ export default function AdminDashboard() {
             onClick={() => handleTabChange(tab.id as any)}
             className={`text-[10px] font-black font-heading uppercase tracking-[0.3em] italic pb-6 transition-all relative ${
               activeTab === tab.id
-                ? "text-[#0B132B]"
-                : "text-[#0B132B]/30 hover:text-[#0B132B]"
+                ? "text-[#0B132B] dark:text-white"
+                : "text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white"
             }`}
           >
             {tab.label}
@@ -639,13 +639,13 @@ export default function AdminDashboard() {
                 </h3>
                 {/* Search Bar for Contacts */}
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search any user or role..."
                     value={messagesSearch}
                     onChange={(e) => setMessagesSearch(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-100/50 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] placeholder-slate-400 text-ellipsis"
+                    className="w-full bg-slate-50 border border-slate-100/50 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF] placeholder-slate-500 dark:placeholder-slate-400 text-ellipsis"
                   />
                 </div>
               </div>
@@ -698,9 +698,9 @@ export default function AdminDashboard() {
 
                   if (adminContacts.length === 0) {
                     return (
-                      <div className="py-20 text-center opacity-40">
-                        <Users className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <div className="py-20 text-center opacity-60">
+                        <Users className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
                           {messagesSearch ? "No active users match criteria." : "No message handshakes. Search above to find any user."}
                         </p>
                       </div>
@@ -763,8 +763,8 @@ export default function AdminDashboard() {
                           <p
                             className={`text-[8px] font-semibold tracking-wider truncate mt-0.5 ${
                               selectedRecipientId === contact.id
-                                ? "opacity-75"
-                                : "text-slate-400"
+                                ? "opacity-90"
+                                : "text-slate-600 dark:text-slate-300"
                             }`}
                           >
                             {contact.email}
@@ -795,7 +795,7 @@ export default function AdminDashboard() {
                   <h4 className="text-sm font-black text-[#0B132B] uppercase tracking-widest italic mb-2">
                     Secure Chat Terminal
                   </h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider max-w-[280px]">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider max-w-[280px]">
                     Select an active channel from the left sidebar or search to initiate the administrative hotline.
                   </p>
                 </div>
@@ -840,7 +840,7 @@ export default function AdminDashboard() {
                     <Shield className="w-4 h-4 text-[#0D5BFF]" />
                     Identity Protocol Queue ({filteredTutors.length} experts matched)
                   </h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  <p className="text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">
                     Live registration ledger with exact join date, time & credential audit stream
                   </p>
                 </div>
@@ -910,18 +910,18 @@ export default function AdminDashboard() {
               {/* Search & Filter Row */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={verificationSearch}
                     onChange={(e) => setVerificationSearch(e.target.value)}
                     placeholder="Search by name, email, phone, university, NID..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-[11px] font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D5BFF] transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-[11px] font-bold text-slate-800 placeholder-slate-500 dark:placeholder-slate-400 outline-none focus:border-[#0D5BFF] transition-all"
                   />
                   {verificationSearch && (
                     <button
                       onClick={() => setVerificationSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 text-xs font-bold"
                     >
                       ✕
                     </button>
@@ -935,7 +935,7 @@ export default function AdminDashboard() {
                     className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                       verificationStatusFilter === 'all'
                         ? 'bg-[#0B132B] text-white'
-                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                        : 'bg-slate-50 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100'
                     }`}
                   >
                     All ({tutors.length})
@@ -945,7 +945,7 @@ export default function AdminDashboard() {
                     className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 ${
                       verificationStatusFilter === 'pending'
                         ? 'bg-amber-500 text-white shadow-sm'
-                        : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                        : 'bg-amber-50 text-amber-800 dark:text-amber-300 font-bold hover:bg-amber-100'
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -956,7 +956,7 @@ export default function AdminDashboard() {
                     className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                       verificationStatusFilter === 'approved'
                         ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        : 'bg-emerald-50 text-emerald-800 dark:text-emerald-300 font-bold hover:bg-emerald-100'
                     }`}
                   >
                     Approved
@@ -966,7 +966,7 @@ export default function AdminDashboard() {
                     className={`px-3 py-1.5 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                       verificationStatusFilter === 'rejected'
                         ? 'bg-rose-600 text-white shadow-sm'
-                        : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                        : 'bg-rose-50 text-rose-800 dark:text-rose-300 font-bold hover:bg-rose-100'
                     }`}
                   >
                     Rejected
@@ -1046,7 +1046,7 @@ export default function AdminDashboard() {
                       />
                     </div>
 
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-black italic text-slate-300 group-hover:text-[#0D5BFF] transition-colors overflow-hidden shrink-0">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-black italic text-slate-400 group-hover:text-[#0D5BFF] transition-colors overflow-hidden shrink-0">
                       {tutor.profileImage ? (
                         <img
                           src={tutor.profileImage}
@@ -1070,20 +1070,20 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       
-                      <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                      <p className="text-[9.5px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5 truncate">
                         {tutor.university || "Independent Expert"} • {tutor.course || "General Tutor"}
                       </p>
 
                       {/* Joined Date & Time display */}
-                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2.5 text-[9px] font-bold text-slate-500">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2.5 text-[9px] font-bold text-slate-600">
                         <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 font-mono">
                           <Calendar className="w-3 h-3 text-[#0D5BFF] shrink-0" />
-                          <span className="font-black text-slate-700">Joined: {joinInfo.date}</span>
+                          <span className="font-black text-slate-800">Joined: {joinInfo.date}</span>
                           {joinInfo.time && (
                             <>
-                              <span className="text-slate-300">•</span>
-                              <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span>{joinInfo.time}</span>
+                              <span className="text-slate-400">•</span>
+                              <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-slate-700">{joinInfo.time}</span>
                             </>
                           )}
                           {joinInfo.relative && (
@@ -1094,12 +1094,12 @@ export default function AdminDashboard() {
                         </div>
 
                         {tutor.email && (
-                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-400">
+                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-600 font-bold">
                             <Mail className="w-3 h-3 shrink-0" /> {tutor.email}
                           </span>
                         )}
                         {tutor.phone && (
-                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-400">
+                          <span className="flex items-center gap-1 font-mono text-[8.5px] text-slate-600 font-bold">
                             <Phone className="w-3 h-3 shrink-0" /> {tutor.phone}
                           </span>
                         )}
@@ -1110,10 +1110,10 @@ export default function AdminDashboard() {
                         <span
                           className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
                             tutor.nidStatus === "approved"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : tutor.nidStatus === "rejected"
-                                ? "bg-rose-50 text-rose-600 border-rose-100"
-                                : "bg-amber-50 text-amber-600 border-amber-100"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
                           }`}
                         >
                           <div
@@ -1131,10 +1131,10 @@ export default function AdminDashboard() {
                         <span
                           className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
                             tutor.academicStatus === "approved"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : tutor.academicStatus === "rejected"
-                                ? "bg-rose-50 text-rose-600 border-rose-100"
-                                : "bg-amber-50 text-amber-600 border-amber-100"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
                           }`}
                         >
                           <div
@@ -1154,7 +1154,7 @@ export default function AdminDashboard() {
 
                   <div className="w-full lg:w-auto shrink-0">
                     <div className="p-4 bg-slate-50 rounded-[1.8rem] border border-slate-100 space-y-2.5 text-center">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                      <p className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                         Protocol Actions
                       </p>
                       <button
@@ -1171,11 +1171,11 @@ export default function AdminDashboard() {
 
               {filteredTutors.length === 0 && (
                 <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-100">
-                  <ShieldAlert className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+                  <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto mb-3" />
                   <p className="text-sm font-black uppercase tracking-widest text-[#0B132B]">
                     No matching expert verification records found
                   </p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1">
+                  <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 mt-1">
                     Try adjusting your search query or status filter.
                   </p>
                 </div>
@@ -1206,7 +1206,7 @@ export default function AdminDashboard() {
                   </h3>
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                  <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">
                     Total Volume Pending
                   </p>
                   <p className="text-2xl font-black text-white italic">
@@ -1229,7 +1229,7 @@ export default function AdminDashboard() {
                         <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-blue-500/20 truncate w-fit">
                           TRX: {payment.transactionId}
                         </div>
-                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-2 sm:pl-4 truncate">
+                        <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-2 sm:pl-4 truncate">
                           Sender: {payment.bKashNumber}
                         </div>
                       </div>
@@ -1282,12 +1282,12 @@ export default function AdminDashboard() {
                   <h3 className="text-xl sm:text-3xl font-black text-white uppercase italic mb-2 tracking-tighter">
                     Treasury: Outbound Queue
                   </h3>
-                  <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] font-heading">
+                  <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.3em] font-heading">
                     Awaiting Expert Fund Clearance
                   </p>
                 </div>
                 <div className="bg-white/5 border border-white/10 px-6 py-5 sm:px-10 sm:py-8 rounded-[1.8rem] sm:rounded-[3rem] text-left sm:text-right group hover:border-[#0D5BFF] transition-all">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-heading">
+                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 font-heading">
                     Total Withdrawal Exposure
                   </p>
                   <h4 className="text-3xl sm:text-5xl font-black text-white italic">
@@ -1324,7 +1324,7 @@ export default function AdminDashboard() {
                                 {req.paymentMethod?.toUpperCase()} CHANNEL:{" "}
                                 {req.bKashNumber}
                               </p>
-                              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                              <p className="text-[8px] sm:text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tighter">
                                 Requested:{" "}
                                 {new Date(req.timestamp).toLocaleString(
                                   undefined,
@@ -1347,7 +1347,7 @@ export default function AdminDashboard() {
                       <div className="p-4 sm:p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6 sm:mb-8 italic">
                         <textarea
                           placeholder="ADD AUDIT NOTE (OPTIONAL)..."
-                          className="w-full bg-transparent text-[10px] font-bold uppercase tracking-widest border-none focus:outline-none placeholder:text-slate-300 resize-none min-h-[4rem] sm:min-h-[5rem] text-[#0B132B]"
+                          className="w-full bg-transparent text-[10px] font-bold uppercase tracking-widest border-none focus:outline-none placeholder:text-slate-500 dark:placeholder:text-slate-400 resize-none min-h-[4rem] sm:min-h-[5rem] text-[#0B132B]"
                           id={`note-${req.id}`}
                         />
                       </div>
@@ -1426,14 +1426,14 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
                   Promotional Banner Control
                 </h2>
-                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">
                   Configure live scrolling ticker announcements broadcasted globally to all users.
                 </p>
               </div>
 
               {/* Live Ticker Mock Preview */}
               <div className="mb-12">
-                <span className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mb-3">
+                <span className="block text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 tracking-wider mb-3">
                   Live Broadcast Ticker Preview
                 </span>
                 <div className="bg-[#0B132B] dark:bg-slate-950 text-white py-4 rounded-3xl overflow-hidden whitespace-nowrap border border-white/5 relative shadow-inner">
@@ -1469,7 +1469,7 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
                   Android Application Control
                 </h2>
-                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">
                   Update and manage the official Android application package (.apk) link.
                 </p>
               </div>
@@ -1499,14 +1499,14 @@ export default function AdminDashboard() {
                   <Download className="w-5 h-5 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">
                     Total Downloads
                   </p>
                   <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
                     {downloadAttempts.length}
                   </h3>
                 </div>
-                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest italic">
+                <p className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest italic">
                   APK Clicks Recorded
                 </p>
               </div>
@@ -1516,14 +1516,14 @@ export default function AdminDashboard() {
                   <Smartphone className="w-5 h-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">
                     Promo Popup Clicks
                   </p>
                   <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
                     {downloadAttempts.filter(d => d.source === 'popup').length}
                   </h3>
                 </div>
-                <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest italic">
+                <p className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest italic">
                   Dismissible Lightbox conversion
                 </p>
               </div>
@@ -1533,14 +1533,14 @@ export default function AdminDashboard() {
                   <Zap className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">
                     Footer Banner Clicks
                   </p>
                   <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
                     {downloadAttempts.filter(d => d.source === 'footer').length}
                   </h3>
                 </div>
-                <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest italic">
+                <p className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest italic">
                   Static placement interaction
                 </p>
               </div>
@@ -1550,14 +1550,14 @@ export default function AdminDashboard() {
                   <Sparkles className="w-5 h-5 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">
                     Footer Hero CTA Clicks
                   </p>
                   <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
                     {downloadAttempts.filter(d => d.source === 'footer_cta').length}
                   </h3>
                 </div>
-                <p className="text-[8px] font-black text-purple-500 uppercase tracking-widest italic">
+                <p className="text-[8px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest italic">
                   Primary layout banner
                 </p>
               </div>
@@ -1572,7 +1572,7 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
                   Android Application Control
                 </h2>
-                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2">
+                <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">
                   Update and manage the official Android application package (.apk) link.
                 </p>
               </div>
@@ -1593,7 +1593,7 @@ export default function AdminDashboard() {
                     APK Download Ledger
                   </h3>
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-xl">
+                <div className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-xl">
                   Real-time Listening Active
                 </div>
               </div>
@@ -1601,19 +1601,19 @@ export default function AdminDashboard() {
               {downloadsLoading ? (
                 <div className="py-20 flex flex-col items-center justify-center space-y-4">
                   <div className="w-10 h-10 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                     Synchronizing acquisition database...
                   </p>
                 </div>
               ) : downloadAttempts.length === 0 ? (
                 <div className="py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem] text-center">
                   <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Smartphone className="w-6 h-6 text-slate-300 dark:text-slate-600" />
+                    <Smartphone className="w-6 h-6 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <h4 className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                  <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     No Downloads Recorded
                   </h4>
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-2">
+                  <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mt-2">
                     App download logs will automatically show up here as clients interact with CTA buttons.
                   </p>
                 </div>
@@ -1622,19 +1622,19 @@ export default function AdminDashboard() {
                   <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800">
                     <thead>
                       <tr>
-                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        <th className="py-4 text-left text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                           Timestamp
                         </th>
-                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        <th className="py-4 text-left text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                           User Ident
                         </th>
-                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        <th className="py-4 text-left text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                           Location Hook
                         </th>
-                        <th className="py-4 text-left text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        <th className="py-4 text-left text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                           Platform / Client
                         </th>
-                        <th className="py-4 text-right text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        <th className="py-4 text-right text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                           Attempt Identifier
                         </th>
                       </tr>
@@ -1642,7 +1642,7 @@ export default function AdminDashboard() {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {downloadAttempts.map((attempt) => (
                         <tr key={attempt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
-                          <td className="py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 font-mono">
+                          <td className="py-4 text-[10px] font-black text-slate-700 dark:text-slate-300 font-mono">
                             {new Date(attempt.timestamp).toLocaleString()}
                           </td>
                           <td className="py-4">
@@ -1651,12 +1651,12 @@ export default function AdminDashboard() {
                                 <span className="text-[11px] font-black text-[#0B132B] dark:text-white">
                                   {attempt.userEmail}
                                 </span>
-                                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 font-mono">
+                                <span className="text-[8px] font-bold text-slate-600 dark:text-slate-400 font-mono">
                                   UID: {attempt.userId}
                                 </span>
                               </div>
                             ) : (
-                              <span className="px-3 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-full text-[8.5px] font-black text-slate-400 uppercase tracking-wider">
+                              <span className="px-3 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-full text-[8.5px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                                 Anonymous Guest
                               </span>
                             )}
@@ -1664,20 +1664,20 @@ export default function AdminDashboard() {
                           <td className="py-4">
                             <span className={`px-3 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest border shadow-sm ${
                               attempt.source === 'popup' 
-                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 border-blue-100 dark:border-blue-900/30'
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                                 : attempt.source === 'footer_cta'
-                                ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400 border-purple-100 dark:border-purple-900/30'
-                                : 'bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-slate-400 border-slate-100 dark:border-slate-800'
+                                ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : 'bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-300 border-slate-200 dark:border-slate-800 font-bold'
                             }`}>
                               {attempt.source}
                             </span>
                           </td>
                           <td className="py-4 max-w-[250px]">
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                                 {attempt.platform}
                               </span>
-                              <span className="text-[8.5px] text-slate-400 dark:text-slate-500 font-semibold truncate hover:text-clip" title={attempt.userAgent}>
+                              <span className="text-[8.5px] text-slate-600 dark:text-slate-400 font-semibold truncate hover:text-clip" title={attempt.userAgent}>
                                 {attempt.userAgent || 'No Client Agent Header'}
                               </span>
                             </div>
@@ -1827,7 +1827,7 @@ export default function AdminDashboard() {
                    </Suspense>
                    <div>
                       <h3 className="text-3xl font-heading font-black text-[#0B132B] uppercase italic">Admin Credentials</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
+                      <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">{currentUser.email}</p>
                    </div>
                 </div>
              </div>
@@ -1835,7 +1835,7 @@ export default function AdminDashboard() {
              <div className="space-y-8">
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Full Name</label>
+                     <label className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-4">Full Name</label>
                      <input 
                        type="text"
                        defaultValue={currentUser.name}
@@ -1844,12 +1844,12 @@ export default function AdminDashboard() {
                      />
                   </div>
                   <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Role Authorization</label>
+                     <label className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-4">Role Authorization</label>
                      <input 
                        type="text"
                        value="ADMINISTRATOR"
                        disabled
-                       className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-400 uppercase tracking-wider cursor-not-allowed"
+                       className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider cursor-not-allowed"
                      />
                   </div>
                </div>
@@ -1915,8 +1915,8 @@ export default function AdminDashboard() {
                     </motion.h4>
                     <motion.p
                       initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 0.7 }}
-                      className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-3"
+                      animate={{ y: 0, opacity: 0.9 }}
+                      className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em] mt-3"
                     >
                       Global ledger & tutor protocols synchronized successfully
                     </motion.p>
@@ -1943,7 +1943,7 @@ export default function AdminDashboard() {
                     <h3 className="text-3xl font-black text-[#0B132B] uppercase italic leading-none mb-2">
                       {selectedTutor.name}
                     </h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                       {selectedTutor.university || "Expert Profile"}
                     </p>
                   </div>
@@ -1951,11 +1951,11 @@ export default function AdminDashboard() {
 
                 <div className="space-y-8">
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">
+                    <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-3 italic">
                       Professional Bio
                     </p>
                     <div className="relative group">
-                      <p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-[#0D5BFF] pl-4 bg-slate-50 py-4 rounded-r-2xl">
+                      <p className="text-sm font-medium text-slate-700 leading-relaxed italic border-l-4 border-[#0D5BFF] pl-4 bg-slate-50 py-4 rounded-r-2xl">
                         "
                         {selectedTutor.bio ||
                           "This expert has not provided a bio description yet. Verification should proceed based on credentials."}
@@ -1975,7 +1975,7 @@ export default function AdminDashboard() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                         Email Node
                       </p>
                       <p className="text-[10px] font-bold text-[#0B132B] truncate">
@@ -1983,7 +1983,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                         Direct Phone Contact
                       </p>
                       <p className="text-[10px] font-bold text-[#0B132B] font-mono">
@@ -1991,7 +1991,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                         Expertise
                       </p>
                       <p className="text-[10px] font-bold text-[#0B132B]">
@@ -1999,7 +1999,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                         NID Number
                       </p>
                       <p className="text-[10px] font-bold text-[#0B132B] font-mono">
@@ -2007,7 +2007,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                         Birth Date
                       </p>
                       <p className="text-[10px] font-bold text-[#0B132B]">
@@ -2016,7 +2016,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 sm:col-span-2 flex items-center justify-between">
                       <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">
                           Account Registration Date & Time
                         </p>
                         <p className="text-xs font-black text-[#0D5BFF] font-mono flex items-center gap-1.5">
@@ -2033,7 +2033,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                    <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-4">
                       Verification Protocol Check
                     </p>
                     <div className="space-y-4">
@@ -2112,10 +2112,10 @@ export default function AdminDashboard() {
                           <span
                             className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md ${
                               selectedTutor.academicStatus === "approved"
-                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200 font-mono"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono font-bold"
                                 : selectedTutor.academicStatus === "rejected"
-                                ? "bg-rose-100 text-rose-700 border border-rose-200 font-mono"
-                                : "text-amber-500 font-mono"
+                                ? "bg-rose-100 text-rose-800 border border-rose-200 font-mono font-bold"
+                                : "text-amber-700 font-bold font-mono"
                             }`}
                           >
                             {selectedTutor.academicStatus || "Awaiting"}
@@ -2151,7 +2151,7 @@ export default function AdminDashboard() {
                             className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase italic transition-all flex items-center justify-center gap-1.5 ${
                               selectedTutor.academicStatus === "rejected"
                                 ? "bg-rose-600 text-white border border-rose-400 cursor-default"
-                                : "bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-500 hover:scale-[1.02] active:scale-[0.98]"
+                                : "bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-700 hover:scale-[1.02] active:scale-[0.98] font-bold"
                             }`}
                           >
                             {selectedTutor.academicStatus === "rejected" ? "✗ Rejected" : "Reject"}
@@ -2162,7 +2162,7 @@ export default function AdminDashboard() {
 
                     {/* Financial Footprint */}
                     <div className="space-y-4">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">
+                      <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest italic">
                         Financial Footprint
                       </p>
                       <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl space-y-4">
@@ -2186,7 +2186,7 @@ export default function AdminDashboard() {
                                 className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 italic"
                               >
                                 <div className="flex flex-col">
-                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                                  <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                                     {new Date(p.date).toLocaleDateString()}
                                   </span>
                                   <span className="text-[9px] font-bold text-[#0B132B]">
@@ -2194,7 +2194,7 @@ export default function AdminDashboard() {
                                   </span>
                                 </div>
                                 <span
-                                  className={`text-[10px] font-black ${p.status === "approved" ? "text-emerald-600" : "text-slate-300"}`}
+                                  className={`text-[10px] font-black ${p.status === "approved" ? "text-emerald-700 font-bold" : "text-slate-600 font-bold"}`}
                                 >
                                   +৳{p.amount}
                                 </span>
@@ -2203,7 +2203,7 @@ export default function AdminDashboard() {
                           {payments.filter(
                             (p) => p.tutorId === selectedTutor.id,
                           ).length === 0 && (
-                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-4">
+                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest text-center py-4">
                               No financial events synchronized
                             </p>
                           )}
@@ -2217,7 +2217,7 @@ export default function AdminDashboard() {
               {/* Right Column: Visual Evidence */}
               <div className="flex-1 bg-slate-100 p-5 sm:p-8 flex flex-col h-1/2 md:h-auto overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <h4 className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Document Evidence
                   </h4>
                   <button
@@ -2235,7 +2235,7 @@ export default function AdminDashboard() {
                     className={`flex-1 py-3 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 ${
                       activeDocTab === "nid"
                         ? "bg-[#0B132B] text-white shadow-md shadow-[#0B132B]/10"
-                        : "text-slate-500 hover:text-[#0B132B] hover:bg-white/40"
+                        : "text-slate-700 hover:text-[#0B132B] hover:bg-white/40 font-bold"
                     }`}
                   >
                     <Shield className="w-3.5 h-3.5" />
@@ -2246,7 +2246,7 @@ export default function AdminDashboard() {
                     className={`flex-1 py-3 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 ${
                       activeDocTab === "academic"
                         ? "bg-[#0B132B] text-white shadow-md shadow-[#0B132B]/10"
-                        : "text-slate-500 hover:text-[#0B132B] hover:bg-white/40"
+                        : "text-slate-700 hover:text-[#0B132B] hover:bg-white/40 font-bold"
                     }`}
                   >
                     <GraduationCap className="w-3.5 h-3.5" />
@@ -2258,15 +2258,15 @@ export default function AdminDashboard() {
                   {activeDocTab === "nid" ? (
                     <div className="space-y-6">
                       <div className="flex items-center justify-between px-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
                           Verified NID scans
                         </span>
                         <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
                           selectedTutor.nidStatus === "approved"
-                            ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                            ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 font-bold"
                             : selectedTutor.nidStatus === "rejected"
-                            ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
-                            : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                            ? "bg-rose-500/10 text-rose-800 border border-rose-500/20 font-bold"
+                            : "bg-amber-500/10 text-amber-800 border border-amber-500/20 font-bold"
                         }`}>
                           NID: {selectedTutor.nidStatus || "awaiting"}
                         </span>
@@ -2276,7 +2276,7 @@ export default function AdminDashboard() {
                         <div className="grid grid-cols-1 gap-6">
                           {selectedTutor.nidFrontImg && (
                             <div className="space-y-2">
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                              <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-2">
                                 NID Front Image
                               </p>
                               <div 
@@ -2328,8 +2328,8 @@ export default function AdminDashboard() {
                         </div>
                       ) : (
                         <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center p-8 py-16">
-                          <Shield className="w-10 h-10 text-slate-300 mb-3" />
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <Shield className="w-10 h-10 text-slate-400 mb-3" />
+                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                             No NID Scans Uploaded yet
                           </p>
                         </div>
@@ -2338,15 +2338,15 @@ export default function AdminDashboard() {
                   ) : (
                     <div className="space-y-6">
                       <div className="flex items-center justify-between px-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
                           Academic ID & credentials
                         </span>
                         <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
                           selectedTutor.academicStatus === "approved"
-                            ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                            ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 font-bold"
                             : selectedTutor.academicStatus === "rejected"
-                            ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
-                            : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                            ? "bg-rose-500/10 text-rose-800 border border-rose-500/20 font-bold"
+                            : "bg-amber-500/10 text-amber-800 border border-amber-500/20 font-bold"
                         }`}>
                           Academic: {selectedTutor.academicStatus || "awaiting"}
                         </span>
@@ -2399,8 +2399,8 @@ export default function AdminDashboard() {
                         </div>
                       ) : (
                         <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center p-8 py-16">
-                          <GraduationCap className="w-10 h-10 text-slate-300 mb-3" />
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <GraduationCap className="w-10 h-10 text-slate-400 mb-3" />
+                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                             No ID Cards or Credentials Uploaded
                           </p>
                         </div>
@@ -2412,11 +2412,11 @@ export default function AdminDashboard() {
                 <div className="mt-6 p-6 bg-amber-50 border border-amber-100 rounded-2xl">
                   <div className="flex items-center gap-3 mb-2">
                     <Zap className="w-4 h-4 text-amber-500" />
-                    <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest italic">
+                    <span className="text-[9px] font-black text-amber-800 uppercase tracking-widest italic">
                       Admin Advisory
                     </span>
                   </div>
-                  <p className="text-[9px] font-bold text-amber-700 leading-relaxed uppercase opacity-70">
+                  <p className="text-[9px] font-bold text-amber-900 leading-relaxed uppercase">
                     Ensure photo identity matches name and university
                     affiliation before authorizing full expert access.
                   </p>
@@ -2445,7 +2445,7 @@ export default function AdminDashboard() {
               className="relative max-w-4xl max-h-[90vh] w-full flex flex-col z-[210] pointer-events-none"
             >
               <div className="flex justify-between items-center mb-4 text-white pointer-events-auto">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
                   Secure Document Magnifier (High Definition)
                 </span>
                 <button
@@ -2487,19 +2487,19 @@ export default function AdminDashboard() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-slate-50">
-                  <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Timestamp
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Sender ID
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Reference Hash
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Payload (৳)
                   </th>
-                  <th className="p-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-8 text-right text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Verification
                   </th>
                 </tr>
@@ -2515,7 +2515,7 @@ export default function AdminDashboard() {
                       key={payment.id}
                       className="h-20 group hover:bg-slate-50/80 transition-colors"
                     >
-                      <td className="px-8 text-[10px] font-black text-slate-500 tracking-widest">
+                      <td className="px-8 text-[10px] font-black text-slate-700 dark:text-slate-300 tracking-widest">
                         {new Date(payment.date).toLocaleString()}
                       </td>
                       <td className="px-8">
@@ -2540,10 +2540,10 @@ export default function AdminDashboard() {
                         <span
                           className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
                             payment.status === "approved"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-100 font-bold"
                               : payment.status === "rejected"
-                                ? "bg-rose-50 text-rose-600 border-rose-100"
-                                : "bg-amber-50 text-amber-600 border-amber-100"
+                                ? "bg-rose-50 text-rose-800 border-rose-100 font-bold"
+                                : "bg-amber-50 text-amber-800 border-amber-100 font-bold"
                           }`}
                         >
                           {payment.status}
@@ -2593,7 +2593,7 @@ function BannerEditorForm({ currentText, onSave }: BannerEditorFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <label className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+        <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
           Announcement Text
         </label>
         <textarea
@@ -2604,7 +2604,7 @@ function BannerEditorForm({ currentText, onSave }: BannerEditorFormProps) {
           rows={3}
           className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-medium focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent outline-none text-[#0B132B] dark:text-white transition-all resize-none"
         />
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[10px] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider">
           <span>💡 Tip: Separate announcements with ` • ` bullet symbols</span>
           <span>{inputText.length} / 500 characters</span>
         </div>
@@ -2634,7 +2634,7 @@ function BannerEditorForm({ currentText, onSave }: BannerEditorFormProps) {
             ✓ Broadcast applied live successfully!
           </span>
         ) : (
-          <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <span className="text-[9px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-widest">
             Updates will propagate globally in real-time.
           </span>
         )}
@@ -2684,7 +2684,7 @@ function AppLinkEditorForm({ currentLink, onSave }: AppLinkEditorFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <label className="block text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+        <label className="block text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
           Android App Link (.apk URL)
         </label>
         <input
@@ -2694,7 +2694,7 @@ function AppLinkEditorForm({ currentLink, onSave }: AppLinkEditorFormProps) {
           placeholder="Enter Android app APK download URL..."
           className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-medium focus:ring-2 focus:ring-[#0D5BFF] focus:border-transparent outline-none text-[#0B132B] dark:text-white transition-all"
         />
-        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+        <p className="text-[9px] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider">
           This URL will be linked to all "Download APK" buttons on the website.
         </p>
       </div>
@@ -2715,7 +2715,7 @@ function AppLinkEditorForm({ currentLink, onSave }: AppLinkEditorFormProps) {
             ✓ Link saved successfully!
           </span>
         ) : (
-          <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <span className="text-[9px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-widest">
             Changes will propagate globally in real-time.
           </span>
         )}

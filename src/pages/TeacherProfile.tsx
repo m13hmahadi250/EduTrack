@@ -261,7 +261,7 @@ export default function TeacherProfile() {
           </div>
           <div>
             <h2 className="text-xl font-black uppercase tracking-tight text-[#0B132B] dark:text-white mb-2">Mentor Not Found</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed uppercase">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed uppercase">
               The user account specified is either blocked, does not exist, or does not maintain a verified tutor ledger.
             </p>
           </div>
@@ -373,7 +373,7 @@ export default function TeacherProfile() {
       {/* Top Banner & Navigation */}
       <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-xs font-black uppercase text-slate-500 hover:text-[#0D5BFF] transition-all group">
+          <Link to="/" className="inline-flex items-center gap-2 text-xs font-black uppercase text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition-all group">
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span>EduTrack Directory</span>
           </Link>
@@ -467,11 +467,11 @@ export default function TeacherProfile() {
                 )}
               </div>
 
-              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center justify-center md:justify-start gap-2 flex-wrap">
+              <p className="text-xs font-bold text-slate-200 uppercase tracking-widest flex items-center justify-center md:justify-start gap-2 flex-wrap">
                 <GraduationCap className="w-4 h-4 text-blue-400" />
                 <span className="text-blue-300 font-extrabold">{tutor.university || 'Certified Academic Mentor'}</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400">{tutor.course || 'Expert Department'}</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-200">{tutor.course || 'Expert Department'}</span>
               </p>
             </div>
 
@@ -481,7 +481,7 @@ export default function TeacherProfile() {
                 <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
                 <div className="text-left">
                   <div className="text-sm font-black tracking-tight">{displayTotalReviews > 0 ? Number(displayRating).toFixed(1) : 'New'}</div>
-                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">({displayTotalReviews} {displayTotalReviews === 1 ? 'Review' : 'Reviews'})</div>
+                  <div className="text-[9px] text-slate-300 font-bold uppercase tracking-wider block">({displayTotalReviews} {displayTotalReviews === 1 ? 'Review' : 'Reviews'})</div>
                 </div>
               </div>
             </div>
@@ -505,7 +505,7 @@ export default function TeacherProfile() {
                 <Sparkles className="w-4 h-4 text-[#0D5BFF]" />
                 <span>Biography & Vision</span>
               </h3>
-              <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 italic leading-relaxed font-medium">
+              <p className="text-sm md:text-base text-slate-700 dark:text-slate-200 italic leading-relaxed font-medium">
                 "{tutor.bio || `${tutor.name} is a highly regarded member of the EduTrack mentorship platform, having dedicated extensive study parameters and practical teaching methodology to secure outstanding student results.`}"
               </p>
               
@@ -515,7 +515,7 @@ export default function TeacherProfile() {
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Experience Level</span>
+                    <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Experience Level</span>
                     <span className="text-xs font-black text-[#0B132B] dark:text-white uppercase">{tutor.experience}</span>
                   </div>
                 </div>
@@ -531,7 +531,7 @@ export default function TeacherProfile() {
                 <Award className="w-4 h-4 text-emerald-500" />
                 <span>Verified Milestones & Badges</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
                 These gamified credentials verify live milestones, tutor ratings, and dedicated hours delivered securely on the platform.
               </p>
               <BadgeDisplay badgeIds={tutor.badges || []} role="tutor" />
@@ -551,7 +551,7 @@ export default function TeacherProfile() {
                 
                 {/* Subjects */}
                 <div className="space-y-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Subjects Certified</span>
+                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Subjects Certified</span>
                   <div className="flex flex-wrap gap-2">
                     {tutor.subjects && tutor.subjects.length > 0 ? (
                       tutor.subjects.map((s: string, idx: number) => (
@@ -560,14 +560,14 @@ export default function TeacherProfile() {
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-slate-500 uppercase font-bold italic">See bio for subjects</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold italic">See bio for subjects</span>
                     )}
                   </div>
                 </div>
 
                 {/* Grade Classes */}
                 <div className="space-y-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Classes Offered</span>
+                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Classes Offered</span>
                   <div className="flex flex-wrap gap-2">
                     {tutor.classes && tutor.classes.length > 0 ? (
                       tutor.classes.map((c: string, idx: number) => (
@@ -576,7 +576,7 @@ export default function TeacherProfile() {
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-slate-500 uppercase font-bold italic">All General Grades</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold italic">All General Grades</span>
                     )}
                   </div>
                 </div>
@@ -595,7 +595,7 @@ export default function TeacherProfile() {
               </h3>
               
               <div className="bg-slate-50 dark:bg-[#0B132B]/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed">
+                <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider leading-relaxed">
                   These represent the standard weekly time slots configured by {tutor.name}. Exact durations are customized upon conversation.
                 </p>
 
@@ -603,10 +603,10 @@ export default function TeacherProfile() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {Object.entries(tutor.availabilitySlots).map(([day, slots]: [string, any]) => (
                       <div key={day} className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
-                        <span className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white_80">{day}</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">{day}</span>
                         <div className="text-right space-y-1">
                           {slots.map((slot: string, sIdx: number) => (
-                            <span key={sIdx} className="inline-block bg-slate-50 dark:bg-slate-900 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                            <span key={sIdx} className="inline-block bg-slate-100 dark:bg-slate-900 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold text-slate-700 dark:text-slate-300">
                               {slot}
                             </span>
                           ))}
@@ -616,8 +616,8 @@ export default function TeacherProfile() {
                   </div>
                 ) : (
                   <div className="text-center py-6">
-                    <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400 font-bold uppercase italic">No rigid slots configured. Flexible scheduling available.</p>
+                    <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase italic">No rigid slots configured. Flexible scheduling available.</p>
                   </div>
                 )}
               </div>
@@ -641,7 +641,7 @@ export default function TeacherProfile() {
               {reviewsLoading ? (
                 <div className="text-center py-8 space-y-2">
                   <div className="w-6 h-6 border-2 border-[#0D5BFF] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Loading testimonials ledger...</p>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest">Loading testimonials ledger...</p>
                 </div>
               ) : reviews.length > 0 ? (
                 <div className="space-y-4">
@@ -668,7 +668,7 @@ export default function TeacherProfile() {
                           <div>
                             <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase italic">{rev.studentName}</h4>
                             {rev.subject && (
-                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                              <span className="text-[9px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
                                 Class Focus: {rev.subject}
                               </span>
                             )}
@@ -683,7 +683,7 @@ export default function TeacherProfile() {
                               className={`w-3.5 h-3.5 ${
                                 starIdx < rev.rating 
                                   ? 'text-amber-500 fill-amber-500' 
-                                  : 'text-slate-200 dark:text-slate-800'
+                                  : 'text-slate-300 dark:text-slate-700'
                               }`} 
                             />
                           ))}
@@ -691,14 +691,14 @@ export default function TeacherProfile() {
                       </div>
 
                       {/* Review Feedback Text */}
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic font-medium">
+                      <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed italic font-medium">
                         "{rev.feedback || 'The student left a five-star rating with no text commentary.'}"
                       </p>
 
                       {/* Session Date */}
                       {rev.scheduledTime && (
-                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-300" />
+                        <div className="text-[8px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
                           <span>Session Delivered: {new Date(rev.scheduledTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                         </div>
                       )}
@@ -707,9 +707,9 @@ export default function TeacherProfile() {
                 </div>
               ) : (
                 <div className="text-center py-10 bg-slate-50 dark:bg-[#0B132B]/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800/80">
-                  <Star className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs text-slate-400 font-black uppercase tracking-wider">No student ratings logged yet</p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-widest">Delivered tuition sessions will appear here after rating submission.</p>
+                  <Star className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider">No student ratings logged yet</p>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium mt-1 uppercase tracking-widest">Delivered tuition sessions will appear here after rating submission.</p>
                 </div>
               )}
             </motion.div>
@@ -724,20 +724,20 @@ export default function TeacherProfile() {
               variants={cardVariants}
               className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
             >
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Standard Remuneration</span>
+              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Standard Remuneration</span>
               
               <div className="flex items-baseline gap-1 text-[#0B132B] dark:text-white">
                 <span className="text-2xl font-bold">৳</span>
                 <span className="text-5xl font-black italic">{(tutor.hourlyRate || 800).toLocaleString()}</span>
-                <span className="text-xs text-slate-400 font-black uppercase tracking-wider ml-1">/ Month</span>
+                <span className="text-xs text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider ml-1">/ Month</span>
               </div>
 
               <div className="space-y-3.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-500">
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
                   <span>Days per Week</span>
                   <span className="font-mono text-[#0B132B] dark:text-white font-black">{tutor.daysPerWeek || 3} Days</span>
                 </div>
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-500">
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
                   <span>Service Zone</span>
                   <span className="text-[#0B132B] dark:text-white font-black flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-[#0D5BFF]" />
@@ -745,9 +745,9 @@ export default function TeacherProfile() {
                   </span>
                 </div>
                 {tutor.thana && (
-                  <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-500">
+                  <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
                     <span>Thana Sector</span>
-                    <span className="text-slate-400 font-black">{tutor.thana}</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-black">{tutor.thana}</span>
                   </div>
                 )}
                 
@@ -789,22 +789,22 @@ export default function TeacherProfile() {
                     </div>
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">Credentials Locked</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">PUBLIC SAFETY PROTOCOL</p>
+                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PUBLIC SAFETY PROTOCOL</p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-300 leading-relaxed font-bold">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-bold">
                     Direct communication ledgers and unmasked credentials remain protected. Only verified students or designated system administrators may interact or view them.
                   </p>
 
                   <div className="bg-slate-100 dark:bg-slate-900/80 p-4 rounded-3xl space-y-3.5 border border-slate-200/50 dark:border-slate-800/80">
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verify E-Mail Node</span>
-                      <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-200 mt-1">{maskEmail(tutor.email)}</p>
+                      <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verify E-Mail Node</span>
+                      <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-1">{maskEmail(tutor.email)}</p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
-                      <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-200 mt-1">{maskPhone(tutor.phone)}</p>
+                      <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
+                      <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-1">{maskPhone(tutor.phone)}</p>
                     </div>
                   </div>
 
@@ -815,7 +815,7 @@ export default function TeacherProfile() {
                     >
                       Log In as Student
                     </Link>
-                    <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                    <p className="text-center text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Don't have an account? <Link to="/signup" className="text-[#0D5BFF] hover:underline">Register now</Link>
                     </p>
                   </div>
@@ -830,11 +830,11 @@ export default function TeacherProfile() {
                     </div>
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">Direct Contacts Masked</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">PRIVACY PROTECTION PROTOCOL</p>
+                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PRIVACY PROTECTION PROTOCOL</p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-300 leading-relaxed font-bold">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-bold">
                     For public safety and security, raw email addresses and phone numbers are masked. Please coordinate using our encrypted direct peer messaging network.
                   </p>
 
@@ -843,19 +843,19 @@ export default function TeacherProfile() {
                     {/* Masked Phone */}
                     <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
                       <div>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
-                        <p className="text-sm font-mono font-black text-slate-400 dark:text-slate-500 tracking-wider mt-0.5">{maskPhone(tutor.phone)}</p>
+                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
+                        <p className="text-sm font-mono font-black text-slate-600 dark:text-slate-300 tracking-wider mt-0.5">{maskPhone(tutor.phone)}</p>
                       </div>
-                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-400 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
+                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
                     </div>
 
                     {/* Masked Email */}
                     <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
                       <div>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verified E-Mail Node</span>
-                        <p className="text-sm font-mono font-black text-slate-400 dark:text-slate-500 break-all mt-0.5">{maskEmail(tutor.email)}</p>
+                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verified E-Mail Node</span>
+                        <p className="text-sm font-mono font-black text-slate-600 dark:text-slate-300 break-all mt-0.5">{maskEmail(tutor.email)}</p>
                       </div>
-                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-400 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
+                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
                     </div>
 
                   </div>
@@ -880,7 +880,7 @@ export default function TeacherProfile() {
                     </div>
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Credentials Unlocked</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">PRIVILEGED LEDGER ACCESS</p>
+                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PRIVILEGED LEDGER ACCESS</p>
                     </div>
                   </div>
 
@@ -889,7 +889,7 @@ export default function TeacherProfile() {
                     {/* Unmasked Phone */}
                     <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
+                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
                         <p className="text-sm font-mono font-black text-slate-800 dark:text-white tracking-wider mt-0.5">{tutor.phone || 'Contact via email / chat'}</p>
                       </div>
                       {tutor.phone && (
@@ -905,7 +905,7 @@ export default function TeacherProfile() {
                     {/* Unmasked Email */}
                     <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verified E-Mail Node</span>
+                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verified E-Mail Node</span>
                         <p className="text-sm font-mono font-black text-slate-800 dark:text-white break-all mt-0.5">{tutor.email || 'N/A'}</p>
                       </div>
                       {tutor.email && (

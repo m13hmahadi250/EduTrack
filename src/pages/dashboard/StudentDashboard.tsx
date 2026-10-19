@@ -129,7 +129,7 @@ const TutorRow = ({ index, style, rowProps }: any) => {
                 )}
               </div>
             </div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">
+            <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-1 truncate">
               {tutor.university} • {tutor.hourlyRate ? `৳${tutor.hourlyRate}/month` : 'N/A'} • {tutor.daysPerWeek || 3} Days/Wk
             </p>
           </div>
@@ -140,7 +140,7 @@ const TutorRow = ({ index, style, rowProps }: any) => {
 };
 
 const MapLoading = () => (
-   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-700 dark:text-slate-300">
      <div className="w-8 h-8 border-4 border-slate-200 border-t-rose-500 rounded-full animate-spin mb-2"></div>
      <p className="text-[8px] font-black uppercase tracking-widest leading-loose">Booting Satellite Feed...</p>
    </div>
@@ -1049,7 +1049,7 @@ export default function StudentDashboard() {
             key={tab.id}
             onClick={() => handleTabChange(tab.id as any)}
             className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative cursor-pointer z-30 pointer-events-auto ${
-              activeTab === tab.id ? 'text-[#0B132B]' : 'text-[#0B132B]/30 hover:text-[#0B132B]'
+              activeTab === tab.id ? 'text-[#0B132B] dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'
             }`}
           >
             <span className="flex items-center gap-1.5">
@@ -1090,7 +1090,7 @@ export default function StudentDashboard() {
                         <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full absolute"></span>
                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] pl-2">Onboarding Roadmap</span>
                       </div>
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-white/5 px-3 py-1 rounded-full">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-300 bg-white/10 px-3 py-1 rounded-full">
                         Step {completedCount} of 3 Complete
                       </div>
                     </div>
@@ -1101,7 +1101,7 @@ export default function StudentDashboard() {
                         Setup Your Profile <br className="hidden sm:inline" />
                         & Find Elite Instructors
                       </h3>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-relaxed max-w-xl">
+                      <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest leading-relaxed max-w-xl">
                         Complete your academic portfolio to unlock smart geolocation routing, expert auto-matching, and instant classroom validation.
                       </p>
                     </div>
@@ -1118,14 +1118,14 @@ export default function StudentDashboard() {
                           className={`p-3 rounded-xl border transition-all duration-300 ${
                             step.checked 
                               ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-950/20' 
-                              : 'bg-white/5 border-white/10 text-slate-400 hover:border-blue-500/30'
+                              : 'bg-white/5 border-white/10 text-slate-300 hover:border-blue-500/30'
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">{step.label}</span>
+                            <span className="text-[8px] font-black uppercase tracking-wider text-slate-300">{step.label}</span>
                             <span className={`w-1.5 h-1.5 rounded-full ${step.checked ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
                           </div>
-                          <p className={`text-[11px] font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-300 font-medium'}`}>
+                          <p className={`text-[11px] font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-200 font-medium'}`}>
                             {step.value}
                           </p>
                         </div>
@@ -1356,7 +1356,7 @@ export default function StudentDashboard() {
                             }`}>
                               {isProposal ? 'Offer Received' : 'Request Pending'}
                             </span>
-                            <span className="text-[9px] font-black text-slate-400">
+                            <span className="text-[9px] font-black text-slate-300">
                               {new Date(sess.scheduledTime).toLocaleDateString()}
                             </span>
                           </div>
@@ -1367,14 +1367,14 @@ export default function StudentDashboard() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <h4 className="text-sm font-black italic uppercase text-white truncate">{party?.name}</h4>
-                              <p className="text-[10px] text-slate-400 truncate">{party?.university || 'Expert Tutor'}</p>
+                              <p className="text-[10px] text-slate-300 truncate">{party?.university || 'Expert Tutor'}</p>
                             </div>
                           </div>
 
                           <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject / Focus</div>
+                            <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-1">Subject / Focus</div>
                             <div className="text-xs font-black italic text-[#0D5BFF]">{sess.subject}</div>
-                            <div className="text-[10px] text-slate-350 font-medium mt-1.5 leading-relaxed">
+                            <div className="text-[10px] text-slate-300 font-medium mt-1.5 leading-relaxed">
                               Time Slot: <span className="font-extrabold text-white">{new Date(sess.scheduledTime).toLocaleString()}</span>
                             </div>
                           </div>
@@ -1405,10 +1405,10 @@ export default function StudentDashboard() {
                 <div className="space-y-4">
                   {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').length === 0 ? (
                     <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 text-center space-y-4">
-                      <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+                      <Calendar className="w-10 h-10 text-slate-400 mx-auto" />
                       <div>
                         <p className="text-xs font-black text-slate-800 uppercase tracking-wider">No Accepted Tuitions Found</p>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-1">
+                        <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-1">
                           You don't have any accepted/confirmed tuition connections yet.
                         </p>
                       </div>
@@ -1556,7 +1556,7 @@ export default function StudentDashboard() {
                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
                        <MapPin className="w-8 h-8 mb-3 text-[#0D5BFF] animate-pulse" />
                        <h4 className="text-xs font-black uppercase tracking-widest leading-none">Active Radar Offline</h4>
-                       <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 px-4 leading-normal">
+                       <p className="text-[9px] text-slate-300 uppercase tracking-wider mt-1 px-4 leading-normal">
                          Activate physical coordinates to map verified mentors in your viewport.
                        </p>
                        <button 
@@ -1624,7 +1624,7 @@ export default function StudentDashboard() {
                     {recentSearches.length > 0 && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between mb-1.5 px-1">
-                          <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          <span className="text-[7px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
                             Recent Searches
                           </span>
                           <button
@@ -1644,7 +1644,7 @@ export default function StudentDashboard() {
                               key={index}
                               type="button"
                               onClick={() => setSearchTerm(query)}
-                              className="px-2 py-0.5 rounded-md text-[7px] font-bold bg-slate-50 hover:bg-slate-100 border border-slate-100 dark:border-slate-800 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-all uppercase tracking-wider truncate max-w-[100px] hover:cursor-pointer"
+                              className="px-2 py-0.5 rounded-md text-[7px] font-black bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:border-slate-800 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-all uppercase tracking-wider truncate max-w-[100px] hover:cursor-pointer"
                               title={query}
                             >
                               {query}
@@ -1659,9 +1659,9 @@ export default function StudentDashboard() {
                         placeholder="NAME OR UNI..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
                       />
-                      <Search className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
+                      <Search className="absolute right-3 top-3 w-4 h-4 text-slate-500 dark:text-slate-400" />
                     </div>
                   </FilterGroup>
 
@@ -1674,7 +1674,7 @@ export default function StudentDashboard() {
                           className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
                             filterVersion === v 
                             ? 'bg-[#0B132B] border-[#0B132B] text-white shadow-md' 
-                            : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
                           }`}
                         >
                           {v || 'ALL'}
@@ -1711,7 +1711,7 @@ export default function StudentDashboard() {
                           <option key={dist} value={dist}>{dist.toUpperCase()}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-500 dark:text-slate-400 pointer-events-none" />
                     </div>
                   </FilterGroup>
 
@@ -1730,7 +1730,7 @@ export default function StudentDashboard() {
                           <option key={th} value={th}>{th.toUpperCase()}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-3.5 w-3.5 h-3.5 text-slate-500 dark:text-slate-400 pointer-events-none" />
                     </div>
                   </FilterGroup>
 
@@ -1743,7 +1743,7 @@ export default function StudentDashboard() {
                         onChange={e => setFilterArea(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-2 focus:ring-[#0D5BFF] transition-all"
                       />
-                      <MapPin className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
+                      <MapPin className="absolute right-3 top-3 w-4 h-4 text-slate-500 dark:text-slate-400" />
                     </div>
                   </FilterGroup>
 
@@ -1761,7 +1761,7 @@ export default function StudentDashboard() {
                             ? 'CHOOSE SUBJECTS'
                             : `${filterSubjects.length} SELECTED`}
                         </span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isSubjectDropdownOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-400 transition-transform duration-200 shrink-0 ${isSubjectDropdownOpen ? 'rotate-180' : ''}`} />
                       </button>
 
                       <AnimatePresence>
@@ -1783,12 +1783,12 @@ export default function StudentDashboard() {
                                 onChange={e => setSubjectFilterSearch(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-8 pr-3 py-2 text-[8px] font-black uppercase tracking-widest text-[#0B132B] focus:outline-none focus:ring-1 focus:ring-[#0D5BFF]"
                               />
-                              <Search className="absolute left-2.5 top-2.5 w-3 h-3 text-slate-300" />
+                              <Search className="absolute left-2.5 top-2.5 w-3 h-3 text-slate-400" />
                               {subjectFilterSearch && (
                                 <button
                                   type="button"
                                   onClick={() => setSubjectFilterSearch('')}
-                                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-[9px] font-black"
+                                  className="absolute right-2.5 top-2.5 text-slate-600 hover:text-slate-800 text-[9px] font-black"
                                 >
                                   ✕
                                 </button>
@@ -1844,7 +1844,7 @@ export default function StudentDashboard() {
 
                                 return (
                                   <div key={category} className="space-y-1">
-                                    <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 bg-slate-50/50 p-1 rounded">
+                                    <div className="text-[7px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1 bg-slate-50/50 p-1 rounded">
                                       <div className="w-1 h-1 bg-[#0D5BFF] rounded-full" />
                                       {category}
                                     </div>
@@ -1862,15 +1862,15 @@ export default function StudentDashboard() {
                                                   : [...prev, sub]
                                               );
                                             }}
-                                            className={`w-full px-2.5 py-1.5 rounded-lg text-[8px] font-bold uppercase tracking-wider transition-all flex items-center justify-between text-left hover:cursor-pointer ${
+                                            className={`w-full px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all flex items-center justify-between text-left hover:cursor-pointer ${
                                               isSelected
                                                 ? 'bg-blue-50/50 text-[#0D5BFF]'
-                                                : 'text-slate-500 hover:bg-slate-50'
+                                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             }`}
                                           >
                                             <span className="truncate">{sub}</span>
                                             <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                                              isSelected ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white' : 'border-slate-200'
+                                              isSelected ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white' : 'border-slate-300 dark:border-slate-700'
                                             }`}>
                                               {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                             </div>
@@ -1886,7 +1886,7 @@ export default function StudentDashboard() {
                               {Object.values(SUBJECT_CATEGORIES).every((subjects: string[]) => 
                                 !subjects.some(sub => sub.toLowerCase().includes(subjectFilterSearch.toLowerCase()))
                               ) && (
-                                <div className="text-center py-6 text-slate-400 text-[8px] font-black uppercase tracking-widest">
+                                <div className="text-center py-6 text-slate-600 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest">
                                   No subjects match search
                                 </div>
                               )}
@@ -1903,7 +1903,7 @@ export default function StudentDashboard() {
                         <button
                           key={star}
                           onClick={() => setFilterRating(star === filterRating ? 0 : star)}
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${filterRating >= star ? 'bg-amber-50 text-amber-500 border border-amber-100' : 'bg-slate-50 text-slate-300'}`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${filterRating >= star ? 'bg-amber-50 text-amber-500 border border-amber-100' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}
                           title={`${star} Stars & Up`}
                         >
                           <Star className={`w-4 h-4 ${filterRating >= star ? 'fill-amber-500' : ''}`} />
@@ -1924,7 +1924,7 @@ export default function StudentDashboard() {
                           className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
                             filterGender === g
                               ? 'bg-[#0B132B] border-[#0B132B] text-white shadow-md'
-                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
                           }`}
                         >
                           {g || 'ANY GENDER'}
@@ -2000,7 +2000,7 @@ export default function StudentDashboard() {
                   <div className="space-y-4 max-h-[800px] pr-2 lg:sticky lg:top-4 flex flex-col">
                     <div className="lg:hidden mb-6 flex-shrink-0">
                        <h2 className="text-2xl font-black text-[#0B132B] uppercase italic">Nearby Mentors</h2>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
+                       <p className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mt-2 px-1">Discover verified experts in your quadrant</p>
                     </div>
                     {debouncedSearch !== searchTerm ? (
                       <div className="space-y-4 flex-1">
@@ -2031,7 +2031,7 @@ export default function StudentDashboard() {
                               <Users className="w-8 h-8 text-[#0D5BFF] animate-pulse" />
                               <div>
                                 <h4 className="text-xs font-black uppercase tracking-widest text-[#0B132B] italic">No Mentors Found</h4>
-                                <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-1 max-w-[240px] leading-relaxed mx-auto">
+                                <p className="text-[9px] text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-1 max-w-[240px] leading-relaxed mx-auto">
                                   We couldn't find matches in this sector. Try shifting your filters or widening your area parameters.
                                 </p>
                               </div>
@@ -2088,7 +2088,7 @@ export default function StudentDashboard() {
                                         <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
                                           <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                                           <span className="text-[10px] font-black text-amber-700">{selectedTutor.rating.toFixed(1)}</span>
-                                          <span className="text-[8px] font-bold text-amber-400 ml-1">({selectedTutor.totalRatings || 0} reviews)</span>
+                                          <span className="text-[8px] font-black text-amber-700 ml-1">({selectedTutor.totalRatings || 0} reviews)</span>
                                         </div>
                                       )}
                                     </div>
@@ -2096,12 +2096,12 @@ export default function StudentDashboard() {
 
                                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-slate-100/80">
                                     <div>
-                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Tutor Fee</p>
-                                      <p className="text-xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1">/month</span></p>
+                                      <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-0.5">Tutor Fee</p>
+                                      <p className="text-xl font-black text-[#0B132B] italic">৳{selectedTutor.hourlyRate || 0}<span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 ml-1">/month</span></p>
                                     </div>
                                     <div>
-                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Teaching Schedule</p>
-                                      <p className="text-xl font-black text-[#0D5BFF] italic">{selectedTutor.daysPerWeek || 3}<span className="text-[10px] uppercase font-bold text-slate-300 ml-1"> Days/Week</span></p>
+                                      <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-0.5">Teaching Schedule</p>
+                                      <p className="text-xl font-black text-[#0D5BFF] italic">{selectedTutor.daysPerWeek || 3}<span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 ml-1"> Days/Week</span></p>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[#0D5BFF] bg-blue-50/50 px-3.5 py-1.5 rounded-xl border border-blue-100/50">
                                        <MapPin className="w-3.5 h-3.5" />
@@ -2113,22 +2113,22 @@ export default function StudentDashboard() {
                           </div>
 
                           <div className="mb-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Teaching Areas Pool</p>
+                             <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Teaching Areas Pool</p>
                              <div className="flex flex-wrap gap-2">
                                 {(selectedTutor.teachingAreas || []).map(area => (
                                   <span key={area} className="px-3 py-1 bg-white border border-slate-200 text-[8px] font-black uppercase italic text-[#0D5BFF] rounded-full">{area}</span>
                                 ))}
-                                {(selectedTutor.teachingAreas || []).length === 0 && <span className="text-[8px] italic text-slate-400">No specific areas listed</span>}
+                                {(selectedTutor.teachingAreas || []).length === 0 && <span className="text-[8px] italic text-slate-600 dark:text-slate-400">No specific areas listed</span>}
                              </div>
                           </div>
 
                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                             <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 col-span-2 md:col-span-1">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
+                               <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1">Trust Verification</p>
                                <div className="space-y-3">
                                   <div className="flex items-center justify-between">
                                      <div className="flex items-center gap-2">
-                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
                                         <span className="text-[8px] font-black uppercase text-[#0B132B]">NID Identity</span>
                                      </div>
                                      <span className={`text-[8px] font-black uppercase ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
@@ -2137,7 +2137,7 @@ export default function StudentDashboard() {
                                   </div>
                                   <div className="flex items-center justify-between">
                                      <div className="flex items-center gap-2">
-                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                        <ShieldCheck className={`w-3 h-3 ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
                                         <span className="text-[8px] font-black uppercase text-[#0B132B]">Academic Certs</span>
                                      </div>
                                      <span className={`text-[8px] font-black uppercase ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-amber-500'}`}>
@@ -2147,11 +2147,11 @@ export default function StudentDashboard() {
                                </div>
                             </div>
                             <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col justify-center">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Experience</p>
+                               <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Experience</p>
                                <p className="text-[10px] font-black text-[#0B132B] uppercase italic">{selectedTutor.experience || 'Not Specified'}</p>
                             </div>
                             <div className="p-6 bg-[#0B132B] rounded-[2rem] border border-white/5 flex flex-col justify-center">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3">Availability Week</p>
+                               <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-3">Availability Week</p>
                                <div className="flex gap-1.5 items-center">
                                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
                                      const hasSlots = (selectedTutor.availabilitySlots?.[day] || []).length > 0;
@@ -2210,21 +2210,21 @@ export default function StudentDashboard() {
 
                         <div className="space-y-6 mb-10">
                            <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Credentials & Bio</p>
-                              <p className="text-[11px] font-medium text-slate-600 leading-relaxed bg-slate-50/50 p-6 rounded-[2rem] border border-slate-50 italic">
+                              <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2 ml-4">Credentials & Bio</p>
+                              <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50/50 p-6 rounded-[2rem] border border-slate-50 italic">
                                 "{selectedTutor.bio || 'This expert has not provided a detailed mission statement yet, but is verified for academic excellence.'}"
                               </p>
                            </div>
 
                            <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Academic Background</p>
+                              <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2 ml-4">Academic Background</p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/60 p-6 rounded-[2rem] border border-slate-50/80 font-sans">
                                  <div className="flex items-start gap-3">
                                     <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0 animate-fade-in">
                                        <GraduationCap className="w-5 h-5" />
                                     </div>
                                     <div>
-                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">University</span>
+                                       <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">University</span>
                                        <p className="text-xs font-black text-[#0B132B] mt-1">{selectedTutor.university || 'Educational Expert'}</p>
                                     </div>
                                  </div>
@@ -2234,7 +2234,7 @@ export default function StudentDashboard() {
                                        <BookOpen className="w-5 h-5" />
                                     </div>
                                     <div>
-                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Course / Department</span>
+                                       <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">Course / Department</span>
                                        <p className="text-xs font-black text-[#0B132B] mt-1">{selectedTutor.course || 'Advising Specialist'}</p>
                                     </div>
                                  </div>
@@ -2244,7 +2244,7 @@ export default function StudentDashboard() {
                                        <Award className="w-5 h-5" />
                                     </div>
                                     <div>
-                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Academic Term</span>
+                                       <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">Academic Term</span>
                                        <p className="text-xs font-black text-[#0B132B] mt-1">
                                           {selectedTutor.semester || selectedTutor.year 
                                              ? [selectedTutor.year ? `${selectedTutor.year} Year` : null, selectedTutor.semester ? `${selectedTutor.semester} Semester` : null].filter(Boolean).join(', ')
@@ -2258,7 +2258,7 @@ export default function StudentDashboard() {
                                        <ShieldCheck className="w-5 h-5" />
                                     </div>
                                     <div>
-                                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Academic Integrity</span>
+                                       <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">Academic Integrity</span>
                                        <p className="text-xs font-black text-[#0B132B] mt-1 flex items-center gap-1">
                                           <span className={`w-1.5 h-1.5 rounded-full ${selectedTutor.academicStatus === 'approved' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                                           {selectedTutor.academicStatus === 'approved' ? 'Officially Verified Portal' : 'Verification Under Audit'}
@@ -2269,18 +2269,18 @@ export default function StudentDashboard() {
                            </div>
 
                            <div className="space-y-3">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Targeted Tiers (Classes)</p>
+                              <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest ml-4">Targeted Tiers (Classes)</p>
                               <div className="flex flex-wrap gap-2">
                                  {(selectedTutor.classes || []).map(cls => (
                                    <span key={cls} className="px-4 py-1.5 bg-slate-100 text-[#0B132B] text-[8px] font-black uppercase tracking-widest rounded-full border border-slate-200">{cls}</span>
                                  ))}
-                                 {(selectedTutor.classes || []).length === 0 && <span className="text-[8px] font-bold text-slate-300 ml-4">GENERAL ACADEMIC SUPPORT</span>}
+                                 {(selectedTutor.classes || []).length === 0 && <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 ml-4">GENERAL ACADEMIC SUPPORT</span>}
                               </div>
                            </div>
 
                            {/* Masked Contact Details for Security */}
                            <div className="space-y-3">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Channels</p>
+                             <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest ml-4">Contact Channels</p>
                              <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 space-y-4">
                                <div className="grid sm:grid-cols-2 gap-4">
                                  <div className="flex items-center gap-3">
@@ -2288,7 +2288,7 @@ export default function StudentDashboard() {
                                      <Phone className="w-4 h-4" />
                                    </div>
                                    <div>
-                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Phone Contact</span>
+                                     <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">Phone Contact</span>
                                      <p className="text-xs font-black text-[#0B132B] mt-0.5">{getMaskedPhone(selectedTutor.phone)}</p>
                                    </div>
                                  </div>
@@ -2297,7 +2297,7 @@ export default function StudentDashboard() {
                                      <Mail className="w-4 h-4" />
                                    </div>
                                    <div>
-                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">Primary Email</span>
+                                     <span className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest block leading-none">Primary Email</span>
                                      <p className="text-xs font-bold text-[#0B132B] mt-0.5 truncate max-w-[170px]">{getMaskedEmail(selectedTutor.email)}</p>
                                    </div>
                                  </div>
@@ -2305,11 +2305,11 @@ export default function StudentDashboard() {
 
                                <div className="pt-3 border-t border-slate-200/50 flex items-start gap-2.5">
                                  <span className="text-xs text-amber-500 shrink-0 mt-0.5">🔐</span>
-                                 <p className="text-[10px] text-slate-500 leading-normal">
+                                 <p className="text-[10px] text-slate-700 dark:text-slate-300 leading-normal">
                                    <strong>Privacy Encrypted:</strong> Direct channels are masked to protect student and tutor security. Please use the built-in <strong>Inbox Message</strong>, <strong>Chat Panel</strong>, or official tuition booking pipeline to coordinate schedules.
                                  </p>
                                 </div>
-                              </div>
+                             </div>
                            </div>
                         </div>
 
@@ -2326,7 +2326,7 @@ export default function StudentDashboard() {
                             {/* Visual Date Selection */}
                              <div className="space-y-4">
                                <div className="flex items-center justify-between px-4">
-                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">1. Select Target Date</label>
+                                 <label className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em]">1. Select Target Date</label>
                                  <div className="flex items-center gap-1.5 bg-[#0D5BFF]/5 px-2 py-1 rounded-lg">
                                     <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-pulse" />
                                     <span className="text-[8px] font-bold text-[#0D5BFF] uppercase tracking-widest">30 Day Window</span>
@@ -2374,11 +2374,11 @@ export default function StudentDashboard() {
                                            ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-xl shadow-blue-200 -translate-y-1' 
                                            : hasSlots 
                                              ? 'bg-white border-slate-100 text-[#0B132B] hover:border-slate-300 hover:shadow-lg' 
-                                             : 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed opacity-50'
+                                             : 'bg-slate-50 border-slate-50 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60'
                                          }`}
                                        >
                                          <div className="flex sm:flex-col items-baseline sm:items-center gap-2 sm:gap-0 leading-none">
-                                           <p className={`text-[8px] font-black uppercase tracking-widest sm:mb-1 ${isSelected ? 'opacity-80' : 'opacity-40'}`}>
+                                           <p className={`text-[8px] font-black uppercase tracking-widest sm:mb-1 ${isSelected ? 'opacity-90 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
                                              {dayName.substring(0, 3)}
                                            </p>
                                            <p className="text-sm sm:text-xl font-black leading-none animate-fade-in">
@@ -2396,7 +2396,7 @@ export default function StudentDashboard() {
 
                             {/* Visual Slot Selection */}
                             <div className="space-y-4">
-                              <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
+                              <label className="text-[10px] font-black text-slate-600 dark:text-slate-400 tracking-[0.2em] ml-2 uppercase">2. Select Time Node</label>
                               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
@@ -2405,8 +2405,8 @@ export default function StudentDashboard() {
                                   if (slots.length === 0) {
                                     return (
                                       <div className="col-span-full py-8 text-left px-6 md:text-center md:px-0 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 w-full animate-fade-in">
-                                        <Clock className="w-8 h-8 text-slate-200 ml-0 mr-auto md:mx-auto mb-2" />
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                                        <Clock className="w-8 h-8 text-slate-300 ml-0 mr-auto md:mx-auto mb-2" />
+                                        <p className="text-[8px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
                                           No temporal slots available for this cycle
                                         </p>
                                       </div>
@@ -2421,7 +2421,7 @@ export default function StudentDashboard() {
                                       className={`py-3.5 px-4 sm:py-1.5 sm:px-3 rounded-2xl sm:rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border text-center w-full sm:w-auto ${
                                         bookingSlot === slot 
                                         ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xl' 
-                                        : 'bg-white border-slate-100 text-slate-500 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                                        : 'bg-white border-slate-100 text-slate-700 dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
                                       }`}
                                     >
                                       {slot}
@@ -2435,7 +2435,7 @@ export default function StudentDashboard() {
                             <div className="space-y-6 pt-4">
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between px-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">3. Curriculum Selection {selectedTutor ? "— Tutor's Subjects Only" : ""}</label>
+                                  <label className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em]">3. Curriculum Selection {selectedTutor ? "— Tutor's Subjects Only" : ""}</label>
                                   {bookingSubject.length > 0 && (
                                     <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">{bookingSubject.length} Focus Selected</span>
                                   )}
@@ -2453,7 +2453,7 @@ export default function StudentDashboard() {
                                         className={`w-full sm:flex-1 py-3.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
                                           isActive 
                                             ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/10' 
-                                            : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
+                                            : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'
                                         }`}
                                       >
                                         {tab.replace(' Version', '')}
@@ -2466,13 +2466,13 @@ export default function StudentDashboard() {
                                 {/* Dynamic Intelligence Subject Filter and Quick Focus Toggles */}
                                 <div className="space-y-3 pt-1">
                                   <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
                                     <input
                                       type="text"
                                       placeholder="Search subjects dynamically..."
                                       value={subjectSearchTerm}
                                       onChange={e => setSubjectSearchTerm(e.target.value)}
-                                      className="un-focused w-full bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-12 pr-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF]"
+                                      className="un-focused w-full bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 rounded-2xl pl-12 pr-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF]"
                                     />
                                   </div>
 
@@ -2493,7 +2493,7 @@ export default function StudentDashboard() {
                                       className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
                                         bookingSubject.some(s => ['Physics', 'Chemistry', 'Mathematics', 'Biology'].some(stem => s.includes(stem)))
                                         ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-rose-500'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-rose-500'
                                       }`}
                                     >
                                       🧬 SCIENCE
@@ -2514,7 +2514,7 @@ export default function StudentDashboard() {
                                       className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
                                         bookingSubject.some(s => ['Accounting', 'Finance', 'Business'].some(comm => s.includes(comm)))
                                         ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-emerald-500'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
                                       }`}
                                     >
                                       💼 BUSINESS STUDIES
@@ -2535,7 +2535,7 @@ export default function StudentDashboard() {
                                       className={`px-3 py-3 sm:py-2 rounded-2xl sm:rounded-full text-[8px] font-black uppercase tracking-wider border transition-all text-center w-full sm:w-auto ${
                                         bookingSubject.some(s => ['Bangla', 'English', 'History', 'Geography'].some(hum => s.includes(hum)))
                                         ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:text-amber-500'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-amber-500'
                                       }`}
                                     >
                                       📚 Humanities
@@ -2562,7 +2562,7 @@ export default function StudentDashboard() {
 
                                     if (filteredList.length === 0) {
                                       return (
-                                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 w-full">
+                                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 w-full">
                                           <p className="text-[9px] font-black uppercase tracking-widest leading-loose">
                                             {selectedTutor ? "No matched tutor-expert subjects" : "No matched curricular Focus"}
                                           </p>
@@ -2588,7 +2588,7 @@ export default function StudentDashboard() {
                                               className={`flex items-center justify-between p-3.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border text-left cursor-pointer group ${
                                                 isSelected 
                                                 ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-500/10' 
-                                                : 'bg-white dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/30'
+                                                : 'bg-white dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 text-slate-700 dark:text-slate-300 font-bold hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/30'
                                               }`}
                                             >
                                               <span className="truncate pr-2">{sub.replace(' (EV)', '').replace(' (Madrasha)', '')}</span>

@@ -125,10 +125,10 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
               className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
                 isActive(item.path) 
                 ? 'bg-[#0B132B] dark:bg-[#0D5BFF] text-white shadow-xl shadow-slate-200 dark:shadow-none font-bold' 
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:text-[#0B132B] dark:hover:text-white'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:text-[#0B132B] dark:hover:text-white font-semibold'
               }`}
             >
-              <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-[#0B132B] dark:group-hover:text-white transition-colors'}`} />
+              <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B132B] dark:group-hover:text-white transition-colors'}`} />
               <span className="text-sm font-black uppercase italic tracking-wider flex-1 text-left">{item.label}</span>
               {item.badge > 0 && (
                 <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-1 rounded-full animate-pulse">
@@ -147,7 +147,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
             theme === 'light'
               ? 'bg-white text-[#0B132B] shadow-sm font-black'
-              : 'text-slate-400 hover:text-slate-200 font-medium'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 font-semibold'
           }`}
           title="Light Mode"
         >
@@ -159,7 +159,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
             theme === 'dark'
               ? 'bg-[#111A2E] text-white shadow-sm font-black'
-              : 'text-slate-400 dark:text-slate-500 hover:text-[#0B132B] dark:hover:text-white font-medium'
+              : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white font-semibold'
           }`}
           title="Dark Mode"
         >
@@ -177,14 +177,14 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
         }`}>
           <div className="flex justify-between items-center mb-1">
             <span className={`text-[8.5px] font-black uppercase tracking-widest ${
-              currentUser.isVerified ? 'text-emerald-600/80 dark:text-emerald-400/80' : 'text-rose-600/80 dark:text-rose-400/80'
+              currentUser.isVerified ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
             }`}>Profile Status</span>
             <Shield className={`w-3.5 h-3.5 ${
-              currentUser.isVerified ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400 animate-pulse'
+              currentUser.isVerified ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 animate-pulse'
             }`} />
           </div>
           <div className={`text-[10px] font-black uppercase italic ${
-            currentUser.isVerified ? 'text-emerald-900 dark:text-emerald-200' : 'text-rose-900 dark:text-rose-200'
+            currentUser.isVerified ? 'text-emerald-950 dark:text-emerald-200' : 'text-rose-950 dark:text-rose-200'
           }`}>
             {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}
           </div>
@@ -203,7 +203,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           </div>
           <div className="truncate">
             <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[130px] uppercase italic transition-colors leading-normal">{currentUser.name}</div>
-            <div className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest transition-colors leading-none mt-0.5">
+            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest transition-colors leading-none mt-0.5">
               {currentUser.role === 'tutor' ? 'Teacher' : currentUser.role === 'admin' ? 'Admin' : 'Student'}
             </div>
           </div>
