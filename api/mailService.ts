@@ -878,12 +878,12 @@ export async function sendBrevoEmail({
   subject: string;
   htmlContent: string;
 }) {
-  const apiKey = process.env.BREVO_API_KEY || "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";
+  const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "edutrackbangladesh@gmail.com";
   const senderName = process.env.BREVO_SENDER_NAME || "EduTrack Bangladesh";
 
   if (!apiKey || apiKey === "MY_BREVO_API_KEY" || apiKey === "undefined" || apiKey === "null") {
-    console.warn(`[Brevo Email Service] BREVO_API_KEY is missing. Email to ${toEmail} logged.`);
+    console.warn(`[Brevo Email Service] BREVO_API_KEY is not configured. Email to ${toEmail} logged.`);
     return {
       success: true,
       simulated: true,

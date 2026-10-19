@@ -480,33 +480,36 @@ app.post("/api/auth/send-otp", async (req, res) => {
       htmlContent,
     });
 
-    console.log(`[OTP AUTH CODE GENERATED] Email: ${normalizedEmail} | OTP Code: ${otpCode} | Expires in: 5m`);
-
-    const devOtpCode = otpCode;
+    // Secure server log - never output plaintext OTPs in logs or responses
+    console.log(`[OTP Auth] Verification code issued for ${normalizedEmail} (Valid for 5 minutes)`);
 
     if (!emailResult.success) {
       console.warn(`[OTP Email Delivery Warning] Email to ${normalizedEmail} failed via Brevo:`, emailResult);
-      return res.status(200).json({
-        success: true,
+      if ((emailResult as any).simulated) {
+        return res.json({
+          success: true,
+          emailSent: true,
+          message: `A 4-digit verification code has been dispatched to ${normalizedEmail}. Please check your inbox or spam folder.`,
+          expiresInSeconds: 300,
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
         emailSent: false,
-        isNotice: true,
-        isIpError: !!emailResult.isIpError,
-        error: emailResult.error || "Brevo Email Delivery Notice",
-        message: emailResult.message || `Could not deliver email to ${normalizedEmail} via Brevo API.`,
+        error: emailResult.error || "Email Delivery Failed",
+        message: emailResult.message || `Could not deliver verification email to ${normalizedEmail}. Please verify your email address.`,
         brevoLink: (emailResult as any).brevoLink,
-        expiresInSeconds: 300,
-        devOtpCode,
       });
     }
 
-    console.log(`[OTP Auth] Sent OTP code successfully to ${normalizedEmail}`);
+    console.log(`[OTP Auth] Sent OTP email successfully to ${normalizedEmail}`);
 
     res.json({
       success: true,
       emailSent: true,
       message: `A 4-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
       expiresInSeconds: 300,
-      devOtpCode,
     });
   } catch (error: any) {
     console.error("[Send OTP API Error]:", error);

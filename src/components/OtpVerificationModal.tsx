@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, RotateCcw, MailCheck } from 'lucide-react';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
-  devOtpCode?: string | number;
   ipNoticeMsg?: string;
   errorMsg?: string;
   successMsg?: string;
@@ -20,7 +19,6 @@ interface OtpVerificationModalProps {
 export default function OtpVerificationModal({
   isOpen,
   email,
-  devOtpCode,
   ipNoticeMsg,
   errorMsg,
   successMsg,
@@ -40,18 +38,13 @@ export default function OtpVerificationModal({
   // 5-Minute OTP Expiry Countdown (300 seconds)
   const [expirySeconds, setExpirySeconds] = useState(300);
 
-  // Motion Choreography Phases: 'idle' | 'curl' | 'spin' | 'screw' | 'completed'
-  const [motionPhase, setMotionPhase] = useState<'idle' | 'curl' | 'spin' | 'screw' | 'completed'>('idle');
-  const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const hubRef = useRef<HTMLDivElement | null>(null);
 
   // Focus first input and reset 5-minute countdown on modal open
   useEffect(() => {
     if (isOpen && !isVerified) {
       setDigits(['', '', '', '']);
       setLocalError('');
-      setMotionPhase('idle');
       setIsSubmitting(false);
       setIsShaking(false);
       setExpirySeconds(300); // Strictly 5 minutes (300s)
@@ -60,7 +53,7 @@ export default function OtpVerificationModal({
           digitInputRefs.current[0].focus();
           digitInputRefs.current[0].select();
         }
-      }, 80);
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [isOpen, isVerified]);
@@ -72,7 +65,7 @@ export default function OtpVerificationModal({
       setExpirySeconds((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a new OTP.');
+          setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh OTP.');
           setDigits(['', '', '', '']);
           return 0;
         }
@@ -82,20 +75,23 @@ export default function OtpVerificationModal({
     return () => clearInterval(interval);
   }, [isOpen, isVerified]);
 
-  // If external error arrives, blank the boxes and focus box 0
+  // If external error arrives, trigger shake, display error, and refocus slot 0
   useEffect(() => {
     if (errorMsg) {
       setLocalError(errorMsg);
       setDigits(['', '', '', '']);
-      setMotionPhase('idle');
       setIsShaking(true);
-      setTimeout(() => setIsShaking(false), 600);
-      setTimeout(() => {
+      const shakeTimer = setTimeout(() => setIsShaking(false), 600);
+      const focusTimer = setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
           digitInputRefs.current[0].select();
         }
-      }, 100);
+      }, 120);
+      return () => {
+        clearTimeout(shakeTimer);
+        clearTimeout(focusTimer);
+      };
     }
   }, [errorMsg]);
 
@@ -126,10 +122,9 @@ export default function OtpVerificationModal({
         if (i < 4) newDigits[i] = d;
       });
       setDigits(newDigits);
-      const nextIndex = Math.min(cleanDigits.length, 3);
+      const nextIndex = Math.min(cleanDigits.length - 1, 3);
       if (digitInputRefs.current[nextIndex]) {
         digitInputRefs.current[nextIndex]?.focus();
-        digitInputRefs.current[nextIndex]?.select();
       }
       if (cleanDigits.length === 4) {
         triggerVerification(newDigits.join(''));
@@ -139,65 +134,49 @@ export default function OtpVerificationModal({
 
   const handleDigitChange = (index: number, val: string) => {
     setLocalError('');
-    // Handle multi-character paste or autofill in onChange
-    if (val.length > 1) {
-      const cleanDigits = val.replace(/\D/g, '').slice(0, 4).split('');
-      const newDigits = ['', '', '', ''];
+    const clean = val.replace(/\D/g, '');
+
+    // Handle multi-character paste or browser autofill in onChange
+    if (clean.length > 1) {
+      const cleanDigits = clean.slice(0, 4).split('');
+      const newDigits = [...digits];
       cleanDigits.forEach((d, i) => {
-        if (i < 4) newDigits[i] = d;
+        if (index + i < 4) {
+          newDigits[index + i] = d;
+        }
       });
       setDigits(newDigits);
-      const nextIndex = Math.min(cleanDigits.length, 3);
-      if (digitInputRefs.current[nextIndex]) {
-        digitInputRefs.current[nextIndex]?.focus();
-        digitInputRefs.current[nextIndex]?.select();
-      }
-      if (cleanDigits.length === 4) {
-        triggerVerification(newDigits.join(''));
-      }
-      return;
-    }
-
-    const clean = val.replace(/\D/g, '');
-    const newDigits = [...digits];
-    newDigits[index] = clean;
-    setDigits(newDigits);
-
-    if (clean && index < 3) {
-      digitInputRefs.current[index + 1]?.focus();
-      digitInputRefs.current[index + 1]?.select();
-    }
-
-    if (newDigits.every(d => d !== '')) {
-      triggerVerification(newDigits.join(''));
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Direct digit handling for instant replacement and auto-focus
-    if (e.key >= '0' && e.key <= '9') {
-      e.preventDefault();
-      setLocalError('');
-      const newDigits = [...digits];
-      newDigits[index] = e.key;
-      setDigits(newDigits);
-      if (index < 3) {
-        digitInputRefs.current[index + 1]?.focus();
-        digitInputRefs.current[index + 1]?.select();
-      }
+      const nextIdx = Math.min(index + cleanDigits.length - 1, 3);
+      digitInputRefs.current[nextIdx]?.focus();
       if (newDigits.every(d => d !== '')) {
         triggerVerification(newDigits.join(''));
       }
       return;
     }
 
+    const singleDigit = clean.slice(-1); // Take latest single digit
+    const newDigits = [...digits];
+    newDigits[index] = singleDigit;
+    setDigits(newDigits);
+
+    // Auto-focus next input field
+    if (singleDigit && index < 3) {
+      digitInputRefs.current[index + 1]?.focus();
+      digitInputRefs.current[index + 1]?.select();
+    }
+
+    // Auto-trigger verification when all 4 digits are completed
+    if (newDigits.every(d => d !== '')) {
+      triggerVerification(newDigits.join(''));
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace') {
-      e.preventDefault();
-      const newDigits = [...digits];
-      if (digits[index]) {
-        newDigits[index] = '';
-        setDigits(newDigits);
-      } else if (index > 0) {
+      setLocalError('');
+      if (!digits[index] && index > 0) {
+        e.preventDefault();
+        const newDigits = [...digits];
         newDigits[index - 1] = '';
         setDigits(newDigits);
         digitInputRefs.current[index - 1]?.focus();
@@ -212,29 +191,6 @@ export default function OtpVerificationModal({
       digitInputRefs.current[index + 1]?.focus();
       digitInputRefs.current[index + 1]?.select();
     }
-  };
-
-  // THREE-BEAT ANIMATION EXECUTION
-  const runThreeBeatAnimation = async () => {
-    return new Promise<void>((resolve) => {
-      setMotionPhase('curl');
-
-      // Beat 1: The Curl (380ms)
-      setTimeout(() => {
-        setMotionPhase('spin');
-
-        // Beat 2: The Cosmic Spin (850ms)
-        setTimeout(() => {
-          setMotionPhase('screw');
-
-          // Beat 3: The Screw Down (500ms)
-          setTimeout(() => {
-            setMotionPhase('completed');
-            resolve();
-          }, 500);
-        }, 850);
-      }, 380);
-    });
   };
 
   const triggerVerification = async (codeStr: string) => {
@@ -252,18 +208,17 @@ export default function OtpVerificationModal({
     try {
       setIsSubmitting(true);
       setLocalError('');
-      // Run cinematic 3-beat motion sequence
-      await runThreeBeatAnimation();
-      // Verify OTP with backend & complete signup
+
+      // Verify OTP with backend & complete signup immediately
       await onVerify(codeStr);
-      // Show Approved Verdict Animation!
+
+      // Show Approved Verdict Celebration!
       setIsVerified(true);
     } catch (err: any) {
-      setMotionPhase('idle');
       const errorMessage = err.message || 'Incorrect verification code. Please check your inbox and try again.';
       setLocalError(errorMessage);
       
-      // Blank the input boxes again upon wrong OTP
+      // Blank the input boxes and trigger haptic shake on incorrect code
       setDigits(['', '', '', '']);
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 600);
@@ -272,8 +227,9 @@ export default function OtpVerificationModal({
       setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
+          digitInputRefs.current[0].select();
         }
-      }, 80);
+      }, 100);
     } finally {
       setIsSubmitting(false);
     }
@@ -309,8 +265,6 @@ export default function OtpVerificationModal({
   };
 
   if (!isOpen) return null;
-
-  const orbitRadius = 68;
 
   // Particle positions for celebration confetti
   const particles = [
@@ -355,14 +309,14 @@ export default function OtpVerificationModal({
               <>
                 <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
                   <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] dark:text-blue-400" />
-                  <span>EDUTRACK BD • 4-DIGIT VERIFICATION</span>
+                  <span>EDUTRACK BD • EMAIL VERIFICATION</span>
                 </div>
 
                 <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                  Verify Your Email
+                  Enter Verification Code
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                  Enter the 4-digit security code sent to{' '}
+                  We've sent a 4-digit security code to your email{' '}
                   <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-bold block mt-1 bg-blue-50/80 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/50 w-fit mx-auto text-xs sm:text-sm">
                     {maskEmail(email)}
                   </span>
@@ -379,36 +333,34 @@ export default function OtpVerificationModal({
                       }`}
                     >
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Code expires in {formatExpiryTime(expirySeconds)} (5 min limit)</span>
+                      <span>Valid for {formatExpiryTime(expirySeconds)}</span>
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-mono font-bold bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Expired (5 min limit) • Click Resend below</span>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-mono font-bold">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Code expired</span>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              /* VERIFIED APPROVED HEADINGS */
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="pt-2 pb-1"
-              >
-                <h2 className="text-2xl sm:text-3xl font-extrabold bg-linear-to-r from-emerald-500 via-teal-400 to-emerald-400 bg-clip-text text-transparent tracking-tight">
-                  Verified successfully
+              <>
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-2">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>IDENTITY VERIFIED</span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Email Confirmed!
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  Your email address has been verified.
+                <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                  Your account has been securely authenticated. Redirecting...
                 </p>
-              </motion.div>
+              </>
             )}
           </div>
 
           {/* Main Body */}
-          <div className="px-6 pb-7 space-y-5">
+          <div className="px-6 pb-7 space-y-4">
 
             {/* Error / Warning Alert Banner */}
             {activeError && !isVerified && (
@@ -421,11 +373,11 @@ export default function OtpVerificationModal({
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <div className="font-bold uppercase tracking-wider text-[10px] text-rose-800 dark:text-rose-200">
-                    Verification Warning
+                    Verification Error
                   </div>
                   <div className="font-semibold leading-relaxed mt-0.5">{activeError}</div>
                   <div className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-1 font-mono">
-                    Inputs have been blanked. Please re-enter the code.
+                    Please check your email and re-enter the 4-digit code.
                   </div>
                 </div>
               </motion.div>
@@ -451,134 +403,37 @@ export default function OtpVerificationModal({
               </div>
             )}
 
-            {/* Verification Code Quick Banner for instant entry */}
-            {devOtpCode && !isVerified && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-3 bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-700/80 rounded-2xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 shadow-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span className="font-extrabold tracking-wide">
-                    Verification Code: <span className="font-mono text-sm bg-amber-200/80 dark:bg-amber-900/80 px-2 py-0.5 rounded-md text-amber-950 dark:text-amber-100">{String(devOtpCode)}</span>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const codeArr = String(devOtpCode).padStart(4, '0').slice(0, 4).split('');
-                    setDigits(codeArr);
-                    triggerVerification(codeArr.join(''));
-                  }}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 uppercase tracking-wider"
-                >
-                  Auto-fill & Verify
-                </button>
-              </motion.div>
-            )}
-
-            {/* STAGE: THREE-BEAT MOTION CANVAS OR APPROVED STATE */}
+            {/* INPUT STAGE OR APPROVED VERDICT STATE */}
             {!isVerified ? (
-              <div className="py-2 relative min-h-[190px] flex flex-col items-center justify-center">
+              <div className="py-2 flex flex-col items-center justify-center">
 
-                {/* Central Hub Energy Point for Orbit & Spin */}
-                <div
-                  ref={hubRef}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center pointer-events-none z-10"
+                {/* 4 DIGIT SLOTS WITH MODERN AUTO-FOCUS & SMOOTH KEYBOARD HANDLING */}
+                <div 
+                  className={`flex items-center justify-center gap-3 sm:gap-4 my-4 ${
+                    isShaking ? 'animate-[shake_0.5s_cubic-bezier(.36,.07,.19,.97)_both]' : ''
+                  }`}
                 >
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#0D5BFF] dark:bg-blue-400 animate-ping" />
-                </div>
-
-                {/* Orbit Trail Rings */}
-                {motionPhase === 'spin' && (
-                  <motion.div
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1.2, opacity: 0.6 }}
-                    className="absolute w-36 h-36 rounded-full border-2 border-dashed border-[#0D5BFF]/40 pointer-events-none animate-spin"
-                    style={{ animationDuration: '3s' }}
-                  />
-                )}
-
-                {/* Screw Down Energy Burst Flash */}
-                {motionPhase === 'screw' && (
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0.8 }}
-                    animate={{ scale: 2.2, opacity: 0 }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="absolute w-24 h-24 rounded-full bg-linear-to-r from-[#0D5BFF] to-emerald-400 blur-md pointer-events-none z-30"
-                  />
-                )}
-
-                {/* 4 DIGIT SLOTS MATCHING SITE BRAND COLORS */}
-                <div className={`relative w-full max-w-[290px] h-32 flex items-center justify-center ${isShaking ? 'animate-bounce' : ''}`}>
                   {digits.map((digit, idx) => {
                     const isFilled = digit !== '';
                     const hasError = Boolean(activeError);
 
-                    // Target polar positions on orbit ring
-                    const angles = [270, 0, 90, 180];
-                    const targetAngleRad = (angles[idx] * Math.PI) / 180;
-                    const polarX = Math.round(Math.cos(targetAngleRad) * orbitRadius);
-                    const polarY = Math.round(Math.sin(targetAngleRad) * orbitRadius);
-
-                    // Linear X offset for standard row layout
-                    const linearX = (idx - 1.5) * 64;
-
-                    let currentX = linearX;
-                    let currentY = 0;
-                    let rotationDeg = 0;
-                    let digitUnwindDeg = 0;
-                    let scaleVal = 1;
-                    let opacityVal = 1;
-
-                    if (motionPhase === 'curl') {
-                      currentX = polarX;
-                      currentY = polarY;
-                    } else if (motionPhase === 'spin') {
-                      currentX = polarX;
-                      currentY = polarY;
-                      rotationDeg = 450;
-                      digitUnwindDeg = -90;
-                    } else if (motionPhase === 'screw') {
-                      currentX = 0;
-                      currentY = 0;
-                      rotationDeg = 720;
-                      scaleVal = 0.2;
-                      opacityVal = 0;
-                    }
-
                     return (
                       <motion.div
                         key={idx}
-                        ref={(el) => { slotRefs.current[idx] = el; }}
-                        animate={{
-                          x: currentX,
-                          y: currentY,
-                          rotate: rotationDeg,
-                          scale: scaleVal,
-                          opacity: opacityVal,
-                        }}
-                        transition={{
-                          duration: motionPhase === 'curl' ? 0.38 : motionPhase === 'spin' ? 0.85 : 0.5,
-                          ease: [0.62, 0, 0.38, 1],
-                        }}
-                        style={{
-                          transformOrigin: motionPhase === 'spin' || motionPhase === 'screw' ? '0px 0px' : 'center',
-                        }}
+                        whileTap={{ scale: 0.96 }}
+                        className={`relative w-14 h-16 sm:w-16 sm:h-18 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-text select-none ${
+                          hasError
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)]'
+                            : isFilled
+                            ? 'bg-blue-50/80 dark:bg-blue-950/60 border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-400 shadow-[0_0_20px_rgba(13,91,255,0.25)]'
+                            : 'bg-slate-50 dark:bg-[#152238] border-2 border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/40 dark:focus-within:bg-blue-950/40 focus-within:ring-4 focus-within:ring-blue-500/20'
+                        }`}
                         onClick={() => {
                           digitInputRefs.current[idx]?.focus();
                           digitInputRefs.current[idx]?.select();
                         }}
-                        className={`absolute z-20 w-13 sm:w-14 h-15 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-text select-none ${
-                          hasError
-                            ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)]'
-                            : isFilled
-                            ? 'bg-blue-50 dark:bg-blue-950/60 border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-400 shadow-[0_0_20px_rgba(13,91,255,0.3)]'
-                            : 'bg-slate-50 dark:bg-[#152238] border-2 border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/50 dark:focus-within:bg-blue-950/40 focus-within:shadow-[0_0_20px_rgba(13,91,255,0.25)]'
-                        }`}
                       >
-                        <motion.input
+                        <input
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -586,33 +441,35 @@ export default function OtpVerificationModal({
                           autoComplete={idx === 0 ? "one-time-code" : "off"}
                           ref={(el) => { digitInputRefs.current[idx] = el; }}
                           value={digit}
-                          animate={{ rotate: digitUnwindDeg }}
-                          transition={{ duration: 0.85, ease: [0.62, 0, 0.38, 1] }}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
                           onPaste={handlePaste}
-                          onFocus={(e) => e.target.select()}
-                          disabled={motionPhase !== 'idle' || isSubmitting || expirySeconds === 0}
+                          onFocus={(e) => {
+                            setLocalError('');
+                            e.target.select();
+                          }}
+                          disabled={isSubmitting || expirySeconds === 0}
                           placeholder={expirySeconds === 0 ? "—" : "•"}
-                          className="w-full h-full text-center font-mono font-extrabold text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text"
+                          className="w-full h-full text-center font-mono font-extrabold text-2xl sm:text-3xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text"
+                          aria-label={`Digit ${idx + 1}`}
                         />
                       </motion.div>
                     );
                   })}
                 </div>
 
-                {/* Primary Action Button using EduTrack primary color palette */}
-                <div className="w-full mt-4">
+                {/* Primary Action Button */}
+                <div className="w-full mt-3">
                   <button
                     type="button"
                     onClick={() => triggerVerification(digits.join(''))}
-                    disabled={digits.some(d => !d) || isSubmitting || motionPhase !== 'idle' || expirySeconds === 0}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-[#0D5BFF] hover:bg-[#0047E1] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-bold text-sm tracking-wide transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={digits.some(d => !d) || isSubmitting || loading || expirySeconds === 0}
+                    className="w-full py-4 px-5 rounded-2xl bg-[#0D5BFF] hover:bg-[#0047E1] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-bold text-sm tracking-wide transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isSubmitting || loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Verifying...</span>
+                        <span>Verifying Security Code...</span>
                       </>
                     ) : expirySeconds === 0 ? (
                       <>
@@ -621,7 +478,7 @@ export default function OtpVerificationModal({
                       </>
                     ) : (
                       <>
-                        <span>Verify Code</span>
+                        <span>Verify & Complete Registration</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -635,7 +492,7 @@ export default function OtpVerificationModal({
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className="py-4 text-center space-y-7 relative"
+                className="py-4 text-center space-y-6 relative"
               >
                 {/* Floating Confetti Sparks */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -652,11 +509,9 @@ export default function OtpVerificationModal({
 
                 {/* Central Emerald Squircle Node with Pulsing Glow & Check Drawing */}
                 <div className="relative w-24 h-24 mx-auto flex items-center justify-center pt-2">
-                  {/* Pulsing Backlight Halo Rings */}
                   <div className="absolute inset-0 bg-emerald-500/25 dark:bg-emerald-500/35 rounded-3xl blur-2xl animate-pulse" />
                   <div className="absolute inset-0 bg-emerald-400/20 rounded-3xl animate-ping" style={{ animationDuration: '3s' }} />
 
-                  {/* Main Glowing Squircle Icon Container */}
                   <motion.div
                     initial={{ scale: 0.4, rotate: -25 }}
                     animate={{ scale: 1, rotate: 0 }}
@@ -686,13 +541,13 @@ export default function OtpVerificationModal({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-xs"
                 >
                   <Lock className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span>Verified and secure</span>
+                  <span>Verified and Secure Session</span>
                 </motion.div>
 
-                {/* Continue Action Pill Button */}
+                {/* Continue Action Button */}
                 <motion.button
                   type="button"
                   onClick={() => {
@@ -715,7 +570,7 @@ export default function OtpVerificationModal({
 
             {/* Resend Link */}
             {!isVerified && (
-              <div className="text-center pt-1">
+              <div className="text-center pt-2">
                 <p className="text-xs text-slate-600 dark:text-slate-400 font-medium flex items-center justify-center gap-2">
                   <span>Didn't receive the code or expired?</span>
                   <button
@@ -735,10 +590,10 @@ export default function OtpVerificationModal({
               </div>
             )}
 
-            {/* Subtitle Footnote */}
+            {/* Footnote */}
             {!isVerified && (
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center leading-normal pt-1">
-                Please check your email inbox or spam folder for the 4-digit code (valid for 5 minutes).
+                For security reasons, never share your verification code with anyone.
               </p>
             )}
 
@@ -748,5 +603,3 @@ export default function OtpVerificationModal({
     </AnimatePresence>
   );
 }
-
-

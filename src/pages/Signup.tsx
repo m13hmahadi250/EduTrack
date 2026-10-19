@@ -20,7 +20,6 @@ export default function Signup() {
   
   // OTP Verification Flow State
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [devOtpCode, setDevOtpCode] = useState<string | number>('');
   const [otpError, setOtpError] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
@@ -178,25 +177,15 @@ export default function Signup() {
 
       const data = await res.json();
 
-      if (!res.ok || (!data.success && !data.isIpError && !data.isNotice)) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to send OTP verification code to your email.');
       }
 
-      if (data.emailSent === false || data.isNotice || data.isIpError) {
-        setIpNoticeMsg(data.message || 'Email delivery notice: verification code provided below.');
-      } else {
-        setIpNoticeMsg('');
-      }
+      setIpNoticeMsg('');
 
       // Step 2: Open OTP Verification Modal
-      if (data.devOtpCode) {
-        setDevOtpCode(data.devOtpCode);
-      } else {
-        setDevOtpCode('');
-      }
-
       setOtpError('');
-      setResendSuccessMsg(data.emailSent ? `Verification code dispatched to ${formData.email}. Please check your inbox or spam folder.` : '');
+      setResendSuccessMsg(`Verification code dispatched to ${formData.email}. Please check your inbox or spam folder.`);
       setResendTimer(60);
       setShowOtpModal(true);
       setLoading(false);
@@ -233,22 +222,12 @@ export default function Signup() {
 
       const data = await res.json();
 
-      if (!res.ok || (!data.success && !data.isIpError && !data.isNotice)) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to resend verification code.');
       }
 
-      if (data.devOtpCode) {
-        setDevOtpCode(data.devOtpCode);
-      }
-
-      if (data.emailSent === false || data.isNotice || data.isIpError) {
-        setIpNoticeMsg(data.message || data.error || 'Email delivery notice: verification code provided below.');
-        setResendSuccessMsg('');
-      } else {
-        setIpNoticeMsg('');
-        setResendSuccessMsg(`A new 4-digit verification code has been sent to ${formData.email}. Please check your inbox or spam folder.`);
-      }
-
+      setIpNoticeMsg('');
+      setResendSuccessMsg(`A new 4-digit verification code has been sent to ${formData.email}. Please check your inbox or spam folder.`);
       setResendTimer(60);
     } catch (err: any) {
       setOtpError(err.message || 'Failed to resend verification code.');
@@ -936,7 +915,6 @@ export default function Signup() {
         <OtpVerificationModal
           isOpen={showOtpModal}
           email={formData.email || ''}
-          devOtpCode={devOtpCode}
           ipNoticeMsg={ipNoticeMsg}
           errorMsg={otpError}
           successMsg={resendSuccessMsg}

@@ -303,8 +303,6 @@ export default function Home() {
                   </Link>
                 </motion.div>
               </div>
-
-
             </motion.div>
 
             <motion.div 
@@ -340,7 +338,7 @@ export default function Home() {
                        <img 
                          src={`https://i.pravatar.cc/100?u=${idx}`} 
                          alt="verified tutor" 
-                         className="w-full h-full object-cover blur-[3px] hover:blur-none transition-all duration-300"
+                         className="w-full h-full object-cover blur-[6px] transition-all duration-300"
                          loading="lazy" 
                          referrerPolicy="no-referrer" 
                        />
@@ -2375,12 +2373,12 @@ const TutorPreviewCard = React.memo(({
               <img 
                 src={img} 
                 alt={name} 
-                className="w-full h-full object-cover blur-[14px] group-hover:blur-0 scale-105 group-hover:scale-100 transition-all duration-500" 
+                className="w-full h-full object-cover blur-[14px] group-hover:blur-[10px] scale-105 group-hover:scale-100 transition-all duration-500" 
                 referrerPolicy="no-referrer" 
                 loading="lazy" 
               />
               {/* Privacy protection pill */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-[#0B132B]/80 dark:bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center space-x-1.5 shadow-sm border border-white/10 pointer-events-none group-hover:opacity-0 transition-opacity duration-300 whitespace-nowrap">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-[#0B132B]/85 dark:bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-full flex items-center space-x-1.5 shadow-sm border border-white/10 pointer-events-none transition-opacity duration-300 whitespace-nowrap">
                 <ShieldCheck className="w-3 h-3 text-[#0D5BFF]" />
                 <span className="text-[9px] font-bold text-white uppercase tracking-wider">Privacy Blurred</span>
               </div>
