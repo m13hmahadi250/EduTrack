@@ -39,11 +39,14 @@ import {
   Download,
   Sparkles,
   GraduationCap,
-  Building2
+  Building2,
+  Calendar,
+  UserPlus,
+  Layers,
+  Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
-import heroImage from '../assets/images/regenerated_image_1779606039351.png';
 
 export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>(() => {
@@ -86,7 +89,44 @@ export default function Home() {
         const querySnapshot = await getDocs(q);
         if (active) {
           const fetched = querySnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() as any }))
+            .map(doc => {
+              const raw = doc.data() as any;
+              return {
+                id: doc.id,
+                name: raw.name,
+                role: raw.role,
+                profileImage: raw.profileImage,
+                university: raw.university,
+                course: raw.course,
+                subjects: raw.subjects,
+                classes: raw.classes,
+                preferredClasses: raw.preferredClasses,
+                studentClass: raw.studentClass,
+                curriculum: raw.curriculum,
+                medium: raw.medium,
+                district: raw.district,
+                area: raw.area,
+                thana: raw.thana,
+                teachingAreas: raw.teachingAreas,
+                teachingMode: raw.teachingMode,
+                mode: raw.mode,
+                hourlyRate: raw.hourlyRate,
+                expectedSalary: raw.expectedSalary,
+                daysPerWeek: raw.daysPerWeek,
+                experience: raw.experience,
+                rating: raw.rating,
+                totalRatings: raw.totalRatings,
+                isVerified: raw.isVerified,
+                verified: raw.verified,
+                isApproved: raw.isApproved,
+                isBlocked: raw.isBlocked,
+                showOnHomePage: raw.showOnHomePage,
+                availableSlots: raw.availableSlots,
+                availabilitySlots: raw.availabilitySlots,
+                gender: raw.gender,
+                badges: raw.badges,
+              };
+            })
             .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false && Boolean(u.isVerified || u.verified || u.isApproved));
           setRealTutors(fetched);
           try {
@@ -103,11 +143,26 @@ export default function Home() {
     };
   }, []);
 
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('search') || '';
+    } catch {
+      return '';
+    }
+  });
   const [selectedSubject, setSelectedSubject] = React.useState('All');
+  const [selectedClass, setSelectedClass] = React.useState('All');
   const [selectedDistrict, setSelectedDistrict] = React.useState('All');
+  const [selectedMode, setSelectedMode] = React.useState('All');
+  const [selectedCurriculum, setSelectedCurriculum] = React.useState('All');
+  const [selectedMaxBudget, setSelectedMaxBudget] = React.useState('All');
+  const [onlyAvailableToday, setOnlyAvailableToday] = React.useState(false);
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+  const [showAllTutors, setShowAllTutors] = React.useState(false);
+  const [showAllDistricts, setShowAllDistricts] = React.useState(false);
+  const [howItWorksRole, setHowItWorksRole] = React.useState<'student' | 'tutor'>('student');
 
   const { currentUser, updateUser, androidAppLink } = useAppStore();
   const [localFavorites, setLocalFavorites] = React.useState<string[]>(() => {
@@ -145,7 +200,7 @@ export default function Home() {
     if (!dismissed) {
       const timer = setTimeout(() => {
         setShowDownloadPopup(true);
-      }, 2000);
+      }, 15000);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -207,40 +262,117 @@ export default function Home() {
       // 0. Favorites filter match
       const matchesFavorites = !showFavoritesOnly || favoriteIds.includes(t.id);
 
-      // 1. Text Search query matching Name, University, or listed Subjects
+      // 1. Text Search query matching Name, University, Location, or listed Subjects
       const matchesSearch = 
         queryStr === '' ||
         (t.name && t.name.toLowerCase().includes(queryStr)) ||
         (t.university && t.university.toLowerCase().includes(queryStr)) ||
+        (t.district && t.district.toLowerCase().includes(queryStr)) ||
+        (t.area && t.area.toLowerCase().includes(queryStr)) ||
         (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(queryStr)));
 
-      // 2. Exact Subject classification match
+      // 2. Subject filter match
       const matchesSubject = 
         selectedSubject === 'All' ||
         (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(selectedSubject.toLowerCase())));
 
-      // 3. Tag-based filtering match (matches at least one selected tag if tags are active)
+      // 3. Class filter match
+      const tutorClasses = Array.isArray(t.preferredClasses)
+        ? t.preferredClasses.join(' ').toLowerCase()
+        : String(t.preferredClasses || t.studentClass || t.classes || '').toLowerCase();
+      const matchesClass =
+        selectedClass === 'All' ||
+        !tutorClasses ||
+        tutorClasses.includes(selectedClass.toLowerCase()) ||
+        (selectedClass === 'Class 6 - 8' && (tutorClasses.includes('6') || tutorClasses.includes('7') || tutorClasses.includes('8') || tutorClasses.includes('all'))) ||
+        (selectedClass === 'Class 9 - 10' && (tutorClasses.includes('9') || tutorClasses.includes('10') || tutorClasses.includes('ssc') || tutorClasses.includes('all'))) ||
+        (selectedClass === 'Class 11 - 12' && (tutorClasses.includes('11') || tutorClasses.includes('12') || tutorClasses.includes('hsc') || tutorClasses.includes('all'))) ||
+        (selectedClass === 'English Medium' && (tutorClasses.includes('o level') || tutorClasses.includes('a level') || tutorClasses.includes('english') || tutorClasses.includes('all')));
+
+      // 4. Tag-based filtering match (matches at least one selected tag if tags are active)
       const matchesTags = 
         selectedTags.length === 0 ||
         (t.subjects && t.subjects.some((s: string) => 
           selectedTags.some(tag => s.toLowerCase().includes(tag.toLowerCase()))
         ));
 
-      // 4. Geographic District filter match
+      // 5. Geographic District filter match
       const matchesDistrict = 
         selectedDistrict === 'All' ||
         (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
 
-      // Must be a verified teacher
+      // 6. Mode filter match (Home / Online)
+      const tutorMode = String(t.teachingMode || t.mode || 'Home & Online').toLowerCase();
+      const matchesMode =
+        selectedMode === 'All' ||
+        tutorMode.includes(selectedMode.toLowerCase()) ||
+        tutorMode.includes('both') ||
+        tutorMode.includes('home & online');
+
+      // 7. Curriculum filter match
+      const tutorCurriculum = String(t.curriculum || t.medium || tutorClasses || '').toLowerCase();
+      const matchesCurriculum =
+        selectedCurriculum === 'All' ||
+        !tutorCurriculum ||
+        tutorCurriculum.includes(selectedCurriculum.toLowerCase()) ||
+        (selectedCurriculum === 'English Medium' && (tutorCurriculum.includes('cambridge') || tutorCurriculum.includes('edexcel') || tutorCurriculum.includes('o level') || tutorCurriculum.includes('a level')));
+
+      // 8. Budget / Salary range match
+      const tutorSalaryNum = Number(String(t.expectedSalary || t.hourlyRate || 0).replace(/[^0-9]/g, ''));
+      const matchesBudget =
+        selectedMaxBudget === 'All' ||
+        !tutorSalaryNum ||
+        tutorSalaryNum <= Number(selectedMaxBudget);
+
+      // 9. Availability filter match
+      const matchesAvailability =
+        !onlyAvailableToday ||
+        Boolean(t.availableSlots?.length || t.availability || t.isVerified);
+
+      // Must be a genuinely verified teacher
       const isVerified = Boolean(t.isVerified || t.verified || t.isApproved);
       if (!isVerified) return false;
 
-      return matchesFavorites && matchesSearch && matchesSubject && matchesTags && matchesDistrict;
+      return (
+        matchesFavorites &&
+        matchesSearch &&
+        matchesSubject &&
+        matchesClass &&
+        matchesTags &&
+        matchesDistrict &&
+        matchesMode &&
+        matchesCurriculum &&
+        matchesBudget &&
+        matchesAvailability
+      );
     });
-  }, [allTutors, deferredSearchQuery, selectedSubject, selectedTags, selectedDistrict, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
+  }, [allTutors, deferredSearchQuery, selectedSubject, selectedClass, selectedTags, selectedDistrict, selectedMode, selectedCurriculum, selectedMaxBudget, onlyAvailableToday, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
+
+  const displayedTutors = React.useMemo(() => {
+    const hasActiveFilter =
+      searchQuery.trim() !== '' ||
+      selectedSubject !== 'All' ||
+      selectedClass !== 'All' ||
+      selectedDistrict !== 'All' ||
+      selectedMode !== 'All' ||
+      selectedCurriculum !== 'All' ||
+      selectedMaxBudget !== 'All' ||
+      onlyAvailableToday ||
+      selectedTags.length > 0 ||
+      showFavoritesOnly ||
+      showAllTutors;
+    return hasActiveFilter ? filteredTutors : filteredTutors.slice(0, 6);
+  }, [filteredTutors, searchQuery, selectedSubject, selectedClass, selectedDistrict, selectedMode, selectedCurriculum, selectedMaxBudget, onlyAvailableToday, selectedTags, showFavoritesOnly, showAllTutors]);
+
+  const handleSearchTrigger = () => {
+    const el = document.getElementById('tutor-results');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
 
   return (
-    <div className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
+    <div id="top" className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
       <SEOHead
         title="EduTrack Bangladesh | #1 Home Tutor & Tuition Platform in Bangladesh"
         description="Hire trusted, NID-verified home & online tutors in Dhaka, Chittagong, and all 64 districts of Bangladesh. Real-time GPS transit tracking, expert teachers from BUET, DU, Medical, and automated bKash payments."
@@ -249,289 +381,552 @@ export default function Home() {
         ogType="website"
       />
 
-      {/* Hero Section - Magazine Style */}
-      <section className="relative min-h-[90vh] flex items-center pt-20 overflow-hidden bg-white dark:bg-[#111A2E] transition-colors duration-300">
-        {/* Background Accents */}
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-[#0D5BFF]/5 skew-x-[-15deg] transform translate-x-20 z-0"></div>
-        <div className="absolute bottom-10 left-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl z-0"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
+      {/* Hero + Search + Verified Tutors Unified Showcase matching Reference Design */}
+      <section className="relative pt-8 sm:pt-12 pb-16 sm:pb-24 overflow-hidden bg-gradient-to-b from-white via-[#F8FAFC] to-[#F8F9FA] dark:from-[#0B132B] dark:via-[#0E172E] dark:to-[#0B132B] transition-colors duration-300">
+        {/* Subtle background geometry */}
+        <div className="absolute top-0 right-0 w-1/2 h-[540px] bg-gradient-to-bl from-blue-50/70 via-transparent to-transparent dark:from-blue-950/20 pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {/* Top Two-Column Hero Row */}
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            {/* Left Column: Headline & Primary Actions */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-3xl relative z-20"
+              transition={{ duration: 0.45 }}
+              className="lg:col-span-6"
             >
-              <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-950/40 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-900/50 mb-6">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0D5BFF] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0D5BFF]"></span>
+              {/* LIVE IN BANGLADESH Pill */}
+              <div className="inline-flex items-center gap-2 bg-blue-50/90 dark:bg-blue-950/50 px-3.5 py-1.5 rounded-full border border-blue-200/70 dark:border-blue-800/60 mb-5">
+                <MapPin className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0D5BFF] dark:text-blue-400">
+                  Live in Bangladesh
                 </span>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] dark:text-blue-400">Live in Bangladesh</span>
               </div>
-              
-              <h1 className="text-[3rem] sm:text-[6rem] lg:text-[7.5rem] font-black font-heading leading-[0.9] sm:leading-[0.82] tracking-[-0.04em] mb-8 uppercase">
-                <span className="block text-[#0B132B] dark:text-white opacity-90">Expert</span>
-                <span className="block text-[#0D5BFF] italic">Education</span>
-                <span className="block text-[#0B132B] dark:text-white -mt-2">At Home</span>
+
+              {/* Headline matching Reference Screenshot */}
+              <h1 className="text-3xl sm:text-5xl lg:text-[3.35rem] font-black font-heading text-[#0B132B] dark:text-white leading-[1.12] tracking-tight mb-5">
+                <span className="block">Trusted Home Tutoring in</span>
+                <span className="relative inline-block text-[#0D5BFF] italic mt-1">
+                  Bangladesh
+                  <svg
+                    className="w-40 sm:w-56 h-3 text-[#0D5BFF]/40 mt-0.5"
+                    viewBox="0 0 220 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M3 9C65 3.5 148 2.5 217 6.5"
+                      stroke="currentColor"
+                      strokeWidth="4.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
               </h1>
-              
-              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 mb-10 leading-relaxed font-sans font-medium tracking-wide max-w-lg antialiased">
-                The most secure home tutoring platform in Bangladesh. Featuring <span className="text-[#0D5BFF] dark:text-blue-400 font-bold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">real-time GPS tracking</span>, <span className="text-[#0D5BFF] dark:text-blue-400 font-bold transition-colors duration-200 border-b-2 border-[#0D5BFF]/20">NID-verified educators</span>, and seamless payments for your child's success.
+
+              {/* Subtitle matching Reference Screenshot */}
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed mb-8 max-w-xl font-normal">
+                A secure and reliable platform to find verified tutors for your child&apos;s academic success. With real-time tracking, verified educators, and hassle-free booking — get quality education at home, on your terms.
               </p>
-              
-              <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
-                <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
-                  <Link 
-                    to="/signup" 
-                    onMouseEnter={() => prefetchPage('Signup')}
-                    onFocus={() => prefetchPage('Signup')}
-                    className="group w-full sm:w-auto px-10 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all shadow-[0_20px_40px_-15px_rgba(13,91,255,0.4)] text-center flex items-center justify-center cursor-pointer"
-                  >
-                    Find a Tutor <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </motion.div>
-                <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
-                  <Link 
-                    to="/signup" 
-                    onMouseEnter={() => prefetchPage('Signup')}
-                    onFocus={() => prefetchPage('Signup')}
-                    className="w-full sm:w-auto px-10 py-5 bg-transparent text-[#0B132B] dark:text-white border-2 border-[#0B132B] dark:border-slate-700 font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#0B132B] dark:hover:bg-white dark:hover:text-[#0B132B] transition-all text-center block cursor-pointer"
-                  >
-                    Join as Teacher
-                  </Link>
-                </motion.div>
+
+              {/* Primary CTA Buttons */}
+              <div className="flex flex-wrap items-center gap-3.5 sm:gap-4">
+                <Link
+                  to={currentUser?.role === 'student' ? '/dashboard/search' : '/#find-tutors'}
+                  onClick={(e) => {
+                    if (currentUser?.role !== 'student') {
+                      e.preventDefault();
+                      const el = document.getElementById('find-tutors');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white font-bold text-sm sm:text-base shadow-md shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Find a Tutor</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <Link
+                  to={currentUser?.role === 'tutor' ? '/dashboard' : '/signup?role=tutor'}
+                  onMouseEnter={() => prefetchPage('Signup')}
+                  onFocus={() => prefetchPage('Signup')}
+                  className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-white dark:bg-[#111A2E] hover:bg-slate-50 dark:hover:bg-slate-800 text-[#0B132B] dark:text-white border-[1.5px] border-[#0B132B] dark:border-slate-600 font-bold text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Join as a Tutor</span>
+                </Link>
               </div>
             </motion.div>
 
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative hidden lg:block"
+            {/* Right Column: Feature Showcase Panel matching Reference Screenshot */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="lg:col-span-6"
             >
-              <div className="relative z-10 rounded-[3rem] overflow-hidden border-[12px] border-white dark:border-slate-800 shadow-2xl rotate-2 transition-colors duration-300">
-                <img 
-                  src={heroImage} 
-                  alt="Education" 
-                  className="w-full h-[600px] object-cover"
-                  loading="eager"
-                  // @ts-ignore
-                  fetchPriority="high"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
+              <div className="relative bg-white dark:bg-[#111A2E] rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-[0_20px_50px_-15px_rgba(11,19,43,0.08)] p-6 sm:p-8 overflow-hidden">
+                {/* Top-right subtle blue corner accent */}
+                <div className="absolute -top-6 -right-6 w-20 h-14 bg-[#0D5BFF] rotate-[28deg] rounded-lg pointer-events-none" />
+
+                {/* Bottom-left diagonal line pattern accent */}
+                <div
+                  aria-hidden="true"
+                  className="hidden sm:block absolute left-0 bottom-4 w-12 h-36 opacity-25 dark:opacity-15 pointer-events-none"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(-45deg, #0B132B, #0B132B 1.5px, transparent 1.5px, transparent 6px)',
+                  }}
                 />
-              </div>
-              {/* Floating Stat Card */}
-              <div className="absolute -bottom-10 -left-10 bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800/80 z-20 max-w-xs -rotate-3 transition-all duration-300 hover:rotate-0">
-                <div className="flex items-center space-x-4 mb-3">
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 rounded-2xl">
-                    <CheckCircle className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-extrabold text-[#0B132B] dark:text-white text-base leading-tight uppercase tracking-tight">Verified Quality</h3>
-                </div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider leading-relaxed">100% of our tutors are manually verified by NID and certificates.</p>
-                <div className="flex -space-x-3">
-                  {[1,2,3,4].map(idx => (
-                    <div key={idx} className="w-10 h-10 rounded-full border-4 border-white dark:border-[#1E293B] bg-slate-200 overflow-hidden">
-                       <img 
-                         src={`https://i.pravatar.cc/100?u=${idx}`} 
-                         alt="verified tutor" 
-                         className="w-full h-full object-cover blur-[6px] transition-all duration-300"
-                         loading="lazy" 
-                         referrerPolicy="no-referrer" 
-                       />
+
+                <div className="grid sm:grid-cols-12 gap-6 sm:gap-7 items-center relative z-10">
+                  {/* Left Sub-panel: EDUTRACK BANGLADESH Typography */}
+                  <div className="sm:col-span-5 sm:pl-3">
+                    <div className="flex items-center gap-2.5 mb-5">
+                      <svg
+                        className="w-6 h-6 text-[#0D5BFF] shrink-0"
+                        viewBox="0 0 28 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 8L7.5 3L14 9L20.5 3L26 8"
+                          stroke="currentColor"
+                          strokeWidth="2.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M2 16L7.5 11L14 17L20.5 11L26 16"
+                          stroke="currentColor"
+                          strokeWidth="2.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#0B132B] dark:text-slate-200">
+                        EduTrack Bangladesh
+                      </span>
                     </div>
-                  ))}
-                  <div className="w-10 h-10 rounded-full border-4 border-white dark:border-[#1E293B] bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-500 dark:text-slate-400">
-                    +2k
+
+                    <div className="font-heading tracking-tight leading-[1.08] space-y-0.5">
+                      <div className="text-2xl sm:text-[1.7rem] font-black italic text-[#0B132B] dark:text-white uppercase">
+                        Science,
+                      </div>
+                      <div className="text-2xl sm:text-[1.7rem] font-black italic text-[#0D5BFF] uppercase">
+                        Commerce,
+                      </div>
+                      <div className="text-2xl sm:text-[1.7rem] font-black italic text-[#0B132B] dark:text-white uppercase">
+                        And Arts
+                      </div>
+                      <div className="pt-1 text-xl sm:text-2xl font-extrabold text-slate-700 dark:text-slate-300 uppercase">
+                        Any Tutor,
+                      </div>
+                      <div className="text-xl sm:text-2xl font-extrabold text-slate-700 dark:text-slate-300 uppercase">
+                        Any Time
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Sub-panel: Core Platform Capabilities */}
+                  <div className="sm:col-span-7 sm:border-l border-slate-200/80 dark:border-slate-800 sm:pl-6 space-y-5">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#0D5BFF] shrink-0 mt-0.5">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white leading-snug">
+                          Verified Tutors
+                        </h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5">
+                          NID-verified and qualified educators.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#0D5BFF] shrink-0 mt-0.5">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white leading-snug">
+                          Secure Booking
+                        </h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5">
+                          Easy, transparent, and hassle-free scheduling.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/50 flex items-center justify-center text-[#0D5BFF] shrink-0 mt-0.5">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white leading-snug">
+                          Live Tracking
+                        </h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5">
+                          Real-time GPS tracking for a safer tutoring experience.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
 
-      {/* Featured Tutors - Bento Grid Style */}
-      <section id="find-tutors" className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
-            <div>
-              <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Elite Network</h2>
-              <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
-                Teacher <span className="text-[#0D5BFF]">Directory</span>
-              </h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-xl">
-                Browse, search, and verify certified home tutors in real-time. Click any card to view their full credentials in a new tab.
-              </p>
-            </div>
-          </div>
+          {/* Tutor Search Card matching Reference Screenshot */}
+          <div id="find-tutors" className="mt-10 sm:mt-12 scroll-mt-24">
+            <div className="bg-white dark:bg-[#111A2E] rounded-[1.75rem] border border-slate-200/80 dark:border-slate-800 shadow-[0_12px_35px_-10px_rgba(11,19,43,0.06)] p-5 sm:p-7">
+              {/* Top row: Title + Subtitle + Optional Keyword & Favorites */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <Search className="w-5 h-5 text-[#0D5BFF] shrink-0" />
+                    <h2 className="text-lg sm:text-xl font-extrabold font-heading text-[#0B132B] dark:text-white">
+                      Find the Right Tutor
+                    </h2>
+                  </div>
+                  <span className="hidden sm:inline-block h-4 w-px bg-slate-200 dark:bg-slate-700" />
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                    Search by subject, class, location, and mode to get started.
+                  </p>
+                </div>
 
-          {/* Search Controls Bento Box */}
-          <div className="bg-slate-50 dark:bg-[#111A2E]/50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm mb-12 gap-6 flex flex-col md:flex-row items-center justify-between">
-            
-            {/* Search Input */}
-            <div className="relative w-full md:flex-grow">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Search by name, university, or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-11 py-4 bg-white dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 focus:border-[#0D5BFF] outline-none shadow-sm transition-all placeholder:text-slate-400"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="Clear search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                {/* Keyword Input & Favorites Filter */}
+                <div className="flex items-center gap-2.5 w-full lg:w-auto">
+                  <div className="relative flex-1 lg:w-64">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Name, university, or area..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-medium text-[#0B132B] dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:border-[#0D5BFF] outline-none transition-colors placeholder:text-slate-400"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
 
-            {/* Dropdown Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto shrink-0">
-              
-              {/* Subject Filter */}
-              <div className="relative w-full sm:w-48">
-                <select 
-                  value={selectedSubject} 
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
-                >
-                  <option value="All">All Subjects</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Math">Math</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="English">English</option>
-                  <option value="ICT">ICT</option>
-                  <option value="Computer Science">Computer Science</option>
-                </select>
-              </div>
-
-              {/* District Filter */}
-              <div className="relative w-full sm:w-48">
-                <select 
-                  value={selectedDistrict} 
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="w-full px-4 py-4 bg-white dark:bg-[#0B132B] text-xs font-black uppercase text-[#0B132B] dark:text-white rounded-2xl border border-slate-200/50 dark:border-slate-800 outline-none cursor-pointer hover:border-[#0D5BFF] transition-colors shadow-sm"
-                >
-                  <option value="All">All Districts</option>
-                  {BANGLADESH_DISTRICTS.map((dist) => (
-                    <option key={dist} value={dist}>{dist}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Favorites Filter */}
-              <button
-                type="button"
-                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                className={`flex items-center justify-center gap-2 px-5 py-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer shrink-0 ${
-                  showFavoritesOnly
-                    ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600 shadow-md shadow-rose-200 dark:shadow-none'
-                    : 'bg-white dark:bg-[#0B132B] text-slate-500 dark:text-slate-400 border-slate-200/50 dark:border-slate-800 hover:border-rose-500 hover:text-rose-500'
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${showFavoritesOnly ? 'fill-white text-white' : 'text-rose-500'}`} />
-                <span>Favorites</span>
-              </button>
-
-            </div>
-
-          </div>
-
-          {/* Tag-Based Subject Filters */}
-          <div className="mb-12">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 px-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 flex items-center gap-2">
-                <BookOpen className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                Filter by Subject Tags
-              </span>
-              {selectedTags.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedTags([])}
-                  className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 transition-colors cursor-pointer self-start sm:self-auto"
-                >
-                  Clear All Tags ({selectedTags.length})
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2.5 px-2">
-              {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'ICT', 'Higher Math', 'Bangla'].map((tag) => {
-                const isSelected = selectedTags.includes(tag);
-                return (
                   <button
-                    key={tag}
                     type="button"
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedTags(selectedTags.filter(t => t !== tag));
-                      } else {
-                        setSelectedTags([...selectedTags, tag]);
-                      }
-                    }}
-                    className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border transition-all duration-200 transform hover:scale-[1.02] active:scale-95 cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white shadow-md shadow-blue-500/20'
-                        : 'bg-white dark:bg-[#111A2E]/40 border-slate-200/50 dark:border-slate-800 text-[#0B132B] dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                      showFavoritesOnly
+                        ? 'bg-rose-500 text-white border-rose-500'
+                        : 'bg-slate-50 dark:bg-[#0B132B] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-rose-400 hover:text-rose-500'
+                    }`}
+                    title="Filter Saved Tutors"
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-white text-white' : 'text-rose-500'}`} />
+                    <span className="hidden sm:inline">Saved</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Dropdowns Row matching Reference Screenshot */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 pt-5 items-center">
+                {/* 1. Subject Select */}
+                <div className="lg:col-span-3 relative">
+                  <BookOpen className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    aria-label="Filter by Subject"
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    className="w-full pl-10 pr-9 py-3 bg-white dark:bg-[#0B132B] text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 focus:border-[#0D5BFF] outline-none appearance-none cursor-pointer transition-colors"
+                  >
+                    <option value="All">Subject</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Higher Math">Higher Math</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Biology">Biology</option>
+                    <option value="English">English</option>
+                    <option value="ICT">ICT</option>
+                    <option value="Bangla">Bangla</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="Economics">Economics</option>
+                    <option value="Computer Science">Computer Science</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* 2. Class Select */}
+                <div className="lg:col-span-2 relative">
+                  <Layers className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    aria-label="Filter by Class"
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full pl-10 pr-8 py-3 bg-white dark:bg-[#0B132B] text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 focus:border-[#0D5BFF] outline-none appearance-none cursor-pointer transition-colors"
+                  >
+                    <option value="All">Class</option>
+                    <option value="Class 1 - 5">Class 1 - 5</option>
+                    <option value="Class 6 - 8">Class 6 - 8</option>
+                    <option value="Class 9 - 10">Class 9 - 10 (SSC)</option>
+                    <option value="Class 11 - 12">Class 11 - 12 (HSC)</option>
+                    <option value="English Medium">O / A Level</option>
+                    <option value="Admission">Admission Test</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* 3. Location Select */}
+                <div className="lg:col-span-2 relative">
+                  <MapPin className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    aria-label="Filter by Location"
+                    value={selectedDistrict}
+                    onChange={(e) => setSelectedDistrict(e.target.value)}
+                    className="w-full pl-10 pr-8 py-3 bg-white dark:bg-[#0B132B] text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 focus:border-[#0D5BFF] outline-none appearance-none cursor-pointer transition-colors"
+                  >
+                    <option value="All">Location</option>
+                    {BANGLADESH_DISTRICTS.map((dist) => (
+                      <option key={dist} value={dist}>{dist}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* 4. Mode Select */}
+                <div className="lg:col-span-3 relative">
+                  <Monitor className="w-4 h-4 text-slate-500 dark:text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    aria-label="Filter by Tutoring Mode"
+                    value={selectedMode}
+                    onChange={(e) => setSelectedMode(e.target.value)}
+                    className="w-full pl-10 pr-9 py-3 bg-white dark:bg-[#0B132B] text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 focus:border-[#0D5BFF] outline-none appearance-none cursor-pointer transition-colors"
+                  >
+                    <option value="All">Mode (Home / Online)</option>
+                    <option value="Home">Home Tutoring</option>
+                    <option value="Online">Online Tutoring</option>
+                    <option value="Home & Online">Home &amp; Online</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* 5. Search Tutors Action Button */}
+                <div className="sm:col-span-2 lg:col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleSearchTrigger}
+                    className="w-full py-3 px-4 bg-[#0D5BFF] hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Search Tutors</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Subject Filter Tags & Extended Refinements */}
+              <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t border-slate-100 dark:border-slate-800/70">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">
+                  Popular:
+                </span>
+                {['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'ICT', 'Higher Math', 'Bangla'].map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedTags(selectedTags.filter(t => t !== tag));
+                        } else {
+                          setSelectedTags([...selectedTags, tag]);
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+
+                <div className="flex flex-wrap items-center gap-2 ml-auto">
+                  <select
+                    aria-label="Filter by Curriculum"
+                    value={selectedCurriculum}
+                    onChange={(e) => setSelectedCurriculum(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
+                  >
+                    <option value="All">All Curriculums</option>
+                    <option value="Bangla Medium">NCTB Bangla Medium</option>
+                    <option value="English Version">NCTB English Version</option>
+                    <option value="English Medium">English Medium (CIE / Edexcel)</option>
+                  </select>
+
+                  <select
+                    aria-label="Filter by Salary Range"
+                    value={selectedMaxBudget}
+                    onChange={(e) => setSelectedMaxBudget(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
+                  >
+                    <option value="All">Any Salary / Budget</option>
+                    <option value="5000">Up to ৳5,000 / mo</option>
+                    <option value="8000">Up to ৳8,000 / mo</option>
+                    <option value="12000">Up to ৳12,000 / mo</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => setOnlyAvailableToday((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                      onlyAvailableToday
+                        ? 'bg-emerald-600 border-emerald-600 text-white'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500'
                     }`}
                   >
-                    {tag}
+                    Available Now
                   </button>
-                );
-              })}
+
+                  {(selectedSubject !== 'All' ||
+                    selectedClass !== 'All' ||
+                    selectedDistrict !== 'All' ||
+                    selectedMode !== 'All' ||
+                    selectedCurriculum !== 'All' ||
+                    selectedMaxBudget !== 'All' ||
+                    onlyAvailableToday ||
+                    selectedTags.length > 0 ||
+                    searchQuery !== '' ||
+                    showFavoritesOnly) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedSubject('All');
+                        setSelectedClass('All');
+                        setSelectedDistrict('All');
+                        setSelectedMode('All');
+                        setSelectedCurriculum('All');
+                        setSelectedMaxBudget('All');
+                        setOnlyAvailableToday(false);
+                        setSelectedTags([]);
+                        setShowFavoritesOnly(false);
+                      }}
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer pl-1"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Grid of Cards with Motion layout animation */}
-          {filteredTutors.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center py-20 p-8 bg-slate-50 dark:bg-[#111A2E]/20 rounded-[3rem] border-2 border-dashed border-slate-200/80 dark:border-slate-800 max-w-xl mx-auto flex flex-col items-center justify-center space-y-4"
-            >
-              <Users className="w-12 h-12 text-[#0D5BFF] animate-pulse" />
-              <div>
-                <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">No Mentors Found</h4>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1.5 leading-relaxed max-w-sm mx-auto">
-                  We couldn't locate any tutors matching your query. Check spelling or expand district search parameters.
-                </p>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              layout
-              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 max-h-[1480px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent"
-            >
-              {filteredTutors.map((t) => {
-                const isFavorite = currentUser?.savedTutors?.includes(t.id) || localFavorites.includes(t.id);
-                return (
-                  <motion.div
-                    key={t.id}
-                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                  >
-                    <TutorPreviewCard 
-                      tutor={t} 
-                      isFavorite={isFavorite}
-                      onToggleFavorite={() => toggleFavorite(t.id)}
-                    />
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
+          {/* Meet Our Verified Tutors + Safer Platform Section matching Reference Screenshot */}
+          <div id="tutor-results" className="mt-12 sm:mt-14 grid lg:grid-cols-12 gap-8 items-start">
+            {/* Left / Main Column: Verified Tutors Listing */}
+            <div className="lg:col-span-8">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold font-heading text-[#0B132B] dark:text-white tracking-tight">
+                    Meet Our Verified Tutors
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                    Qualified, verified, and ready to teach at your location or online.
+                  </p>
+                </div>
 
+                {filteredTutors.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllTutors((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0D5BFF] hover:text-blue-700 dark:hover:text-blue-400 transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>{showAllTutors ? 'Show Less' : `View More Tutors (${filteredTutors.length})`}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+                {filteredTutors.length <= 6 && filteredTutors.length > 0 && (
+                  <Link
+                    to={currentUser ? '/dashboard/search' : '/signup'}
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0D5BFF] hover:text-blue-700 dark:hover:text-blue-400 transition-colors self-start sm:self-auto"
+                  >
+                    <span>View More Tutors</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                )}
+              </div>
+
+              {displayedTutors.length === 0 ? (
+                <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 sm:p-10 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] flex items-center justify-center mx-auto mb-3">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-[#0B132B] dark:text-white">
+                    No Verified Tutors Match Your Current Filter
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                    Try selecting a different subject, class, or location, or reset the search filters to view available verified educators.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  {displayedTutors.map((t) => {
+                    const isFavorite = currentUser?.savedTutors?.includes(t.id) || localFavorites.includes(t.id);
+                    return (
+                      <TutorPreviewCard
+                        key={t.id}
+                        tutor={t}
+                        isFavorite={isFavorite}
+                        onToggleFavorite={() => toggleFavorite(t.id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: A Safer & More Trusted Tutoring Platform Card */}
+            <div className="lg:col-span-4 lg:mt-2">
+              <div className="bg-[#EEF4FF] dark:bg-[#13203B] rounded-[1.75rem] border border-blue-200/70 dark:border-blue-900/50 p-6 sm:p-7 shadow-xs">
+                <div className="flex items-start gap-3.5 mb-4">
+                  <div className="w-11 h-11 rounded-2xl bg-white dark:bg-[#0B132B] border border-blue-200/60 dark:border-blue-800 flex items-center justify-center text-[#0D5BFF] shrink-0 shadow-2xs">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-extrabold font-heading text-[#0B132B] dark:text-white leading-snug pt-0.5">
+                    A Safer &amp; More Trusted Tutoring Platform
+                  </h3>
+                </div>
+
+                <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-5">
+                  All tutors are verified through NID and academic certificates, with real-time location tracking and secure booking to ensure a safe and trustworthy learning experience.
+                </p>
+
+                <div className="space-y-2.5 pt-4 border-t border-blue-200/60 dark:border-blue-900/50">
+                  <div className="flex items-center gap-2.5 text-xs font-semibold text-[#0B132B] dark:text-slate-200">
+                    <CheckCircle className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                    <span>Manual NID &amp; University ID Audit</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-xs font-semibold text-[#0B132B] dark:text-slate-200">
+                    <CheckCircle className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                    <span>Live GPS Tracking During Active Sessions</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-xs font-semibold text-[#0B132B] dark:text-slate-200">
+                    <CheckCircle className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                    <span>Digital Class Logs &amp; Secure Billing</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -684,19 +1079,45 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it Works - Modern Step Layout */}
-      <section id="how-it-works" className="py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300">
+      {/* How it Works - Dual Journey Step Layout */}
+      <section id="how-it-works" className="py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-end justify-between mb-16 gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-14 gap-6">
             <div className="max-w-xl">
               <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">The Process</h2>
               <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
                 How EduTrack <span className="text-[#0D5BFF]">Works</span>
               </h3>
+              <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-3">
+                A transparent, step-by-step workflow built for both Guardians and Verified Tutors across Bangladesh.
+              </p>
             </div>
-            <p className="text-slate-500 dark:text-slate-400 font-bold max-w-sm lg:text-right">
-              A seamless journey from finding the right teacher to tracking progress in real-time.
-            </p>
+
+            {/* Dual Journey Toggle */}
+            <div className="inline-flex p-1.5 rounded-2xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 shadow-xs self-start lg:self-auto">
+              <button
+                type="button"
+                onClick={() => setHowItWorksRole('student')}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  howItWorksRole === 'student'
+                    ? 'bg-[#0D5BFF] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'
+                }`}
+              >
+                For Students &amp; Guardians
+              </button>
+              <button
+                type="button"
+                onClick={() => setHowItWorksRole('tutor')}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  howItWorksRole === 'tutor'
+                    ? 'bg-[#0D5BFF] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'
+                }`}
+              >
+                For Tutors &amp; Educators
+              </button>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-4 gap-8 relative">
@@ -710,31 +1131,62 @@ export default function Home() {
                 className="w-full h-full bg-gradient-to-r from-slate-200 via-[#0D5BFF] to-slate-200 dark:from-slate-800 dark:via-[#0D5BFF] dark:to-slate-800"
               />
             </div>
-            
-            <Step 
-              number="01" 
-              title="Search" 
-              desc="Browse verified tutors nearby using our advanced filters for subject and location." 
-              index={0}
-            />
-            <Step 
-              number="02" 
-              title="Connect" 
-              desc="Message tutors directly to discuss schedules, requirements, and trial classes." 
-              index={1}
-            />
-            <Step 
-              number="03" 
-              title="Track" 
-              desc="Monitor live GPS location of the tutor during their transit to your home." 
-              index={2}
-            />
-            <Step 
-              number="04" 
-              title="Pay" 
-              desc="Securely pay via bKash through our automated billing system after each session." 
-              index={3}
-            />
+
+            {howItWorksRole === 'student' ? (
+              <>
+                <Step 
+                  number="01" 
+                  title="Search or Post" 
+                  desc="Filter NID-verified tutors by subject, class, or district, or post a custom tuition circular in seconds." 
+                  index={0}
+                />
+                <Step 
+                  number="02" 
+                  title="Review & Connect" 
+                  desc="Compare university credentials, experience, and reviews, then message or schedule a demo class." 
+                  index={1}
+                />
+                <Step 
+                  number="03" 
+                  title="Track Attendance" 
+                  desc="Monitor live GPS transit during active sessions and approve digital class logs and homework." 
+                  index={2}
+                />
+                <Step 
+                  number="04" 
+                  title="Secure Billing" 
+                  desc="Settle monthly or session tuition fees transparently with verified digital receipts." 
+                  index={3}
+                />
+              </>
+            ) : (
+              <>
+                <Step 
+                  number="01" 
+                  title="Register & Verify" 
+                  desc="Create your educator profile and submit your National ID and University ID for manual verification." 
+                  index={0}
+                />
+                <Step 
+                  number="02" 
+                  title="Apply to Tuitions" 
+                  desc="Browse live guardian tuition circulars in your preferred areas or receive direct booking requests." 
+                  index={1}
+                />
+                <Step 
+                  number="03" 
+                  title="Teach & Log" 
+                  desc="Conduct home or online classes, share GPS check-ins, and log daily topics and homework." 
+                  index={2}
+                />
+                <Step 
+                  number="04" 
+                  title="Earn & Grow" 
+                  desc="Receive verified tuition payments, build 5-star guardian reviews, and grow your tutoring career." 
+                  index={3}
+                />
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -758,7 +1210,7 @@ export default function Home() {
       </section>
 
       {/* Interactive Frequently Asked Questions (FAQ) Section */}
-      <section className="py-28 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+      <section id="faq" className="py-28 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Common Concerns</h2>
@@ -881,26 +1333,22 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedDistrict('All');
-                  const el = document.getElementById('tutors');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onClick={() => setShowAllDistricts((prev) => !prev)}
                 className="text-xs font-black uppercase text-[#0D5BFF] hover:underline cursor-pointer self-start md:self-auto"
               >
-                View All Districts (64) →
+                {showAllDistricts ? 'Show Top 24 Districts ↑' : 'View All Districts (64) →'}
               </button>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {BANGLADESH_DISTRICTS.slice(0, 24).map((dist) => (
+              {(showAllDistricts ? BANGLADESH_DISTRICTS : BANGLADESH_DISTRICTS.slice(0, 24)).map((dist) => (
                 <button
                   key={dist}
                   type="button"
                   onClick={() => {
                     setSelectedDistrict(dist);
-                    const el = document.getElementById('tutors');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    const el = document.getElementById('tutor-results');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     selectedDistrict === dist
@@ -2351,95 +2799,89 @@ const TutorPreviewCard = React.memo(({
   isFavorite: boolean; 
   onToggleFavorite: () => void; 
 }) => {
-  const name = tutor.name;
-  const uni = tutor.university || tutor.uni || 'Expert Educator';
-  const subj = (tutor.subjects && tutor.subjects.join(', ')) || tutor.subj || 'Academic Mentor';
-  const rating = tutor.rating || 5.0;
+  const name = tutor.name || 'Verified Tutor';
+  const uni = tutor.university || tutor.uni || '';
+  const subj = (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : tutor.subj) || 'General Subjects';
   const img = tutor.profileImage || tutor.img;
-  
+  const isVerified = Boolean(tutor.isVerified || tutor.verified || tutor.isApproved);
+  const classRange = Array.isArray(tutor.preferredClasses) && tutor.preferredClasses.length > 0
+    ? tutor.preferredClasses.slice(0, 2).join(', ')
+    : tutor.preferredClasses || tutor.studentClass || 'Class 6 - 12';
+  const modeLabel = tutor.teachingMode || tutor.mode || 'Home & Online';
+
   return (
     <Link 
       to={`/teachers/${tutor.id}`} 
-      target="_blank" 
-      rel="noopener noreferrer" 
       onMouseEnter={() => prefetchPage('TeacherProfile')}
       onFocus={() => prefetchPage('TeacherProfile')}
-      className="bg-[#F8F9FA] dark:bg-[#1E293B]/40 rounded-[2.5rem] p-4 border border-slate-100 dark:border-slate-800/80 hover:border-[#0D5BFF]/30 dark:hover:border-[#0D5BFF]/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-2xl hover:-translate-y-2.5 hover:scale-[1.015] active:scale-[0.985] transition-all duration-500 group flex flex-col justify-between h-full"
+      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 hover:border-[#0D5BFF]/50 dark:hover:border-[#0D5BFF]/50 shadow-2xs hover:shadow-md transition-all duration-200 group flex items-center gap-4 relative"
     >
-      <div>
-        <div className="relative h-64 rounded-[2rem] overflow-hidden mb-6">
-          {img ? (
-            <div className="w-full h-full relative overflow-hidden">
-              <img 
-                src={img} 
-                alt={name} 
-                className="w-full h-full object-cover blur-[14px] group-hover:blur-[10px] scale-105 group-hover:scale-100 transition-all duration-500" 
-                referrerPolicy="no-referrer" 
-                loading="lazy" 
-              />
-              {/* Privacy protection pill */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-[#0B132B]/85 dark:bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-full flex items-center space-x-1.5 shadow-sm border border-white/10 pointer-events-none transition-opacity duration-300 whitespace-nowrap">
-                <ShieldCheck className="w-3 h-3 text-[#0D5BFF]" />
-                <span className="text-[9px] font-bold text-white uppercase tracking-wider">Privacy Blurred</span>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1C2541] flex flex-col items-center justify-center text-center p-6 text-white transition-all duration-500">
-              <div className="w-16 h-16 bg-gradient-to-tr from-[#0D5BFF] to-blue-400 rounded-2xl flex items-center justify-center text-2xl font-black italic shadow-2xl mb-3">
-                {name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-              </div>
-              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#0D5BFF]">Certified Mentorship</p>
-            </div>
-          )}
-          
-          <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-3 py-1 rounded-full flex items-center space-x-1 shadow-sm">
-            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-            <span className="text-[10px] font-black text-[#0B132B] dark:text-white">{Number(rating || 0).toFixed(1)}</span>
+      {/* Left: Tutor Photo (Privacy Blurred per EduTrack Privacy Policy) */}
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700">
+        {img ? (
+          <img 
+            src={img} 
+            alt={name} 
+            className="w-full h-full object-cover blur-[10px] group-hover:blur-[7px] scale-105 transition-all duration-300" 
+            referrerPolicy="no-referrer" 
+            loading="lazy" 
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1E293B] flex flex-col items-center justify-center text-white">
+            <span className="text-xl font-black italic text-blue-400">
+              {name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+            </span>
           </div>
+        )}
+      </div>
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleFavorite();
-            }}
-            className="absolute top-4 right-16 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-sm hover:scale-110 active:scale-95 transition-all text-rose-500 hover:text-rose-600 focus:outline-none z-10 cursor-pointer flex items-center justify-center"
-            title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-          >
-            <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-400 dark:text-slate-500'}`} />
-          </button>
-
-          {tutor.isVerified && (
-            <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-              <ShieldCheck className="w-3 h-3 text-white fill-white/10" />
-              <span>Verified ID</span>
-            </div>
+      {/* Right: Tutor Details matching Reference Screenshot */}
+      <div className="flex-1 min-w-0 pr-6">
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          <h3 className="text-base sm:text-lg font-extrabold text-[#0B132B] dark:text-white group-hover:text-[#0D5BFF] transition-colors truncate">
+            {name}
+          </h3>
+          {isVerified && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-[#0D5BFF] dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 text-[11px] font-bold shrink-0">
+              <Check className="w-3 h-3 stroke-[3]" />
+              <span>Verified</span>
+            </span>
           )}
         </div>
-        
-        <div className="px-2 pb-2">
-          <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-1 group-hover:text-[#0D5BFF] transition-colors">{name}</h4>
-          <p className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest mb-3 line-clamp-1">{uni}</p>
-          <div className="flex items-center text-xs font-bold text-slate-500 dark:text-slate-400">
-            <BookOpen className="w-3 h-3 mr-2 text-slate-400 shrink-0" />
-            <span className="line-clamp-1">{subj}</span>
-          </div>
-          {tutor.area && (
-            <div className="flex items-center text-xs font-bold text-slate-500 dark:text-slate-400 mt-1.5">
-              <MapPin className="w-3 h-3 mr-2 text-slate-400 shrink-0" />
-              <span>{tutor.area}{tutor.district ? `, ${tutor.district}` : ''}</span>
-            </div>
-          )}
+
+        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 truncate">
+          {subj}
+        </p>
+
+        {(uni || tutor.district) && (
+          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 truncate mt-0.5">
+            {[uni, tutor.district].filter(Boolean).join(' • ')}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <span className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-bold">
+            {classRange}
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
+            {modeLabel}
+          </span>
         </div>
       </div>
 
-      <div className="px-2 pt-4">
-        <div className="w-full bg-[#0D5BFF] text-white text-center py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm group-hover:shadow-[0_10px_20px_-5px_rgba(13,91,255,0.3)]">
-          <span>View Profile</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </div>
-      </div>
+      {/* Favorite Toggle Button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleFavorite();
+        }}
+        className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+        title={isFavorite ? "Remove from Saved" : "Save Tutor"}
+      >
+        <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+      </button>
     </Link>
   );
 });

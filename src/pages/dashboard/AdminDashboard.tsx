@@ -2158,6 +2158,32 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Request Corrections / Additional Information Action */}
+                      <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                            Need Clearer NID or University ID Scans?
+                          </p>
+                          <p className="text-[10px] text-amber-800/80 dark:text-amber-200/80">
+                            Notify {selectedTutor.name} to re-upload or clarify verification documents.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await sendNotification(
+                              selectedTutor.id,
+                              "Verification Update: Additional Information Required",
+                              "Our verification team reviewed your profile and requested clearer NID / University ID documentation. Please update your documents in your Pro Profile.",
+                              "warning"
+                            );
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black uppercase tracking-wider whitespace-nowrap cursor-pointer shrink-0"
+                        >
+                          Request Corrections
+                        </button>
+                      </div>
                     </div>
 
                     {/* Financial Footprint */}

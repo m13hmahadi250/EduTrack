@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+.otp_cache.json
+.reset_tokens_cache.json
+.aistudio/
+public/assets/aistudio/

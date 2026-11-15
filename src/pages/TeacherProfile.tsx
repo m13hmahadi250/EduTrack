@@ -172,7 +172,21 @@ export default function TeacherProfile() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             if (data.role === 'tutor') {
-              setTutor({ id: docSnap.id, ...data });
+              const isViewerAdminOrSelf =
+                currentUser?.role === 'admin' || currentUser?.id === docSnap.id;
+              const sanitizedData = isViewerAdminOrSelf
+                ? data
+                : {
+                    ...data,
+                    nidNumber: undefined,
+                    nidFrontImg: undefined,
+                    nidBackImg: undefined,
+                    documents: undefined,
+                    balance: undefined,
+                    fcmToken: undefined,
+                    password: undefined,
+                  };
+              setTutor({ id: docSnap.id, ...sanitizedData });
             } else {
               setTutor(null);
             }

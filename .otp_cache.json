@@ -1,8 +1,0 @@
-[
-  {
-    "email": "testuser@example.com",
-    "otp": "6740",
-    "expiresAt": 1792409970292,
-    "attempts": 0
-  }
-]

@@ -55,12 +55,20 @@ export default function SEOHead({
       element.setAttribute('content', content);
     };
 
-    // Standard Meta Tags
+    // Standard Meta Tags (Protect private routes from search engine indexing)
+    const isPrivateRoute =
+      location.pathname.startsWith('/dashboard') ||
+      location.pathname.startsWith('/messages') ||
+      location.pathname.startsWith('/reset-password');
+    const robotsDirective = isPrivateRoute
+      ? 'noindex, nofollow'
+      : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
+
     setMeta('description', description);
     setMeta('keywords', keywords);
     setMeta('author', author);
-    setMeta('robots', 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
-    setMeta('googlebot', 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
+    setMeta('robots', robotsDirective);
+    setMeta('googlebot', robotsDirective);
 
     // Geo Meta Tags for Bangladesh Local Search Pack
     setMeta('geo.region', 'BD-13');

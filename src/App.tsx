@@ -16,6 +16,7 @@ import PromotionalBanner from './components/PromotionalBanner';
 import DeadlineNotifier from './components/DeadlineNotifier';
 import MessageToastCenter from './components/MessageToastCenter';
 import GuidedTour from './components/GuidedTour';
+import OfflineIndicator from './components/OfflineIndicator';
 
 import BeautifulSkeleton from './components/BeautifulSkeleton';
 
@@ -249,42 +250,20 @@ function LayoutWrapper() {
     }
   }, [currentUser]);
 
-  // Real-time GPS Location & Active Presence Lifecycle Sync
+  // Active Presence Lifecycle Sync (without unconditional background GPS tracking)
   React.useEffect(() => {
     if (!currentUser?.id) return;
     const userId = currentUser.id;
 
-    // 1. Initial High Accuracy GPS scan on startup/login
-    getCurrentAccuratePosition(
-      (pos) => {
-        useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
-      },
-      (err) => {
-        // Silently preserve last location if GPS permission is not granted or unavailable
-        console.log('[GPS Sync] Device GPS unavailable or permission prompt skipped, using last known location:', err?.message);
-      }
-    );
-
-    // 2. Watch position continuously as user moves
-    const watchId = watchAccuratePosition(
-      (pos) => {
-        useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
-      }
-    );
-
-    // 3. Mark user online on active mount
+    // 1. Mark user online on active mount
     useAppStore.getState().setUserActiveStatus(userId, true);
 
-    // 4. Tab visibility and browser close lifecycle handlers
+    // 2. Tab visibility and browser close lifecycle handlers
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         useAppStore.getState().setUserActiveStatus(userId, false);
       } else if (document.visibilityState === 'visible') {
         useAppStore.getState().setUserActiveStatus(userId, true);
-        // Refresh GPS on re-focusing
-        getCurrentAccuratePosition((pos) => {
-          useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
-        });
       }
     };
 
@@ -292,18 +271,17 @@ function LayoutWrapper() {
       useAppStore.getState().setUserActiveStatus(userId, false);
     };
 
-    // 5. Inactivity timer (marks user inactive if idle for 8 mins)
+    // 3. Inactivity timer (marks user inactive if idle for 8 mins)
     let idleTimer: any = null;
     const resetIdleTimer = () => {
       if (idleTimer) clearTimeout(idleTimer);
-      // If user was previously inactive and becomes active again
       const currentOnline = useAppStore.getState().currentUser?.isOnline;
       if (currentOnline === false && document.visibilityState === 'visible') {
         useAppStore.getState().setUserActiveStatus(userId, true);
       }
       idleTimer = setTimeout(() => {
         useAppStore.getState().setUserActiveStatus(userId, false);
-      }, 8 * 60 * 1000); // 8 minutes idle
+      }, 8 * 60 * 1000);
     };
 
     resetIdleTimer();
@@ -318,17 +296,48 @@ function LayoutWrapper() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      if (watchId !== null && 'geolocation' in navigator) {
-        try {
-          navigator.geolocation.clearWatch(watchId);
-        } catch (e) {}
-      }
       if (idleTimer) clearTimeout(idleTimer);
       activityEvents.forEach(evt => window.removeEventListener(evt, onUserActivity));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [currentUser?.id]);
+
+  // Phase 8 GPS Privacy & Safety: Only watch GPS coordinates when a Tutor has explicitly enabled live tracking (isTrackingOn === true)
+  React.useEffect(() => {
+    if (!currentUser?.id || currentUser.role !== 'tutor' || !currentUser.isTrackingOn) return;
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+
+    const userId = currentUser.id;
+    let lastUpdate = 0;
+
+    getCurrentAccuratePosition(
+      (pos) => {
+        lastUpdate = Date.now();
+        useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+      },
+      () => {}
+    );
+
+    const watchId = watchAccuratePosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - lastUpdate > 30000) {
+          lastUpdate = now;
+          useAppStore.getState().updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+        }
+      },
+      () => {}
+    );
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        try {
+          navigator.geolocation.clearWatch(watchId);
+        } catch (e) {}
+      }
+    };
+  }, [currentUser?.id, currentUser?.role, currentUser?.isTrackingOn]);
 
   React.useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
@@ -365,7 +374,8 @@ function LayoutWrapper() {
   const isAuthPage = location.pathname.startsWith('/dashboard') || location.pathname === '/messages';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-[#F8F9FA] flex flex-col font-sans relative transition-colors duration-300">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] text-[#0F172A] dark:text-[#F8FAFC] flex flex-col font-sans relative transition-colors duration-200">
+      <OfflineIndicator />
       <DeadlineNotifier />
       <MessageToastCenter />
       <GuidedTour />

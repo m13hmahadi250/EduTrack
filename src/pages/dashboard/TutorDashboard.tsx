@@ -77,6 +77,7 @@ const ReferralsTab = lazy(() => import("../../components/ReferralsTab"));
 const DemandHeatmap = lazy(() => import("../../components/DemandHeatmap"));
 const ClassLogsCalendar = lazy(() => import("../../components/ClassLogsCalendar"));
 const HomeworkDashboard = lazy(() => import("../../components/HomeworkDashboard"));
+const TuitionMarketplaceHub = lazy(() => import("../../components/TuitionMarketplaceHub"));
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -89,16 +90,6 @@ import {
 
 const RatingModal = lazy(() => import("../../components/RatingModal"));
 const ChatWindow = lazy(() => import("../../components/ChatWindow"));
-
-const dummyData = [
-  { name: "Mon", earnings: 1200 },
-  { name: "Tue", earnings: 1800 },
-  { name: "Wed", earnings: 1600 },
-  { name: "Thu", earnings: 2200 },
-  { name: "Fri", earnings: 2800 },
-  { name: "Sat", earnings: 2400 },
-  { name: "Sun", earnings: 3200 },
-];
 
 const MapLoading = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
@@ -505,7 +496,12 @@ export default function TutorDashboard() {
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [sameWhatsappAsPhone, setSameWhatsappAsPhone] = useState<boolean>(() => {
+    if (!currentUser?.whatsappNumber || !currentUser?.phone) return true;
+    return currentUser.whatsappNumber.replace(/\D/g, '') === currentUser.phone.replace(/\D/g, '');
+  });
   const [profileForm, setProfileForm] = useState({
+    phone: currentUser?.phone || "",
     bio: currentUser?.bio || "",
     hourlyRate: currentUser?.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
     daysPerWeek: currentUser?.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
@@ -523,13 +519,20 @@ export default function TutorDashboard() {
     nidBackImg: currentUser?.nidBackImg || "",
     documents: currentUser?.documents || [],
     gender: currentUser?.gender || "",
-    whatsappNumber: currentUser?.whatsappNumber || "",
+    whatsappNumber: currentUser?.whatsappNumber || currentUser?.phone || "",
   });
 
   // Sync profile form when currentUser changes or editing is toggled
   useEffect(() => {
     if (!isEditingProfile && currentUser) {
+      const userPhone = currentUser.phone || "";
+      const userWa = currentUser.whatsappNumber || userPhone;
+      setSameWhatsappAsPhone(
+        !currentUser.whatsappNumber ||
+          userWa.replace(/\D/g, "") === userPhone.replace(/\D/g, "")
+      );
       setProfileForm({
+        phone: userPhone,
         bio: currentUser.bio || "",
         hourlyRate: currentUser.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
         daysPerWeek: currentUser.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
@@ -547,7 +550,7 @@ export default function TutorDashboard() {
         nidBackImg: currentUser.nidBackImg || "",
         documents: currentUser.documents || [],
         gender: currentUser.gender || "",
-        whatsappNumber: currentUser.whatsappNumber || "",
+        whatsappNumber: userWa,
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -650,8 +653,13 @@ export default function TutorDashboard() {
     setIsUpdating(true);
     try {
       const existingLocation = currentUser.location ? currentUser.location : undefined;
+      const syncedWhatsapp = sameWhatsappAsPhone
+        ? (profileForm.phone || currentUser.phone || "").trim()
+        : (profileForm.whatsappNumber || profileForm.phone || "").trim();
       await updateUser(currentUser.id, {
         ...profileForm,
+        phone: (profileForm.phone || currentUser.phone || "").trim(),
+        whatsappNumber: syncedWhatsapp,
         hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
         ...(existingLocation ? { location: existingLocation } : {})
@@ -866,10 +874,10 @@ export default function TutorDashboard() {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id as any)}
-              className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative inline-block cursor-pointer z-30 pointer-events-auto ${
+              className={`text-xs font-black font-heading uppercase tracking-[0.18em] pb-4 transition-all relative inline-block cursor-pointer z-30 pointer-events-auto ${
                 activeTab === tab.id
-                  ? "text-[#0B132B]"
-                  : "text-[#0B132B]/30 hover:text-[#0B132B]"
+                  ? "text-[#0D5BFF] dark:text-blue-400"
+                  : "text-slate-600 dark:text-slate-300 hover:text-[#0B132B] dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -2397,7 +2405,7 @@ export default function TutorDashboard() {
                           ))}
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <ProfileField
                           label="Monthly Tutor Fee (৳)"
                           value={profileForm.hourlyRate}
@@ -2433,14 +2441,68 @@ export default function TutorDashboard() {
                           }
                           placeholder="3+ Years in Academic Coaching"
                         />
-                        <ProfileField
-                          label="WhatsApp Number"
-                          value={profileForm.whatsappNumber}
-                          onChange={(v) =>
-                            setProfileForm({ ...profileForm, whatsappNumber: v })
-                          }
-                          placeholder="e.g. 01712345678"
-                        />
+                      </div>
+
+                      {/* Smart Mobile & WhatsApp Synchronization Box */}
+                      <div className="p-5 sm:p-6 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-3xl space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                          <ProfileField
+                            label="Mobile Number (Primary)"
+                            value={profileForm.phone}
+                            onChange={(v) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                phone: v,
+                                ...(sameWhatsappAsPhone ? { whatsappNumber: v } : {}),
+                              }))
+                            }
+                            placeholder="e.g. 01712345678"
+                            type="tel"
+                          />
+                          {!sameWhatsappAsPhone ? (
+                            <ProfileField
+                              label="WhatsApp Number (Separate)"
+                              value={profileForm.whatsappNumber}
+                              onChange={(v) =>
+                                setProfileForm({ ...profileForm, whatsappNumber: v })
+                              }
+                              placeholder="e.g. 01712345678"
+                              type="tel"
+                            />
+                          ) : (
+                            <div className="space-y-2 pt-1">
+                              <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                WhatsApp Contact Status
+                              </span>
+                              <div className="px-4 py-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>
+                                  Synced with mobile number ({profileForm.phone || currentUser.phone || "Not set"})
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <label className="flex items-center gap-3 cursor-pointer select-none pt-1">
+                          <input
+                            type="checkbox"
+                            checked={sameWhatsappAsPhone}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSameWhatsappAsPhone(checked);
+                              if (checked) {
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  whatsappNumber: prev.phone || currentUser.phone || "",
+                                }));
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF] cursor-pointer"
+                          />
+                          <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            My WhatsApp number is the same as my mobile number
+                          </span>
+                        </label>
                       </div>
                       <div className="space-y-6">
                         <div className="flex items-center justify-between px-4">
@@ -2958,6 +3020,17 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
+              {/* Live Tuition Circulars Job Board, Recommendations & Application Tracker */}
+              <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
+                <TuitionMarketplaceHub
+                  mode="tutor"
+                  onMessageUser={(studentId) => {
+                    setSelectedRecipientId(studentId);
+                    handleTabChange("messages");
+                  }}
+                />
+              </Suspense>
+
               {!currentUser.isVerified ? (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-14 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto my-8">
                   <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-3xl flex items-center justify-center border border-rose-100 dark:border-rose-900/30 text-rose-500">
@@ -3790,8 +3863,8 @@ const ProfileField = memo(
     type?: string;
   }) => {
     return (
-      <div className="space-y-3">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+      <div className="space-y-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider ml-1">
           {label}
         </label>
         <input
@@ -3799,7 +3872,7 @@ const ProfileField = memo(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-full py-4 sm:py-5 px-6 sm:px-10 text-xs font-black uppercase italic text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] transition-all"
+          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all"
         />
       </div>
     );

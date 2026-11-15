@@ -67,6 +67,7 @@ import { Skeleton } from '../../components/Skeleton';
 const ReferralsTab = lazy(() => import('../../components/ReferralsTab'));
 const ClassLogsCalendar = lazy(() => import('../../components/ClassLogsCalendar'));
 const HomeworkDashboard = lazy(() => import('../../components/HomeworkDashboard'));
+const TuitionMarketplaceHub = lazy(() => import('../../components/TuitionMarketplaceHub'));
 
 const TutorRow = ({ index, style, rowProps }: any) => {
   const { filteredTutors, selectedTutor, setSelectedTutor, getDayName } = rowProps;
@@ -1570,6 +1571,19 @@ export default function StudentDashboard() {
                     )}
                 </div>
               </div>
+            </div>
+
+            {/* Guardian Tuition Posting, Applicant Pipeline & Smart Tutor Recommendations */}
+            <div className="pt-4">
+              <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
+                <TuitionMarketplaceHub
+                  mode="student"
+                  onMessageUser={(tutorId) => {
+                    setSelectedRecipientId(tutorId);
+                    navigate('/dashboard/messages');
+                  }}
+                />
+              </Suspense>
             </div>
           </motion.div>
         )}

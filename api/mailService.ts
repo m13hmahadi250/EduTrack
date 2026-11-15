@@ -87,17 +87,17 @@ export function generateOtpEmailHtml({
                   Verify Your Account Registration
                 </h2>
                 <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0;">
-                  Welcome to <strong>EduTrack Bangladesh</strong>! Please use the following 4-digit One-Time Password (OTP) code to verify your email address (<strong>${email}</strong>) and complete your signup.
+                  Welcome to <strong>EduTrack Bangladesh</strong>! Please use the following ${otpCode.length}-digit One-Time Password (OTP) code to verify your email address (<strong>${email}</strong>) and complete your signup.
                 </p>
               </div>
 
               <!-- OTP Code Display Card -->
               <div class="otp-card" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 2px dashed #0D5BFF; border-radius: 20px; padding: 28px 20px; text-align: center; margin: 28px 0; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.08);">
                 <span style="display: block; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #0D5BFF; letter-spacing: 2px; margin-bottom: 12px;">
-                  Your 4-Digit Verification Code
+                  Your ${otpCode.length}-Digit Verification Code
                 </span>
                 
-                <div style="font-family: 'Courier New', Courier, monospace; font-size: 42px; font-weight: 900; color: #0B132B; letter-spacing: 16px; text-indent: 16px; padding: 12px 0;">
+                <div style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 900; color: #0B132B; letter-spacing: 12px; text-indent: 12px; padding: 12px 0;">
                   ${otpCode}
                 </div>
 

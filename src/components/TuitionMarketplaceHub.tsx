@@ -1,0 +1,1930 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  arrayUnion,
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAppStore, User } from '../store';
+import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
+import {
+  BookOpen,
+  MapPin,
+  Calendar,
+  Clock,
+  ShieldCheck,
+  CheckCircle,
+  Sparkles,
+  Search,
+  Plus,
+  Send,
+  Briefcase,
+  Users,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  X,
+  MessageSquare,
+  Bookmark,
+  GraduationCap,
+  Filter,
+  AlertCircle,
+  ExternalLink,
+  Trash2,
+} from 'lucide-react';
+
+export interface TuitionApplicationItem {
+  tutorId: string;
+  tutorName: string;
+  tutorInstitution?: string;
+  tutorSubjects?: string[];
+  tutorExperience?: string;
+  tutorIsVerified?: boolean;
+  proposedRate?: number;
+  message: string;
+  status: 'submitted' | 'shortlisted' | 'trial_scheduled' | 'selected' | 'rejected';
+  trialDate?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TuitionCircularRecord {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  title: string;
+  subject: string;
+  studentClass: string;
+  curriculum?: string;
+  mode?: 'Home Tutoring' | 'Online Tutoring' | 'Home & Online';
+  district: string;
+  area?: string;
+  salary: number;
+  daysPerWeek: number;
+  preferredTime?: string;
+  genderPreference?: string;
+  requirements?: string;
+  status: 'active' | 'assigned' | 'closed';
+  selectedTutorId?: string;
+  selectedTutorName?: string;
+  applications?: TuitionApplicationItem[];
+  createdAt: string;
+}
+
+interface TuitionMarketplaceHubProps {
+  mode: 'student' | 'tutor' | 'admin' | 'public';
+  onMessageUser?: (targetUserId: string) => void;
+}
+
+const DRAFT_STORAGE_KEY = 'edutrack_tuition_post_draft_v1';
+const SAVED_TUITIONS_KEY = 'edutrack_saved_tuitions_v1';
+
+export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMarketplaceHubProps) {
+  const navigate = useNavigate();
+  const { currentUser, users, sendNotification, bookSession } = useAppStore();
+
+  const [tuitions, setTuitions] = useState<TuitionCircularRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Active sub-view inside the hub
+  const [activeSubTab, setActiveSubTab] = useState<'browse' | 'post' | 'my_posts' | 'my_applications' | 'recommended'>(
+    mode === 'student' ? 'my_posts' : mode === 'tutor' ? 'browse' : 'browse'
+  );
+
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterSubject, setFilterSubject] = useState('All');
+  const [filterClass, setFilterClass] = useState('All');
+  const [filterCurriculum, setFilterCurriculum] = useState('All');
+  const [filterDistrict, setFilterDistrict] = useState('All');
+  const [filterMode, setFilterMode] = useState('All');
+  const [filterMinSalary, setFilterMinSalary] = useState('All');
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+
+  const [savedTuitionIds, setSavedTuitionIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_TUITIONS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleSaveTuition = (id: string) => {
+    setSavedTuitionIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      try {
+        localStorage.setItem(SAVED_TUITIONS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Student 5-Step Guided Posting Form State (with safe draft persistence)
+  const [postStep, setPostStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [postForm, setPostForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      subject: currentUser?.subject || 'Mathematics, Physics',
+      studentClass: currentUser?.studentClass || 'Class 9 - 10 (SSC)',
+      curriculum: 'NCTB Bangla Medium',
+      tutoringMode: 'Home Tutoring' as 'Home Tutoring' | 'Online Tutoring' | 'Home & Online',
+      district: currentUser?.district || 'Dhaka',
+      area: currentUser?.area || '',
+      daysPerWeek: 3,
+      preferredTime: 'Evening (5:00 PM - 8:00 PM)',
+      genderPreference: 'Any Verified Tutor',
+      salary: 6000,
+      requirements: '',
+    };
+  });
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [feedbackBanner, setFeedbackBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Tutor Application Modal State
+  const [applyingTuition, setApplyingTuition] = useState<TuitionCircularRecord | null>(null);
+  const [proposedRate, setProposedRate] = useState('');
+  const [applicationNote, setApplicationNote] = useState('');
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false);
+
+  // Student Trial Scheduling Modal State
+  const [trialModalState, setTrialModalState] = useState<{
+    tuition: TuitionCircularRecord;
+    applicant: TuitionApplicationItem;
+  } | null>(null);
+  const [trialDateTime, setTrialDateTime] = useState('');
+
+  // Save draft automatically on student form changes
+  useEffect(() => {
+    if (mode === 'student') {
+      try {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(postForm));
+      } catch {}
+    }
+  }, [postForm, mode]);
+
+  // Real-time Firestore listener on `tuitions`
+  useEffect(() => {
+    const q = query(collection(db, 'tuitions'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: TuitionCircularRecord[] = snapshot.docs.map((docSnap) => {
+          const d = docSnap.data();
+          return {
+            id: docSnap.id,
+            studentId: d.studentId || '',
+            studentName: d.studentName || 'Guardian',
+            title: d.title || `${d.subject || 'Academic'} Tutor Needed in ${d.district || 'Dhaka'}`,
+            subject: d.subject || 'General Subjects',
+            studentClass: d.studentClass || 'Standard Class',
+            curriculum: d.curriculum || 'NCTB Bangla Medium',
+            mode: d.mode || 'Home Tutoring',
+            district: d.district || 'Dhaka',
+            area: d.area || '',
+            salary: Number(d.salary || 5000),
+            daysPerWeek: Number(d.daysPerWeek || 3),
+            preferredTime: d.preferredTime || 'Flexible',
+            genderPreference: d.genderPreference || 'Any',
+            requirements: d.requirements || d.notes || '',
+            status: d.status || 'active',
+            selectedTutorId: d.selectedTutorId,
+            selectedTutorName: d.selectedTutorName,
+            applications: Array.isArray(d.applications) ? d.applications : [],
+            createdAt: d.createdAt || new Date().toISOString(),
+          };
+        });
+        setTuitions(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('Error listening to tuitions collection:', err);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Student's own posted tuition circulars
+  const myStudentPosts = useMemo(() => {
+    if (!currentUser) return [];
+    return tuitions.filter((t) => t.studentId === currentUser.id);
+  }, [tuitions, currentUser]);
+
+  // Tutor's submitted applications across all tuition circulars
+  const myTutorApplications = useMemo(() => {
+    if (!currentUser) return [];
+    const results: Array<{ tuition: TuitionCircularRecord; myApp: TuitionApplicationItem }> = [];
+    tuitions.forEach((t) => {
+      const found = t.applications?.find((a) => a.tutorId === currentUser.id);
+      if (found) {
+        results.push({ tuition: t, myApp: found });
+      }
+    });
+    return results;
+  }, [tuitions, currentUser]);
+
+  // Filtered open tuitions for browsing
+  const filteredTuitions = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return tuitions.filter((t) => {
+      if (mode !== 'admin' && t.status === 'closed') return false;
+      if (showSavedOnly && !savedTuitionIds.includes(t.id)) return false;
+
+      const matchesSearch =
+        !q ||
+        t.title.toLowerCase().includes(q) ||
+        t.subject.toLowerCase().includes(q) ||
+        t.district.toLowerCase().includes(q) ||
+        (t.area && t.area.toLowerCase().includes(q)) ||
+        t.studentClass.toLowerCase().includes(q);
+
+      const matchesSubject =
+        filterSubject === 'All' || t.subject.toLowerCase().includes(filterSubject.toLowerCase());
+
+      const matchesClass =
+        filterClass === 'All' || t.studentClass.toLowerCase().includes(filterClass.toLowerCase());
+
+      const matchesCurriculum =
+        filterCurriculum === 'All' ||
+        (t.curriculum && t.curriculum.toLowerCase().includes(filterCurriculum.toLowerCase()));
+
+      const matchesDistrict =
+        filterDistrict === 'All' || t.district.toLowerCase() === filterDistrict.toLowerCase();
+
+      const matchesMode =
+        filterMode === 'All' ||
+        (t.mode && t.mode.toLowerCase().includes(filterMode.toLowerCase()));
+
+      const matchesSalary =
+        filterMinSalary === 'All' || Number(t.salary || 0) >= Number(filterMinSalary);
+
+      return (
+        matchesSearch &&
+        matchesSubject &&
+        matchesClass &&
+        matchesCurriculum &&
+        matchesDistrict &&
+        matchesMode &&
+        matchesSalary
+      );
+    });
+  }, [
+    tuitions,
+    mode,
+    showSavedOnly,
+    savedTuitionIds,
+    searchQuery,
+    filterSubject,
+    filterClass,
+    filterCurriculum,
+    filterDistrict,
+    filterMode,
+    filterMinSalary,
+  ]);
+
+  // Explainable Rule-Based Recommendations for Tutors
+  const recommendedTuitionsForTutor = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'tutor') return [];
+    const tutorSubjects = (currentUser.subjects || []).map((s) => s.toLowerCase());
+    const tutorDistrict = (currentUser.district || '').toLowerCase();
+    const tutorArea = (currentUser.area || '').toLowerCase();
+
+    return tuitions
+      .filter((t) => t.status === 'active')
+      .map((t) => {
+        const reasons: string[] = [];
+        const reqSubjects = t.subject.toLowerCase();
+
+        // Check subject compatibility
+        const matchedSubj = (currentUser.subjects || []).find((s) =>
+          reqSubjects.includes(s.toLowerCase())
+        );
+        if (matchedSubj) {
+          reasons.push(`Subject Match: ${matchedSubj}`);
+        } else if (tutorSubjects.length > 0 && tutorSubjects.some((s) => reqSubjects.includes(s))) {
+          reasons.push('Matches Your Teaching Subjects');
+        }
+
+        // Check location compatibility
+        if (tutorDistrict && t.district.toLowerCase() === tutorDistrict) {
+          reasons.push(`Same District (${t.district})`);
+        }
+        if (tutorArea && t.area && t.area.toLowerCase().includes(tutorArea)) {
+          reasons.push(`Nearby Area (${t.area})`);
+        }
+
+        // Check online compatibility
+        if (t.mode && t.mode.toLowerCase().includes('online')) {
+          reasons.push('Online Compatible');
+        }
+
+        // Check budget compatibility
+        if (currentUser.hourlyRate && t.salary >= currentUser.hourlyRate) {
+          reasons.push(`Meets Expected Salary (৳${t.salary.toLocaleString()})`);
+        }
+
+        return { tuition: t, reasons, matchCount: reasons.length };
+      })
+      .filter((item) => item.matchCount > 0)
+      .sort((a, b) => b.matchCount - a.matchCount);
+  }, [tuitions, currentUser]);
+
+  // Explainable Rule-Based Tutor Recommendations for Students
+  const recommendedTutorsForStudent = useMemo(() => {
+    if (!currentUser) return [];
+    const latestPost = myStudentPosts[0];
+    const targetSubject = (latestPost?.subject || currentUser.subject || '').toLowerCase();
+    const targetDistrict = (latestPost?.district || currentUser.district || '').toLowerCase();
+    const targetBudget = latestPost?.salary || 0;
+
+    return users
+      .filter((u) => u.role === 'tutor' && u.isVerified && !u.isBlocked)
+      .map((tutor) => {
+        const reasons: string[] = ['NID Verified Educator'];
+        if (
+          targetSubject &&
+          tutor.subjects?.some(
+            (s) =>
+              targetSubject.includes(s.toLowerCase()) || s.toLowerCase().includes(targetSubject)
+          )
+        ) {
+          reasons.push('Teaches Required Subject');
+        }
+        if (targetDistrict && tutor.district?.toLowerCase() === targetDistrict) {
+          reasons.push(`Located in ${tutor.district}`);
+        }
+        if (targetBudget > 0 && tutor.hourlyRate && tutor.hourlyRate <= targetBudget) {
+          reasons.push(`Within Budget (৳${tutor.hourlyRate.toLocaleString()}/mo)`);
+        }
+        return { tutor, reasons, score: reasons.length };
+      })
+      .filter((item) => item.score >= 2)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+  }, [users, currentUser, myStudentPosts]);
+
+  // Publish new Student Tuition Requirement
+  const handlePublishTuition = async () => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    if (!postForm.subject.trim() || !postForm.studentClass.trim() || !postForm.district.trim()) {
+      setFeedbackBanner({
+        type: 'error',
+        text: 'Please complete Subject, Class, and District before publishing.',
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+    setFeedbackBanner(null);
+    try {
+      const generatedTitle = `${postForm.studentClass} — ${postForm.subject} Tutor Needed in ${
+        postForm.area ? `${postForm.area}, ${postForm.district}` : postForm.district
+      }`;
+
+      await addDoc(collection(db, 'tuitions'), {
+        studentId: currentUser.id,
+        studentName: currentUser.name || 'Guardian',
+        title: generatedTitle,
+        subject: postForm.subject.trim(),
+        studentClass: postForm.studentClass.trim(),
+        curriculum: postForm.curriculum,
+        mode: postForm.tutoringMode,
+        district: postForm.district,
+        area: postForm.area.trim(),
+        daysPerWeek: Number(postForm.daysPerWeek) || 3,
+        preferredTime: postForm.preferredTime,
+        genderPreference: postForm.genderPreference,
+        salary: Number(postForm.salary) || 5000,
+        requirements: postForm.requirements.trim() || 'Looking for a punctual, verified tutor.',
+        status: 'active',
+        applications: [],
+        createdAt: new Date().toISOString(),
+      });
+
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setPostStep(1);
+      setActiveSubTab('my_posts');
+      setFeedbackBanner({
+        type: 'success',
+        text: 'Your tuition requirement has been published! Verified tutors can now apply.',
+      });
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Could not publish tuition circular. Please try again.',
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Tutor submits an application to an open tuition circular
+  const handleTutorSubmitApplication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !applyingTuition) return;
+
+    const alreadyApplied = applyingTuition.applications?.some(
+      (a) => a.tutorId === currentUser.id
+    );
+    if (alreadyApplied) {
+      setFeedbackBanner({
+        type: 'error',
+        text: 'You have already applied to this tuition requirement.',
+      });
+      setApplyingTuition(null);
+      return;
+    }
+
+    setIsSubmittingApp(true);
+    try {
+      const newApp: TuitionApplicationItem = {
+        tutorId: currentUser.id,
+        tutorName: currentUser.name,
+        tutorInstitution: currentUser.university || 'Verified Educator',
+        tutorSubjects: currentUser.subjects || [],
+        tutorExperience: currentUser.experience || '',
+        tutorIsVerified: Boolean(currentUser.isVerified),
+        proposedRate: Number(proposedRate) || applyingTuition.salary,
+        message:
+          applicationNote.trim() ||
+          `Assalamu Alaikum, I am experienced in teaching ${applyingTuition.subject} for ${applyingTuition.studentClass} and would love to conduct a trial session.`,
+        status: 'submitted',
+        createdAt: new Date().toISOString(),
+      };
+
+      await updateDoc(doc(db, 'tuitions', applyingTuition.id), {
+        applications: arrayUnion(newApp),
+      });
+
+      if (applyingTuition.studentId) {
+        await sendNotification(
+          applyingTuition.studentId,
+          'New Tutor Application Received',
+          `${currentUser.name} (${currentUser.university || 'Verified Tutor'}) applied for "${applyingTuition.title}".`,
+          'info'
+        );
+      }
+
+      setApplyingTuition(null);
+      setApplicationNote('');
+      setFeedbackBanner({
+        type: 'success',
+        text: 'Application submitted! You can track its status in "My Applications".',
+      });
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Failed to submit application.',
+      });
+    } finally {
+      setIsSubmittingApp(false);
+    }
+  };
+
+  // Student updates applicant status: Shortlist / Schedule Trial / Confirm Hiring / Reject
+  const handleUpdateApplicantStatus = async (
+    tuition: TuitionCircularRecord,
+    targetTutorId: string,
+    newStatus: TuitionApplicationItem['status'],
+    extraTrialDate?: string
+  ) => {
+    if (!currentUser || !tuition.applications) return;
+
+    try {
+      const targetApp = tuition.applications.find((a) => a.tutorId === targetTutorId);
+      if (!targetApp) return;
+
+      const updatedApps = tuition.applications.map((app) => {
+        if (app.tutorId === targetTutorId) {
+          return {
+            ...app,
+            status: newStatus,
+            ...(extraTrialDate ? { trialDate: extraTrialDate } : {}),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        // If hiring one tutor, leave other non-rejected applications as-is or closed
+        return app;
+      });
+
+      const docPayload: Record<string, any> = {
+        applications: updatedApps,
+      };
+
+      if (newStatus === 'selected') {
+        docPayload.status = 'assigned';
+        docPayload.selectedTutorId = targetTutorId;
+        docPayload.selectedTutorName = targetApp.tutorName;
+      }
+
+      await updateDoc(doc(db, 'tuitions', tuition.id), docPayload);
+
+      // If Student confirms hiring or schedules trial class, also create/sync a Session record and notify Tutor
+      if (newStatus === 'shortlisted') {
+        await sendNotification(
+          targetTutorId,
+          'You Have Been Shortlisted!',
+          `${currentUser.name} shortlisted your application for "${tuition.title}".`,
+          'info'
+        );
+      } else if (newStatus === 'trial_scheduled') {
+        const scheduledIso = extraTrialDate
+          ? new Date(extraTrialDate).toISOString()
+          : new Date(Date.now() + 86400000).toISOString();
+        await bookSession({
+          studentId: currentUser.id,
+          tutorId: targetTutorId,
+          subject: `${tuition.subject} (Trial Class)`,
+          scheduledTime: scheduledIso,
+          duration: 60,
+          status: 'scheduled',
+        });
+        await sendNotification(
+          targetTutorId,
+          'Trial Class Scheduled!',
+          `${currentUser.name} scheduled a trial class for "${tuition.title}" on ${new Date(
+            scheduledIso
+          ).toLocaleString()}.`,
+          'success'
+        );
+      } else if (newStatus === 'selected') {
+        await bookSession({
+          studentId: currentUser.id,
+          tutorId: targetTutorId,
+          subject: tuition.subject,
+          scheduledTime: new Date(Date.now() + 86400000).toISOString(),
+          duration: 60,
+          status: 'scheduled',
+        });
+        await sendNotification(
+          targetTutorId,
+          'Congratulations! Tuition Confirmed',
+          `${currentUser.name} confirmed you as the selected tutor for "${tuition.title}".`,
+          'success'
+        );
+      } else if (newStatus === 'rejected') {
+        await sendNotification(
+          targetTutorId,
+          'Application Status Update',
+          `The guardian has updated the status of "${tuition.title}". Thank you for applying.`,
+          'info'
+        );
+      }
+
+      setFeedbackBanner({
+        type: 'success',
+        text:
+          newStatus === 'selected'
+            ? `Confirmed ${targetApp.tutorName} for this tuition! A scheduled session has been created.`
+            : newStatus === 'trial_scheduled'
+            ? `Trial class scheduled with ${targetApp.tutorName}!`
+            : newStatus === 'shortlisted'
+            ? `${targetApp.tutorName} added to your shortlist.`
+            : `Updated application status for ${targetApp.tutorName}.`,
+      });
+      setTrialModalState(null);
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Could not update application status.',
+      });
+    }
+  };
+
+  // Close or reopen circular
+  const handleToggleCircularStatus = async (tuition: TuitionCircularRecord, nextStatus: 'active' | 'closed') => {
+    try {
+      await updateDoc(doc(db, 'tuitions', tuition.id), { status: nextStatus });
+      setFeedbackBanner({
+        type: 'success',
+        text: `Tuition circular marked as ${nextStatus}.`,
+      });
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Failed to update circular status.',
+      });
+    }
+  };
+
+  const handleDeleteCircular = async (tuitionId: string) => {
+    try {
+      await deleteDoc(doc(db, 'tuitions', tuitionId));
+      setFeedbackBanner({
+        type: 'success',
+        text: 'Tuition circular removed.',
+      });
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Failed to delete circular.',
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Sub-Navigation Tabs */}
+      {mode !== 'public' && (
+        <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#0D5BFF]">
+              {mode === 'student'
+                ? 'Guardian Tuition & Matching Hub'
+                : mode === 'tutor'
+                ? 'Verified Tuition Job Board & Application Tracker'
+                : 'Tuition Circulars Moderation'}
+            </span>
+            <h2 className="text-xl sm:text-2xl font-extrabold font-heading text-[#0B132B] dark:text-white mt-0.5">
+              {mode === 'student'
+                ? 'Post Tuition Requirements & Hire Verified Tutors'
+                : mode === 'tutor'
+                ? 'Discover Matching Tuitions & Track Applications'
+                : 'Manage All Tuition Circulars & Applications'}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {mode === 'student' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('my_posts')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'my_posts'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  My Tuition Posts ({myStudentPosts.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('post')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'post'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Post Tuition Requirement</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('recommended')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'recommended'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  Recommended Tutors ({recommendedTutorsForStudent.length})
+                </button>
+              </>
+            )}
+
+            {mode === 'tutor' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('browse')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'browse'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  All Open Tuitions ({filteredTuitions.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('recommended')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'recommended'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  Recommended For You ({recommendedTuitionsForTutor.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('my_applications')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'my_applications'
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  My Applications ({myTutorApplications.length})
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Banner */}
+      {feedbackBanner && (
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold ${
+            feedbackBanner.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {feedbackBanner.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{feedbackBanner.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedbackBanner(null)}
+            className="p-1 hover:opacity-75 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* =====================================================================
+          STUDENT VIEW 1: GUIDED 5-STEP TUITION POSTING WIZARD
+      ===================================================================== */}
+      {mode === 'student' && activeSubTab === 'post' && (
+        <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8">
+          {/* Progress Steps Bar */}
+          <div className="flex items-center justify-between gap-2 pb-6 mb-6 border-b border-slate-100 dark:border-slate-800 overflow-x-auto">
+            {[
+              { step: 1, label: '1. Subject & Class' },
+              { step: 2, label: '2. Mode & Location' },
+              { step: 3, label: '3. Schedule & Preferences' },
+              { step: 4, label: '4. Budget & Details' },
+              { step: 5, label: '5. Review & Publish' },
+            ].map((item) => (
+              <button
+                key={item.step}
+                type="button"
+                onClick={() => setPostStep(item.step as any)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                  postStep === item.step
+                    ? 'bg-[#0D5BFF] text-white'
+                    : postStep > item.step
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-slate-50 dark:bg-slate-800/60 text-slate-500'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {postStep === 1 && (
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Required Subject(s) *
+                </label>
+                <input
+                  type="text"
+                  value={postForm.subject}
+                  onChange={(e) => setPostForm({ ...postForm, subject: e.target.value })}
+                  placeholder="e.g., Higher Mathematics, Physics, Chemistry"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Student Class / Grade Level *
+                </label>
+                <select
+                  value={postForm.studentClass}
+                  onChange={(e) => setPostForm({ ...postForm, studentClass: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  <option value="Class 1 - 5">Class 1 - 5 (Primary)</option>
+                  <option value="Class 6 - 8">Class 6 - 8 (Junior)</option>
+                  <option value="Class 9 - 10 (SSC)">Class 9 - 10 (SSC Candidate)</option>
+                  <option value="Class 11 - 12 (HSC)">Class 11 - 12 (HSC Candidate)</option>
+                  <option value="Cambridge / Edexcel O Level">Cambridge / Edexcel O Level</option>
+                  <option value="Cambridge / Edexcel A Level">Cambridge / Edexcel A Level</option>
+                  <option value="University Admission">University / Medical / BUET Admission</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Academic Curriculum / Medium *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    'NCTB Bangla Medium',
+                    'NCTB English Version',
+                    'English Medium (CIE / Edexcel)',
+                    'Alim / Madrasah Curriculum',
+                  ].map((curr) => (
+                    <button
+                      key={curr}
+                      type="button"
+                      onClick={() => setPostForm({ ...postForm, curriculum: curr })}
+                      className={`p-3 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer ${
+                        postForm.curriculum === curr
+                          ? 'border-[#0D5BFF] bg-blue-50/60 dark:bg-blue-950/50 text-[#0D5BFF] dark:text-blue-300'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {curr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {postStep === 2 && (
+            <div className="grid sm:grid-cols-3 gap-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Tutoring Mode *
+                </label>
+                <select
+                  value={postForm.tutoringMode}
+                  onChange={(e) =>
+                    setPostForm({ ...postForm, tutoringMode: e.target.value as any })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  <option value="Home Tutoring">Home Tutoring (At Student's Residence)</option>
+                  <option value="Online Tutoring">Online Tutoring</option>
+                  <option value="Home & Online">Flexible (Home or Online)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  District *
+                </label>
+                <select
+                  value={postForm.district}
+                  onChange={(e) => setPostForm({ ...postForm, district: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  {BANGLADESH_DISTRICTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Thana / Area / Neighborhood
+                </label>
+                <input
+                  type="text"
+                  value={postForm.area}
+                  onChange={(e) => setPostForm({ ...postForm, area: e.target.value })}
+                  placeholder="e.g., Dhanmondi Road 15, Mirpur-10, Panchlaish"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+            </div>
+          )}
+
+          {postStep === 3 && (
+            <div className="grid sm:grid-cols-3 gap-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Days Per Week *
+                </label>
+                <select
+                  value={postForm.daysPerWeek}
+                  onChange={(e) =>
+                    setPostForm({ ...postForm, daysPerWeek: Number(e.target.value) })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  {[2, 3, 4, 5, 6].map((d) => (
+                    <option key={d} value={d}>
+                      {d} Days / Week
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Preferred Time Slot
+                </label>
+                <input
+                  type="text"
+                  value={postForm.preferredTime}
+                  onChange={(e) => setPostForm({ ...postForm, preferredTime: e.target.value })}
+                  placeholder="e.g., Evening 5:00 PM - 8:00 PM"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Tutor Preference
+                </label>
+                <select
+                  value={postForm.genderPreference}
+                  onChange={(e) => setPostForm({ ...postForm, genderPreference: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  <option value="Any Verified Tutor">Any Verified Tutor</option>
+                  <option value="Female Tutor Preferred">Female Tutor Preferred</option>
+                  <option value="Male Tutor Preferred">Male Tutor Preferred</option>
+                  <option value="Public University (BUET/DU/Medical) Preferred">
+                    Public University (BUET/DU/Medical) Preferred
+                  </option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {postStep === 4 && (
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Monthly Tuition Budget / Honorarium (BDT ৳) *
+                </label>
+                <input
+                  type="number"
+                  min={1000}
+                  max={50000}
+                  step={500}
+                  value={postForm.salary}
+                  onChange={(e) => setPostForm({ ...postForm, salary: Number(e.target.value) })}
+                  className="w-full sm:w-72 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF] tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Specific Learning Goals or Tutor Requirements
+                </label>
+                <textarea
+                  rows={3}
+                  value={postForm.requirements}
+                  onChange={(e) => setPostForm({ ...postForm, requirements: e.target.value })}
+                  placeholder="Describe the student's school/college, exam targets, or any specific expectations..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+            </div>
+          )}
+
+          {postStep === 5 && (
+            <div className="bg-slate-50 dark:bg-[#0B132B] rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+              <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white">
+                Review Your Tuition Circular
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+                <div>
+                  <span className="text-slate-500">Subject &amp; Class:</span>{' '}
+                  <strong className="text-[#0B132B] dark:text-white">
+                    {postForm.subject} ({postForm.studentClass})
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Curriculum:</span>{' '}
+                  <strong className="text-[#0B132B] dark:text-white">{postForm.curriculum}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Location &amp; Mode:</span>{' '}
+                  <strong className="text-[#0B132B] dark:text-white">
+                    {postForm.area ? `${postForm.area}, ` : ''}
+                    {postForm.district} • {postForm.tutoringMode}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Schedule &amp; Budget:</span>{' '}
+                  <strong className="text-[#0D5BFF] tabular-nums">
+                    {postForm.daysPerWeek} Days/Week • ৳{Number(postForm.salary).toLocaleString()}/mo
+                  </strong>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-500">Preference &amp; Notes:</span>{' '}
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {postForm.genderPreference} — {postForm.requirements || 'Standard academic guidance'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Wizard Navigation Footer */}
+          <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
+            {postStep > 1 ? (
+              <button
+                type="button"
+                onClick={() => setPostStep((prev) => (prev - 1) as any)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous Step</span>
+              </button>
+            ) : (
+              <span className="text-xs text-slate-400">Draft saved automatically</span>
+            )}
+
+            {postStep < 5 ? (
+              <button
+                type="button"
+                onClick={() => setPostStep((prev) => (prev + 1) as any)}
+                className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Next Step</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isPublishing}
+                onClick={handlePublishTuition}
+                className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-sm"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>{isPublishing ? 'Publishing...' : 'Publish Tuition Requirement'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          STUDENT VIEW 2: MY TUITION POSTS & APPLICANT PIPELINE
+      ===================================================================== */}
+      {mode === 'student' && activeSubTab === 'my_posts' && (
+        <div className="space-y-4">
+          {myStudentPosts.length === 0 ? (
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
+              <Briefcase className="w-10 h-10 text-[#0D5BFF] mx-auto mb-3" />
+              <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white">
+                You Haven't Posted Any Tuition Circulars Yet
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                Post your subject, class, location, and budget in 60 seconds so verified tutors from top universities can apply directly.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('post')}
+                className="mt-4 px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Post Your First Tuition Requirement</span>
+              </button>
+            </div>
+          ) : (
+            myStudentPosts.map((post) => (
+              <div
+                key={post.id}
+                className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 space-y-5"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      <span
+                        className={`font-bold uppercase ${
+                          post.status === 'active'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : post.status === 'assigned'
+                            ? 'text-[#0D5BFF]'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {post.status === 'active'
+                          ? 'Open for Applications'
+                          : post.status === 'assigned'
+                          ? `Tutor Confirmed (${post.selectedTutorName || 'Assigned'})`
+                          : 'Closed'}
+                      </span>
+                      <span>·</span>
+                      <span>{post.curriculum || 'National Curriculum'}</span>
+                      <span>·</span>
+                      <span>{post.mode || 'Home Tutoring'}</span>
+                      <span>·</span>
+                      <span className="tabular-nums">
+                        {post.applications?.length || 0} Applicant(s)
+                      </span>
+                    </div>
+                    <Link
+                      to={`/tuitions/${post.id}`}
+                      className="text-base sm:text-lg font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] transition-colors"
+                    >
+                      {post.title}
+                    </Link>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span className="text-sm font-extrabold text-[#0D5BFF] tabular-nums mr-2">
+                      ৳{Number(post.salary).toLocaleString()}/mo
+                    </span>
+                    {post.status === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCircularStatus(post, 'closed')}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 cursor-pointer"
+                      >
+                        Close Post
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCircularStatus(post, 'active')}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-[#0D5BFF] hover:bg-blue-50 cursor-pointer"
+                      >
+                        Reopen
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Applicants List */}
+                {!post.applications || post.applications.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    No tutor applications yet. Verified tutors matching {post.subject} in {post.district} can view and apply to this circular.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Tutor Applications ({post.applications.length})
+                    </h4>
+                    <div className="grid gap-3">
+                      {post.applications.map((app) => (
+                        <div
+                          key={app.tutorId}
+                          className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200/70 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link
+                                to={`/tutor/${app.tutorId}`}
+                                className="text-sm font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] flex items-center gap-1"
+                              >
+                                <span>{app.tutorName}</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                              <span className="text-xs text-slate-500">·</span>
+                              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                {app.tutorInstitution || 'Verified Educator'}
+                              </span>
+                              <span className="text-xs text-slate-500">·</span>
+                              <span className="text-xs font-bold text-[#0D5BFF] tabular-nums">
+                                Proposed: ৳{Number(app.proposedRate || post.salary).toLocaleString()}/mo
+                              </span>
+                              <span className="text-xs text-slate-500">·</span>
+                              <span
+                                className={`text-xs font-bold uppercase ${
+                                  app.status === 'selected'
+                                    ? 'text-emerald-600'
+                                    : app.status === 'shortlisted' || app.status === 'trial_scheduled'
+                                    ? 'text-[#0D5BFF]'
+                                    : app.status === 'rejected'
+                                    ? 'text-rose-500'
+                                    : 'text-amber-600'
+                                }`}
+                              >
+                                {app.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                              "{app.message}"
+                            </p>
+                            {app.trialDate && (
+                              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                Trial Class Scheduled: {new Date(app.trialDate).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Student Action Controls on Applicant */}
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            {onMessageUser && (
+                              <button
+                                type="button"
+                                onClick={() => onMessageUser(app.tutorId)}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>Message</span>
+                              </button>
+                            )}
+
+                            {app.status === 'submitted' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateApplicantStatus(post, app.tutorId, 'shortlisted')
+                                }
+                                className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 text-xs font-bold hover:bg-blue-100 cursor-pointer"
+                              >
+                                Shortlist
+                              </button>
+                            )}
+
+                            {(app.status === 'submitted' || app.status === 'shortlisted') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTrialModalState({ tuition: post, applicant: app });
+                                  setTrialDateTime(
+                                    new Date(Date.now() + 86400000).toISOString().slice(0, 16)
+                                  );
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 cursor-pointer"
+                              >
+                                Schedule Trial
+                              </button>
+                            )}
+
+                            {app.status !== 'selected' && app.status !== 'rejected' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateApplicantStatus(post, app.tutorId, 'selected')
+                                }
+                                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                              >
+                                Confirm Hiring
+                              </button>
+                            )}
+
+                            {app.status !== 'rejected' && app.status !== 'selected' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateApplicantStatus(post, app.tutorId, 'rejected')
+                                }
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          STUDENT VIEW 3: RECOMMENDED VERIFIED TUTORS (EXPLAINABLE MATCHING)
+      ===================================================================== */}
+      {mode === 'student' && activeSubTab === 'recommended' && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {recommendedTutorsForStudent.map(({ tutor, reasons }) => (
+            <div
+              key={tutor.id}
+              className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between gap-4"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <Link
+                    to={`/tutor/${tutor.id}`}
+                    className="text-base font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] truncate"
+                  >
+                    {tutor.name}
+                  </Link>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                    ✓ Verified
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">
+                  {tutor.university || 'Verified University Educator'} • {tutor.district || 'Dhaka'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                  Subjects: {tutor.subjects?.join(', ') || 'General Science & Math'}
+                </p>
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-[#0D5BFF] dark:text-blue-400">
+                  Why matched: {reasons.join(' · ')}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <span className="text-xs font-extrabold text-[#0B132B] dark:text-white tabular-nums">
+                  {tutor.hourlyRate ? `৳${tutor.hourlyRate.toLocaleString()}/mo` : 'Negotiable'}
+                </span>
+                <Link
+                  to={`/tutor/${tutor.id}`}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold"
+                >
+                  View Profile
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* =====================================================================
+          TUTOR VIEW: MY APPLICATIONS TRACKER
+      ===================================================================== */}
+      {mode === 'tutor' && activeSubTab === 'my_applications' && (
+        <div className="space-y-4">
+          {myTutorApplications.length === 0 ? (
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
+              <Briefcase className="w-10 h-10 text-[#0D5BFF] mx-auto mb-3" />
+              <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white">
+                You Haven't Applied to Any Tuition Circulars Yet
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                Browse open tuition requirements or check your recommended matches to submit your first application.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('browse')}
+                className="mt-4 px-5 py-2.5 rounded-xl bg-[#0D5BFF] text-white text-xs font-bold cursor-pointer"
+              >
+                Explore Open Tuitions
+              </button>
+            </div>
+          ) : (
+            myTutorApplications.map(({ tuition, myApp }) => {
+              const stages = [
+                { key: 'submitted', label: 'Submitted' },
+                { key: 'shortlisted', label: 'Shortlisted' },
+                { key: 'trial_scheduled', label: 'Trial Scheduled' },
+                { key: 'selected', label: 'Hired / Confirmed' },
+              ];
+              const currentIdx =
+                myApp.status === 'selected'
+                  ? 3
+                  : myApp.status === 'trial_scheduled'
+                  ? 2
+                  : myApp.status === 'shortlisted'
+                  ? 1
+                  : 0;
+
+              return (
+                <div
+                  key={tuition.id}
+                  className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                        <span>{tuition.district}</span>
+                        <span>·</span>
+                        <span>{tuition.studentClass}</span>
+                        <span>·</span>
+                        <span className="tabular-nums">
+                          Proposed Honorarium: ৳{Number(myApp.proposedRate || tuition.salary).toLocaleString()}/mo
+                        </span>
+                      </div>
+                      <Link
+                        to={`/tuitions/${tuition.id}`}
+                        className="text-base font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF]"
+                      >
+                        {tuition.title}
+                      </Link>
+                    </div>
+                    <span
+                      className={`text-xs font-extrabold uppercase ${
+                        myApp.status === 'selected'
+                          ? 'text-emerald-600'
+                          : myApp.status === 'rejected'
+                          ? 'text-rose-600'
+                          : 'text-[#0D5BFF]'
+                      }`}
+                    >
+                      {myApp.status === 'selected'
+                        ? '✓ Selected / Hired'
+                        : myApp.status === 'rejected'
+                        ? 'Not Selected'
+                        : myApp.status.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  {/* Visual Application Status Timeline */}
+                  {myApp.status !== 'rejected' && (
+                    <div className="grid grid-cols-4 gap-2 pt-2">
+                      {stages.map((st, idx) => (
+                        <div
+                          key={st.key}
+                          className={`p-2.5 rounded-xl border text-center text-xs font-bold ${
+                            idx <= currentIdx
+                              ? 'border-[#0D5BFF] bg-blue-50/60 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-300'
+                              : 'border-slate-200 dark:border-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {idx + 1}. {st.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {myApp.trialDate && (
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      Scheduled Trial Class: {new Date(myApp.trialDate).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          TUTOR VIEW: RECOMMENDED OPPORTUNITIES (EXPLAINABLE MATCHING)
+      ===================================================================== */}
+      {mode === 'tutor' && activeSubTab === 'recommended' && (
+        <div className="space-y-4">
+          {recommendedTuitionsForTutor.length === 0 ? (
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
+              <Sparkles className="w-8 h-8 text-[#0D5BFF] mx-auto mb-2" />
+              <h3 className="text-base font-bold text-[#0B132B] dark:text-white">
+                Complete Your Subjects &amp; District to Unlock Personalized Matches
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                We match open tuition circulars against your listed teaching subjects, preferred classes, and district.
+              </p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {recommendedTuitionsForTutor.map(({ tuition, reasons }) => {
+                const hasApplied = tuition.applications?.some(
+                  (a) => a.tutorId === currentUser?.id
+                );
+                return (
+                  <div
+                    key={tuition.id}
+                    className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between gap-4"
+                  >
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-bold text-[#0D5BFF] dark:text-blue-400">
+                        Recommended because: {reasons.join(' · ')}
+                      </div>
+                      <Link
+                        to={`/tuitions/${tuition.id}`}
+                        className="text-base font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] block"
+                      >
+                        {tuition.title}
+                      </Link>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <span>{tuition.studentClass}</span>
+                        <span>·</span>
+                        <span>{tuition.curriculum || 'National Curriculum'}</span>
+                        <span>·</span>
+                        <span>
+                          {tuition.area ? `${tuition.area}, ` : ''}
+                          {tuition.district}
+                        </span>
+                        <span>·</span>
+                        <span className="tabular-nums">{tuition.daysPerWeek} Days/Wk</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-sm font-extrabold text-[#0D5BFF] tabular-nums">
+                        ৳{Number(tuition.salary).toLocaleString()}/mo
+                      </span>
+                      {hasApplied ? (
+                        <span className="text-xs font-bold text-emerald-600">✓ Applied</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setApplyingTuition(tuition);
+                            setProposedRate(String(tuition.salary));
+                          }}
+                          className="px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                        >
+                          Apply Now
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          BROWSE & INSTANT MULTI-FILTER TUITION JOB BOARD (TUTOR / ADMIN / PUBLIC)
+      ===================================================================== */}
+      {(mode === 'public' ||
+        mode === 'admin' ||
+        (mode === 'tutor' && activeSubTab === 'browse')) && (
+        <div className="space-y-5">
+          {/* Real-Time Search & Multi-Filter Bar */}
+          <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              <div className="lg:col-span-2 relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search subject, area, or class..."
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+
+              <select
+                aria-label="Filter Tuition by Subject"
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+              >
+                <option value="All">All Subjects</option>
+                <option value="Math">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Biology">Biology</option>
+                <option value="English">English</option>
+                <option value="ICT">ICT</option>
+                <option value="Accounting">Accounting</option>
+              </select>
+
+              <select
+                aria-label="Filter Tuition by District"
+                value={filterDistrict}
+                onChange={(e) => setFilterDistrict(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+              >
+                <option value="All">All 64 Districts</option>
+                {BANGLADESH_DISTRICTS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Filter Tuition by Mode"
+                value={filterMode}
+                onChange={(e) => setFilterMode(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+              >
+                <option value="All">Home &amp; Online</option>
+                <option value="Home">Home Tutoring</option>
+                <option value="Online">Online Tutoring</option>
+              </select>
+
+              <select
+                aria-label="Filter Tuition by Minimum Salary"
+                value={filterMinSalary}
+                onChange={(e) => setFilterMinSalary(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+              >
+                <option value="All">Any Honorarium</option>
+                <option value="4000">৳4,000+ / mo</option>
+                <option value="6000">৳6,000+ / mo</option>
+                <option value="8000">৳8,000+ / mo</option>
+                <option value="10000">৳10,000+ / mo</option>
+              </select>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/70">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSavedOnly((prev) => !prev)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 cursor-pointer ${
+                    showSavedOnly
+                      ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>Saved Circulars ({savedTuitionIds.length})</span>
+                </button>
+              </div>
+
+              {(searchQuery ||
+                filterSubject !== 'All' ||
+                filterClass !== 'All' ||
+                filterCurriculum !== 'All' ||
+                filterDistrict !== 'All' ||
+                filterMode !== 'All' ||
+                filterMinSalary !== 'All' ||
+                showSavedOnly) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterSubject('All');
+                    setFilterClass('All');
+                    setFilterCurriculum('All');
+                    setFilterDistrict('All');
+                    setFilterMode('All');
+                    setFilterMinSalary('All');
+                    setShowSavedOnly(false);
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tuition Circular Cards Grid */}
+          {loading ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={n}
+                  className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : filteredTuitions.length === 0 ? (
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
+              <BookOpen className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white">
+                No Matching Tuition Circulars Found
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Try clearing a filter or selecting a different district or subject.
+              </p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {filteredTuitions.map((t) => {
+                const isSaved = savedTuitionIds.includes(t.id);
+                const myApp = t.applications?.find((a) => a.tutorId === currentUser?.id);
+
+                return (
+                  <div
+                    key={t.id}
+                    className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between gap-4 hover:border-[#0D5BFF]/40 transition-colors"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-[#0D5BFF]">
+                            {t.mode || 'Home Tutoring'}
+                          </span>
+                          <span>·</span>
+                          <span>{t.curriculum || 'NCTB'}</span>
+                          <span>·</span>
+                          <span className="tabular-nums">
+                            {t.applications?.length || 0} applicant(s)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleSaveTuition(t.id)}
+                          aria-label="Bookmark tuition circular"
+                          className="p-1 text-slate-400 hover:text-[#0D5BFF] cursor-pointer"
+                        >
+                          <Bookmark
+                            className={`w-4 h-4 ${
+                              isSaved ? 'fill-[#0D5BFF] text-[#0D5BFF]' : ''
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <Link
+                        to={`/tuitions/${t.id}`}
+                        className="text-base font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] block leading-snug"
+                      >
+                        {t.title}
+                      </Link>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                        <span>Class: {t.studentClass}</span>
+                        <span>·</span>
+                        <span>
+                          Location: {t.area ? `${t.area}, ` : ''}
+                          {t.district}
+                        </span>
+                        <span>·</span>
+                        <span className="tabular-nums">{t.daysPerWeek} Days/Week</span>
+                      </div>
+
+                      {t.requirements && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                          {t.requirements}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Monthly Honorarium</span>
+                        <span className="text-base font-extrabold text-[#0B132B] dark:text-white tabular-nums">
+                          ৳{Number(t.salary).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/tuitions/${t.id}`}
+                          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:border-[#0D5BFF]"
+                        >
+                          Details
+                        </Link>
+
+                        {mode === 'tutor' &&
+                          (myApp ? (
+                            <span className="px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                              ✓ {myApp.status.replace('_', ' ')}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setApplyingTuition(t);
+                                setProposedRate(String(t.salary));
+                              }}
+                              className="px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Apply Now
+                            </button>
+                          ))}
+
+                        {mode === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCircular(t.id)}
+                            className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                            title="Delete Circular"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 1: TUTOR APPLICATION SUBMISSION
+      ===================================================================== */}
+      {applyingTuition && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-[#0D5BFF]">
+                  Submit Tuition Application
+                </span>
+                <h3 className="text-base sm:text-lg font-extrabold text-[#0B132B] dark:text-white mt-0.5">
+                  {applyingTuition.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApplyingTuition(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTutorSubmitApplication} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Proposed Monthly Honorarium (BDT ৳)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={1000}
+                  max={50000}
+                  value={proposedRate}
+                  onChange={(e) => setProposedRate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF] tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Introduction &amp; Relevant Teaching Experience
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={applicationNote}
+                  onChange={(e) => setApplicationNote(e.target.value)}
+                  placeholder="Briefly highlight your university department, experience with this curriculum, and availability for a trial class..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setApplyingTuition(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingApp}
+                  className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+                >
+                  {isSubmittingApp ? 'Submitting...' : 'Submit Application'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 2: STUDENT TRIAL CLASS SCHEDULER
+      ===================================================================== */}
+      {trialModalState && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-[#0D5BFF]">
+                  Schedule Demo / Trial Class
+                </span>
+                <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white mt-0.5">
+                  Trial with {trialModalState.applicant.tutorName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrialModalState(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Select Trial Class Date &amp; Time
+              </label>
+              <input
+                type="datetime-local"
+                value={trialDateTime}
+                onChange={(e) => setTrialDateTime(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setTrialModalState(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleUpdateApplicantStatus(
+                    trialModalState.tuition,
+                    trialModalState.applicant.tutorId,
+                    'trial_scheduled',
+                    trialDateTime
+                  )
+                }
+                className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+              >
+                Confirm Trial Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

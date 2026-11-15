@@ -1,6 +1,17 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, User as UserIcon, MessageSquare, Sun, Moon, Menu, X } from 'lucide-react';
+import {
+  LogOut,
+  User as UserIcon,
+  MessageSquare,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  LayoutGrid,
+  ChevronDown,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,128 +25,209 @@ const getFormattedName = (fullName: string) => {
   } else if (words.length === 2) {
     return words[0];
   }
-  return fullName;
+  return words[0] || fullName;
+};
+
+const getUserInitials = (fullName: string) => {
+  if (!fullName) return 'ET';
+  const clean = fullName.trim();
+  const words = clean.split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
 };
 
 const Navbar = memo(() => {
-  const { currentUser, logout, theme, toggleTheme } = useAppStore();
+  const { currentUser, logout, theme, toggleTheme, messages } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = currentUser
+    ? messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length
+    : 0;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
+    setProfileMenuOpen(false);
+    setMobileMenuOpen(false);
     logout();
     navigate('/');
-    setMobileMenuOpen(false);
   };
 
   const isHome = location.pathname === '/';
   const currentHash = location.hash;
-  const isActive = (hash: string) => {
-    if (!isHome) return false;
-    if (hash === '#find-tutors') {
-      return currentHash === '#find-tutors' || currentHash === '';
+
+  const handleSectionNavigation = (e: React.MouseEvent, targetHash: string) => {
+    setMobileMenuOpen(false);
+    if (isHome) {
+      e.preventDefault();
+      if (!targetHash || targetHash === '#top') {
+        window.history.replaceState(null, '', '/');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const id = targetHash.replace('#', '');
+      const el = document.getElementById(id);
+      if (el) {
+        window.history.replaceState(null, '', `/${targetHash}`);
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-    return currentHash === hash;
+  };
+
+  const isNavActive = (item: 'home' | 'find' | 'become' | 'how' | 'help') => {
+    if (item === 'become') return location.pathname === '/signup';
+    if (!isHome) return false;
+    if (item === 'home') return currentHash === '' || currentHash === '#top';
+    if (item === 'find') return currentHash === '#find-tutors';
+    if (item === 'how') return currentHash === '#how-it-works';
+    if (item === 'help') return currentHash === '#faq' || currentHash === '#safety';
+    return false;
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/70 dark:bg-[#0B132B]/80 backdrop-blur-md border-b border-slate-200/40 dark:border-slate-800/40 py-2.5 text-slate-800 dark:text-slate-100 transition-all duration-300 shadow-sm shadow-slate-100/5 dark:shadow-none">
+    <nav className="sticky top-0 z-50 bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800/70 text-[#0B132B] dark:text-slate-100 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <Link 
-              to="/" 
-              onClick={(e) => {
-                if (isHome) {
-                  e.preventDefault();
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-              }}
-              className="flex items-center space-x-1.5 group"
+        <div className="flex justify-between items-center h-16 sm:h-[72px]">
+          {/* Left: Original EduTrack Logo & Brand Title */}
+          <div className="flex items-center shrink-0">
+            <Link
+              to="/"
+              onClick={(e) => handleSectionNavigation(e, '#top')}
+              className="flex items-center space-x-2.5 group"
             >
-              <Logo className="w-8 h-8 sm:w-10 sm:h-10 group-hover:rotate-6 transition-transform duration-300" />
-              <span 
-                className="text-base sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight transition-colors flex cursor-default select-none"
-              >
-                {"EduTrack".split("").map((char, index) => (
-                  <span
-                    key={index}
-                    className="inline-block origin-bottom animate-logo-letter"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    {char}
-                  </span>
-                ))}
+              <Logo className="w-9 h-9 sm:w-10 sm:h-10 group-hover:scale-105 transition-transform duration-200 shadow-sm shadow-blue-500/15" />
+              <span className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none">
+                EduTrack
               </span>
             </Link>
           </div>
-          <div className="flex items-center space-x-1.5 sm:space-x-3">
-            {!currentUser && (
-               <div className="hidden md:flex items-center space-x-2 text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                 <Link 
-                   to="/#find-tutors" 
-                   className={`${isActive('#find-tutors') ? 'text-[#0D5BFF] bg-blue-50/70 dark:bg-blue-950/20' : 'hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/30'} px-4 py-2 rounded-xl transition-all duration-200`}
-                 >
-                   Find Tutors
-                 </Link>
-                 <Link 
-                   to="/#how-it-works" 
-                   className={`${isActive('#how-it-works') ? 'text-[#0D5BFF] bg-blue-50/70 dark:bg-blue-950/20' : 'hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/30'} px-4 py-2 rounded-xl transition-all duration-200`}
-                 >
-                   How it works
-                 </Link>
-                 <Link 
-                   to="/#safety" 
-                   className={`${isActive('#safety') ? 'text-[#0D5BFF] bg-blue-50/70 dark:bg-blue-950/20' : 'hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/30'} px-4 py-2 rounded-xl transition-all duration-200`}
-                 >
-                   Safety
-                 </Link>
-               </div>
-            )}
-            
+
+          {/* Center: Minimal, Professional Navigation Links matching Reference */}
+          <div className="hidden md:flex items-center space-x-6 lg:space-x-8 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Link
+              to="/"
+              onClick={(e) => handleSectionNavigation(e, '#top')}
+              className={`relative py-2 transition-colors duration-200 ${
+                isNavActive('home')
+                  ? 'text-[#0D5BFF] font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
+              }`}
+            >
+              Home
+              {isNavActive('home') && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0D5BFF] rounded-full" />
+              )}
+            </Link>
+
+            <Link
+              to="/#find-tutors"
+              onClick={(e) => handleSectionNavigation(e, '#find-tutors')}
+              className={`relative py-2 transition-colors duration-200 ${
+                isNavActive('find')
+                  ? 'text-[#0D5BFF] font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
+              }`}
+            >
+              Find a Tutor
+              {isNavActive('find') && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0D5BFF] rounded-full" />
+              )}
+            </Link>
+
+            <Link
+              to={currentUser?.role === 'tutor' ? '/dashboard' : '/signup?role=tutor'}
+              onMouseEnter={() => prefetchPage('Signup')}
+              className={`relative py-2 transition-colors duration-200 ${
+                isNavActive('become')
+                  ? 'text-[#0D5BFF] font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
+              }`}
+            >
+              Become a Tutor
+              {isNavActive('become') && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0D5BFF] rounded-full" />
+              )}
+            </Link>
+
+            <Link
+              to="/#how-it-works"
+              onClick={(e) => handleSectionNavigation(e, '#how-it-works')}
+              className={`relative py-2 transition-colors duration-200 ${
+                isNavActive('how')
+                  ? 'text-[#0D5BFF] font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
+              }`}
+            >
+              How It Works
+              {isNavActive('how') && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0D5BFF] rounded-full" />
+              )}
+            </Link>
+
+            <Link
+              to="/#faq"
+              onClick={(e) => handleSectionNavigation(e, '#faq')}
+              className={`relative py-2 transition-colors duration-200 ${
+                isNavActive('help')
+                  ? 'text-[#0D5BFF] font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
+              }`}
+            >
+              Help
+              {isNavActive('help') && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0D5BFF] rounded-full" />
+              )}
+            </Link>
+          </div>
+
+          {/* Right: Dashboard & User Profile Controls / Auth Actions */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer"
+              aria-label="Toggle Theme"
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-4 w-4 text-amber-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-slate-700" />
+              )}
+            </button>
+
             {currentUser ? (
-              <div className="flex items-center space-x-1.5 sm:space-x-2.5">
-                <button
-                  onClick={toggleTheme}
-                  className="p-1.5 sm:p-2 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
-                  aria-label="Toggle Theme"
-                  title="Toggle Theme"
-                >
-                  {theme === 'dark' ? (
-                    <Sun className="h-3.5 w-3.5 text-amber-500 animate-spin-slow" />
-                  ) : (
-                    <Moon className="h-3.5 w-3.5 text-[#0D5BFF]" />
-                  )}
-                </button>
-                 <Link 
-                  to="/messages" 
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Link
+                  to="/messages"
                   onMouseEnter={() => prefetchPage('Messages')}
                   onFocus={() => prefetchPage('Messages')}
-                  className="p-1.5 sm:p-2 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
+                  className="relative p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 hidden sm:flex items-center justify-center"
                   title="Messages"
                 >
-                  <MessageSquare className="h-3.5 w-3.5" />
+                  <MessageSquare className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E51275] text-white text-[9px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
-                <Link 
-                  to="/dashboard" 
-                  onMouseEnter={() => {
-                    prefetchPage('DashboardRouter');
-                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
-                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
-                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
-                  }}
-                  onFocus={() => {
-                    prefetchPage('DashboardRouter');
-                    if (currentUser?.role === 'admin') prefetchPage('AdminDashboard');
-                    if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
-                    if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
-                  }}
-                  className="text-[9px] sm:text-[11px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white hover:text-white dark:hover:text-white hover:bg-[#0D5BFF] dark:hover:bg-[#0D5BFF] bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/30 dark:border-slate-700/30 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-xl transition-all duration-200 inline-block"
-                >
-                  Dashboard
-                </Link>
-                <Link 
+
+                {/* Dashboard Button matching Reference Screenshot */}
+                <Link
                   to="/dashboard"
                   onMouseEnter={() => {
                     prefetchPage('DashboardRouter');
@@ -149,62 +241,136 @@ const Navbar = memo(() => {
                     if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
                     if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
                   }}
-                  className="flex items-center space-x-1 sm:space-x-2 text-xs text-slate-600 dark:text-slate-400 border-l border-slate-200/85 dark:border-slate-800 pl-2 sm:pl-3.5 ml-0.5 shrink-0 hover:opacity-85 transition-opacity cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] hover:text-[#0D5BFF] dark:hover:border-blue-400 transition-all shadow-2xs"
                 >
-                  <div className="p-0.5 rounded-full bg-gradient-to-tr from-[#0D5BFF] to-blue-400 overflow-hidden shadow-sm flex-shrink-0">
+                  <LayoutGrid className="w-4 h-4 text-[#0B132B] dark:text-slate-200" />
+                  <span>Dashboard</span>
+                </Link>
+
+                <div className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-slate-700" />
+
+                {/* Profile Avatar + Name Dropdown matching Reference Screenshot */}
+                <div className="relative" ref={profileDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setProfileMenuOpen((prev) => !prev)}
+                    className="flex items-center gap-2.5 py-1 px-1.5 rounded-full hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    aria-expanded={profileMenuOpen}
+                    aria-haspopup="true"
+                  >
                     {currentUser.profileImage ? (
-                      <img src={currentUser.profileImage} alt={currentUser.name} className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover border border-white dark:border-[#111A2E]" referrerPolicy="no-referrer" />
+                      <img
+                        src={currentUser.profileImage}
+                        alt={currentUser.name}
+                        className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
-                      <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full text-slate-600 dark:text-slate-300">
-                        <UserIcon className="h-4 w-4" />
+                      <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-blue-100 dark:bg-blue-950/80 text-[#0B132B] dark:text-blue-200 font-bold text-xs flex items-center justify-center border border-blue-200/70 dark:border-blue-800/60">
+                        {getUserInitials(currentUser.name)}
                       </div>
                     )}
-                  </div>
-                  <span className="font-bold text-[#0B132B] dark:text-white hidden lg:block max-w-[100px] truncate hover:text-[#0D5BFF] transition-colors">{getFormattedName(currentUser.name)}</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/30 rounded-full transition-all active:scale-95 duration-200 cursor-pointer shrink-0 hidden sm:flex"
-                  title="Logout"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                </button>
+                    <span className="font-semibold text-sm text-[#0B132B] dark:text-white hidden lg:block max-w-[110px] truncate">
+                      {getFormattedName(currentUser.name)}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 hidden sm:block" />
+                  </button>
+
+                  <AnimatePresence>
+                    {profileMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50"
+                      >
+                        <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                          <p className="text-xs font-bold text-[#0B132B] dark:text-white truncate">
+                            {currentUser.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {currentUser.email}
+                          </p>
+                          <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+                            <ShieldCheck className="w-3 h-3" />
+                            {currentUser.role === 'tutor' ? 'Tutor Account' : currentUser.role === 'admin' ? 'Administrator' : 'Student Account'}
+                          </span>
+                        </div>
+
+                        <div className="py-1">
+                          <Link
+                            to="/dashboard"
+                            onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          >
+                            <LayoutGrid className="w-4 h-4 text-[#0D5BFF]" />
+                            <span>Open Dashboard</span>
+                          </Link>
+                          <Link
+                            to={currentUser.role === 'admin' ? '/dashboard/account' : '/dashboard/profile'}
+                            onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          >
+                            <UserIcon className="w-4 h-4 text-slate-500" />
+                            <span>My Profile</span>
+                          </Link>
+                          <Link
+                            to="/messages"
+                            onClick={() => setProfileMenuOpen(false)}
+                            className="flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          >
+                            <span className="flex items-center gap-2.5">
+                              <MessageSquare className="w-4 h-4 text-slate-500" />
+                              <span>Messages</span>
+                            </span>
+                            {unreadCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-[#E51275] text-white">
+                                {unreadCount}
+                              </span>
+                            )}
+                          </Link>
+                        </div>
+
+                        <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-1.5 sm:p-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/30 dark:border-slate-700/30 ml-1"
+                  className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
                   aria-label="Toggle Mobile Menu"
                 >
-                  {mobileMenuOpen ? <X className="w-4 h-4 text-rose-500" /> : <Menu className="w-4 h-4 text-[#0D5BFF]" />}
+                  {mobileMenuOpen ? <X className="w-5 h-5 text-rose-500" /> : <Menu className="w-5 h-5 text-[#0D5BFF]" />}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-3.5">
-                <button
-                  onClick={toggleTheme}
-                  className="p-2.5 rounded-full bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all duration-300 hover:scale-105 active:scale-95 border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center cursor-pointer"
-                  aria-label="Toggle Theme"
-                  title="Toggle Theme"
-                >
-                  {theme === 'dark' ? (
-                    <Sun className="h-4 w-4 text-amber-500 animate-spin-slow" />
-                  ) : (
-                    <Moon className="h-4 w-4 text-[#0D5BFF]" />
-                  )}
-                </button>
+              <div className="flex items-center space-x-2.5 sm:space-x-3">
                 <Link
                   id="sign-in-button"
                   to="/login"
                   onMouseEnter={() => prefetchPage('Login')}
                   onFocus={() => prefetchPage('Login')}
-                  className="bg-[#0B132B] dark:bg-[#0D5BFF] text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-blue-600 transition-all duration-250 shadow-md shadow-blue-500/10 active:scale-[0.98]"
+                  className="bg-[#0D5BFF] hover:bg-blue-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.98]"
                 >
                   Sign In
                 </Link>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/50 dark:border-slate-700/50"
+                  className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
                   aria-label="Toggle Mobile Menu"
                 >
                   {mobileMenuOpen ? <X className="w-5 h-5 text-rose-500" /> : <Menu className="w-5 h-5 text-[#0D5BFF]" />}
@@ -223,73 +389,87 @@ const Navbar = memo(() => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-6 py-6 shadow-2xl"
+            className="md:hidden overflow-hidden bg-white dark:bg-[#0B132B] border-b border-slate-200 dark:border-slate-800 px-5 py-5 shadow-xl"
           >
-            <div className="flex flex-col space-y-3 font-sans">
+            <div className="flex flex-col space-y-2.5 font-sans">
+              <Link
+                to="/"
+                onClick={(e) => handleSectionNavigation(e, '#top')}
+                className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+              >
+                Home
+              </Link>
+              <Link
+                to="/#find-tutors"
+                onClick={(e) => handleSectionNavigation(e, '#find-tutors')}
+                className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+              >
+                Find a Tutor
+              </Link>
+              <Link
+                to={currentUser?.role === 'tutor' ? '/dashboard' : '/signup?role=tutor'}
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+              >
+                Become a Tutor
+              </Link>
+              <Link
+                to="/#how-it-works"
+                onClick={(e) => handleSectionNavigation(e, '#how-it-works')}
+                className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+              >
+                How It Works
+              </Link>
+              <Link
+                to="/#faq"
+                onClick={(e) => handleSectionNavigation(e, '#faq')}
+                className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+              >
+                Help
+              </Link>
+
               {!currentUser ? (
-                <>
+                <div className="pt-2 flex flex-col gap-2">
                   <Link
-                    to="/#find-tutors"
+                    to="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
+                    className="w-full text-center py-3 bg-[#0D5BFF] text-white font-bold text-sm rounded-xl shadow-sm"
                   >
-                    Find Tutors
+                    Sign In
                   </Link>
                   <Link
-                    to="/#how-it-works"
+                    to="/signup"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
+                    className="w-full text-center py-3 bg-[#0B132B] dark:bg-white text-white dark:text-[#0B132B] font-bold text-sm rounded-xl"
                   >
-                    How it works
+                    Create Account
                   </Link>
-                  <Link
-                    to="/#safety"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:border-[#0D5BFF]"
-                  >
-                    Safety
-                  </Link>
-                  <div className="pt-2 flex flex-col gap-2">
-                    <Link
-                      to="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full text-center py-3 bg-[#0D5BFF] text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md shadow-blue-500/20"
-                    >
-                      Sign In
-                    </Link>
-                    <Link
-                      to="/signup"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full text-center py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs uppercase tracking-widest rounded-2xl"
-                    >
-                      Create Account
-                    </Link>
-                  </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
                   <Link
                     to="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-3 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] font-black text-xs uppercase tracking-wider border border-[#0D5BFF]/30"
+                    className="px-4 py-2.5 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] font-bold text-sm border border-[#0D5BFF]/30 flex items-center gap-2"
                   >
-                    Go to Dashboard ({currentUser.role})
+                    <LayoutGrid className="w-4 h-4" />
+                    <span>Dashboard ({currentUser.role})</span>
                   </Link>
                   <Link
                     to="/messages"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
+                    className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 font-semibold text-sm text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800"
                   >
-                    Messages
+                    Messages {unreadCount > 0 ? `(${unreadCount})` : ''}
                   </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-xs uppercase tracking-wider border border-rose-500/20"
+                    className="w-full text-left px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-sm border border-rose-500/20"
                   >
-                    Sign Out Account
+                    Sign Out
                   </button>
-                </>
+                </div>
               )}
             </div>
           </motion.div>

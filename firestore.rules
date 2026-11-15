@@ -397,12 +397,22 @@ service cloud.firestore {
     // --- Tuition Posts & Circulars Collection ---
     match /tuitions/{tuitionId} {
       allow read: if true;
-      allow write: if isAdmin() || isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isSignedIn();
+      allow delete: if isAdmin() || (isSignedIn() && (
+        resource.data.get('studentId', '') == request.auth.uid ||
+        resource.data.get('userId', '') == request.auth.uid
+      ));
     }
 
     match /tuition_posts/{postId} {
       allow read: if true;
-      allow write: if isAdmin() || isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isSignedIn();
+      allow delete: if isAdmin() || (isSignedIn() && (
+        resource.data.get('studentId', '') == request.auth.uid ||
+        resource.data.get('userId', '') == request.auth.uid
+      ));
     }
   }
 }

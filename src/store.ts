@@ -526,6 +526,19 @@ export const useAppStore = create<AppState>((set, get) => {
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
           } catch (e) {}
+          // Reset any stale collections from a previous user before attaching new user's listeners
+          set({
+            users: [],
+            payments: [],
+            sessions: [],
+            withdrawals: [],
+            messages: [],
+            notifications: [],
+            classLogs: [],
+            homeworkAssignments: [],
+            referrals: [],
+            typingStatus: {},
+          });
           setupListeners(firebaseUser.uid, cleanedUser.role, set, get);
         }
       } catch (error) {
@@ -536,8 +549,24 @@ export const useAppStore = create<AppState>((set, get) => {
       cleanupListeners();
       try {
         localStorage.removeItem('edutrack_cached_user');
+        localStorage.removeItem('edutrack_last_gps_location');
+        localStorage.removeItem('auth_post_login_destination');
       } catch (e) {}
-      set({ currentUser: null, users: [], payments: [], messages: [], homeworkAssignments: [], isLoading: false, isInitialized: true });
+      set({
+        currentUser: null,
+        users: [],
+        payments: [],
+        sessions: [],
+        withdrawals: [],
+        messages: [],
+        notifications: [],
+        classLogs: [],
+        homeworkAssignments: [],
+        referrals: [],
+        typingStatus: {},
+        isLoading: false,
+        isInitialized: true,
+      });
     }
   });
 
@@ -1065,12 +1094,38 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     logout: async () => {
+      const prevUid = get().currentUser?.id;
       set({ isLoggingOut: true });
       cleanupListeners();
-      // Allow the UI logout transition animation to execute perfectly
-      await new Promise((resolve) => setTimeout(resolve, 1400));
-      await signOut(auth);
-      set({ isLoggingOut: false });
+      try {
+        localStorage.removeItem('edutrack_cached_user');
+        localStorage.removeItem('edutrack_last_gps_location');
+        localStorage.removeItem('auth_post_login_destination');
+        if (prevUid) {
+          localStorage.removeItem(`edutrack_offline_cache_${prevUid}`);
+        }
+      } catch (e) {}
+      // Allow the UI logout transition animation to execute smoothly
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Sign out warning:', e);
+      }
+      set({
+        currentUser: null,
+        users: [],
+        payments: [],
+        sessions: [],
+        withdrawals: [],
+        messages: [],
+        notifications: [],
+        classLogs: [],
+        homeworkAssignments: [],
+        referrals: [],
+        typingStatus: {},
+        isLoggingOut: false,
+      });
     },
 
     signup: async (userData, password, referredByCode) => {
@@ -2071,11 +2126,30 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
 
   const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
     let users = snapshot.docs.map(doc => {
-      const data = { id: doc.id, ...doc.data() } as User;
-      if (data.role === 'admin') {
-        return { ...data, name: 'ADMIN ACCOUNT', profileImage: '/admin_profile.png' };
+      const raw = { id: doc.id, ...doc.data() } as User;
+      if (raw.role === 'admin') {
+        return {
+          id: raw.id,
+          name: 'ADMIN ACCOUNT',
+          email: raw.email,
+          role: 'admin',
+          profileImage: '/admin_profile.png',
+          isVerified: true,
+        } as User;
       }
-      return data;
+      // Strip private identity documents and financial balances of other users for non-admin roles
+      if (role !== 'admin' && raw.id !== uid) {
+        const sanitized = { ...raw };
+        delete sanitized.nidNumber;
+        delete sanitized.nidFrontImg;
+        delete sanitized.nidBackImg;
+        delete sanitized.documents;
+        delete sanitized.balance;
+        delete sanitized.fcmToken;
+        delete (sanitized as any).password;
+        return sanitized;
+      }
+      return raw;
     });
     if (role !== 'admin') {
       users = users.filter(user => !user.isBlocked);

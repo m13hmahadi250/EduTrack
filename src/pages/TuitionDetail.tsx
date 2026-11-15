@@ -20,11 +20,12 @@ import {
   Check
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface TuitionData {
   id: string;
+  studentId?: string;
   title: string;
   subject: string;
   studentClass: string;
@@ -36,6 +37,15 @@ interface TuitionData {
   requirements?: string;
   status?: string;
   createdAt?: string;
+  applications?: Array<{
+    tutorId: string;
+    tutorName: string;
+    tutorInstitution?: string;
+    proposedRate?: number;
+    message: string;
+    status: string;
+    createdAt: string;
+  }>;
 }
 
 // Fallback seed directory data matching sitemap entries
@@ -129,10 +139,15 @@ const SEED_DIRECTORY: Record<string, TuitionData> = {
 export default function TuitionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAppStore();
+  const { currentUser, sendNotification } = useAppStore();
   const [tuition, setTuition] = useState<TuitionData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
+  const [applyModalOpen, setApplyModalOpen] = useState<boolean>(false);
+  const [applyMessage, setApplyMessage] = useState<string>('');
+  const [proposedRate, setProposedRate] = useState<string>('');
+  const [submittingApp, setSubmittingApp] = useState<boolean>(false);
+  const [appStatusMsg, setAppStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     async function loadTuition() {
@@ -156,6 +171,7 @@ export default function TuitionDetail() {
           const data = snap.data();
           setTuition({
             id: snap.id,
+            studentId: data.studentId,
             title: data.title || `${data.subject} Tuition in ${data.district}`,
             subject: data.subject || 'Academic Subjects',
             studentClass: data.studentClass || 'Standard Class',
@@ -166,7 +182,8 @@ export default function TuitionDetail() {
             genderPreference: data.genderPreference,
             requirements: data.requirements || data.notes,
             status: data.status || 'active',
-            createdAt: data.createdAt
+            createdAt: data.createdAt,
+            applications: data.applications || []
           });
           setLoading(false);
           return;
@@ -179,6 +196,7 @@ export default function TuitionDetail() {
           const data = postSnap.data();
           setTuition({
             id: postSnap.id,
+            studentId: data.studentId,
             title: data.title || `${data.subject} Tuition in ${data.district}`,
             subject: data.subject || 'Academic Subjects',
             studentClass: data.studentClass || 'Standard Class',
@@ -189,7 +207,8 @@ export default function TuitionDetail() {
             genderPreference: data.genderPreference,
             requirements: data.requirements || data.notes,
             status: data.status || 'active',
-            createdAt: data.createdAt
+            createdAt: data.createdAt,
+            applications: data.applications || []
           });
           setLoading(false);
           return;
@@ -234,9 +253,98 @@ export default function TuitionDetail() {
     if (!currentUser) {
       navigate('/signup?role=tutor');
     } else if (currentUser.role === 'tutor') {
-      navigate('/dashboard/tutor');
+      setProposedRate(String(tuition?.salary || currentUser.hourlyRate || 7000));
+      setApplyModalOpen(true);
     } else {
-      navigate('/dashboard/student');
+      navigate('/dashboard');
+    }
+  };
+
+  const handleSubmitApplication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tuition || !currentUser) return;
+    setSubmittingApp(true);
+    setAppStatusMsg(null);
+    try {
+      const newApp = {
+        tutorId: currentUser.id,
+        tutorName: currentUser.name,
+        tutorUniversity: currentUser.university || '',
+        proposedRate: Number(proposedRate) || tuition.salary || 0,
+        message: applyMessage.trim(),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+
+      if (!SEED_DIRECTORY[tuition.id]) {
+        const docRef = doc(db, 'tuitions', tuition.id);
+        await updateDoc(docRef, {
+          applications: arrayUnion(newApp),
+        }).catch(async () => {
+          const postRef = doc(db, 'tuition_posts', tuition.id);
+          await updateDoc(postRef, {
+            applications: arrayUnion(newApp),
+          });
+        });
+      }
+
+      if (tuition.studentId) {
+        sendNotification(
+          tuition.studentId,
+          'New Tutor Application',
+          `${currentUser.name} applied for your "${tuition.title}" tuition circular.`,
+          'info'
+        ).catch(() => {});
+      }
+
+      setTuition((prev) =>
+        prev
+          ? {
+              ...prev,
+              applications: [...(prev.applications || []), newApp],
+            }
+          : prev
+      );
+
+      setAppStatusMsg({
+        type: 'success',
+        text: 'Your application has been submitted! The guardian will review your verified profile and contact you.',
+      });
+      setTimeout(() => {
+        setApplyModalOpen(false);
+      }, 1800);
+    } catch (err: any) {
+      setAppStatusMsg({
+        type: 'error',
+        text: err.message || 'Could not submit application. Please try again.',
+      });
+    } finally {
+      setSubmittingApp(false);
+    }
+  };
+
+  const handleSelectTutorForTuition = async (tuitionId: string, targetTutorId: string) => {
+    if (!tuition) return;
+    try {
+      const updatedApps = (tuition.applications || []).map((app) =>
+        app.tutorId === targetTutorId ? { ...app, status: 'selected' } : app
+      );
+      if (!SEED_DIRECTORY[tuitionId]) {
+        const docRef = doc(db, 'tuitions', tuitionId);
+        await updateDoc(docRef, { applications: updatedApps, status: 'assigned' }).catch(async () => {
+          const postRef = doc(db, 'tuition_posts', tuitionId);
+          await updateDoc(postRef, { applications: updatedApps, status: 'assigned' });
+        });
+      }
+      sendNotification(
+        targetTutorId,
+        'Tuition Application Selected!',
+        `Your application for "${tuition.title}" has been selected by the guardian.`,
+        'success'
+      ).catch(() => {});
+      setTuition((prev) => (prev ? { ...prev, applications: updatedApps, status: 'assigned' } : prev));
+    } catch (err) {
+      console.error('Error selecting tutor for tuition:', err);
     }
   };
 
@@ -480,28 +588,141 @@ export default function TuitionDetail() {
             <button
               type="button"
               onClick={handleApply}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#0D5BFF] hover:bg-blue-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all cursor-pointer"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-semibold tracking-wide shadow-sm transition-colors cursor-pointer"
             >
-              Apply as Tutor →
+              {currentUser?.role === 'tutor' ? 'Submit Tutor Application →' : 'Apply as Tutor →'}
             </button>
           </div>
         </div>
 
+        {/* Guardian Applicant Review Section (visible to posting guardian or admin) */}
+        {tuition.applications && tuition.applications.length > 0 && (currentUser?.id === tuition.studentId || currentUser?.role === 'admin') && (
+          <div className="bg-white dark:bg-[#111A2E] rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs mb-8">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">
+              Tutor Applications ({tuition.applications.length})
+            </h3>
+            <div className="space-y-3">
+              {tuition.applications.map((app: any) => (
+                <div key={app.tutorId} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Link to={`/teachers/${app.tutorId}`} className="text-sm font-bold text-[#0D5BFF] hover:underline">
+                        {app.tutorName}
+                      </Link>
+                      {app.tutorUniversity && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">• {app.tutorUniversity}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{app.message}</p>
+                    <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mt-1 tabular-nums">
+                      Proposed Remuneration: ৳{Number(app.proposedRate || tuition.salary || 0).toLocaleString()}/month
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {app.status === 'selected' ? (
+                      <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+                        Selected & Scheduled
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTutorForTuition(tuition.id, app.tutorId)}
+                        className="px-4 py-2 rounded-lg bg-[#0B132B] dark:bg-[#0D5BFF] text-white text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        Select Tutor
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Student/Parent Notice */}
-        <div className="bg-blue-50/60 dark:bg-blue-950/20 rounded-3xl p-6 border border-blue-100 dark:border-blue-900/40 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-blue-50/60 dark:bg-blue-950/20 rounded-2xl p-6 border border-blue-100 dark:border-blue-900/40 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase">Looking for a tutor for your own child?</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-              Create a free student profile and choose verified tutors from BUET, DU, Medical, and English Medium backgrounds.
+            <h3 className="text-sm font-bold text-[#0B132B] dark:text-white">Looking for a tutor for your child?</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              Create a free guardian profile and browse verified tutors from BUET, DU, Medical, and English Medium backgrounds.
             </p>
           </div>
           <Link
             to="/signup?role=student"
-            className="shrink-0 px-6 py-2.5 rounded-xl bg-white dark:bg-[#1E293B] text-[#0D5BFF] dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-xs font-black uppercase tracking-wider hover:shadow transition-all"
+            className="shrink-0 px-5 py-2.5 rounded-xl bg-white dark:bg-[#1E293B] text-[#0D5BFF] dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-xs font-semibold hover:shadow-xs transition-all"
           >
-            Post Tuition Free
+            Register as Guardian
           </Link>
         </div>
+
+        {/* Tutor Application Modal */}
+        {applyModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <div className="w-full max-w-md bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xl">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Apply for Tuition Circular
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {tuition.title} • {tuition.district}
+              </p>
+
+              {appStatusMsg && (
+                <div className={`mt-4 p-3 rounded-xl text-xs font-medium border ${
+                  appStatusMsg.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                }`}>
+                  {appStatusMsg.text}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitApplication} className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Proposed Monthly Remuneration (BDT)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1000}
+                    value={proposedRate}
+                    onChange={(e) => setProposedRate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Short Note to Guardian / Student
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={applyMessage}
+                    onChange={(e) => setApplyMessage(e.target.value)}
+                    placeholder="Briefly highlight your relevant teaching experience, university department, and availability..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setApplyModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingApp}
+                    className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50 cursor-pointer"
+                  >
+                    {submittingApp ? 'Submitting...' : 'Confirm Application'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </main>
     </div>

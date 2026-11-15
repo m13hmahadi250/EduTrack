@@ -1,38 +1,30 @@
 // Service Worker for EduTrack Web Notifications & Offline Caching Strategy
-const CACHE_NAME = 'edutrack-app-v3';
-const DYNAMIC_CACHE = 'edutrack-dynamic-v1';
+const CACHE_NAME = 'edutrack-app-v4';
+const DYNAMIC_CACHE = 'edutrack-dynamic-v4';
 
 // Core app assets to pre-cache on install
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/logo.svg',
-  '/favicon.ico',
-  '/sw.js'
+  '/favicon.ico'
 ];
 
-// Install Event - Pre-cache core app shell
+// Install Event - Pre-cache core static assets and activate immediately
 self.addEventListener('install', (event) => {
-  console.log('[SW] Service Worker installing & caching app shell...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW] Pre-cache partial warning:', err);
-      });
+      return cache.addAll(PRECACHE_ASSETS).catch(() => {});
     }).then(() => self.skipWaiting())
   );
 });
 
-// Activate Event - Clean up old caches
+// Activate Event - Purge all outdated caches (including poisoned v1/v3 script caches)
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Service Worker activating...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME && cache !== DYNAMIC_CACHE) {
-            console.log('[SW] Purging outdated cache:', cache);
             return caches.delete(cache);
           }
         })
@@ -41,17 +33,29 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event - Advanced Offline Caching Strategy
+// Fetch Event - Network-First for code/navigation, Stale-While-Revalidate for static media
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests or browser extension/chrome-extension requests
+  // Skip non-GET requests or non-HTTP(S) requests
   if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
     return;
   }
 
-  // 1. SPA Navigation requests (HTML / page routes like /messages or /dashboard)
+  // Never intercept Vite dev modules, pre-bundled deps, HMR endpoints, or API calls
+  if (
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/api/') ||
+    url.searchParams.has('v') ||
+    url.searchParams.has('t')
+  ) {
+    return;
+  }
+
+  // 1. SPA Navigation requests (Network-First with offline fallback)
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
@@ -63,7 +67,6 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Serve cached page response or fall back to index.html
           return caches.match(request).then((cachedResponse) => {
             return cachedResponse || caches.match('/index.html') || caches.match('/');
           });
@@ -72,13 +75,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Static Assets (JS, CSS, Images, Fonts, SVG, JSON) - Stale-While-Revalidate
+  // 2. Production JS & CSS bundles - Network-First so updated builds never mix chunk versions
   if (
     request.destination === 'script' ||
     request.destination === 'style' ||
+    url.pathname.match(/\.(js|css)$/)
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // 3. Static Media (Images, Fonts, Icons) - Stale-While-Revalidate
+  if (
     request.destination === 'image' ||
     request.destination === 'font' ||
-    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|json|woff2?)$/)
+    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/)
   ) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -95,23 +116,7 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse || fetchPromise;
       })
     );
-    return;
   }
-
-  // 3. API or Data Requests - Network First with Cache Fallback
-  event.respondWith(
-    fetch(request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && !url.pathname.includes('/api/health')) {
-          const copy = networkResponse.clone();
-          caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
-        }
-        return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(request);
-      })
-  );
 });
 
 // Handle custom push notifications if push services are configured
@@ -143,7 +148,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Handle notification click events (e.g., focus on the browser, trigger actions, or navigate)
+// Handle notification click events
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 

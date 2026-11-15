@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, RotateCcw, MailCheck } from 'lucide-react';
+import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, RotateCcw } from 'lucide-react';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
@@ -16,6 +16,9 @@ interface OtpVerificationModalProps {
   onResend: () => Promise<void>;
 }
 
+const OTP_LENGTH = 6;
+const EMPTY_DIGITS = ['', '', '', '', '', ''];
+
 export default function OtpVerificationModal({
   isOpen,
   email,
@@ -29,7 +32,7 @@ export default function OtpVerificationModal({
   onComplete,
   onResend,
 }: OtpVerificationModalProps) {
-  const [digits, setDigits] = useState<string[]>(['', '', '', '']);
+  const [digits, setDigits] = useState<string[]>(EMPTY_DIGITS);
   const [isVerified, setIsVerified] = useState(false);
   const [localError, setLocalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,11 +46,11 @@ export default function OtpVerificationModal({
   // Focus first input and reset 5-minute countdown on modal open
   useEffect(() => {
     if (isOpen && !isVerified) {
-      setDigits(['', '', '', '']);
+      setDigits([...EMPTY_DIGITS]);
       setLocalError('');
       setIsSubmitting(false);
       setIsShaking(false);
-      setExpirySeconds(300); // Strictly 5 minutes (300s)
+      setExpirySeconds(300);
       const timer = setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
@@ -65,8 +68,8 @@ export default function OtpVerificationModal({
       setExpirySeconds((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh OTP.');
-          setDigits(['', '', '', '']);
+          setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a new 6-digit OTP.');
+          setDigits([...EMPTY_DIGITS]);
           return 0;
         }
         return prev - 1;
@@ -79,7 +82,7 @@ export default function OtpVerificationModal({
   useEffect(() => {
     if (errorMsg) {
       setLocalError(errorMsg);
-      setDigits(['', '', '', '']);
+      setDigits([...EMPTY_DIGITS]);
       setIsShaking(true);
       const shakeTimer = setTimeout(() => setIsShaking(false), 600);
       const focusTimer = setTimeout(() => {
@@ -95,7 +98,7 @@ export default function OtpVerificationModal({
     }
   }, [errorMsg]);
 
-  // Auto-proceed to dashboard 3.5s after showing approved animation if user doesn't click
+  // Auto-proceed to dashboard 2.5s after showing approved animation if user doesn't click
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isVerified) {
@@ -105,7 +108,7 @@ export default function OtpVerificationModal({
         } else {
           onClose();
         }
-      }, 3500);
+      }, 2500);
     }
     return () => clearTimeout(timer);
   }, [isVerified, onComplete, onClose]);
@@ -114,19 +117,19 @@ export default function OtpVerificationModal({
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text');
-    const cleanDigits = pasted.replace(/\D/g, '').slice(0, 4).split('');
+    const cleanDigits = pasted.replace(/\D/g, '').slice(0, OTP_LENGTH).split('');
     if (cleanDigits.length > 0) {
       setLocalError('');
-      const newDigits = ['', '', '', ''];
+      const newDigits = [...EMPTY_DIGITS];
       cleanDigits.forEach((d, i) => {
-        if (i < 4) newDigits[i] = d;
+        if (i < OTP_LENGTH) newDigits[i] = d;
       });
       setDigits(newDigits);
-      const nextIndex = Math.min(cleanDigits.length - 1, 3);
+      const nextIndex = Math.min(cleanDigits.length - 1, OTP_LENGTH - 1);
       if (digitInputRefs.current[nextIndex]) {
         digitInputRefs.current[nextIndex]?.focus();
       }
-      if (cleanDigits.length === 4) {
+      if (cleanDigits.length === OTP_LENGTH) {
         triggerVerification(newDigits.join(''));
       }
     }
@@ -138,15 +141,15 @@ export default function OtpVerificationModal({
 
     // Handle multi-character paste or browser autofill in onChange
     if (clean.length > 1) {
-      const cleanDigits = clean.slice(0, 4).split('');
+      const cleanDigits = clean.slice(0, OTP_LENGTH).split('');
       const newDigits = [...digits];
       cleanDigits.forEach((d, i) => {
-        if (index + i < 4) {
+        if (index + i < OTP_LENGTH) {
           newDigits[index + i] = d;
         }
       });
       setDigits(newDigits);
-      const nextIdx = Math.min(index + cleanDigits.length - 1, 3);
+      const nextIdx = Math.min(index + cleanDigits.length - 1, OTP_LENGTH - 1);
       digitInputRefs.current[nextIdx]?.focus();
       if (newDigits.every(d => d !== '')) {
         triggerVerification(newDigits.join(''));
@@ -154,18 +157,18 @@ export default function OtpVerificationModal({
       return;
     }
 
-    const singleDigit = clean.slice(-1); // Take latest single digit
+    const singleDigit = clean.slice(-1);
     const newDigits = [...digits];
     newDigits[index] = singleDigit;
     setDigits(newDigits);
 
     // Auto-focus next input field
-    if (singleDigit && index < 3) {
+    if (singleDigit && index < OTP_LENGTH - 1) {
       digitInputRefs.current[index + 1]?.focus();
       digitInputRefs.current[index + 1]?.select();
     }
 
-    // Auto-trigger verification when all 4 digits are completed
+    // Auto-trigger verification when all 6 digits are completed
     if (newDigits.every(d => d !== '')) {
       triggerVerification(newDigits.join(''));
     }
@@ -186,7 +189,7 @@ export default function OtpVerificationModal({
       e.preventDefault();
       digitInputRefs.current[index - 1]?.focus();
       digitInputRefs.current[index - 1]?.select();
-    } else if (e.key === 'ArrowRight' && index < 3) {
+    } else if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
       e.preventDefault();
       digitInputRefs.current[index + 1]?.focus();
       digitInputRefs.current[index + 1]?.select();
@@ -194,13 +197,13 @@ export default function OtpVerificationModal({
   };
 
   const triggerVerification = async (codeStr: string) => {
-    if (codeStr.length !== 4) {
-      setLocalError('Please enter all 4 digits of the verification code.');
+    if (codeStr.length !== OTP_LENGTH) {
+      setLocalError(`Please enter all ${OTP_LENGTH} digits of the verification code.`);
       return;
     }
     if (expirySeconds === 0) {
       setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh OTP.');
-      setDigits(['', '', '', '']);
+      setDigits([...EMPTY_DIGITS]);
       return;
     }
     if (isSubmitting) return;
@@ -209,21 +212,14 @@ export default function OtpVerificationModal({
       setIsSubmitting(true);
       setLocalError('');
 
-      // Verify OTP with backend & complete signup immediately
       await onVerify(codeStr);
-
-      // Show Approved Verdict Celebration!
       setIsVerified(true);
     } catch (err: any) {
       const errorMessage = err.message || 'Incorrect verification code. Please check your inbox and try again.';
       setLocalError(errorMessage);
-      
-      // Blank the input boxes and trigger haptic shake on incorrect code
-      setDigits(['', '', '', '']);
+      setDigits([...EMPTY_DIGITS]);
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 600);
-      
-      // Automatically refocus back to slot 0
       setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
@@ -237,8 +233,8 @@ export default function OtpVerificationModal({
 
   const handleInternalResend = async () => {
     setLocalError('');
-    setDigits(['', '', '', '']);
-    setExpirySeconds(300); // Reset to full 5 minutes
+    setDigits([...EMPTY_DIGITS]);
+    setExpirySeconds(300);
     await onResend();
     setTimeout(() => {
       if (digitInputRefs.current[0]) {
@@ -252,8 +248,8 @@ export default function OtpVerificationModal({
     const parts = str.split('@');
     if (parts.length < 2) return str;
     const name = parts[0];
-    const maskedName = name.length > 2 
-      ? name.slice(0, 2) + '•'.repeat(Math.min(4, name.length - 2)) 
+    const maskedName = name.length > 2
+      ? name.slice(0, 2) + '•'.repeat(Math.min(4, name.length - 2))
       : name;
     return `${maskedName}@${parts[1]}`;
   };
@@ -266,39 +262,32 @@ export default function OtpVerificationModal({
 
   if (!isOpen) return null;
 
-  // Particle positions for celebration confetti
-  const particles = [
-    { id: 1, x: -60, delay: 0 },
-    { id: 2, x: 50, delay: 0.1 },
-    { id: 3, x: -30, delay: 0.2 },
-    { id: 4, x: 70, delay: 0.15 },
-    { id: 5, x: -80, delay: 0.25 },
-    { id: 6, x: 20, delay: 0.05 },
-    { id: 7, x: -45, delay: 0.3 },
-    { id: 8, x: 85, delay: 0.2 },
-  ];
-
   const activeError = errorMsg || localError;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="otp-modal-title"
+      >
         <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 16 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: 16 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="relative w-full max-w-md bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl shadow-blue-500/10 text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="relative w-full max-w-md bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
         >
-          {/* EduTrack Primary Brand Gradient Accent Line */}
-          <div className="h-1.5 w-full bg-linear-to-r from-[#0D5BFF] via-blue-500 to-indigo-600" />
+          {/* Top Accent Line */}
+          <div className="h-1 w-full bg-[#0D5BFF]" />
 
           {/* Close Button */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer z-20"
-            title="Close"
+            className="absolute top-4 right-4 w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer z-20"
+            aria-label="Close verification dialog"
           >
             <X className="w-4 h-4" />
           </button>
@@ -307,17 +296,17 @@ export default function OtpVerificationModal({
           <div className="px-6 pt-6 pb-2 text-center relative z-10">
             {!isVerified ? (
               <>
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-mono font-semibold uppercase tracking-wider mb-3">
                   <ShieldCheck className="w-3.5 h-3.5 text-[#0D5BFF] dark:text-blue-400" />
-                  <span>EDUTRACK BD • EMAIL VERIFICATION</span>
+                  <span>Email Security Verification</span>
                 </div>
 
-                <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                  Enter Verification Code
+                <h2 id="otp-modal-title" className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Enter 6-Digit Verification Code
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                  We've sent a 4-digit security code to your email{' '}
-                  <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-bold block mt-1 bg-blue-50/80 dark:bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800/50 w-fit mx-auto text-xs sm:text-sm">
+                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  We sent a one-time security code to your email address:
+                  <span className="font-mono text-[#0D5BFF] dark:text-blue-400 font-semibold block mt-1 bg-slate-50 dark:bg-slate-900 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-800 w-fit mx-auto text-xs sm:text-sm">
                     {maskEmail(email)}
                   </span>
                 </p>
@@ -326,17 +315,17 @@ export default function OtpVerificationModal({
                 <div className="mt-3 flex items-center justify-center">
                   {expirySeconds > 0 ? (
                     <div
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-mono font-semibold transition-colors tabular-nums ${
                         expirySeconds <= 60
-                          ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 animate-pulse'
-                          : 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-400'
+                          ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                          : 'bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Valid for {formatExpiryTime(expirySeconds)}</span>
+                      <span>Expires in {formatExpiryTime(expirySeconds)}</span>
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-mono font-bold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-mono font-semibold">
                       <AlertCircle className="w-3.5 h-3.5" />
                       <span>Code expired</span>
                     </div>
@@ -345,15 +334,15 @@ export default function OtpVerificationModal({
               </>
             ) : (
               <>
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-[11px] font-mono font-semibold uppercase tracking-wider mb-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>IDENTITY VERIFIED</span>
+                  <span>Identity Verified</span>
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Email Confirmed!
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Email Confirmed
                 </h2>
                 <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                  Your account has been securely authenticated. Redirecting...
+                  Your account has been verified. Redirecting to your workspace...
                 </p>
               </>
             )}
@@ -361,55 +350,43 @@ export default function OtpVerificationModal({
 
           {/* Main Body */}
           <div className="px-6 pb-7 space-y-4">
-
-            {/* Error / Warning Alert Banner */}
+            {/* Error Alert Banner */}
             {activeError && !isVerified && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-2xl text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5 shadow-md"
+              <div
+                role="alert"
+                className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5"
               >
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <div className="font-bold uppercase tracking-wider text-[10px] text-rose-800 dark:text-rose-200">
+                  <div className="font-semibold text-rose-800 dark:text-rose-200">
                     Verification Error
                   </div>
-                  <div className="font-semibold leading-relaxed mt-0.5">{activeError}</div>
-                  <div className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-1 font-mono">
-                    Please check your email and re-enter the 4-digit code.
-                  </div>
+                  <div className="mt-0.5 leading-relaxed">{activeError}</div>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Success / Resend Notice */}
             {successMsg && !activeError && !isVerified && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2"
-              >
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span className="font-medium">{successMsg}</span>
-              </motion.div>
+              </div>
             )}
 
             {/* IP Notice if any */}
             {ipNoticeMsg && !isVerified && (
-              <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-2xl text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2 shadow-xs">
+              <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-xl text-xs text-sky-800 dark:text-sky-300 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                 <span className="leading-snug font-medium">{ipNoticeMsg}</span>
               </div>
             )}
 
-            {/* INPUT STAGE OR APPROVED VERDICT STATE */}
             {!isVerified ? (
               <div className="py-2 flex flex-col items-center justify-center">
-
-                {/* 4 DIGIT SLOTS WITH MODERN AUTO-FOCUS & SMOOTH KEYBOARD HANDLING */}
-                <div 
-                  className={`flex items-center justify-center gap-3 sm:gap-4 my-4 ${
+                {/* 6 DIGIT SLOTS */}
+                <div
+                  className={`grid grid-cols-6 gap-2 sm:gap-2.5 w-full max-w-[340px] my-3 ${
                     isShaking ? 'animate-[shake_0.5s_cubic-bezier(.36,.07,.19,.97)_both]' : ''
                   }`}
                 >
@@ -418,15 +395,14 @@ export default function OtpVerificationModal({
                     const hasError = Boolean(activeError);
 
                     return (
-                      <motion.div
+                      <div
                         key={idx}
-                        whileTap={{ scale: 0.96 }}
-                        className={`relative w-14 h-16 sm:w-16 sm:h-18 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-text select-none ${
+                        className={`relative h-13 sm:h-14 rounded-xl flex items-center justify-center transition-all duration-150 cursor-text select-none ${
                           hasError
-                            ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)]'
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200'
                             : isFilled
-                            ? 'bg-blue-50/80 dark:bg-blue-950/60 border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-400 shadow-[0_0_20px_rgba(13,91,255,0.25)]'
-                            : 'bg-slate-50 dark:bg-[#152238] border-2 border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-[#0D5BFF] focus-within:bg-blue-50/40 dark:focus-within:bg-blue-950/40 focus-within:ring-4 focus-within:ring-blue-500/20'
+                            ? 'bg-blue-50/80 dark:bg-blue-950/60 border-2 border-[#0D5BFF] text-[#0D5BFF] dark:text-blue-400'
+                            : 'bg-slate-50 dark:bg-[#152238] border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus-within:border-[#0D5BFF] focus-within:ring-2 focus-within:ring-[#0D5BFF]/20'
                         }`}
                         onClick={() => {
                           digitInputRefs.current[idx]?.focus();
@@ -438,8 +414,10 @@ export default function OtpVerificationModal({
                           inputMode="numeric"
                           pattern="[0-9]*"
                           maxLength={1}
-                          autoComplete={idx === 0 ? "one-time-code" : "off"}
-                          ref={(el) => { digitInputRefs.current[idx] = el; }}
+                          autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                          ref={(el) => {
+                            digitInputRefs.current[idx] = el;
+                          }}
                           value={digit}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -449,11 +427,11 @@ export default function OtpVerificationModal({
                             e.target.select();
                           }}
                           disabled={isSubmitting || expirySeconds === 0}
-                          placeholder={expirySeconds === 0 ? "—" : "•"}
-                          className="w-full h-full text-center font-mono font-extrabold text-2xl sm:text-3xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text"
-                          aria-label={`Digit ${idx + 1}`}
+                          placeholder={expirySeconds === 0 ? '—' : '•'}
+                          className="w-full h-full text-center font-mono font-bold text-xl sm:text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text tabular-nums"
+                          aria-label={`Verification code digit ${idx + 1} of ${OTP_LENGTH}`}
                         />
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
@@ -464,12 +442,12 @@ export default function OtpVerificationModal({
                     type="button"
                     onClick={() => triggerVerification(digits.join(''))}
                     disabled={digits.some(d => !d) || isSubmitting || loading || expirySeconds === 0}
-                    className="w-full py-4 px-5 rounded-2xl bg-[#0D5BFF] hover:bg-[#0047E1] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-bold text-sm tracking-wide transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full min-h-[46px] py-3 px-5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isSubmitting || loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Verifying Security Code...</span>
+                        <span>Verifying Code...</span>
                       </>
                     ) : expirySeconds === 0 ? (
                       <>
@@ -484,71 +462,20 @@ export default function OtpVerificationModal({
                     )}
                   </button>
                 </div>
-
               </div>
             ) : (
-              /* STAGE: VERIFICATION APPROVED CELEBRATION ANIMATION */
-              <motion.div
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-                className="py-4 text-center space-y-6 relative"
-              >
-                {/* Floating Confetti Sparks */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  {particles.map((p) => (
-                    <motion.div
-                      key={p.id}
-                      initial={{ y: 20, opacity: 1, x: 0, scale: 0.8 }}
-                      animate={{ y: -90, opacity: 0, x: p.x, scale: 1.2 }}
-                      transition={{ duration: 1.6, delay: p.delay, ease: 'easeOut' }}
-                      className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
-                    />
-                  ))}
+              /* VERIFICATION APPROVED STATE */
+              <div className="py-4 text-center space-y-5">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Check className="w-8 h-8 stroke-[2.5]" />
                 </div>
 
-                {/* Central Emerald Squircle Node with Pulsing Glow & Check Drawing */}
-                <div className="relative w-24 h-24 mx-auto flex items-center justify-center pt-2">
-                  <div className="absolute inset-0 bg-emerald-500/25 dark:bg-emerald-500/35 rounded-3xl blur-2xl animate-pulse" />
-                  <div className="absolute inset-0 bg-emerald-400/20 rounded-3xl animate-ping" style={{ animationDuration: '3s' }} />
-
-                  <motion.div
-                    initial={{ scale: 0.4, rotate: -25 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 350, damping: 18 }}
-                    className="relative w-22 h-22 rounded-[24px] bg-slate-900 dark:bg-[#0A1D16] border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.5)]"
-                  >
-                    <svg
-                      className="w-11 h-11 stroke-emerald-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <motion.path
-                        d="M20 6L9 17l-5-5"
-                        initial={{ pathLength: 0, opacity: 0 }}
-                        animate={{ pathLength: 1, opacity: 1 }}
-                        transition={{ duration: 0.55, delay: 0.2, ease: "easeOut" }}
-                      />
-                    </svg>
-                  </motion.div>
+                <div className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Verified & Encrypted Session</span>
                 </div>
 
-                {/* Lock Badge: Verified and secure */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-xs"
-                >
-                  <Lock className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span>Verified and Secure Session</span>
-                </motion.div>
-
-                {/* Continue Action Button */}
-                <motion.button
+                <button
                   type="button"
                   onClick={() => {
                     if (onComplete) {
@@ -557,27 +484,24 @@ export default function OtpVerificationModal({
                       onClose();
                     }
                   }}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="w-full py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base tracking-wide transition-all shadow-[0_0_30px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
+                  className="w-full min-h-[46px] py-3 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>Continue to Dashboard</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </motion.button>
-              </motion.div>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             )}
 
             {/* Resend Link */}
             {!isVerified && (
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium flex items-center justify-center gap-2">
-                  <span>Didn't receive the code or expired?</span>
+              <div className="text-center pt-1">
+                <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2">
+                  <span>Didn't receive the code?</span>
                   <button
                     type="button"
                     onClick={handleInternalResend}
                     disabled={resendTimer > 0 || loading || isSubmitting}
-                    className={`font-mono font-bold transition-colors inline-flex items-center gap-1 ${
+                    className={`font-mono font-semibold transition-colors inline-flex items-center gap-1 tabular-nums ${
                       resendTimer > 0 || loading || isSubmitting
                         ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
                         : 'text-[#0D5BFF] dark:text-blue-400 hover:underline cursor-pointer'
@@ -590,13 +514,11 @@ export default function OtpVerificationModal({
               </div>
             )}
 
-            {/* Footnote */}
             {!isVerified && (
-              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center leading-normal pt-1">
-                For security reasons, never share your verification code with anyone.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-normal pt-1">
+                Never share your verification code with anyone. EduTrack staff will never ask for this code.
               </p>
             )}
-
           </div>
         </motion.div>
       </div>
