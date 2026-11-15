@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePersistentInput } from '../hooks/usePersistentInput';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function Messages() {
   const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
@@ -27,6 +28,12 @@ export default function Messages() {
   const [inputText, setInputText] = usePersistentInput(draftKey, '');
   const [searchTerm, setSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useBackHandler(
+    Boolean(selectedUserId) && typeof window !== 'undefined' && window.innerWidth < 1024,
+    () => setSelectedUserId(null),
+    'messages-active-thread'
+  );
 
   useEffect(() => {
     if (targetTId) {
@@ -146,24 +153,24 @@ export default function Messages() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)]">
-      <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-100 shadow-sm h-full flex overflow-hidden">
+    <div className="h-[calc(100dvh-9.5rem)] lg:h-[calc(100dvh-6rem)] min-h-[420px]">
+      <div className="bg-white dark:bg-[#111A2E] rounded-[1.75rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-slate-200/80 dark:border-slate-800 shadow-sm h-full flex overflow-hidden">
         
         {/* Sidebar / List */}
-        <div className={`w-full lg:w-[380px] border-r border-slate-50 flex flex-col bg-slate-50/20 ${selectedUserId ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="p-6 sm:p-10 pb-4 sm:pb-6">
-            <h2 className="text-xl sm:text-3xl font-black text-[#0B132B] uppercase italic mb-4 sm:mb-6 tracking-tight flex items-center gap-3">
+        <div className={`w-full lg:w-[360px] border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/40 dark:bg-[#0E1629] ${selectedUserId ? 'hidden lg:flex' : 'flex'}`}>
+          <div className="p-4 sm:p-8 pb-3 sm:pb-5">
+            <h2 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-3 sm:mb-5 tracking-tight flex items-center gap-2.5">
               Comm Hub <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
             </h2>
             <div className="relative">
               <input
                 type="text"
-                placeholder="SEARCH TRANSMISSIONS..."
+                placeholder="Search conversations..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl px-5 sm:px-6 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all shadow-sm"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm font-semibold text-[#0B132B] dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all shadow-sm"
               />
-              <Search className="absolute right-4 top-3.5 sm:top-4 w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
             </div>
           </div>
 
@@ -244,21 +251,22 @@ export default function Messages() {
         </div>
 
         {/* Chat Interface */}
-        <div className={`flex-1 flex flex-col bg-white overflow-hidden relative ${selectedUserId ? 'flex' : 'hidden lg:flex'}`}>
+        <div className={`flex-1 flex flex-col bg-white dark:bg-[#111A2E] overflow-hidden relative ${selectedUserId ? 'flex' : 'hidden lg:flex'}`}>
           {selectedUser ? (
             <>
               {/* Active User Header */}
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 flex items-center justify-between bg-white relative z-10 shadow-sm">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111A2E] relative z-10 shadow-xs">
                 <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
                   <button
                     onClick={() => setSelectedUserId(null)}
                     type="button"
-                    className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-[#0B132B] transition-colors cursor-pointer shrink-0"
-                    title="Back to hubs"
+                    className="lg:hidden min-w-[44px] min-h-[44px] -ml-2 flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:text-[#0B132B] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                    title="Back to inbox"
+                    aria-label="Back to conversations"
                   >
-                    <ArrowLeft className="w-4.5 h-4.5" />
+                    <ArrowLeft className="w-5 h-5" />
                   </button>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-600 dark:text-slate-300 border border-slate-100 overflow-hidden shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 dark:bg-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 overflow-hidden shrink-0">
                     {selectedUser.profileImage ? (
                       <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -266,32 +274,36 @@ export default function Messages() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-xs sm:text-base font-bold text-[#0B132B] uppercase italic flex items-center gap-1.5 truncate">
+                    <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white flex items-center gap-1.5 truncate">
                        <span className="truncate">{selectedUser.name}</span>
                        {selectedUser.isVerified ? (
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                        ) : (
-                          <ShieldAlert className="w-3.5 h-3.5 text-rose-500 animate-pulse shrink-0" />
+                          <ShieldAlert className="w-4 h-4 text-rose-500 animate-pulse shrink-0" />
                        )}
                     </h3>
                     <div className="flex items-center space-x-1.5 mt-0.5">
-                      <span className="flex h-1 w-1 sm:h-1.5 sm:w-1.5 relative">
+                      <span className="flex h-2 w-2 relative">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1 w-1 sm:h-1.5 sm:w-1.5 bg-emerald-500"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                       </span>
-                      <p className="text-[7.5px] sm:text-[9px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Active Connection</p>
+                      <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Active Connection</p>
                     </div>
                   </div>
                 </div>
-                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-slate-500 hover:text-[#0B132B] transition-colors shrink-0">
-                   <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+                <button
+                  type="button"
+                  aria-label="Conversation options"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+                >
+                   <MoreVertical className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Messages list */}
               <div 
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 custom-scrollbar bg-slate-50/20"
+                className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 custom-scrollbar bg-slate-50/40 dark:bg-[#0B132B]/50"
               >
                 {conversation.length > 0 ? (
                   <div className="flex flex-col justify-end min-h-full space-y-2.5 sm:space-y-3.5">
@@ -374,20 +386,22 @@ export default function Messages() {
                   </div>
                 </div>
 
-                <form onSubmit={handleSend} className="relative flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.5rem] p-1 pr-1.5 pl-3 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
+                <form onSubmit={handleSend} className="relative flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-[1.5rem] p-1 pr-1.5 pl-3.5 focus-within:ring-2 focus-within:ring-[#0D5BFF]/20 focus-within:border-[#0D5BFF] transition-all gap-2 w-full">
                   <input
                     type="text"
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     placeholder="Type your message..."
-                    className="flex-1 bg-transparent py-1.5 sm:py-2.5 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-0"
+                    className="flex-1 bg-transparent py-2 sm:py-2.5 text-sm font-medium text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-0"
                   />
                   <button
                     type="submit"
                     disabled={!inputText.trim()}
-                    className="bg-[#0D5BFF] text-white h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center shadow-lg shadow-blue-100/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100 shrink-0 cursor-pointer"
+                    aria-label="Send message"
+                    className="bg-[#0D5BFF] text-white h-11 w-11 rounded-full flex items-center justify-center shadow-lg shadow-blue-100/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100 shrink-0 cursor-pointer"
                   >
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-4 h-4" />
                   </button>
                 </form>
               </div>

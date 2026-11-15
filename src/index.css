@@ -68,6 +68,12 @@
 }
 
 @layer base {
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
   body {
     @apply bg-[#F8FAFC] text-[#0F172A] font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
@@ -180,6 +186,19 @@ html:not(.dark) [class*="text-[#0B132B]/50"] {
   .pt-safe {
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }
+}
+
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 @media (max-width: 640px) {

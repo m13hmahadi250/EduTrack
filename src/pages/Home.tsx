@@ -5,6 +5,7 @@ const AIChatWidget = React.lazy(() => import('../components/AIChatWidget'));
 import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
 import { prefetchPage } from '../utils/prefetch';
+import { sanitizeTutorProfileForViewer } from '../../shared/tutorPrivacy';
 import { 
   ShieldCheck, 
   Users, 
@@ -79,6 +80,8 @@ export default function Home() {
     }
   }, [location]);
 
+  const { currentUser, updateUser, androidAppLink } = useAppStore();
+
   React.useEffect(() => {
     let active = true;
     const fetchTutors = async () => {
@@ -88,46 +91,19 @@ export default function Home() {
         const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
         const querySnapshot = await getDocs(q);
         if (active) {
+          const viewerCtx = currentUser ? { id: currentUser.id, role: currentUser.role } : null;
           const fetched = querySnapshot.docs
             .map(doc => {
-              const raw = doc.data() as any;
-              return {
-                id: doc.id,
-                name: raw.name,
-                role: raw.role,
-                profileImage: raw.profileImage,
-                university: raw.university,
-                course: raw.course,
-                subjects: raw.subjects,
-                classes: raw.classes,
-                preferredClasses: raw.preferredClasses,
-                studentClass: raw.studentClass,
-                curriculum: raw.curriculum,
-                medium: raw.medium,
-                district: raw.district,
-                area: raw.area,
-                thana: raw.thana,
-                teachingAreas: raw.teachingAreas,
-                teachingMode: raw.teachingMode,
-                mode: raw.mode,
-                hourlyRate: raw.hourlyRate,
-                expectedSalary: raw.expectedSalary,
-                daysPerWeek: raw.daysPerWeek,
-                experience: raw.experience,
-                rating: raw.rating,
-                totalRatings: raw.totalRatings,
-                isVerified: raw.isVerified,
-                verified: raw.verified,
-                isApproved: raw.isApproved,
-                isBlocked: raw.isBlocked,
-                showOnHomePage: raw.showOnHomePage,
-                availableSlots: raw.availableSlots,
-                availabilitySlots: raw.availabilitySlots,
-                gender: raw.gender,
-                badges: raw.badges,
-              };
+              const raw = { id: doc.id, ...(doc.data() as any) };
+              return sanitizeTutorProfileForViewer(raw, viewerCtx, []);
             })
-            .filter((u: any) => !u.isBlocked && u.showOnHomePage !== false && Boolean(u.isVerified || u.verified || u.isApproved));
+            .filter(Boolean)
+            .filter((u: any) =>
+              !u.isBlocked &&
+              u.showOnHomePage !== false &&
+              !u.privacySettings?.hideFromSearch &&
+              Boolean(u.isVerified || u.verified || u.isApproved)
+            );
           setRealTutors(fetched);
           try {
             localStorage.setItem('edutrack_cached_home_tutors', JSON.stringify(fetched));
@@ -141,7 +117,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUser?.id, currentUser?.role]);
 
   const [searchQuery, setSearchQuery] = React.useState(() => {
     try {
@@ -164,7 +140,6 @@ export default function Home() {
   const [showAllDistricts, setShowAllDistricts] = React.useState(false);
   const [howItWorksRole, setHowItWorksRole] = React.useState<'student' | 'tutor'>('student');
 
-  const { currentUser, updateUser, androidAppLink } = useAppStore();
   const [localFavorites, setLocalFavorites] = React.useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('edutrack_saved_tutors');
@@ -2816,13 +2791,13 @@ const TutorPreviewCard = React.memo(({
       onFocus={() => prefetchPage('TeacherProfile')}
       className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 hover:border-[#0D5BFF]/50 dark:hover:border-[#0D5BFF]/50 shadow-2xs hover:shadow-md transition-all duration-200 group flex items-center gap-4 relative"
     >
-      {/* Left: Tutor Photo (Privacy Blurred per EduTrack Privacy Policy) */}
+      {/* Left: Tutor Avatar (Respects Tutor Public Privacy Controls) */}
       <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700">
         {img ? (
           <img 
             src={img} 
             alt={name} 
-            className="w-full h-full object-cover blur-[10px] group-hover:blur-[7px] scale-105 transition-all duration-300" 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
             referrerPolicy="no-referrer" 
             loading="lazy" 
           />

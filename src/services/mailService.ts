@@ -1,5 +1,3 @@
-import { mirrorAdminDataToMongoDB } from './mongoSyncService';
-
 export interface WelcomeEmailData {
   userId?: string;
   email: string;
@@ -88,13 +86,6 @@ export async function sendCustomAdminMail({
       }),
     });
     const result = await res.json();
-
-    // Secondary DB mirror trigger
-    mirrorAdminDataToMongoDB({
-      actionType: 'SEND_ADMIN_MAIL',
-      entityType: 'mail',
-      payload: { userId, toEmail, toName, subject, messageBody, role, district, profileUrl: computedProfileUrl }
-    });
 
     return result;
   } catch (error) {

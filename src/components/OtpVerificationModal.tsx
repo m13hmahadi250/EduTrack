@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, RotateCcw } from 'lucide-react';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
   otpLength?: number;
   initialExpirySeconds?: number;
+  expiresAtMs?: number;
+  serverOffsetMs?: number;
+  challengeId?: string;
   ipNoticeMsg?: string;
   errorMsg?: string;
   successMsg?: string;
@@ -25,11 +29,14 @@ export default function OtpVerificationModal({
   email,
   otpLength = DEFAULT_OTP_LENGTH,
   initialExpirySeconds = 300,
+  expiresAtMs,
+  serverOffsetMs = 0,
+  challengeId,
   ipNoticeMsg,
   errorMsg,
   successMsg,
   loading = false,
-  resendTimer = 60,
+  resendTimer = 55,
   onClose,
   onVerify,
   onComplete,
@@ -42,19 +49,39 @@ export default function OtpVerificationModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
 
-  // 5-Minute OTP Expiry Countdown (300 seconds default)
-  const [expirySeconds, setExpirySeconds] = useState(initialExpirySeconds);
+  const fallbackDeadlineRef = useRef<number>(Date.now() + initialExpirySeconds * 1000);
+  const inFlightRef = useRef<boolean>(false);
+
+  const computeRemainingSeconds = React.useCallback(() => {
+    if (typeof expiresAtMs === 'number' && Number.isFinite(expiresAtMs) && expiresAtMs > 0) {
+      const serverNow = Date.now() + (Number.isFinite(serverOffsetMs) ? serverOffsetMs : 0);
+      return Math.max(0, Math.ceil((expiresAtMs - serverNow) / 1000));
+    }
+    return Math.max(0, Math.ceil((fallbackDeadlineRef.current - Date.now()) / 1000));
+  }, [expiresAtMs, serverOffsetMs]);
+
+  // 5-Minute OTP Expiry Countdown synced with server-issued deadline
+  const [expirySeconds, setExpirySeconds] = useState<number>(() =>
+    typeof expiresAtMs === 'number' && expiresAtMs > 0
+      ? Math.max(0, Math.ceil((expiresAtMs - (Date.now() + (serverOffsetMs || 0))) / 1000))
+      : initialExpirySeconds
+  );
 
   const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  useBackHandler(isOpen, onClose, 'otp-verification-modal');
 
-  // Focus first input and reset 5-minute countdown on modal open
+  // Focus first input and sync server-issued deadline on modal open or new challenge
   useEffect(() => {
     if (isOpen && !isVerified) {
+      if (!expiresAtMs) {
+        fallbackDeadlineRef.current = Date.now() + initialExpirySeconds * 1000;
+      }
       setDigits(Array(otpLength).fill(''));
       setLocalError('');
       setIsSubmitting(false);
+      inFlightRef.current = false;
       setIsShaking(false);
-      setExpirySeconds(initialExpirySeconds);
+      setExpirySeconds(computeRemainingSeconds());
       const timer = setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
@@ -63,26 +90,40 @@ export default function OtpVerificationModal({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, isVerified, otpLength, initialExpirySeconds]);
+  }, [isOpen, isVerified, otpLength, challengeId, expiresAtMs, initialExpirySeconds, computeRemainingSeconds]);
 
-  // 5-minute Countdown interval
+  // Live Countdown interval + mobile WebView / browser visibility & focus resync
   useEffect(() => {
     if (!isOpen || isVerified) return;
-    const interval = setInterval(() => {
-      setExpirySeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setLocalError(
-            `Verification code has expired (5-minute limit). Please click "Resend code" for a new ${otpLength}-digit OTP.`
-          );
-          setDigits(Array(otpLength).fill(''));
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isOpen, isVerified, otpLength]);
+
+    const syncTimer = () => {
+      const remaining = computeRemainingSeconds();
+      setExpirySeconds(remaining);
+      if (remaining <= 0) {
+        setLocalError(
+          `Verification code has expired (5-minute limit). Please click "Resend code" for a new ${otpLength}-digit OTP.`
+        );
+        setDigits(Array(otpLength).fill(''));
+      }
+    };
+
+    syncTimer();
+    const interval = setInterval(syncTimer, 500);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncTimer();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', syncTimer);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', syncTimer);
+    };
+  }, [isOpen, isVerified, otpLength, computeRemainingSeconds]);
 
   // If external error arrives, trigger shake, display error, and refocus slot 0
   useEffect(() => {
@@ -207,14 +248,16 @@ export default function OtpVerificationModal({
       setLocalError(`Please enter all ${otpLength} digits of the verification code.`);
       return;
     }
-    if (expirySeconds === 0) {
+    if (computeRemainingSeconds() <= 0) {
+      setExpirySeconds(0);
       setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh 6-digit OTP.');
       setDigits(Array(otpLength).fill(''));
       return;
     }
-    if (isSubmitting) return;
+    if (inFlightRef.current || isSubmitting) return;
 
     try {
+      inFlightRef.current = true;
       setIsSubmitting(true);
       setLocalError('');
 
@@ -233,6 +276,7 @@ export default function OtpVerificationModal({
         }
       }, 100);
     } finally {
+      inFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -240,7 +284,6 @@ export default function OtpVerificationModal({
   const handleInternalResend = async () => {
     setLocalError('');
     setDigits(Array(otpLength).fill(''));
-    setExpirySeconds(initialExpirySeconds);
     await onResend();
     setTimeout(() => {
       if (digitInputRefs.current[0]) {
@@ -273,7 +316,7 @@ export default function OtpVerificationModal({
   return (
     <AnimatePresence>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="otp-modal-title"
@@ -283,7 +326,7 @@ export default function OtpVerificationModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative w-full max-w-md bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl text-slate-900 dark:text-slate-100 overflow-hidden my-auto"
+          className="relative w-full max-w-md max-h-[92dvh] overflow-y-auto bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl text-slate-900 dark:text-slate-100 my-auto"
         >
           {/* Top Accent Line */}
           <div className="h-1 w-full bg-[#0D5BFF]" />
@@ -392,7 +435,7 @@ export default function OtpVerificationModal({
               <div className="py-2 flex flex-col items-center justify-center">
                 {/* 6 DIGIT SLOTS */}
                 <div
-                  className={`grid grid-cols-6 gap-2 sm:gap-2.5 w-full max-w-[340px] my-3 ${
+                  className={`grid grid-cols-6 gap-1.5 sm:gap-2.5 w-full max-w-[340px] my-3 ${
                     isShaking ? 'animate-[shake_0.5s_cubic-bezier(.36,.07,.19,.97)_both]' : ''
                   }`}
                 >
@@ -403,7 +446,7 @@ export default function OtpVerificationModal({
                     return (
                       <div
                         key={idx}
-                        className={`relative h-13 sm:h-14 rounded-xl flex items-center justify-center transition-all duration-150 cursor-text select-none ${
+                        className={`relative h-12 sm:h-14 rounded-xl flex items-center justify-center transition-all duration-150 cursor-text select-none ${
                           hasError
                             ? 'bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-600 dark:text-rose-200'
                             : isFilled
@@ -431,10 +474,11 @@ export default function OtpVerificationModal({
                           onFocus={(e) => {
                             setLocalError('');
                             e.target.select();
+                            scrollFieldIntoView(e.currentTarget);
                           }}
                           disabled={isSubmitting || expirySeconds === 0}
                           placeholder={expirySeconds === 0 ? '—' : '•'}
-                          className="w-full h-full text-center font-mono font-bold text-xl sm:text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text tabular-nums"
+                          className="w-full h-full text-center font-mono font-bold text-lg sm:text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text tabular-nums"
                           aria-label={`Verification code digit ${idx + 1} of ${otpLength}`}
                         />
                       </div>

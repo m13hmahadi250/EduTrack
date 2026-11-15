@@ -24,17 +24,32 @@ export default function FileUpload({
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const explicitAccept = allowedTypes
+    .flatMap((t) => {
+      if (t === 'image/*') return ['image/jpeg', 'image/png', 'image/webp', '.jpg', '.jpeg', '.png', '.webp'];
+      if (t === 'application/pdf') return ['application/pdf', '.pdf'];
+      return [t];
+    })
+    .join(',');
+
   const handleUpload = async (file: File) => {
-    // Basic type check on client side
+    // Basic type check on client side (supports Android WebView files with empty MIME by extension check)
     const isAllowed = allowedTypes.some(type => {
       if (type.endsWith('/*')) {
-        return file.type.startsWith(type.replace('/*', ''));
+        const prefix = type.replace('/*', '');
+        if (prefix === 'image') {
+          return file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+        }
+        return file.type.startsWith(prefix);
+      }
+      if (type === 'application/pdf') {
+        return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
       }
       return file.type === type;
     });
 
     if (!isAllowed) {
-      setError(`Invalid file type. Allowed: ${allowedTypes.join(', ')}`);
+      setError(`Invalid file type. Allowed: JPG, PNG, WEBP, PDF`);
       return;
     }
 
@@ -190,15 +205,17 @@ export default function FileUpload({
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative w-full p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer group flex flex-col items-center justify-center text-center ${
-          dragActive ? 'border-[#0D5BFF] bg-blue-50' : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+        className={`relative w-full p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer group flex flex-col items-center justify-center text-center min-h-[140px] ${
+          dragActive
+            ? 'border-[#0D5BFF] bg-blue-50 dark:bg-blue-950/30'
+            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
         }`}
       >
         <input 
           ref={fileInputRef}
           type="file" 
           className="hidden" 
-          accept={allowedTypes.join(',')}
+          accept={explicitAccept}
           onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
         />
 
@@ -212,37 +229,37 @@ export default function FileUpload({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center mx-auto">
                 <FileText className="w-8 h-8 text-[#0D5BFF]" />
               </div>
             )}
-            <div className="flex items-center gap-2 text-emerald-600 font-bold text-[10px] uppercase tracking-wider">
-              <CheckCircle className="w-3 h-3" />
+            <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
+              <CheckCircle className="w-4 h-4" />
               <span>File Uploaded</span>
             </div>
-            <p className="text-[9px] text-slate-400 font-medium">Click to change file</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tap to replace file</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center text-slate-400">
-             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform">
+          <div className="flex flex-col items-center text-slate-500 dark:text-slate-400">
+             <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform border border-slate-100 dark:border-slate-700">
                <Upload className="w-5 h-5 group-hover:text-[#0D5BFF] transition-colors" />
              </div>
-             <span className="text-xs font-bold text-slate-600 mb-1">{label}</span>
-             <p className="text-[10px] text-slate-400">Drag & drop or click to browse</p>
+             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1">{label}</span>
+             <p className="text-xs text-slate-500 dark:text-slate-400">Tap to choose JPG, PNG or PDF</p>
           </div>
         )}
 
         {isUploading && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 rounded-2xl z-10">
+          <div className="absolute inset-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 rounded-2xl z-10">
              <Loader2 className="w-8 h-8 text-[#0D5BFF] animate-spin mb-3" />
-             <div className="w-full max-w-[120px] h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+             <div className="w-full max-w-[140px] h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mb-2">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   className="h-full bg-[#0D5BFF]"
                 />
              </div>
-             <span className="text-[10px] font-black uppercase text-[#0B132B]">{Math.round(progress)}% Uploading</span>
+             <span className="text-xs font-bold uppercase text-[#0B132B] dark:text-white">{Math.round(progress)}% Uploading</span>
           </div>
         )}
       </div>
@@ -253,10 +270,10 @@ export default function FileUpload({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100 overflow-hidden"
+            className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/50 rounded-xl border border-rose-200 dark:border-rose-800 overflow-hidden"
           >
             <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
-            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{error}</p>
+            <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">{error}</p>
           </motion.div>
         )}
       </AnimatePresence>

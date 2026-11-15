@@ -5,6 +5,7 @@ import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldChe
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import SEOHead from '../components/SEOHead';
+import { scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -150,6 +151,7 @@ export default function ResetPassword() {
     e.preventDefault();
     setFormError('');
 
+    // Preserve exact password characters (never .trim() passwords)
     if (newPassword.length < 8) {
       setFormError('Password must be at least 8 characters long.');
       return;
@@ -163,13 +165,10 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
-      let firebaseConfirmed = false;
-
-      // 1. If we have a Firebase oobCode, perform direct client-side confirmPasswordReset
+      // 1. Firebase hosted oobCode path: confirmPasswordReset directly updates & consumes the oobCode
       if (oobCode) {
         try {
           await confirmPasswordReset(auth, oobCode, newPassword);
-          firebaseConfirmed = true;
         } catch (fbResetErr: any) {
           console.error('[Firebase confirmPasswordReset error]:', fbResetErr);
           const fbCode = fbResetErr?.code || '';
@@ -179,17 +178,24 @@ export default function ResetPassword() {
             throw new Error('This password reset link is invalid or has already been used.');
           } else if (fbCode === 'auth/weak-password') {
             throw new Error('Password is too weak. Please use at least 8 characters with numbers and letters.');
+          } else if (fbCode === 'auth/user-disabled') {
+            throw new Error('This account has been disabled. Please contact EduTrack support.');
+          } else {
+            throw new Error(fbResetErr?.message || 'Could not update your password. Please request a new reset link.');
           }
         }
+
+        setResetSuccess(true);
+        setRedirectCountdown(3);
+        return;
       }
 
-      // 2. Also dispatch backend update to synchronize token state and backend service
+      // 2. Server-issued reset token path: backend updates Firebase Auth password AND consumes token
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token,
-          oobCode: oobCode || undefined,
+          token: customToken,
           email: verifiedEmail,
           newPassword,
         }),
@@ -197,7 +203,7 @@ export default function ResetPassword() {
 
       const data = await response.json();
 
-      if (firebaseConfirmed || data.success) {
+      if (response.ok && data.success === true) {
         setResetSuccess(true);
         setRedirectCountdown(3);
       } else {
@@ -439,14 +445,15 @@ export default function ResetPassword() {
                       setNewPassword(e.target.value);
                       setFormError('');
                     }}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     placeholder="Enter new password (min. 8 chars)"
-                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
+                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -549,14 +556,15 @@ export default function ResetPassword() {
                       setConfirmPassword(e.target.value);
                       setFormError('');
                     }}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     placeholder="Re-enter new password"
-                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
+                    className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
                   <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full cursor-pointer"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -566,7 +574,7 @@ export default function ResetPassword() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-4 mt-6 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full min-h-[48px] py-4 mt-6 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {submitting ? (
                   <span className="flex items-center gap-2">

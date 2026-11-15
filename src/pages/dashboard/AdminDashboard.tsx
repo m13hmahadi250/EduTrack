@@ -22,7 +22,6 @@ import {
   Megaphone,
   Smartphone,
   Download,
-  Database,
   Clock,
   Calendar,
   ArrowUpDown,
@@ -42,7 +41,6 @@ const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"
 const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
 const AdminUserMap = lazy(() => import("../../components/admin/AdminUserMap"));
 const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
-const AdminMongoDatabase = lazy(() => import("../../components/admin/AdminMongoDatabase"));
 const AdminBroadcastCenter = lazy(() => import("../../components/admin/AdminBroadcastCenter"));
 const AdminBulkEmailer = lazy(() => import("../../components/admin/AdminBulkEmailer"));
 const AdminReferralOperations = lazy(() => import("../../components/admin/AdminReferralOperations"));
@@ -76,7 +74,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = useMemo<
-    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email"
+    "verifications" | "payments" | "withdrawals" | "analytics" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email"
   >(() => {
     const path = location.pathname;
     if (path.endsWith("/verifications")) return "verifications";
@@ -93,7 +91,6 @@ export default function AdminDashboard() {
     if (path.endsWith("/system") || path.endsWith("/export")) return "system";
     if (path.endsWith("/banner")) return "banner";
     if (path.endsWith("/downloads")) return "downloads";
-    if (path.endsWith("/mongodb")) return "mongodb";
     if (path.endsWith("/account") || path.endsWith("/profile")) return "account";
     return "users";
   }, [location.pathname]);
@@ -230,7 +227,7 @@ export default function AdminDashboard() {
   // Active tab is derived directly from route location to avoid double-rendering delays
 
   const handleTabChange = (
-    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "mongodb" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email",
+    tab: "analytics" | "verifications" | "payments" | "withdrawals" | "users" | "sessions" | "messages" | "account" | "banner" | "downloads" | "map" | "broadcasts" | "referrals" | "system" | "bulk-email",
   ) => {
     setSelectedTutorIds([]);
     const pathMap: Record<string, string> = {
@@ -245,7 +242,6 @@ export default function AdminDashboard() {
       account: "/dashboard/account",
       banner: "/dashboard/banner",
       downloads: "/dashboard/downloads",
-      mongodb: "/dashboard/mongodb",
       broadcasts: "/dashboard/broadcasts",
       "bulk-email": "/dashboard/bulk-email",
       referrals: "/dashboard/referrals",
@@ -500,7 +496,6 @@ export default function AdminDashboard() {
             { id: "messages", label: "Secure messages", icon: MessageSquare },
             { id: "banner", label: "Promo Banner", icon: Megaphone },
             { id: "downloads", label: "App Downloads", icon: Smartphone },
-            { id: "mongodb", label: "MongoDB Secondary DB", icon: Database },
             { id: "account", label: "Admin profile", icon: UserIcon },
           ].map((tab) => {
             const IconComponent = tab.icon;
@@ -556,7 +551,6 @@ export default function AdminDashboard() {
           { id: "messages", label: "Secure messages" },
           { id: "banner", label: "Promo Banner" },
           { id: "downloads", label: "App Downloads" },
-          { id: "mongodb", label: "MongoDB Secondary DB" },
           { id: "account", label: "Admin profile" },
         ].map((tab) => (
           <button
@@ -1711,20 +1705,6 @@ export default function AdminDashboard() {
                   handleTabChange("messages");
                 }}
               />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {activeTab === "mongodb" && (
-          <motion.div
-            key="mongodb"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-          >
-            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-              <AdminMongoDatabase />
             </Suspense>
           </motion.div>
         )}

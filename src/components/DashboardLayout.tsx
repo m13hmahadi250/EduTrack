@@ -17,15 +17,20 @@ import {
   MessageSquare,
   Menu,
   X,
-  Users
+  Users,
+  Sun,
+  Moon,
+  Wallet
 } from 'lucide-react';
+import { useBackHandler } from '../utils/mobileWebView';
 
 const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, theme, toggleTheme, messages, logout } = useAppStore();
+  const { currentUser, theme, toggleTheme, messages } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  useBackHandler(isMobileMenuOpen, () => setIsMobileMenuOpen(false), 'dashboard-drawer');
 
   if (!currentUser) return null;
 
@@ -86,23 +91,40 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
         </div>
 
         {/* Right Header Mobile Quick Controls */}
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1">
+          {/* Theme Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all flex items-center justify-center cursor-pointer"
+            aria-label="Toggle Theme"
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5 text-amber-400" />
+            ) : (
+              <Moon className="w-5 h-5 text-slate-700" />
+            )}
+          </button>
+
           {/* Quick Chat Shortcut with Badge */}
           <button
+            type="button"
             onClick={() => navigate('/messages')}
-            className="relative p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+            className="relative min-w-[44px] min-h-[44px] p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all flex items-center justify-center cursor-pointer"
             aria-label="Messages"
           >
             <MessageSquare className="w-5 h-5" />
             {totalUnreadMessages > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#E51275] rounded-full border-2 border-white dark:border-[#111A2E] animate-pulse" />
+              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#E51275] rounded-full border-2 border-white dark:border-[#111A2E] animate-pulse" />
             )}
           </button>
 
           {/* Mobile Menu Drawer Toggle Button */}
           <button 
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-            className="p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-90 transition-all"
+            className="min-w-[44px] min-h-[44px] p-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-90 transition-all flex items-center justify-center cursor-pointer"
             aria-label="Open App Menu"
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -206,7 +228,3 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
 })
 
 export default DashboardLayout;
-
-const Wallet = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
-);

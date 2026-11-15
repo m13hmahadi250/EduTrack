@@ -1,8 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
-import os from "os";
-import fs from "fs";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
 import compression from "compression";
@@ -12,22 +10,73 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
-import { 
-  sendBrevoEmail, 
-  generateWelcomeEmailHtml, 
-  generateOtpEmailHtml, 
+import {
+  sendBrevoEmail,
+  generateWelcomeEmailHtml,
+  generateOtpEmailHtml,
   generateOtpEmailText,
   generatePasswordResetEmailHtml,
-  generateBulkCampaignEmailHtml
+  generateBulkCampaignEmailHtml,
 } from "./mailService.js";
-import { 
-  connectMongoDB, 
-  AdminActionLog, 
-  UserMirror, 
-  SystemConfigMirror, 
-  AdminMailMirror, 
-  TuitionMirror 
-} from "./mongo.js";
+import {
+  AuthChallengeStore,
+  StorageUnavailableError,
+  getAuthChallengeStore,
+} from "./authStore.js";
+import {
+  isFirebaseAdminConfigured,
+  lookupFirebaseUserByEmail,
+  updateFirebaseUserPassword,
+  firestoreQueryByField,
+} from "./firebaseAdmin.js";
+
+export interface FirebaseResetAdapter {
+  isConfigured: () => boolean;
+  lookupUserByEmail: (email: string) => Promise<{
+    uid: string;
+    email: string;
+    emailVerified: boolean;
+    providers: string[];
+    disabled: boolean;
+  } | null>;
+  updatePassword: (uid: string, newPassword: string) => Promise<void>;
+  confirmOobReset?: (oobCode: string, newPassword: string) => Promise<{ ok: boolean; error?: string; code?: string }>;
+  sendOobResetEmail?: (email: string, continueUrl?: string) => Promise<{ ok: boolean; error?: string }>;
+}
+
+export type EmailSender = (params: {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  htmlContent: string;
+  textContent?: string;
+}) => Promise<{
+  success: boolean;
+  simulated?: boolean;
+  messageId?: string;
+  error?: string;
+  message?: any;
+  isIpError?: boolean;
+  isKeyError?: boolean;
+  isEmailError?: boolean;
+  isNetworkError?: boolean;
+  brevoLink?: string;
+}>;
+
+export interface AppDeps {
+  now?: () => number;
+  authStore?: AuthChallengeStore;
+  emailSender?: EmailSender;
+  firebaseResetAdapter?: FirebaseResetAdapter;
+}
+
+function maskEmailForLog(email: string): string {
+  const parts = String(email || "").split("@");
+  if (parts.length !== 2) return "***";
+  const local = parts[0];
+  const prefix = local.slice(0, Math.min(2, local.length));
+  return `${prefix}***@${parts[1]}`;
+}
 
 // Lazy S3 client initialization
 let s3Client: S3Client | null = null;
@@ -38,7 +87,7 @@ function getS3Client() {
     if (!R2_ACCESS_KEY_ID) missing.push("R2_ACCESS_KEY_ID");
     if (!R2_SECRET_ACCESS_KEY) missing.push("R2_SECRET_ACCESS_KEY");
     if (!R2_ENDPOINT) missing.push("R2_ENDPOINT");
-    
+
     if (missing.length > 0) {
       throw new Error(`Missing Cloudflare R2 configuration: ${missing.join(", ")}`);
     }
@@ -54,14 +103,34 @@ function getS3Client() {
   return s3Client;
 }
 
-export const app = express();
+export const OTP_CONFIG = {
+  length: 6,
+  expiresInSeconds: 300,
+  resendCooldownSeconds: 55,
+  frontendResendTimerSeconds: 55,
+  maxAttempts: 5,
+} as const;
 
-// Enable Gzip/Brotli compression middleware for all responses
-app.use(compression({ threshold: 0 }));
+const FIREBASE_WEB_API_KEY =
+  process.env.VITE_FIREBASE_API_KEY ||
+  ["I", "Z", "Q", "a", "F", "J", "p", "6", "Z", "U", "p", "i", "m", "d", "L", "P", "g", "M", "5", "I", "T", "5", "u", "Z", "h", "3", "e", "h", "P", "R", "k", "G", "B", "y", "S", "a", "z", "I", "A"].reverse().join("");
 
-// Basic middleware
-app.use(cors());
-app.use(express.json());
+export function createApp(deps?: AppDeps) {
+  const app = express();
+  const getNow = deps?.now || (() => Date.now());
+  const emailSender = deps?.emailSender || sendBrevoEmail;
+  const firebaseResetAdapter: FirebaseResetAdapter = deps?.firebaseResetAdapter || {
+    isConfigured: isFirebaseAdminConfigured,
+    lookupUserByEmail: lookupFirebaseUserByEmail,
+    updatePassword: updateFirebaseUserPassword,
+  };
+
+  // Enable Gzip/Brotli compression middleware for all responses
+  app.use(compression({ threshold: 0 }));
+
+  // Basic middleware
+  app.use(cors());
+  app.use(express.json());
 
 const ALLOWED_STORAGE_FOLDERS = ["profiles", "documents", "nid", "homework"];
 const ALLOWED_STORAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -419,153 +488,7 @@ app.post("/api/save-fcm-token", (req, res) => {
 });
 
 /**
- * Authoritative 6-Digit Email Verification OTP Configuration & Hashed Store
- * - Strictly 6-digit numeric OTP codes (100000 - 999999)
- * - SHA-256 hashed at rest (plaintext OTPs are never written to memory or disk)
- * - 5-minute (300s) expiration window
- * - 55-second resend cooldown (aligned with 60s frontend countdown)
- * - Max 5 failed verification attempts before automatic invalidation
- * - Single-use enforcement (immediately invalidated upon verification)
- */
-export const OTP_CONFIG = {
-  length: 6,
-  expiresInSeconds: 300,
-  resendCooldownSeconds: 55,
-  frontendResendTimerSeconds: 60,
-  maxAttempts: 5,
-} as const;
-
-function sha256Hex(value: string): string {
-  return crypto.createHash("sha256").update(value).digest("hex");
-}
-
-interface OtpRecord {
-  email: string;
-  otpHash: string;
-  createdAt: number;
-  expiresAt: number;
-  attempts: number;
-  used: boolean;
-}
-
-const OTP_CACHE_FILE = path.join(os.tmpdir(), "edutrack_otp_cache.json");
-
-function isValidOtpRecord(item: any, now: number): item is OtpRecord {
-  return (
-    Boolean(item) &&
-    typeof item.email === "string" &&
-    typeof item.otpHash === "string" &&
-    /^[a-f0-9]{64}$/.test(item.otpHash) &&
-    !("otp" in item) &&
-    typeof item.expiresAt === "number" &&
-    item.expiresAt > now &&
-    !item.used
-  );
-}
-
-function loadOtpsFromFile(): Map<string, OtpRecord> {
-  const map = new Map<string, OtpRecord>();
-  try {
-    if (fs.existsSync(OTP_CACHE_FILE)) {
-      const raw = fs.readFileSync(OTP_CACHE_FILE, "utf-8");
-      const list = JSON.parse(raw);
-      const now = Date.now();
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          if (isValidOtpRecord(item, now)) {
-            map.set(item.email.trim().toLowerCase(), {
-              email: item.email.trim().toLowerCase(),
-              otpHash: item.otpHash,
-              createdAt: typeof item.createdAt === "number" ? item.createdAt : now,
-              expiresAt: item.expiresAt,
-              attempts: typeof item.attempts === "number" ? item.attempts : 0,
-              used: Boolean(item.used),
-            });
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("[OTP Cache] Error loading file cache:", e);
-  }
-  return map;
-}
-
-function saveOtpsToFile(store: Map<string, OtpRecord>) {
-  try {
-    const now = Date.now();
-    const list: OtpRecord[] = [];
-    for (const record of store.values()) {
-      if (isValidOtpRecord(record, now)) {
-        list.push({
-          email: record.email.trim().toLowerCase(),
-          otpHash: record.otpHash,
-          createdAt: record.createdAt,
-          expiresAt: record.expiresAt,
-          attempts: record.attempts,
-          used: record.used,
-        });
-      }
-    }
-    fs.writeFileSync(OTP_CACHE_FILE, JSON.stringify(list, null, 2), { encoding: "utf-8", mode: 0o600 });
-  } catch (e) {
-    console.warn("[OTP Cache] Error saving file cache:", e);
-  }
-}
-
-const otpStore: Map<string, OtpRecord> =
-  (globalThis as any).__otpStore ||
-  ((globalThis as any).__otpStore = loadOtpsFromFile());
-
-// Cleanup routine: automatically remove expired OTP entries every 2 minutes
-if (!(globalThis as any).__otpCleanupStarted) {
-  (globalThis as any).__otpCleanupStarted = true;
-  setInterval(() => {
-    const now = Date.now();
-    for (const [email, record] of otpStore.entries()) {
-      if (now > record.expiresAt || record.used || !isValidOtpRecord(record, now)) {
-        otpStore.delete(email);
-      }
-    }
-    saveOtpsToFile(otpStore);
-  }, 2 * 60 * 1000).unref();
-}
-
-/**
- * Helper function to find OTP record by normalized email (synchronizes disk + memory)
- */
-function getOtpRecord(normalizedEmail: string): { key: string; record: OtpRecord } | null {
-  const cleanEmail = normalizedEmail.trim().toLowerCase();
-  const now = Date.now();
-
-  const diskStore = loadOtpsFromFile();
-  const diskRecord = diskStore.get(cleanEmail);
-  const memRecord = otpStore.get(cleanEmail);
-
-  // Purge any invalid/legacy record in memory
-  if (memRecord && !isValidOtpRecord(memRecord, now)) {
-    otpStore.delete(cleanEmail);
-  }
-
-  if (diskRecord && (!memRecord || !isValidOtpRecord(memRecord, now) || diskRecord.createdAt >= memRecord.createdAt)) {
-    otpStore.set(cleanEmail, diskRecord);
-    return { key: cleanEmail, record: diskRecord };
-  }
-
-  const validMem = otpStore.get(cleanEmail);
-  if (validMem && isValidOtpRecord(validMem, now)) {
-    return { key: cleanEmail, record: validMem };
-  }
-
-  return null;
-}
-
-const FIREBASE_WEB_API_KEY =
-  process.env.VITE_FIREBASE_API_KEY ||
-  ["I", "Z", "Q", "a", "F", "J", "p", "6", "Z", "U", "p", "i", "m", "d", "L", "P", "g", "M", "5", "I", "T", "5", "u", "Z", "h", "3", "e", "h", "P", "R", "k", "G", "B", "y", "S", "a", "z", "I", "A"].reverse().join("");
-
-/**
- * Email Signup OTP Verification Routes (Standardized 6-Digit Contract)
+ * Email Signup OTP Verification Routes (Persistent Shared Challenge Store + 6-Digit Contract)
  */
 
 // 1. Send 6-Digit OTP Code Endpoint (Strictly 5-minute validity + 55s resend cooldown)
@@ -575,52 +498,53 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const { email, name } = req.body;
 
     if (!email || typeof email !== "string" || !email.trim()) {
-      return res.status(400).json({ success: false, error: "Valid email address is required" });
+      return res.status(400).json({ success: false, code: "EMAIL_REQUIRED", error: "Valid email address is required" });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Email format validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({ success: false, error: "Invalid email format" });
+      return res.status(400).json({ success: false, code: "EMAIL_INVALID", error: "Invalid email format" });
     }
 
-    const now = Date.now();
-    const existingOtp = getOtpRecord(normalizedEmail);
-    const cooldownMs = OTP_CONFIG.resendCooldownSeconds * 1000;
+    const store = await getAuthChallengeStore(deps?.authStore);
+    const nowMs = getNow();
+    const existingOtp = await store.getActiveCooldownChallenge(normalizedEmail, nowMs);
 
-    if (
-      existingOtp &&
-      !existingOtp.record.used &&
-      existingOtp.record.expiresAt > now &&
-      now - existingOtp.record.createdAt < cooldownMs
-    ) {
-      const waitSec = Math.ceil((cooldownMs - (now - existingOtp.record.createdAt)) / 1000);
+    if (existingOtp && existingOtp.resendAvailableAtMs > nowMs) {
+      const waitSec = Math.max(1, Math.ceil((existingOtp.resendAvailableAtMs - nowMs) / 1000));
+      console.info(
+        `[OTP Auth] Cooldown active on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${existingOtp.challengeId}, wait=${waitSec}s)`
+      );
       return res.status(429).json({
         success: false,
+        code: "OTP_RATE_LIMITED",
         retryAfterSeconds: waitSec,
+        challengeId: existingOtp.challengeId,
+        expiresAt: existingOtp.expiresAtMs,
+        resendAvailableAt: existingOtp.resendAvailableAtMs,
+        serverNow: nowMs,
         error: `Please wait ${waitSec} seconds before requesting another 6-digit verification code.`,
       });
     }
 
-    // Generate cryptographically secure 6-digit numeric OTP code (100000 - 999999)
-    const otpBuffer = crypto.randomInt(100000, 1000000);
+    // Generate cryptographically secure 6-digit numeric OTP code (000000 - 999999, preserving leading zeros)
+    const otpBuffer = crypto.randomInt(0, 1_000_000);
     const otpCode = otpBuffer.toString().padStart(OTP_CONFIG.length, "0");
+    const challengeId = crypto.randomUUID();
+    const expiresAtMs = nowMs + OTP_CONFIG.expiresInSeconds * 1000;
+    const resendAvailableAtMs = nowMs + OTP_CONFIG.resendCooldownSeconds * 1000;
 
-    // Store SHA-256 hash in memory and disk cache with strictly 5-minute expiry (300,000 ms)
-    const expiresAt = now + OTP_CONFIG.expiresInSeconds * 1000;
-    const record: OtpRecord = {
+    await store.createOtpChallenge({
+      challengeId,
       email: normalizedEmail,
-      otpHash: sha256Hex(otpCode),
-      createdAt: now,
-      expiresAt,
-      attempts: 0,
-      used: false,
-    };
-    otpStore.set(normalizedEmail, record);
-    saveOtpsToFile(otpStore);
+      otpCode,
+      createdAtMs: nowMs,
+      expiresAtMs,
+      resendAvailableAtMs,
+      maxAttempts: OTP_CONFIG.maxAttempts,
+    });
 
-    // Generate HTML and plain-text fallback content using the authoritative server-defined expiry
     const expiresMinutes = Math.round(OTP_CONFIG.expiresInSeconds / 60);
     const htmlContent = generateOtpEmailHtml({
       email: normalizedEmail,
@@ -633,53 +557,82 @@ app.post("/api/auth/send-otp", async (req, res) => {
       expiresMinutes,
     });
 
-    const emailResult = await sendBrevoEmail({
+    const emailResult = await emailSender({
       toEmail: normalizedEmail,
-      toName: name || normalizedEmail.split("@")[0],
+      toName: (typeof name === "string" && name.trim()) || normalizedEmail.split("@")[0],
       subject: "Verify your email | EduTrack Bangladesh",
       htmlContent,
       textContent,
     });
 
-    console.log(`[OTP Auth] 6-digit verification code issued for ${normalizedEmail} (Valid for 5 minutes)`);
-
     if (!emailResult.success) {
-      console.warn(`[OTP Email Delivery Warning] Email to ${normalizedEmail} failed:`, emailResult.error);
+      console.warn(
+        `[OTP Auth] Delivery failed on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${challengeId}): ${emailResult.error}`
+      );
       if ((emailResult as any).simulated) {
         return res.json({
           success: true,
           emailSent: true,
+          challengeId,
+          email: normalizedEmail,
           otpLength: OTP_CONFIG.length,
           expiresInSeconds: OTP_CONFIG.expiresInSeconds,
-          resendCooldownSeconds: OTP_CONFIG.frontendResendTimerSeconds,
+          expiresAt: expiresAtMs,
+          serverNow: nowMs,
+          resendCooldownSeconds: OTP_CONFIG.resendCooldownSeconds,
+          resendAvailableAt: resendAvailableAtMs,
           message: `A 6-digit verification code has been dispatched to ${normalizedEmail}. Please check your inbox or spam folder.`,
         });
       }
 
+      await store.markOtpDeliveryFailed(challengeId);
+
       return res.status(400).json({
         success: false,
         emailSent: false,
+        code: "EMAIL_DELIVERY_FAILED",
         otpLength: OTP_CONFIG.length,
         error: emailResult.error || "Email Delivery Failed",
         message:
           emailResult.message ||
-          `Could not deliver the 6-digit verification email to ${normalizedEmail}. Please verify your email address.`,
+          `Could not deliver the 6-digit verification email to ${normalizedEmail}. Please verify your email address and try again.`,
         brevoLink: (emailResult as any).brevoLink,
       });
     }
 
-    res.json({
+    if ((emailResult as any).messageId) {
+      await store.updateOtpProviderMessageId(challengeId, String((emailResult as any).messageId));
+    }
+
+    console.info(
+      `[OTP Auth] Issued 6-digit challenge on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${challengeId}, expiresAt=${new Date(expiresAtMs).toISOString()})`
+    );
+
+    return res.json({
       success: true,
       emailSent: true,
+      challengeId,
+      email: normalizedEmail,
       otpLength: OTP_CONFIG.length,
       expiresInSeconds: OTP_CONFIG.expiresInSeconds,
-      resendCooldownSeconds: OTP_CONFIG.frontendResendTimerSeconds,
+      expiresAt: expiresAtMs,
+      serverNow: nowMs,
+      resendCooldownSeconds: OTP_CONFIG.resendCooldownSeconds,
+      resendAvailableAt: resendAvailableAtMs,
       message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
     });
   } catch (error: any) {
-    console.error("[Send OTP API Error]:", error);
-    res.status(500).json({
+    if (error instanceof StorageUnavailableError) {
+      return res.status(503).json({
+        success: false,
+        code: error.code,
+        error: error.message,
+      });
+    }
+    console.error("[Send OTP API Error]:", error?.message || error);
+    return res.status(500).json({
       success: false,
+      code: "OTP_SEND_ERROR",
       error: error.message || "Failed to send verification email. Please try again.",
     });
   }
@@ -689,223 +642,93 @@ app.post("/api/auth/send-otp", async (req, res) => {
 app.post("/api/auth/verify-otp", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   try {
-    const { email, otp } = req.body;
+    const { email, otp, challengeId } = req.body;
 
     if (!email || !otp) {
       return res.status(400).json({
         success: false,
+        code: "OTP_REQUIRED",
         error: "Email and 6-digit OTP code are required.",
       });
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const cleanOtp = String(otp).trim().replace(/\D/g, "");
+    const cleanChallengeId =
+      typeof challengeId === "string" && challengeId.trim() ? challengeId.trim() : undefined;
 
     if (cleanOtp.length !== OTP_CONFIG.length) {
       return res.status(400).json({
         success: false,
+        code: "OTP_FORMAT_INVALID",
         error: `Please enter a valid ${OTP_CONFIG.length}-digit OTP code.`,
       });
     }
 
-    const otpData = getOtpRecord(normalizedEmail);
+    const store = await getAuthChallengeStore(deps?.authStore);
+    const nowMs = getNow();
+    const result = await store.verifyOtpChallenge({
+      email: normalizedEmail,
+      otpCode: cleanOtp,
+      challengeId: cleanChallengeId,
+      nowMs,
+    });
 
-    if (!otpData) {
+    if (!result.ok) {
+      console.info(
+        `[OTP Auth] Verification rejected on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${result.challengeId || cleanChallengeId || "latest"}, code=${result.code})`
+      );
       return res.status(400).json({
         success: false,
-        error: "No active 6-digit verification code found or OTP has expired. Please click 'Resend code'.",
+        code: result.code,
+        remainingAttempts: result.remainingAttempts,
+        challengeId: result.challengeId,
+        error: result.error,
       });
     }
 
-    const { key, record } = otpData;
-
-    // Check 5-minute expiration or used status
-    if (record.used || Date.now() > record.expiresAt) {
-      otpStore.delete(key);
-      saveOtpsToFile(otpStore);
-      return res.status(400).json({
-        success: false,
-        error: "Verification code has expired (5-minute limit). Please click 'Resend code' to receive a new 6-digit OTP.",
-      });
-    }
-
-    // Check if already at or above max attempts
-    if (record.attempts >= OTP_CONFIG.maxAttempts) {
-      otpStore.delete(key);
-      saveOtpsToFile(otpStore);
-      return res.status(400).json({
-        success: false,
-        remainingAttempts: 0,
-        error: "Maximum verification attempts exceeded. Please request a new 6-digit OTP code.",
-      });
-    }
-
-    // Compare SHA-256 OTP hashes strictly
-    const candidateHash = sha256Hex(cleanOtp);
-    const hashesMatch =
-      record.otpHash.length === candidateHash.length &&
-      crypto.timingSafeEqual(Buffer.from(record.otpHash, "hex"), Buffer.from(candidateHash, "hex"));
-
-    if (!hashesMatch) {
-      record.attempts += 1;
-      if (record.attempts >= OTP_CONFIG.maxAttempts) {
-        otpStore.delete(key);
-        saveOtpsToFile(otpStore);
-        return res.status(400).json({
-          success: false,
-          remainingAttempts: 0,
-          error: "Maximum verification attempts exceeded. Please request a new 6-digit OTP code.",
-        });
-      }
-
-      otpStore.set(key, record);
-      saveOtpsToFile(otpStore);
-      const remainingAttempts = OTP_CONFIG.maxAttempts - record.attempts;
-      return res.status(400).json({
-        success: false,
-        remainingAttempts,
-        error: `Incorrect 6-digit verification code. Please check your inbox and try again. (${remainingAttempts} ${
-          remainingAttempts === 1 ? "attempt" : "attempts"
-        } remaining)`,
-      });
-    }
-
-    // OTP matched! Immediately invalidate and delete to prevent replay
-    record.used = true;
-    otpStore.delete(key);
-    saveOtpsToFile(otpStore);
-
-    const issuedAt = Date.now();
+    const issuedAt = nowMs;
     const hmacSecret = process.env.OTP_HMAC_SECRET || FIREBASE_WEB_API_KEY || "edutrack-bd-otp-hmac";
     const signature = crypto
       .createHmac("sha256", hmacSecret)
-      .update(`${normalizedEmail}:${issuedAt}:verified`)
+      .update(`${normalizedEmail}:${result.challengeId}:${issuedAt}:verified`)
       .digest("hex");
     const verificationToken = `${Buffer.from(normalizedEmail).toString("base64url")}.${issuedAt}.${signature}`;
 
-    console.log(`[OTP Auth] Verified 6-digit OTP successfully for ${normalizedEmail}`);
+    console.info(
+      `[OTP Auth] Verified 6-digit OTP on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${result.challengeId})`
+    );
 
-    res.json({
+    return res.json({
       success: true,
       verified: true,
+      challengeId: result.challengeId,
       otpLength: OTP_CONFIG.length,
       verificationToken,
       message: "Email verified successfully! You may now complete your registration.",
     });
   } catch (error: any) {
-    console.error("[Verify OTP API Error]:", error);
-    res.status(500).json({
+    if (error instanceof StorageUnavailableError) {
+      return res.status(503).json({
+        success: false,
+        code: error.code,
+        error: error.message,
+      });
+    }
+    console.error("[Verify OTP API Error]:", error?.message || error);
+    return res.status(500).json({
       success: false,
+      code: "OTP_VERIFY_ERROR",
       error: error.message || "Failed to verify OTP code. Please try again.",
     });
   }
 });
 
 /**
- * Persistent store for Password Reset Tokens with SHA-256 disk caching
- * Ensures reset tokens survive dev server reloads and process restarts for full 15 min lifetime
- */
-interface ResetTokenRecord {
-  tokenHash: string;
-  email: string;
-  expiresAt: number;
-  used: boolean;
-}
-
-const RESET_CACHE_FILE = path.join(os.tmpdir(), "edutrack_reset_tokens_cache.json");
-
-function loadResetTokensFromFile(): Map<string, ResetTokenRecord> {
-  const map = new Map<string, ResetTokenRecord>();
-  try {
-    if (fs.existsSync(RESET_CACHE_FILE)) {
-      const data = fs.readFileSync(RESET_CACHE_FILE, "utf-8");
-      const list = JSON.parse(data);
-      const now = Date.now();
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          if (
-            item &&
-            typeof item.tokenHash === "string" &&
-            /^[a-f0-9]{64}$/.test(item.tokenHash) &&
-            !("token" in item) &&
-            item.expiresAt > now &&
-            !item.used
-          ) {
-            map.set(item.tokenHash, item);
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("[Reset Token Cache] Error loading file cache:", e);
-  }
-  return map;
-}
-
-function saveResetTokensToFile(store: Map<string, ResetTokenRecord>) {
-  try {
-    const now = Date.now();
-    const list: ResetTokenRecord[] = [];
-    for (const record of store.values()) {
-      if (
-        record &&
-        typeof record.tokenHash === "string" &&
-        /^[a-f0-9]{64}$/.test(record.tokenHash) &&
-        record.expiresAt > now &&
-        !record.used
-      ) {
-        list.push({
-          tokenHash: record.tokenHash,
-          email: record.email,
-          expiresAt: record.expiresAt,
-          used: record.used,
-        });
-      }
-    }
-    fs.writeFileSync(RESET_CACHE_FILE, JSON.stringify(list, null, 2), { encoding: "utf-8", mode: 0o600 });
-  } catch (e) {
-    console.warn("[Reset Token Cache] Error saving file cache:", e);
-  }
-}
-
-const resetTokenStore: Map<string, ResetTokenRecord> =
-  (globalThis as any).__resetTokenStore ||
-  ((globalThis as any).__resetTokenStore = loadResetTokensFromFile());
-
-function getResetTokenRecord(rawToken: string): ResetTokenRecord | undefined {
-  if (!rawToken) return undefined;
-  const cleanToken = String(rawToken).trim().replace(/^["']|["']$/g, "");
-  const tokenHash = sha256Hex(cleanToken);
-  let record = resetTokenStore.get(tokenHash);
-  if (!record) {
-    const fileStore = loadResetTokensFromFile();
-    record = fileStore.get(tokenHash);
-    if (record) {
-      resetTokenStore.set(tokenHash, record);
-    }
-  }
-  return record;
-}
-
-// Cleanup routine: automatically remove expired reset tokens every 15 minutes
-if (!(globalThis as any).__resetTokenCleanupStarted) {
-  (globalThis as any).__resetTokenCleanupStarted = true;
-  setInterval(() => {
-    const now = Date.now();
-    for (const [tokenHash, record] of resetTokenStore.entries()) {
-      if (now > record.expiresAt || record.used) {
-        resetTokenStore.delete(tokenHash);
-      }
-    }
-    saveResetTokensToFile(resetTokenStore);
-  }, 15 * 60 * 1000).unref();
-}
-
-/**
- * Password Reset Routes via Brevo & Firebase Auth Infrastructure
+ * Password Reset Routes via Persistent Challenge Store + Real Firebase Auth Credential Update
  */
 
-// 1. Trigger Forgot Password Email with One-Time Reset Link (Never leaks resetLink/token in HTTP response)
+// 1. Trigger Forgot Password Email with Single Authoritative Reset Link (Never leaks resetLink/token in HTTP response)
 app.post("/api/auth/forgot-password", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   try {
@@ -925,59 +748,55 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       });
     }
 
-    // Trigger Firebase Identity Toolkit sendOobCode so Firebase Auth sends the official reset email as well
-    try {
-      await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_WEB_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestType: "PASSWORD_RESET",
-          email: normalizedEmail,
-        }),
-      });
-    } catch (fbOobErr) {
-      console.warn("Notice: Firebase Identity Toolkit sendOobCode:", fbOobErr);
-    }
-
-    // Generate cryptographically secure random 32-byte token (hex encoded) and store only its SHA-256 hash
-    const token = crypto.randomBytes(32).toString("hex");
-    const tokenHash = sha256Hex(token);
-    const expiresAt = Date.now() + 15 * 60 * 1000; // Strictly 15 minutes validity
-
-    const record: ResetTokenRecord = {
-      tokenHash,
-      email: normalizedEmail,
-      expiresAt,
-      used: false,
-    };
-    resetTokenStore.set(tokenHash, record);
-    saveResetTokensToFile(resetTokenStore);
-
-    // Build absolute URL for reset password page (sent ONLY inside email, never in HTTP response)
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
     const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:3000";
     const origin = `${protocol}://${host}`;
-    const resetLink = `${origin}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+    const genericSuccessMessage = `If an account is registered for ${normalizedEmail}, password reset instructions have been dispatched. Please check your inbox or spam folder.`;
 
-    // Generate HTML Email Content
-    const htmlContent = generatePasswordResetEmailHtml({
-      email: normalizedEmail,
-      resetLink,
-      expiresMinutes: 15,
-    });
+    if (firebaseResetAdapter.isConfigured()) {
+      const store = await getAuthChallengeStore(deps?.authStore);
+      const fbUser = await firebaseResetAdapter.lookupUserByEmail(normalizedEmail);
 
-    // Send email via Brevo / SMTP Email API
-    const emailResult = await sendBrevoEmail({
-      toEmail: normalizedEmail,
-      toName: normalizedEmail.split("@")[0],
-      subject: "EduTrack BD - Reset Your Account Password",
-      htmlContent,
-    });
+      if (!fbUser || fbUser.disabled) {
+        console.info(`[Password Reset] Reset requested for unregistered/disabled account ${maskEmailForLog(normalizedEmail)} (non-enumerating 200 returned)`);
+        return res.json({
+          success: true,
+          message: genericSuccessMessage,
+        });
+      }
 
-    console.log(`[Password Reset] Issued 15-minute reset token for ${normalizedEmail}`);
+      const nowMs = getNow();
+      const token = crypto.randomBytes(32).toString("hex");
+      const challengeId = crypto.randomUUID();
+      const expiresAtMs = nowMs + 15 * 60 * 1000;
 
-    if (!emailResult.success) {
-      if (emailResult.isIpError) {
+      await store.createResetChallenge({
+        challengeId,
+        email: normalizedEmail,
+        rawToken: token,
+        createdAtMs: nowMs,
+        expiresAtMs,
+      });
+
+      const resetLink = `${origin}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+      const htmlContent = generatePasswordResetEmailHtml({
+        email: normalizedEmail,
+        resetLink,
+        expiresMinutes: 15,
+      });
+
+      const emailResult = await emailSender({
+        toEmail: normalizedEmail,
+        toName: normalizedEmail.split("@")[0],
+        subject: "EduTrack BD - Reset Your Account Password",
+        htmlContent,
+      });
+
+      console.info(
+        `[Password Reset] Issued 15-minute reset challenge on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${challengeId})`
+      );
+
+      if (!emailResult.success && emailResult.isIpError) {
         return res.status(200).json({
           success: true,
           isIpError: true,
@@ -987,22 +806,48 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         });
       }
 
-      if (emailResult.isKeyError || emailResult.isEmailError || emailResult.isNetworkError) {
-        return res.status(200).json({
-          success: true,
-          isNotice: true,
-          message: `If an account is registered for ${normalizedEmail}, password reset instructions have been dispatched.`,
-        });
-      }
+      return res.json({
+        success: true,
+        message: genericSuccessMessage,
+      });
     }
 
-    res.json({
+    // Fallback when FIREBASE_SERVICE_ACCOUNT_KEY is not configured:
+    // Use ONLY Firebase Identity Toolkit accounts:sendOobCode so the user receives a real Firebase oobCode reset link
+    // (never issue a broken custom token that cannot update Firebase Auth credentials).
+    try {
+      if (firebaseResetAdapter.sendOobResetEmail) {
+        await firebaseResetAdapter.sendOobResetEmail(normalizedEmail, `${origin}/login?reset=success`);
+      } else {
+        await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_WEB_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestType: "PASSWORD_RESET",
+            email: normalizedEmail,
+            continueUrl: `${origin}/login?reset=success`,
+          }),
+        });
+      }
+      console.info(`[Password Reset] Dispatched Firebase Identity Toolkit reset email for ${maskEmailForLog(normalizedEmail)}`);
+    } catch (fbOobErr: any) {
+      console.warn("[Password Reset] Firebase sendOobCode warning:", fbOobErr?.message || fbOobErr);
+    }
+
+    return res.json({
       success: true,
-      message: `Password reset instructions have been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
+      message: genericSuccessMessage,
     });
   } catch (error: any) {
-    console.error("[Forgot Password API Error]:", error);
-    res.status(500).json({
+    if (error instanceof StorageUnavailableError) {
+      return res.status(503).json({
+        success: false,
+        code: error.code,
+        error: error.message,
+      });
+    }
+    console.error("[Forgot Password API Error]:", error?.message || error);
+    return res.status(500).json({
       success: false,
       error: error.message || "Failed to initiate password reset. Please try again.",
     });
@@ -1010,7 +855,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 });
 
 // 2. Verify Password Reset Token Validity
-app.get("/api/auth/verify-reset-token", (req, res) => {
+app.get("/api/auth/verify-reset-token", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   try {
     const rawToken = String(req.query.token || "").trim();
@@ -1018,126 +863,245 @@ app.get("/api/auth/verify-reset-token", (req, res) => {
     if (!rawToken) {
       return res.status(400).json({
         valid: false,
+        code: "RESET_TOKEN_MISSING",
         error: "Missing password reset token in link.",
       });
     }
 
-    const record = getResetTokenRecord(rawToken);
+    const store = await getAuthChallengeStore(deps?.authStore);
+    const nowMs = getNow();
+    const lookup = await store.getResetChallengeByToken(rawToken, nowMs);
 
-    if (!record) {
+    if (!lookup.record) {
       return res.status(400).json({
         valid: false,
+        code: "RESET_TOKEN_INVALID",
         error: "Invalid or expired password reset link. Please request a new link.",
       });
     }
 
-    if (record.used) {
+    if (lookup.reason === "USED") {
       return res.status(400).json({
         valid: false,
+        code: "RESET_TOKEN_USED",
         error: "This password reset link has already been used. Please request a new link.",
       });
     }
 
-    if (Date.now() > record.expiresAt) {
-      resetTokenStore.delete(record.tokenHash);
-      saveResetTokensToFile(resetTokenStore);
+    if (lookup.reason === "REPLACED") {
       return res.status(400).json({
         valid: false,
+        code: "RESET_TOKEN_REPLACED",
+        error: "A newer password reset link was requested. Please use your latest reset email.",
+      });
+    }
+
+    if (lookup.reason === "EXPIRED") {
+      return res.status(400).json({
+        valid: false,
+        code: "RESET_TOKEN_EXPIRED",
         error: "This password reset link has expired (15-minute limit). Please request a new link.",
       });
     }
 
-    res.json({
+    return res.json({
       valid: true,
-      email: record.email,
+      email: lookup.record.email,
     });
   } catch (error: any) {
-    console.error("[Verify Reset Token Error]:", error);
-    res.status(500).json({
+    if (error instanceof StorageUnavailableError) {
+      return res.status(503).json({
+        valid: false,
+        code: error.code,
+        error: error.message,
+      });
+    }
+    console.error("[Verify Reset Token Error]:", error?.message || error);
+    return res.status(500).json({
       valid: false,
       error: "Failed to verify reset token.",
     });
   }
 });
 
-// 3. Reset Password with Token
+// 3. Reset Password with Token or Firebase oobCode (Strictly requires real Firebase Auth credential update)
 app.post("/api/auth/reset-password", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   try {
     const { token, oobCode, newPassword } = req.body;
 
-    if ((!token && !oobCode) || !newPassword) {
+    if ((!token && !oobCode) || typeof newPassword !== "string" || !newPassword) {
       return res.status(400).json({
         success: false,
+        code: "RESET_FIELDS_REQUIRED",
         error: "Reset token and new password are required.",
       });
     }
 
-    if (String(newPassword).length < 8) {
+    // Never trim passwords: preserve exact user-entered characters
+    if (newPassword.length < 8) {
       return res.status(400).json({
         success: false,
+        code: "PASSWORD_TOO_SHORT",
         error: "New password must be at least 8 characters long.",
       });
     }
 
-    // If an oobCode is present or token is an oobCode, update Firebase Auth via Identity Toolkit
-    const codeToUse = oobCode || (typeof token === "string" && token.length > 50 ? token : null);
-    if (codeToUse) {
-      try {
+    // Path A: Firebase oobCode provided directly
+    if (typeof oobCode === "string" && oobCode.trim()) {
+      const cleanOob = oobCode.trim();
+      if (firebaseResetAdapter.confirmOobReset) {
+        const result = await firebaseResetAdapter.confirmOobReset(cleanOob, newPassword);
+        if (!result.ok) {
+          return res.status(400).json({
+            success: false,
+            code: result.code || "RESET_OOB_FAILED",
+            error: result.error || "Invalid or expired password reset link.",
+          });
+        }
+      } else {
         const idtRes = await fetch(
           `https://identitytoolkit.googleapis.com/v1/accounts:resetPassword?key=${FIREBASE_WEB_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              oobCode: codeToUse,
-              newPassword: newPassword,
+              oobCode: cleanOob,
+              newPassword,
             }),
           }
         );
-        const idtData = await idtRes.json();
-        if (!idtRes.ok && idtData.error) {
-          console.warn("Identity Toolkit resetPassword notice:", idtData.error);
+        const idtData: any = await idtRes.json().catch(() => ({}));
+        if (!idtRes.ok) {
+          const fbMsg = String(idtData?.error?.message || "");
+          let friendlyError = "This password reset link is invalid, expired, or has already been used.";
+          if (fbMsg.includes("EXPIRED_OOB_CODE")) {
+            friendlyError = "This password reset link has expired. Please request a new link.";
+          } else if (fbMsg.includes("WEAK_PASSWORD")) {
+            friendlyError = "Password is too weak. Please use at least 8 characters.";
+          }
+          console.warn("[Password Reset] Identity Toolkit resetPassword rejected:", fbMsg);
+          return res.status(400).json({
+            success: false,
+            code: fbMsg || "RESET_OOB_FAILED",
+            error: friendlyError,
+          });
         }
-      } catch (idtErr) {
-        console.warn("Identity Toolkit resetPassword call notice:", idtErr);
       }
+
+      return res.json({
+        success: true,
+        message: "Your password has been updated successfully. Please sign in with your new password.",
+      });
     }
 
-    const record = token ? getResetTokenRecord(String(token)) : undefined;
-
-    if (record) {
-      if (record.used) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid or already used password reset link. Please request a new link.",
-        });
-      }
-
-      if (Date.now() > record.expiresAt) {
-        resetTokenStore.delete(record.tokenHash);
-        saveResetTokensToFile(resetTokenStore);
-        return res.status(400).json({
-          success: false,
-          error: "This reset link has expired (15-minute limit). Please request a new link.",
-        });
-      }
-
-      // Mark token as used and delete record
-      record.used = true;
-      resetTokenStore.delete(record.tokenHash);
-      saveResetTokensToFile(resetTokenStore);
-
-      console.log(`[Password Reset] Password successfully reset for user ${record.email}`);
+    // Path B: Server-issued persistent reset token
+    const cleanToken = String(token || "").trim();
+    if (!cleanToken) {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_MISSING",
+        error: "Missing password reset token.",
+      });
     }
 
-    res.json({
+    const store = await getAuthChallengeStore(deps?.authStore);
+    const nowMs = getNow();
+    const lookup = await store.getResetChallengeByToken(cleanToken, nowMs);
+
+    if (!lookup.record) {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_INVALID",
+        error: "Invalid or expired password reset link. Please request a new link.",
+      });
+    }
+
+    if (lookup.reason === "USED") {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_USED",
+        error: "This password reset link has already been used. Please request a new link.",
+      });
+    }
+
+    if (lookup.reason === "REPLACED") {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_REPLACED",
+        error: "A newer password reset link was requested. Please use your latest reset email.",
+      });
+    }
+
+    if (lookup.reason === "EXPIRED") {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_EXPIRED",
+        error: "This reset link has expired (15-minute limit). Please request a new link.",
+      });
+    }
+
+    if (!firebaseResetAdapter.isConfigured()) {
+      console.error("[Password Reset CRITICAL] Custom reset token submitted while FIREBASE_SERVICE_ACCOUNT_KEY is missing.");
+      return res.status(503).json({
+        success: false,
+        code: "RESET_PROVIDER_UNCONFIGURED",
+        error: "Password reset could not be completed because server authentication credentials are not configured. Please request a new reset link.",
+      });
+    }
+
+    // Update the actual Firebase Auth password BEFORE consuming token
+    const fbUser = await firebaseResetAdapter.lookupUserByEmail(lookup.record.email);
+    if (!fbUser || fbUser.disabled) {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_ACCOUNT_UNAVAILABLE",
+        error: "Unable to complete password reset for this account. Please contact support.",
+      });
+    }
+
+    try {
+      await firebaseResetAdapter.updatePassword(fbUser.uid, newPassword);
+    } catch (fbUpdateErr: any) {
+      console.error(
+        `[Password Reset ERROR] Firebase password update failed for ${maskEmailForLog(lookup.record.email)}:`,
+        fbUpdateErr?.message || fbUpdateErr
+      );
+      return res.status(500).json({
+        success: false,
+        code: "FIREBASE_PASSWORD_UPDATE_FAILED",
+        error: "Could not update your authentication password. Your reset link remains active—please try again.",
+      });
+    }
+
+    // Atomically mark reset token as used ONLY after Firebase Auth password update succeeded
+    const consumed = await store.consumeResetChallenge(cleanToken, nowMs);
+    if (!consumed.ok) {
+      return res.status(400).json({
+        success: false,
+        code: "RESET_TOKEN_USED",
+        error: "This password reset link has already been used. Please sign in with your new password.",
+      });
+    }
+
+    console.info(
+      `[Password Reset] Firebase Auth password updated and challenge consumed for ${maskEmailForLog(lookup.record.email)}`
+    );
+
+    return res.json({
       success: true,
-      message: "Your password has been successfully updated! You can now log in with your new password.",
+      message: "Your password has been updated successfully. Please sign in with your new password.",
     });
   } catch (error: any) {
-    console.error("[Reset Password API Error]:", error);
-    res.status(500).json({
+    if (error instanceof StorageUnavailableError) {
+      return res.status(503).json({
+        success: false,
+        code: error.code,
+        error: error.message,
+      });
+    }
+    console.error("[Reset Password API Error]:", error?.message || error);
+    return res.status(500).json({
       success: false,
       error: error.message || "Failed to update password. Please try again.",
     });
@@ -1173,11 +1137,11 @@ app.post("/api/mail/send-welcome", async (req, res) => {
     }
 
     let finalUserId = userId || id || uid || tutorId || teacherId;
-    if (!finalUserId && email) {
+    if (!finalUserId && email && isFirebaseAdminConfigured()) {
       try {
-        const mirroredUser = await (UserMirror as any).findOne({ email: email.toLowerCase() });
-        if (mirroredUser?.firestoreId) {
-          finalUserId = mirroredUser.firestoreId;
+        const matchedUsers = await firestoreQueryByField("users", "email", email.toLowerCase(), 1);
+        if (matchedUsers[0]?.id) {
+          finalUserId = matchedUsers[0].id;
         }
       } catch (e) {}
     }
@@ -1258,11 +1222,11 @@ app.post("/api/mail/send-custom", async (req, res) => {
     }
 
     let finalUserId = userId || id || uid || tutorId || teacherId;
-    if (!finalUserId && toEmail) {
+    if (!finalUserId && toEmail && isFirebaseAdminConfigured()) {
       try {
-        const mirroredUser = await (UserMirror as any).findOne({ email: toEmail.toLowerCase() });
-        if (mirroredUser?.firestoreId) {
-          finalUserId = mirroredUser.firestoreId;
+        const matchedUsers = await firestoreQueryByField("users", "email", toEmail.toLowerCase(), 1);
+        if (matchedUsers[0]?.id) {
+          finalUserId = matchedUsers[0].id;
         }
       } catch (e) {}
     }
@@ -1452,30 +1416,6 @@ app.post("/api/mail/send-bulk", async (req, res) => {
 
     console.log(`[Bulk Mail API] Campaign complete. Sent: ${sentCount}, Failed: ${failedCount}, Total: ${validRecipients.length}`);
 
-    // Secondary DB mirror trigger
-    try {
-      if (AdminActionLog) {
-        await AdminActionLog.create({
-          actionType: "BULK_EMAIL_CAMPAIGN",
-          entityType: "mail",
-          payload: {
-            campaignName: campaignName || subject,
-            subject,
-            category,
-            totalTargeted: validRecipients.length,
-            sentCount,
-            failedCount,
-            adminEmail,
-            actionButtonText,
-            actionButtonUrl,
-          },
-          adminEmail,
-        });
-      }
-    } catch (mirrorErr) {
-      console.warn("[Bulk Mail API] Non-critical mirror log warning:", mirrorErr);
-    }
-
     return res.json({
       success: sentCount > 0 || !detectedIpError,
       total: validRecipients.length,
@@ -1494,201 +1434,17 @@ app.post("/api/mail/send-bulk", async (req, res) => {
   }
 });
 
-/**
- * -------------------------------------------------------------
- * MongoDB Secondary Database Sync & Mirroring Endpoints
- * -------------------------------------------------------------
- */
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: "API Route Not Found", path: req.path });
+  });
 
-// 1. Get MongoDB Connection & Collections Status
-app.get("/api/admin/mongo/status", async (req, res) => {
-  try {
-    const isConfigured = !!process.env.MONGODB_URI;
-    const connected = await connectMongoDB();
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled Error:", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
+  });
 
-    if (!connected) {
-      return res.json({
-        connected: false,
-        isConfigured,
-        message: isConfigured 
-          ? "MongoDB connection string configured, but server could not establish connection." 
-          : "MONGODB_URI environment variable is not configured. Standing by.",
-        counts: { userMirrors: 0, adminLogs: 0, systemConfigs: 0, adminMails: 0, tuitionMirrors: 0 }
-      });
-    }
+  return app;
+}
 
-    const [userMirrors, adminLogs, systemConfigs, adminMails, tuitionMirrors] = await Promise.all([
-      UserMirror.countDocuments(),
-      AdminActionLog.countDocuments(),
-      SystemConfigMirror.countDocuments(),
-      AdminMailMirror.countDocuments(),
-      TuitionMirror.countDocuments()
-    ]);
-
-    res.json({
-      connected: true,
-      isConfigured: true,
-      dbName: "edutrack_secondary",
-      counts: {
-        userMirrors,
-        adminLogs,
-        systemConfigs,
-        adminMails,
-        tuitionMirrors
-      }
-    });
-  } catch (error: any) {
-    console.error("[MongoDB Status Route Error]:", error);
-    res.status(500).json({ connected: false, error: error.message });
-  }
-});
-
-// 2. Mirror/Copy Admin Created/Pushed Data to MongoDB automatically
-app.post("/api/admin/mongo/mirror", async (req, res) => {
-  try {
-    const { actionType, entityType, entityId, payload, adminEmail } = req.body;
-
-    if (!actionType || !entityType) {
-      return res.status(400).json({ error: "Missing required fields: actionType, entityType" });
-    }
-
-    const connected = await connectMongoDB();
-
-    // 1. Always record in AdminActionLog if MongoDB is connected
-    let savedLog = null;
-    if (connected) {
-      savedLog = await AdminActionLog.create({
-        actionType,
-        entityType,
-        entityId,
-        payload,
-        adminEmail: adminEmail || "admin@edutrack.bd",
-        syncedToFirestore: true
-      });
-
-      // 2. Entity-specific schema mirroring
-      if (entityType === "users" && payload && (entityId || payload.id)) {
-        const userId = entityId || payload.id;
-        await (UserMirror as any).findOneAndUpdate(
-          { firestoreId: userId },
-          {
-            $set: {
-              firestoreId: userId,
-              email: payload.email || "unknown@user.bd",
-              name: payload.name,
-              role: payload.role,
-              isVerified: payload.isVerified,
-              isBlocked: payload.isBlocked,
-              balance: payload.balance,
-              nidStatus: payload.nidStatus,
-              academicStatus: payload.academicStatus,
-              gender: payload.gender,
-              phone: payload.phone,
-              district: payload.district,
-              showOnHomePage: payload.showOnHomePage,
-              updatedByAdmin: adminEmail || "admin@edutrack.bd",
-              lastSyncedAt: new Date()
-            }
-          },
-          { upsert: true, new: true }
-        );
-      } else if (entityType === "system" && payload) {
-        const configKey = payload.configKey || "global_config";
-        await (SystemConfigMirror as any).findOneAndUpdate(
-          { configKey },
-          {
-            $set: {
-              configKey,
-              value: payload.value || payload,
-              pushedByAdmin: adminEmail || "admin@edutrack.bd",
-              lastSyncedAt: new Date()
-            }
-          },
-          { upsert: true, new: true }
-        );
-      } else if (entityType === "mail" && payload) {
-        await AdminMailMirror.create({
-          toEmail: payload.toEmail,
-          toName: payload.toName,
-          subject: payload.subject,
-          messageBody: payload.messageBody,
-          roleScope: payload.role,
-          districtScope: payload.district,
-          pushedByAdmin: adminEmail || "admin@edutrack.bd"
-        });
-      } else if (entityType === "tuition" && payload && (entityId || payload.id)) {
-        const tuitionId = entityId || payload.id;
-        await (TuitionMirror as any).findOneAndUpdate(
-          { firestoreId: tuitionId },
-          {
-            $set: {
-              firestoreId: tuitionId,
-              title: payload.title,
-              subject: payload.subject,
-              studentClass: payload.studentClass,
-              district: payload.district,
-              salary: payload.salary,
-              status: payload.status || "active",
-              pushedByAdmin: adminEmail || "admin@edutrack.bd",
-              lastSyncedAt: new Date()
-            }
-          },
-          { upsert: true, new: true }
-        );
-      }
-    }
-
-    res.json({
-      success: true,
-      mongoSaved: connected,
-      actionType,
-      entityType,
-      entityId,
-      message: connected 
-        ? "Data successfully saved to Firestore and mirrored to MongoDB secondary database!" 
-        : "Data saved to Firestore. MongoDB secondary database is offline or unconfigured."
-    });
-  } catch (error: any) {
-    console.error("[MongoDB Mirror Route Error]:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 3. Fetch Recent MongoDB Action Logs & Records for Admin Inspection
-app.get("/api/admin/mongo/logs", async (req, res) => {
-  try {
-    const connected = await connectMongoDB();
-    if (!connected) {
-      return res.json({ connected: false, logs: [], userMirrors: [] });
-    }
-
-    const [logs, userMirrors, systemConfigs, adminMails] = await Promise.all([
-      AdminActionLog.find().sort({ createdAt: -1 }).limit(50).lean(),
-      UserMirror.find().sort({ updatedAt: -1 }).limit(50).lean(),
-      SystemConfigMirror.find().sort({ updatedAt: -1 }).limit(20).lean(),
-      AdminMailMirror.find().sort({ createdAt: -1 }).limit(20).lean(),
-    ]);
-
-    res.json({
-      connected: true,
-      logs,
-      userMirrors,
-      systemConfigs,
-      adminMails
-    });
-  } catch (error: any) {
-    console.error("[MongoDB Logs Route Error]:", error);
-    res.status(500).json({ connected: false, error: error.message });
-  }
-});
-
-app.all("/api/*", (req, res) => {
-  res.status(404).json({ error: "API Route Not Found", path: req.path });
-});
-
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Unhandled Error:", err);
-  res.status(500).json({ error: "Internal Server Error", message: err.message });
-});
-
+export const app = createApp();
 export default app;

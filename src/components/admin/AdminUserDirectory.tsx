@@ -34,6 +34,7 @@ import {
   Check
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
+import { useBackHandler } from '../../utils/mobileWebView';
 
 // Helper to format user registration date and time
 export const formatJoinDate = (createdAt?: string) => {
@@ -231,6 +232,22 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
       isDanger
     });
   };
+
+  useBackHandler(
+    Boolean(confirmModal?.isOpen),
+    () => setConfirmModal(null),
+    'admin-directory-confirm',
+  );
+  useBackHandler(
+    Boolean(inspectingUser) && !confirmModal?.isOpen,
+    () => setInspectingUser(null),
+    'admin-directory-inspect',
+  );
+  useBackHandler(
+    Boolean(emailModalUser) && !confirmModal?.isOpen,
+    () => setEmailModalUser(null),
+    'admin-directory-email',
+  );
 
   // Filtering users logic
   const filteredUsers = useMemo(() => {
@@ -686,7 +703,166 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
           </div>
         </div>
 
-        <div ref={scrollContainerRef} className="overflow-x-auto">
+        {/* Mobile Card View (< md) */}
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/70">
+          {filteredUsers.map((user) => {
+            const isBlocked = !!user.isBlocked;
+            const isUserTutor = user.role === 'tutor';
+            const joinInfo = formatJoinDate(user.createdAt);
+
+            return (
+              <div
+                key={`mobile-${user.id}`}
+                className={`p-4 space-y-3 ${isBlocked ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center font-black italic border border-blue-100 dark:border-blue-900/40 relative overflow-hidden shrink-0">
+                      {user.profileImage ? (
+                        <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="text-sm">{user.name?.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[170px]">
+                          {user.name || 'No Name'}
+                        </span>
+                        {user.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
+                        <span className={`px-1.5 py-0.5 text-[9px] font-black rounded uppercase ${
+                          isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
+                        }`}>
+                          {isBlocked ? 'Blocked' : 'Active'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{user.email}</p>
+                      {user.phone && <p className="text-xs text-slate-500 dark:text-slate-400">{user.phone}</p>}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase shrink-0 ${
+                    user.role === 'admin'
+                      ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'
+                      : user.role === 'tutor'
+                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400'
+                        : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                  }`}>
+                    {user.role}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Joined</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{joinInfo.date}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Wallet</span>
+                    <span className="font-black text-slate-900 dark:text-white">৳{(user.balance || 0).toLocaleString()}</span>
+                  </div>
+                  {isUserTutor && (
+                    <>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">NID / ACA</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {user.nidStatus || 'N/A'} / {user.academicStatus || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Rate</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          ৳{user.hourlyRate || 0} • {user.daysPerWeek || 0}d/wk
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setInspectingUser(user)}
+                    className="min-h-[44px] px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-black uppercase flex items-center gap-1.5"
+                  >
+                    <Search className="w-4 h-4" />
+                    Inspect
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailModalUser(user)}
+                    className="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center"
+                    title="Send Email"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                  {user.id !== currentUser.id && onMessageUser && (
+                    <button
+                      type="button"
+                      onClick={() => onMessageUser(user.id)}
+                      className="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 flex items-center justify-center"
+                      title="Direct Message"
+                    >
+                      <Mail className="w-4 h-4" />
+                    </button>
+                  )}
+                  {isUserTutor && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVerification(user)}
+                      disabled={updatingUserId === user.id}
+                      className={`min-w-[44px] min-h-[44px] px-3 rounded-xl flex items-center justify-center ${
+                        user.isVerified
+                          ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
+                          : 'bg-[#0D5BFF]/10 text-[#0D5BFF]'
+                      }`}
+                      title={user.isVerified ? 'Revoke Verification' : 'Verify Tutor'}
+                    >
+                      <Award className="w-4 h-4" />
+                    </button>
+                  )}
+                  {user.id !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBlock(user)}
+                      disabled={updatingUserId === user.id}
+                      className={`min-w-[44px] min-h-[44px] px-3 rounded-xl flex items-center justify-center ${
+                        isBlocked
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
+                          : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30'
+                      }`}
+                      title={isBlocked ? 'Reactivate User' : 'Suspend User'}
+                    >
+                      {isBlocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                    </button>
+                  )}
+                  {user.id !== currentUser.id && (
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleChangeRole(user.id, e.target.value as any)}
+                      disabled={updatingUserId === user.id}
+                      className="ml-auto min-h-[44px] px-3 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-black uppercase border border-slate-200 dark:border-slate-700"
+                    >
+                      <option value="student">Student</option>
+                      <option value="tutor">Tutor</option>
+                      {(currentUser?.email === 'edutrackbangladesh@gmail.com' || currentUser?.email === 'm13hmahadi.personal@gmail.com' || user.role === 'admin') && (
+                        <option value="admin">Admin</option>
+                      )}
+                    </select>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {filteredUsers.length === 0 && (
+            <div className="text-center py-12 text-slate-500 dark:text-slate-400 font-bold text-xs px-4">
+              No corresponding user profiles found in database constraints.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div ref={scrollContainerRef} className="hidden md:block overflow-x-auto">
           <table className="min-w-full uppercase select-none">
             <thead>
               <tr className="border-b border-slate-50 dark:border-slate-800/40">

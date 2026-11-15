@@ -16,9 +16,8 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth } from '../lib/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
 import SEOHead from '../components/SEOHead';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function Login() {
   const location = useLocation();
@@ -43,6 +42,9 @@ export default function Login() {
   const [resetSuccess, setResetSuccess] = useState('');
   const [resetCountdown, setResetCountdown] = useState<number | null>(null);
 
+  useBackHandler(showInvalidCredPopup, () => setShowInvalidCredPopup(false), 'login-invalid-popup');
+  useBackHandler(showForgotPassword, () => setShowForgotPassword(false), 'login-forgot-modal');
+
   // Auto-close forgot password popup in 3s when reset email is sent
   useEffect(() => {
     let timer: any;
@@ -66,6 +68,22 @@ export default function Login() {
   const redirectUrl = searchParams.get('redirect');
 
   useEffect(() => {
+    if (searchParams.get('reset') === 'success') {
+      setPageSuccessMessage(
+        'Your password has been updated successfully. Please sign in with your new password.'
+      );
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('reset');
+      const nextSearch = nextParams.toString();
+      window.history.replaceState(
+        {},
+        '',
+        `${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`
+      );
+    }
+  }, [searchParams, location.pathname]);
+
+  useEffect(() => {
     if (currentUser) {
       const dest = consumePostLoginDestination(redirectUrl || '/dashboard');
       navigate(dest, { replace: true });
@@ -75,6 +93,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLogin) {
+      setPageSuccessMessage('');
       const trimmedEmail = email.trim();
       if (!trimmedEmail) {
         setError('Email address is required.');
@@ -137,7 +156,7 @@ export default function Login() {
           errStr.includes('invalid_credential')
         ) {
           msg =
-            'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। পাসওয়ার্ড ভুলে গেলে রিসেট করুন অথবা নতুন একাউন্ট খুলুন। (Incorrect email or password.)';
+            'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। পাসওয়ার্ড ভুলে গেলে "Forgot password?" ব্যবহার করুন অথবা Google দিয়ে সাইন-আপ করে থাকলে "Sign In with Google" চাপুন। (Incorrect email or password. Use "Forgot password?" or "Sign In with Google".)';
           setShowInvalidCredPopup(true);
         } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
           msg = 'ইমেইল এড্রেসটি সঠিকভাবে প্রদান করুন। (Please enter a valid email address.)';
@@ -152,6 +171,7 @@ export default function Login() {
         }
 
         setError(msg);
+        setPageSuccessMessage('');
         setLoginSuccess(false);
       } finally {
         setLoading(false);
@@ -179,12 +199,6 @@ export default function Login() {
     setResetSuccess('');
 
     try {
-      try {
-        await sendPasswordResetEmail(auth, trimmedEmail);
-      } catch (fbErr) {
-        // Ignore client-side error if user doesn't exist to avoid enumeration
-      }
-
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -193,7 +207,7 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setResetSuccess(
           data.message ||
             'If an account is registered with this email address, a one-time password reset link has been sent. Please check your inbox or spam folder.'
@@ -329,7 +343,7 @@ export default function Login() {
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300 text-center leading-relaxed mb-6">
                 Enter your registered email address.{' '}
                 <span className="text-amber-600 dark:text-amber-400 font-bold">
-                  Reset links expire in 5 minutes.
+                  Reset links expire in 15 minutes.
                 </span>
               </p>
 
@@ -386,6 +400,7 @@ export default function Login() {
                         setResetError('');
                         setResetSuccess('');
                       }}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       placeholder="e.g. name@example.com"
                       id="forgot-password-email-input"
                       className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all"
@@ -561,6 +576,7 @@ export default function Login() {
                     setEmail(e.target.value);
                     setError('');
                   }}
+                  onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                   placeholder="e.g. name@example.com"
                   className={`w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 text-sm font-medium text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] focus:ring-2 focus:ring-blue-500/15 transition-all duration-200 rounded-xl ${
                     error
@@ -599,6 +615,7 @@ export default function Login() {
                       setPassword(e.target.value);
                       setError('');
                     }}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     placeholder="Enter your password"
                     className={`w-full pl-4 pr-12 py-3 bg-white dark:bg-slate-900 border-2 text-sm font-medium text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] focus:ring-2 focus:ring-blue-500/15 transition-all duration-200 rounded-xl ${
                       error
@@ -630,6 +647,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={async () => {
+                  setPageSuccessMessage('');
                   setLoading(true);
                   setError('');
                   try {
@@ -679,6 +697,7 @@ export default function Login() {
                       setShowInvalidCredPopup(true);
                     }
                     setError(msg);
+                    setPageSuccessMessage('');
                     setLoginSuccess(false);
                   } finally {
                     setLoading(false);

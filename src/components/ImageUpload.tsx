@@ -19,8 +19,9 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initiateCrop = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Please provide an image file (PNG, JPG, etc)');
+    const isImageFile = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+    if (!isImageFile) {
+      setError('Please provide an image file (JPG, PNG, WEBP)');
       return;
     }
 
@@ -35,8 +36,9 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
   };
 
   const handleUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Please provide an image file (PNG, JPG, etc)');
+    const isImageFile = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+    if (!isImageFile) {
+      setError('Please provide an image file (JPG, PNG, WEBP)');
       return;
     }
 
@@ -132,14 +134,16 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
         onDrop={handleDrop}
         onClick={triggerInput}
         className={`relative w-32 h-32 rounded-[2.5rem] border-4 border-dashed transition-all cursor-pointer group overflow-hidden ${
-          dragActive ? 'border-[#0D5BFF] bg-blue-50' : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+          dragActive
+            ? 'border-[#0D5BFF] bg-blue-50 dark:bg-blue-950/30'
+            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
         }`}
       >
         <input 
           ref={fileInputRef}
           type="file" 
           className="hidden" 
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
           onChange={(e) => e.target.files?.[0] && initiateCrop(e.target.files[0])}
         />
 
@@ -151,7 +155,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
               className="w-full h-full object-cover rounded-[2.2rem]"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 rounded-[2.2rem]">
+            <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 rounded-[2.2rem]">
                <Camera className="w-5 h-5 text-white hover:scale-110 transition-transform" />
                {onDelete && (
                  <button
@@ -160,7 +164,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
                       e.stopPropagation();
                       onDelete();
                     }}
-                    className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110"
+                    className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110 min-w-[36px] min-h-[36px] flex items-center justify-center"
                     title="Delete Photo"
                  >
                     <Trash2 className="w-4 h-4" />
@@ -169,22 +173,22 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-slate-300">
+          <div className="flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">
              <Upload className="w-6 h-6 mb-2 group-hover:text-[#0D5BFF] transition-colors" />
-             <span className="text-[8px] font-black uppercase tracking-widest">Upload ID</span>
+             <span className="text-xs font-bold uppercase tracking-wider">Upload Photo</span>
           </div>
         )}
 
         {isUploading && (
-          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-4">
-             <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+          <div className="absolute inset-0 bg-white/95 dark:bg-slate-950/95 flex flex-col items-center justify-center p-4">
+             <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mb-2">
                  <motion.div 
                    initial={{ width: 0 }}
                    animate={{ width: `${progress}%` }}
                    className="h-full bg-[#0D5BFF]"
                  />
               </div>
-              <span className="text-[7px] font-black uppercase text-[#0B132B]">{Math.round(progress)}%</span>
+              <span className="text-xs font-bold text-[#0B132B] dark:text-white">{Math.round(progress)}%</span>
           </div>
         )}
       </div>
@@ -196,9 +200,9 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
             e.stopPropagation();
             onDelete();
           }}
-          className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 active:scale-95 transition-all mt-1 cursor-pointer bg-transparent border-0 p-1"
+          className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 active:scale-95 transition-all mt-1 cursor-pointer bg-transparent border-0 p-1.5 min-h-[36px]"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="w-3.5 h-3.5" />
           Remove Photo
         </button>
       )}
@@ -209,10 +213,10 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100"
+            className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/50 rounded-xl border border-rose-200 dark:border-rose-800"
           >
-            <AlertCircle className="w-3 h-3 text-rose-500" />
-            <p className="text-[8px] font-bold text-rose-600 uppercase tracking-widest">{error}</p>
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">{error}</p>
           </motion.div>
         )}
       </AnimatePresence>

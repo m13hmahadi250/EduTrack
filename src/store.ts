@@ -27,8 +27,8 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { sendWelcomeMail } from './services/mailService';
-import { mirrorAdminDataToMongoDB } from './services/mongoSyncService';
 import { reverseGeocodeLocation } from './utils/geocoding';
+import { hasActiveOrPendingBooking, TutorPrivacySettings } from '../shared/tutorPrivacy';
 
 export type Role = 'student' | 'tutor' | 'admin';
 
@@ -118,6 +118,9 @@ export interface User {
   whatsappNumber?: string;
   badges?: string[];
   notifyTutorIds?: string[];
+  teachingMode?: 'Home' | 'Online' | 'Both' | string;
+  curriculum?: string;
+  privacySettings?: TutorPrivacySettings;
 }
 
 export interface Referral {
@@ -298,6 +301,7 @@ interface AppState {
   sendNotification: (userId: string, title: string, message: string, type?: Notification['type']) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   toggleNotifyTutor: (tutorId: string) => Promise<boolean>;
+  toggleSavedTutor: (tutorId: string) => Promise<boolean>;
   
   // Typing
   setTyping: (targetId: string, isTyping: boolean) => Promise<void>;
@@ -383,6 +387,16 @@ function cleanupListeners() {
   activeUnsubscribes = [];
 }
 
+function clearEphemeralAuthStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem('edutrack_signup_draft');
+    sessionStorage.removeItem('edutrack_otp_challenge');
+    localStorage.removeItem('google_auth_requested_role');
+    localStorage.removeItem('google_auth_additional_user_data');
+  } catch {}
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   // Listen for global system configurations like promotional banner & android app link
   onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
@@ -452,6 +466,22 @@ export const useAppStore = create<AppState>((set, get) => {
                 console.error("Error updating admin profile image in Firestore observer:", e);
               }
             }
+          }
+          const prevUserId = get().currentUser?.id;
+          if (prevUserId && prevUserId !== firebaseUser.uid) {
+            cleanupListeners();
+            set({
+              users: [],
+              payments: [],
+              sessions: [],
+              withdrawals: [],
+              messages: [],
+              notifications: [],
+              classLogs: [],
+              homeworkAssignments: [],
+              referrals: [],
+              typingStatus: {},
+            });
           }
           set({ currentUser: userData, isLoading: false, isInitialized: true });
           try {
@@ -547,6 +577,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     } else {
       cleanupListeners();
+      clearEphemeralAuthStorage();
       try {
         localStorage.removeItem('edutrack_cached_user');
         localStorage.removeItem('edutrack_last_gps_location');
@@ -602,15 +633,6 @@ export const useAppStore = create<AppState>((set, get) => {
     updatePromotionalBannerText: async (text: string) => {
       try {
         await setDoc(doc(db, 'system', 'config'), { promotionalBannerText: text }, { merge: true });
-        // Secondary DB mirror trigger
-        const adminEmail = get().currentUser?.email || 'admin@edutrack.bd';
-        mirrorAdminDataToMongoDB({
-          actionType: 'UPDATE_BANNER',
-          entityType: 'system',
-          entityId: 'promotionalBannerText',
-          payload: { configKey: 'promotionalBannerText', value: text },
-          adminEmail
-        });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, 'system/config');
       }
@@ -619,15 +641,6 @@ export const useAppStore = create<AppState>((set, get) => {
     updateAndroidAppLink: async (link: string) => {
       try {
         await setDoc(doc(db, 'system', 'config'), { androidAppLink: link }, { merge: true });
-        // Secondary DB mirror trigger
-        const adminEmail = get().currentUser?.email || 'admin@edutrack.bd';
-        mirrorAdminDataToMongoDB({
-          actionType: 'UPDATE_APP_LINK',
-          entityType: 'system',
-          entityId: 'androidAppLink',
-          payload: { configKey: 'androidAppLink', value: link },
-          adminEmail
-        });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, 'system/config');
       }
@@ -874,8 +887,23 @@ export const useAppStore = create<AppState>((set, get) => {
           }
         }
 
-        // Set state immediately so route guards immediately recognize the user
-        set({ currentUser: userData, isLoading: false, isInitialized: true });
+        cleanupListeners();
+        // Reset stale collection slices before binding authenticated user's listeners
+        set({
+          currentUser: userData,
+          users: [],
+          payments: [],
+          sessions: [],
+          withdrawals: [],
+          messages: [],
+          notifications: [],
+          classLogs: [],
+          homeworkAssignments: [],
+          referrals: [],
+          typingStatus: {},
+          isLoading: false,
+          isInitialized: true,
+        });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
         } catch (e) {}
@@ -1000,12 +1028,28 @@ export const useAppStore = create<AppState>((set, get) => {
             }
           }
 
-          set({ currentUser: userData, isLoading: false });
+          cleanupListeners();
+          set({
+            currentUser: userData,
+            users: [],
+            payments: [],
+            sessions: [],
+            withdrawals: [],
+            messages: [],
+            notifications: [],
+            classLogs: [],
+            homeworkAssignments: [],
+            referrals: [],
+            typingStatus: {},
+            isLoading: false,
+            isInitialized: true,
+          });
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
           } catch (e) {}
           localStorage.removeItem('google_auth_requested_role');
           localStorage.removeItem('google_auth_additional_user_data');
+          setupListeners(firebaseUser.uid, userData.role, set, get);
         }
       } catch (error: any) {
         console.error("Error initiating Google sign-in:", error);
@@ -1065,12 +1109,16 @@ export const useAppStore = create<AppState>((set, get) => {
       const prevUid = get().currentUser?.id;
       set({ isLoggingOut: true });
       cleanupListeners();
+      clearEphemeralAuthStorage();
       try {
         localStorage.removeItem('edutrack_cached_user');
         localStorage.removeItem('edutrack_last_gps_location');
         localStorage.removeItem('auth_post_login_destination');
         if (prevUid) {
           localStorage.removeItem(`edutrack_offline_cache_${prevUid}`);
+        }
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_AUTH_CACHE' });
         }
       } catch (e) {}
       // Allow the UI logout transition animation to execute smoothly
@@ -1108,12 +1156,21 @@ export const useAppStore = create<AppState>((set, get) => {
           const code = authErr?.code || '';
           const errStr = String(authErr).toLowerCase();
           if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
-            // Self-healing flow: attempt sign-in with password if user already exists
+            // Self-heal only if Firestore profile is missing; never overwrite an existing registered account
+            let existingProfileExists = false;
             try {
               const signinRes = await signInWithEmailAndPassword(auth, userData.email!, password);
               uid = signinRes.user.uid;
+              const existingDoc = await getDoc(doc(db, 'users', uid));
+              if (existingDoc.exists() && existingDoc.data()?.role) {
+                existingProfileExists = true;
+                await signOut(auth).catch(() => {});
+              }
             } catch (signinErr) {
               throw new Error('এই ইমেইল দিয়ে ইতোমধ্যে একাউন্ট খোলা রয়েছে। আপনার অ্যাকাউন্টে লগইন করতে "সাইন ইন" এ যান অথবা পাসওয়ার্ড রিসেট করুন। (An account with this email already exists. Please sign in or reset password.)');
+            }
+            if (existingProfileExists) {
+              throw new Error('এই ইমেইল দিয়ে ইতোমধ্যে একাউন্ট খোলা রয়েছে। অনুগ্রহ করে সাইন ইন করুন। (An account with this email already exists. Please sign in instead.)');
             }
           } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
             throw new Error('পাসওয়ার্ডটি খুব ছোট। অনুগ্রহ করে অন্তত ৮ টি অক্ষরের পাসওয়ার্ড ব্যবহার করুন। (Password must be at least 8 characters.)');
@@ -1153,6 +1210,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Save/Merge to Firestore
         await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
+        clearEphemeralAuthStorage();
         set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
@@ -1212,19 +1270,6 @@ export const useAppStore = create<AppState>((set, get) => {
             users: usersList.map(u => u.id === id ? { ...u, ...cleanedData } as User : u)
           });
         }
-
-        // Trigger MongoDB secondary DB mirror automatically
-        const targetUser = get().users.find(u => u.id === id) || (get().currentUser?.id === id ? get().currentUser : null);
-        const fullPayload = targetUser ? { ...targetUser, ...cleanedData } : { id, ...cleanedData };
-        const activeAdminEmail = get().currentUser?.role === 'admin' ? get().currentUser?.email : 'admin@edutrack.bd';
-        
-        mirrorAdminDataToMongoDB({
-          actionType: 'UPDATE_USER_RECORD',
-          entityType: 'users',
-          entityId: id,
-          payload: fullPayload,
-          adminEmail: activeAdminEmail
-        });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
       }
@@ -1486,7 +1531,20 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     bookSession: async (sessionData) => {
-      const id = `sess_${Date.now()}`;
+      const existing = hasActiveOrPendingBooking(
+        sessionData.studentId,
+        sessionData.tutorId,
+        get().sessions
+      );
+      if (existing) {
+        throw new Error(
+          existing.status === 'active' || existing.status === 'scheduled'
+            ? 'You already have an active or scheduled session with this tutor.'
+            : 'A booking request or proposal is already pending with this tutor.'
+        );
+      }
+
+      const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       try {
         await setDoc(doc(db, 'sessions', id), {
           ...sessionData,
@@ -1979,6 +2037,33 @@ export const useAppStore = create<AppState>((set, get) => {
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
         return isAlreadySubscribed;
+      }
+    },
+
+    toggleSavedTutor: async (tutorId: string) => {
+      const currentUser = get().currentUser;
+      if (!currentUser || !tutorId) return false;
+
+      const currentSaved = Array.isArray(currentUser.savedTutors) ? currentUser.savedTutors : [];
+      const isAlreadySaved = currentSaved.includes(tutorId);
+      const updatedSaved = isAlreadySaved
+        ? currentSaved.filter((id) => id !== tutorId)
+        : [...currentSaved, tutorId];
+
+      try {
+        await updateDoc(doc(db, 'users', currentUser.id), {
+          savedTutors: updatedSaved,
+        });
+
+        const updatedUser = { ...currentUser, savedTutors: updatedSaved };
+        set({ currentUser: updatedUser });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedUser));
+        } catch {}
+        return !isAlreadySaved;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
+        return isAlreadySaved;
       }
     },
 

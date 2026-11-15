@@ -16,6 +16,7 @@ import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { prefetchPage } from '../utils/prefetch';
+import { useBackHandler } from '../utils/mobileWebView';
 
 const getFormattedName = (fullName: string) => {
   if (!fullName) return '';
@@ -45,6 +46,9 @@ const Navbar = memo(() => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  useBackHandler(mobileMenuOpen, () => setMobileMenuOpen(false), 'nav-mobile-menu');
+  useBackHandler(profileMenuOpen, () => setProfileMenuOpen(false), 'nav-profile-menu');
 
   const unreadCount = currentUser
     ? messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length
@@ -198,7 +202,7 @@ const Navbar = memo(() => {
           <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer"
+              className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer"
               aria-label="Toggle Theme"
               title="Toggle Theme"
             >
@@ -350,27 +354,27 @@ const Navbar = memo(() => {
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
+                  className="md:hidden min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center"
                   aria-label="Toggle Mobile Menu"
                 >
                   {mobileMenuOpen ? <X className="w-5 h-5 text-rose-500" /> : <Menu className="w-5 h-5 text-[#0D5BFF]" />}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2.5 sm:space-x-3">
+              <div className="flex items-center space-x-2 sm:space-x-3">
                 <Link
                   id="sign-in-button"
                   to="/login"
                   onMouseEnter={() => prefetchPage('Login')}
                   onFocus={() => prefetchPage('Login')}
-                  className="bg-[#0D5BFF] hover:bg-blue-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.98]"
+                  className="bg-[#0D5BFF] hover:bg-blue-700 text-white px-4 sm:px-5 min-h-[44px] inline-flex items-center justify-center rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.98]"
                 >
                   Sign In
                 </Link>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
+                  className="md:hidden min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center"
                   aria-label="Toggle Mobile Menu"
                 >
                   {mobileMenuOpen ? <X className="w-5 h-5 text-rose-500" /> : <Menu className="w-5 h-5 text-[#0D5BFF]" />}

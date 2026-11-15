@@ -30,7 +30,6 @@
     "leaflet-routing-machine": "^3.2.12",
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.546.0",
-    "mongoose": "^9.9.1",
     "motion": "^12.23.24",
     "multer": "^2.2.0",
     "react": "^19.0.1",

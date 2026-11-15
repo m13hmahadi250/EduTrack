@@ -168,8 +168,8 @@ export default function MessageToastCenter() {
         if (registration && 'showNotification' in registration) {
           await registration.showNotification(title, {
             body,
-            icon: options.icon || '/logo.svg',
-            badge: '/favicon.svg',
+            icon: options.icon || '/android-chrome-192x192.png',
+            badge: '/favicon-96x96.png',
             tag: notifTag,
             renotify: true,
             vibrate: [200, 100, 200, 100, 200],
@@ -191,8 +191,8 @@ export default function MessageToastCenter() {
     try {
       const legacyNotif = new window.Notification(title, {
         body,
-        icon: options.icon || '/logo.svg',
-        badge: '/favicon.svg',
+        icon: options.icon || '/android-chrome-192x192.png',
+        badge: '/favicon-96x96.png',
         tag: notifTag,
         silent: false,
         requireInteraction: false
@@ -259,7 +259,7 @@ export default function MessageToastCenter() {
         
         if (permission === 'granted') {
           triggerNativeNotification('📱 Android System Bar Linked!', 'EduTrack alerts will now appear directly in your mobile notification bar.', {
-            icon: '/logo.svg',
+            icon: '/android-chrome-192x192.png',
             tag: 'edutrack-confirm',
             onClickUrl: '/'
           });
@@ -349,7 +349,7 @@ export default function MessageToastCenter() {
           });
 
           triggerNativeNotification(`New Message from ${senderName}`, m.content, {
-            icon: senderAvatar || '/logo.svg',
+            icon: senderAvatar || '/android-chrome-192x192.png',
             tag: 'edutrack-msg-' + m.senderId,
             onClickUrl: '/messages'
           });
@@ -391,7 +391,7 @@ export default function MessageToastCenter() {
         });
 
         triggerNativeNotification(notifTitle, n.message, {
-          icon: '/logo.svg',
+          icon: '/android-chrome-192x192.png',
           tag: 'edutrack-notif-' + n.id,
           onClickUrl: '/'
         });
@@ -432,7 +432,7 @@ export default function MessageToastCenter() {
   };
 
   return (
-    <div id="toast-notification-hub" className="fixed top-6 right-6 z-[9999] pointer-events-none flex flex-col gap-4 w-full max-w-sm sm:max-w-md">
+    <div id="toast-notification-hub" className="fixed top-4 left-3 right-3 sm:left-auto sm:top-6 sm:right-6 z-[9999] pointer-events-none flex flex-col gap-3 sm:gap-4 sm:w-full sm:max-w-md">
       <AnimatePresence>
         {/* Render persistent permission prompt ribbon if it is default */}
         {showPermissionPrompt && currentUser && (

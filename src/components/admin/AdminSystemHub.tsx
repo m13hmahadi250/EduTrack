@@ -556,10 +556,10 @@ export default function AdminSystemHub({
               detail: "Subscribed to live snapshot notifications"
             },
             {
-              service: "MongoDB Secondary Mirror",
-              role: "Cold Analytics Mirror",
-              status: "Synchronized",
-              detail: "Scheduled background incremental backup"
+              service: "Cloudflare R2 Object Storage",
+              role: "Media & Verification Bucket",
+              status: "Operational",
+              detail: "WebP image pipeline & signed credential uploads"
             }
           ].map((svc, idx) => (
             <div key={idx} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 flex items-start justify-between gap-3">

@@ -57,7 +57,12 @@ import {
   Mail,
   Share2,
   Pin,
+  Eye,
+  EyeOff,
+  Lock,
 } from "lucide-react";
+import { useBackHandler } from "../../utils/mobileWebView";
+import { sanitizeTutorProfileForViewer } from "../../../shared/tutorPrivacy";
 import { motion, AnimatePresence } from "motion/react";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from "../../utils/geocoding";
@@ -251,6 +256,13 @@ export default function TutorDashboard() {
   );
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showPublicPreview, setShowPublicPreview] = useState(false);
+
+  useBackHandler(
+    showPublicPreview,
+    () => setShowPublicPreview(false),
+    "tutor-public-preview-modal",
+  );
 
   const effectiveTutorLocation = useMemo<[number, number]>(() => {
     if (currentUser?.location?.lat && currentUser?.location?.lng) {
@@ -520,6 +532,11 @@ export default function TutorDashboard() {
     documents: currentUser?.documents || [],
     gender: currentUser?.gender || "",
     whatsappNumber: currentUser?.whatsappNumber || currentUser?.phone || "",
+    privacySettings: {
+      hidePhotoFromPublic: Boolean(currentUser?.privacySettings?.hidePhotoFromPublic),
+      hideExpectedSalaryPublic: Boolean(currentUser?.privacySettings?.hideExpectedSalaryPublic),
+      hideFromSearch: Boolean(currentUser?.privacySettings?.hideFromSearch),
+    },
   });
 
   // Sync profile form when currentUser changes or editing is toggled
@@ -551,6 +568,11 @@ export default function TutorDashboard() {
         documents: currentUser.documents || [],
         gender: currentUser.gender || "",
         whatsappNumber: userWa,
+        privacySettings: {
+          hidePhotoFromPublic: Boolean(currentUser.privacySettings?.hidePhotoFromPublic),
+          hideExpectedSalaryPublic: Boolean(currentUser.privacySettings?.hideExpectedSalaryPublic),
+          hideFromSearch: Boolean(currentUser.privacySettings?.hideFromSearch),
+        },
       });
     }
   }, [currentUser, isEditingProfile]);
@@ -662,6 +684,11 @@ export default function TutorDashboard() {
         whatsappNumber: syncedWhatsapp,
         hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
+        privacySettings: {
+          hidePhotoFromPublic: Boolean(profileForm.privacySettings?.hidePhotoFromPublic),
+          hideExpectedSalaryPublic: Boolean(profileForm.privacySettings?.hideExpectedSalaryPublic),
+          hideFromSearch: Boolean(profileForm.privacySettings?.hideFromSearch),
+        },
         ...(existingLocation ? { location: existingLocation } : {})
       });
       setUpdateSuccess(true);
@@ -740,10 +767,10 @@ export default function TutorDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase leading-[0.8] mb-4">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] dark:text-white uppercase leading-[0.85] mb-4">
             Tutor Panel
           </h1>
-          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] dark:text-slate-300 uppercase tracking-[0.2em]">
             Welcome,{" "}
             <span className="font-black text-[#0D5BFF] italic">
               {currentUser.name}
@@ -751,16 +778,16 @@ export default function TutorDashboard() {
           </p>
           <div className="mt-4 flex flex-wrap gap-3 items-center">
             {currentUser.isVerified ? (
-              <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl flex items-center space-x-3">
+              <div className="px-5 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl flex items-center space-x-3">
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
                   VERIFIED
                 </span>
               </div>
             ) : (
-              <div className="px-5 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl flex items-center space-x-3">
+              <div className="px-5 py-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/40 rounded-2xl flex items-center space-x-3">
                 <Zap className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">
                   Verification Pending
                 </span>
               </div>
@@ -768,7 +795,7 @@ export default function TutorDashboard() {
 
             <button
               onClick={() => window.dispatchEvent(new Event('start-edutrack-tour'))}
-              className="w-10 h-10 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 dark:from-[#0D5BFF] dark:to-indigo-505 text-white border border-transparent rounded-[1.2rem] flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+              className="w-11 h-11 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
               title="Quick Start Tour"
             >
               <Sparkles className="w-4 h-4 text-white animate-pulse" />
@@ -777,11 +804,22 @@ export default function TutorDashboard() {
             <button
               id="tutor-dashboard-header-share-btn"
               onClick={shareProfile}
-              className="px-5 py-2.5 bg-white hover:bg-slate-50 text-[#0D5BFF] border border-slate-200 rounded-2xl flex items-center space-x-2 transition-all cursor-pointer shadow-sm active:scale-95"
+              className="min-h-[44px] px-5 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#0D5BFF] dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center space-x-2 transition-all cursor-pointer shadow-sm active:scale-95"
             >
               <Share2 className="w-4 h-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">
                 {copiedLink ? "Link Copied!" : "Share Profile Link"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPublicPreview(true)}
+              className="min-h-[44px] px-5 py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-[#0D5BFF] text-white border border-slate-800 dark:border-slate-700 rounded-2xl flex items-center space-x-2 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                Preview Public Profile
               </span>
             </button>
           </div>
@@ -790,7 +828,7 @@ export default function TutorDashboard() {
 
       {/* Mobile/Tablet Adaptive Grid Selector (All Panels Fully Visible) */}
       <div className="lg:hidden block mb-6" id="tutor-mobile-tablet-tab-matrix">
-        <p className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]/50 mb-3 italic">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#0B132B]/60 dark:text-slate-400 mb-3 italic">
           Quick Navigation Dashboard Matrix
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -2068,17 +2106,25 @@ export default function TutorDashboard() {
                   </div>
 
                   {/* Share My Public Profile Context */}
-                  <div className="w-full pb-6 mb-6 border-b border-slate-100">
+                  <div className="w-full pb-6 mb-6 border-b border-slate-100 dark:border-slate-800 space-y-3">
                     <button
                       id="tutor-pro-tab-share-btn"
                       onClick={shareProfile}
-                      className="w-full flex items-center justify-center gap-2.5 py-4 bg-slate-50 hover:bg-slate-100 text-[#0D5BFF] text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200/60 transition-all cursor-pointer shadow-sm active:scale-95 hover:scale-[1.01]"
+                      className="w-full min-h-[48px] flex items-center justify-center gap-2.5 py-4 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200/60 dark:border-slate-700 transition-all cursor-pointer shadow-sm active:scale-95 hover:scale-[1.01]"
                     >
                       <Share2 className="w-4 h-4" />
                       <span>{copiedLink ? "Link Copied to Clipboard!" : "Share My Public Profile"}</span>
                     </button>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center mt-2 px-2 leading-relaxed">
-                      Share this custom certified url with parents and students to secure private direct bookings!
+                    <button
+                      type="button"
+                      onClick={() => setShowPublicPreview(true)}
+                      className="w-full min-h-[44px] flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-950/60 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#0B132B] dark:text-slate-200 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95"
+                    >
+                      <Eye className="w-4 h-4 text-[#0D5BFF]" />
+                      <span>Preview Public View</span>
+                    </button>
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center mt-2 px-2 leading-relaxed">
+                      Share your verified profile URL with parents and students for direct tuition inquiries.
                     </p>
                   </div>
 
@@ -2092,7 +2138,7 @@ export default function TutorDashboard() {
                         setIsEditingProfile(true);
                       }
                     }}
-                    className="w-full py-5 bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all"
+                    className="w-full min-h-[52px] py-5 bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-xl shadow-blue-500/20 hover:-translate-y-1 transition-all"
                   >
                     {isEditingProfile
                       ? "Confirm Changes"
@@ -2670,7 +2716,7 @@ export default function TutorDashboard() {
                       </div>
 
                       <div className="space-y-4">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-4">
                           Target Classes
                         </label>
                         <div className="flex flex-wrap gap-2">
@@ -2679,10 +2725,10 @@ export default function TutorDashboard() {
                               key={cls}
                               type="button"
                               onClick={() => toggleClass(cls)}
-                              className={`px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
+                              className={`min-h-[40px] px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
                                 profileForm.classes.includes(cls)
-                                  ? "bg-[#0B132B] text-white border-[#0B132B] shadow-lg shadow-slate-100"
-                                  : "bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300"
+                                  ? "bg-[#0B132B] dark:bg-[#0D5BFF] text-white border-[#0B132B] dark:border-[#0D5BFF] shadow-lg shadow-blue-500/10"
+                                  : "bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300"
                               }`}
                             >
                               {cls}
@@ -2692,7 +2738,7 @@ export default function TutorDashboard() {
                       </div>
 
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-4">
                           Mission Statement / Bio
                         </label>
                         <textarea
@@ -2703,19 +2749,98 @@ export default function TutorDashboard() {
                               bio: e.target.value,
                             })
                           }
-                          className="w-full bg-slate-50 border border-slate-100 rounded-[2rem] p-8 text-xs font-black uppercase italic leading-relaxed text-[#0B132B] h-40 focus:outline-none focus:border-[#0D5BFF]"
-                          placeholder="Your teaching philosophy..."
+                          className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 sm:p-8 text-sm font-medium leading-relaxed text-[#0B132B] dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 h-40 focus:outline-none focus:border-[#0D5BFF]"
+                          placeholder="Describe your teaching philosophy, academic achievements, and methodology..."
                         />
                       </div>
 
-                      <div className="space-y-6 pt-8 border-t border-slate-100">
+                      {/* Tutor Privacy & Public Visibility Controls */}
+                      <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <Lock className="w-5 h-5 text-[#0D5BFF]" />
+                            <div>
+                              <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
+                                Privacy & Public Controls
+                              </h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Contact details remain automatically locked until a tuition session is confirmed.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowPublicPreview(true)}
+                            className="shrink-0 min-h-[40px] px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                          >
+                            Preview Public
+                          </button>
+                        </div>
+
+                        <div className="grid sm:grid-cols-3 gap-3">
+                          {[
+                            {
+                              key: "hidePhotoFromPublic" as const,
+                              title: "Hide Photo From Guests",
+                              desc: "Only show initials avatar to unauthenticated visitors",
+                            },
+                            {
+                              key: "hideExpectedSalaryPublic" as const,
+                              title: "Hide Salary From Guests",
+                              desc: "Show \"Negotiable\" to guests until logged in or booked",
+                            },
+                            {
+                              key: "hideFromSearch" as const,
+                              title: "Pause Public Listing",
+                              desc: "Temporarily hide profile from public home directory",
+                            },
+                          ].map((item) => {
+                            const checked = Boolean(profileForm.privacySettings?.[item.key]);
+                            return (
+                              <label
+                                key={item.key}
+                                className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+                                  checked
+                                    ? "bg-blue-50/70 dark:bg-blue-950/30 border-[#0D5BFF]"
+                                    : "bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) =>
+                                    setProfileForm((prev) => ({
+                                      ...prev,
+                                      privacySettings: {
+                                        ...prev.privacySettings,
+                                        [item.key]: e.target.checked,
+                                      },
+                                    }))
+                                  }
+                                  className="mt-1 h-4 w-4 accent-[#0D5BFF] rounded cursor-pointer shrink-0"
+                                />
+                                <div>
+                                  <p className="text-xs font-black text-[#0B132B] dark:text-white">
+                                    {item.title}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                                    {item.desc}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="space-y-6 pt-8 border-t border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-4">
                           <Calendar className="w-5 h-5 text-[#0D5BFF]" />
-                          <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+                          <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                             Availability
                           </h3>
                         </div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-loose">
                           Select your active session windows. These slots will
                           be visible to parents for instant booking.
                         </p>
@@ -2733,7 +2858,7 @@ export default function TutorDashboard() {
 
                       <button
                         disabled={isUpdating}
-                        className="w-full py-6 bg-[#0B132B] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-2xl hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                        className="w-full min-h-[54px] py-6 bg-[#0B132B] dark:bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-2xl hover:bg-[#0D5BFF] dark:hover:bg-blue-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
                       >
                         {isUpdating ? (
                           <>
@@ -3844,6 +3969,150 @@ export default function TutorDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Preview Public Profile Modal */}
+      {showPublicPreview && currentUser && (() => {
+        const previewDraft: User = {
+          ...currentUser,
+          bio: profileForm.bio,
+          hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, "")) || currentUser.hourlyRate,
+          daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : currentUser.daysPerWeek,
+          experience: profileForm.experience,
+          subjects: profileForm.subjects,
+          classes: profileForm.classes,
+          availabilitySlots: profileForm.availabilitySlots,
+          district: profileForm.district,
+          thana: profileForm.thana,
+          area: profileForm.area,
+          teachingAreas: profileForm.teachingAreas,
+          privacySettings: profileForm.privacySettings,
+        };
+        const { tutor: guestTutor } = sanitizeTutorProfileForViewer(previewDraft, null, []);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+            <div className="w-full max-w-2xl max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#111A2E] rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">
+                    <Eye className="w-3.5 h-3.5" />
+                    Public Guest View Preview
+                  </div>
+                  <h3 className="text-xl font-black text-[#0B132B] dark:text-white">
+                    How Parents & Students See Your Profile
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPublicPreview(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  aria-label="Close public profile preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {guestTutor && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-4">
+                    {guestTutor.profileImage ? (
+                      <img
+                        src={guestTutor.profileImage}
+                        alt={guestTutor.name}
+                        className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center text-2xl font-black">
+                        {guestTutor.name?.charAt(0) || "T"}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h4 className="text-lg font-black text-[#0B132B] dark:text-white flex items-center gap-2 flex-wrap">
+                        <span>{guestTutor.name}</span>
+                        {guestTutor.isVerified && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Verified
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-0.5">
+                        {guestTutor.university || "Educational Expert"}
+                        {guestTutor.district ? ` • ${guestTutor.district}${guestTutor.thana ? `, ${guestTutor.thana}` : ""}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Expected Fee
+                      </p>
+                      <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
+                        {guestTutor.hourlyRate
+                          ? `৳${Number(guestTutor.hourlyRate).toLocaleString()}/mo`
+                          : "Negotiable (Hidden)"}
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Schedule
+                      </p>
+                      <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
+                        {guestTutor.daysPerWeek || 3} Days / Week
+                      </p>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Search Directory
+                      </p>
+                      <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
+                        {profileForm.privacySettings?.hideFromSearch ? "Hidden" : "Visible"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Public Bio
+                    </p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+                      {guestTutor.bio || "No bio set yet."}
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+                    <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                      <strong>Contact Channels Locked:</strong> Phone ({String(Boolean(guestTutor.phone)) === "false" ? "Masked/Removed" : "Visible"}), WhatsApp, Email, NID details, and full address are automatically stripped until a student&apos;s tuition booking is confirmed.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowPublicPreview(false)}
+                  className="flex-1 min-h-[44px] px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-black uppercase tracking-wider"
+                >
+                  Close Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPublicPreview(false);
+                    navigate(`/teachers/${currentUser.id}`);
+                  }}
+                  className="flex-1 min-h-[44px] px-5 py-3 rounded-xl bg-[#0D5BFF] text-white text-xs font-black uppercase tracking-wider"
+                >
+                  Open Live Public Page
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -4063,17 +4332,17 @@ const AvailabilityCalendar = memo(
     };
 
     return (
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl shadow-slate-100/50">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-xl shadow-slate-100/50 dark:shadow-none">
         <div className="overflow-x-auto custom-scrollbar">
           <div className="flex min-w-[800px]">
             {/* Hour Labels */}
-            <div className="w-20 pt-16 flex flex-col border-r border-slate-50 bg-slate-50/50">
+            <div className="w-20 pt-16 flex flex-col border-r border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60">
               {HOURS.map((hour) => (
                 <div
                   key={hour}
-                  className="h-14 flex items-center justify-center border-b border-white"
+                  className="h-14 flex items-center justify-center border-b border-white dark:border-slate-800/60"
                 >
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter">
                     {hour}
                   </span>
                 </div>
@@ -4084,7 +4353,7 @@ const AvailabilityCalendar = memo(
             {DAYS.map((day) => (
               <div
                 key={day}
-                className="flex-1 min-w-[100px] border-r border-slate-50 last:border-r-0"
+                className="flex-1 min-w-[100px] border-r border-slate-50 dark:border-slate-800 last:border-r-0"
               >
                 <div className="h-16 flex items-center justify-center bg-[#0B132B] text-white border-b border-slate-800">
                   <span className="text-[9px] font-black uppercase italic tracking-widest">
@@ -4099,8 +4368,8 @@ const AvailabilityCalendar = memo(
                         key={`${day}-${hour}`}
                         type="button"
                         onClick={() => toggleSlot(day, hour)}
-                        className={`h-14 border-b border-slate-50 transition-all flex items-center justify-center group relative overflow-hidden ${
-                          isActive ? "bg-[#0D5BFF]" : "hover:bg-slate-50"
+                        className={`h-14 border-b border-slate-50 dark:border-slate-800/70 transition-all flex items-center justify-center group relative overflow-hidden ${
+                          isActive ? "bg-[#0D5BFF]" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                         }`}
                       >
                         {isActive ? (

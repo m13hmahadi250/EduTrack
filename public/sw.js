@@ -1,11 +1,13 @@
 // Service Worker for EduTrack Web Notifications & Offline Caching Strategy
-const CACHE_NAME = 'edutrack-app-v4';
-const DYNAMIC_CACHE = 'edutrack-dynamic-v4';
+const CACHE_NAME = 'edutrack-app-v5';
+const DYNAMIC_CACHE = 'edutrack-dynamic-v5';
 
 // Core app assets to pre-cache on install
 const PRECACHE_ASSETS = [
   '/manifest.json',
   '/logo.svg',
+  '/android-chrome-192x192.png',
+  '/favicon-96x96.png',
   '/favicon.ico'
 ];
 
@@ -132,13 +134,13 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || 'New message or notification arrived.',
-    icon: data.icon || '/logo.svg',
-    badge: '/logo.svg',
+    icon: data.icon || '/android-chrome-192x192.png',
+    badge: '/favicon-96x96.png',
     vibrate: [150, 100, 150],
     data: data.url || '/',
     tag: data.tag || 'edutrack-alert',
     actions: [
-      { action: 'open', title: 'Open App', icon: '/logo.svg' },
+      { action: 'open', title: 'Open App', icon: '/favicon-96x96.png' },
       { action: 'close', title: 'Dismiss' }
     ]
   };
@@ -146,6 +148,20 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'EduTrack Notification', options)
   );
+});
+
+// Handle Service Worker lifecycle & auth cache purge messages
+self.addEventListener('message', (event) => {
+  const payload = event.data || {};
+  if (payload.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+  if (payload.type === 'CLEAR_AUTH_CACHE') {
+    event.waitUntil(
+      caches.delete(DYNAMIC_CACHE).then(() => undefined).catch(() => undefined)
+    );
+  }
 });
 
 // Handle notification click events

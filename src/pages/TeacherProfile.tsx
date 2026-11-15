@@ -1,238 +1,310 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import SEOHead from '../components/SEOHead';
-import { 
-  ArrowLeft, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Star, 
-  CheckCircle, 
-  Calendar, 
-  Clock, 
-  ShieldCheck, 
-  BookOpen, 
-  Award, 
-  Lock, 
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
+import {
+  canUnlockTutorContact,
+  getViewerTutorBookingStatus,
+  hasActiveOrPendingBooking,
+  sanitizeTutorProfileForViewer,
+} from '../../shared/tutorPrivacy';
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  Star,
+  CheckCircle2,
+  Calendar,
+  Clock,
+  ShieldCheck,
+  BookOpen,
+  Award,
+  Lock,
   MessageSquare,
-  Sparkles,
-  ExternalLink,
   GraduationCap,
   Briefcase,
-  DollarSign,
-  Share2
+  Share2,
+  Heart,
+  Eye,
+  Send,
+  X,
+  Check,
+  Sparkles,
+  UserCheck,
+  MessageCircle,
+  AlertCircle,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
-// Help helper to mask phone
-const maskPhone = (phone?: string) => {
-  if (!phone) return 'Not Configured';
-  const clean = phone.replace(/\s+/g, '');
-  if (clean.length < 5) return '***-***';
-  return clean.substring(0, 3) + '******' + clean.substring(clean.length - 2);
-};
+const DAYS_ORDER = [
+  'Saturday',
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+];
 
-// Help helper to mask email
-const maskEmail = (email?: string) => {
-  if (!email) return 'Not Provided';
-  const parts = email.split('@');
-  if (parts.length !== 2) return '******@***.com';
-  const [username, domain] = parts;
-  if (username.length <= 2) return `${username[0]}*****@${domain}`;
-  return `${username.substring(0, 2)}*****${username.substring(username.length - 1)}@${domain}`;
-};
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.05,
-    }
+function getInitials(name?: string) {
+  if (!name) return 'ET';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
-};
+  return name.slice(0, 2).toUpperCase();
+}
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 25, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 80,
-      damping: 15,
-    }
+function normalizeWhatsAppLink(num?: string) {
+  if (!num) return '';
+  const digits = num.replace(/\D/g, '');
+  if (digits.startsWith('01') && digits.length === 11) {
+    return `https://wa.me/88${digits}`;
   }
-};
+  if (digits.startsWith('880')) {
+    return `https://wa.me/${digits}`;
+  }
+  return `https://wa.me/${digits}`;
+}
 
 export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const currentUser = useAppStore(state => state.currentUser);
-  
+
+  const currentUser = useAppStore((state) => state.currentUser);
+  const storeSessions = useAppStore((state) => state.sessions);
+  const bookSession = useAppStore((state) => state.bookSession);
+  const toggleSavedTutor = useAppStore((state) => state.toggleSavedTutor);
+
   const [tutor, setTutor] = useState<any | null>(null);
+  const [contactUnlocked, setContactUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
 
-  // Check if current reader is a verified student
-  // Active/valid student means roles includes 'student' (or we check if currentUser exists and is any student role)
-  const isVerifiedStudent = currentUser && (currentUser.role === 'student' || currentUser.role === 'admin');
+  // Shortlist & booking modal states
+  const [isTogglingShortlist, setIsTogglingShortlist] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingDate, setBookingDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bookingSlot, setBookingSlot] = useState('05:00 PM');
+  const [bookingSubjects, setBookingSubjects] = useState<string[]>([]);
+  const [bookingNote, setBookingNote] = useState('');
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [bookingSuccessMsg, setBookingSuccessMsg] = useState('');
 
-  // Students can NEVER see actual phone/email. Only Admins or the Tutor themselves can see unmasked credentials.
-  const canSeeContactInfo = currentUser && (currentUser.role === 'admin' || currentUser.id === id);
+  useBackHandler(showBookingModal, () => setShowBookingModal(false), 'teacher-booking-modal');
 
+  const viewerContext = useMemo(
+    () => (currentUser ? { id: currentUser.id, role: currentUser.role } : null),
+    [currentUser?.id, currentUser?.role]
+  );
+
+  const shouldUnlockContact = useMemo(
+    () => (id ? canUnlockTutorContact(viewerContext, id, storeSessions) : false),
+    [viewerContext, id, storeSessions]
+  );
+
+  const existingBooking = useMemo(
+    () => (id ? getViewerTutorBookingStatus(viewerContext, id, storeSessions) : null),
+    [viewerContext, id, storeSessions]
+  );
+
+  const activeOrPendingBooking = useMemo(
+    () =>
+      currentUser && id
+        ? hasActiveOrPendingBooking(currentUser.id, id, storeSessions)
+        : null,
+    [currentUser?.id, id, storeSessions]
+  );
+
+  const isShortlisted = Boolean(
+    currentUser?.savedTutors && id && currentUser.savedTutors.includes(id)
+  );
+
+  // Real-time Firestore listener for Tutor profile (sanitized immediately before state)
   useEffect(() => {
-    let active = true;
-    const fetchReviews = async () => {
-      if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    const subscribeTutor = async () => {
+      try {
+        const [{ doc, onSnapshot }, { db }] = await Promise.all([
+          import('firebase/firestore'),
+          import('../lib/firebase'),
+        ]);
+        if (cancelled) return;
+
+        const docRef = doc(db, 'users', id);
+        unsubscribe = onSnapshot(
+          docRef,
+          (docSnap) => {
+            if (cancelled) return;
+            if (!docSnap.exists()) {
+              setTutor(null);
+              setContactUnlocked(false);
+              setLoading(false);
+              return;
+            }
+            const raw = { id: docSnap.id, ...docSnap.data() } as any;
+            if (raw.role !== 'tutor') {
+              setTutor(null);
+              setContactUnlocked(false);
+              setLoading(false);
+              return;
+            }
+
+            const { tutor: safeTutor, contactUnlocked: unlocked } =
+              sanitizeTutorProfileForViewer(raw, viewerContext, storeSessions);
+            setTutor(safeTutor);
+            setContactUnlocked(unlocked);
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error listening to tutor document:', error);
+            if (!cancelled) setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error('Failed to subscribe tutor profile:', err);
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    subscribeTutor();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [id, currentUser?.id, currentUser?.role, shouldUnlockContact]);
+
+  // Real-time Firestore listener for verified student reviews
+  useEffect(() => {
+    if (!id) {
+      setReviewsLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    const subscribeReviews = async () => {
       setReviewsLoading(true);
       try {
-        const { collection, query, where, getDocs, doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('../lib/firebase');
-        
-        // Fetch sessions where tutorId === id
-        const q = query(
-          collection(db, 'sessions'),
-          where('tutorId', '==', id)
-        );
-        const querySnapshot = await getDocs(q);
-        const ratedSessions: any[] = [];
-        
-        for (const docSnap of querySnapshot.docs) {
-          const sData = docSnap.data();
-          if (sData.rating && sData.rating > 0) {
-            ratedSessions.push({
-              id: docSnap.id,
-              ...sData
-            });
-          }
-        }
+        const [{ collection, query, where, onSnapshot, doc, getDoc }, { db }] =
+          await Promise.all([
+            import('firebase/firestore'),
+            import('../lib/firebase'),
+          ]);
+        if (cancelled) return;
 
-        // Fetch student user details for each rated session
-        const reviewsWithDetails = await Promise.all(
-          ratedSessions.map(async (sess) => {
-            let studentName = 'Verified Student';
-            let studentImage = undefined;
-            try {
-              const studentRef = doc(db, 'users', sess.studentId);
-              const studentSnap = await getDoc(studentRef);
-              if (studentSnap.exists()) {
-                const sUserData = studentSnap.data();
-                studentName = sUserData.name || 'Verified Student';
-                studentImage = sUserData.profileImage;
+        const q = query(collection(db, 'sessions'), where('tutorId', '==', id));
+        unsubscribe = onSnapshot(
+          q,
+          async (querySnapshot) => {
+            if (cancelled) return;
+            const ratedSessions: any[] = [];
+            querySnapshot.forEach((docSnap) => {
+              const sData = docSnap.data();
+              if (sData.rating && Number(sData.rating) > 0) {
+                ratedSessions.push({ id: docSnap.id, ...sData });
               }
-            } catch (err) {
-              console.error("Error fetching student info for review:", err);
+            });
+
+            ratedSessions.sort((a, b) =>
+              String(b.endTime || b.scheduledTime || '').localeCompare(
+                String(a.endTime || a.scheduledTime || '')
+              )
+            );
+
+            const reviewsWithDetails = await Promise.all(
+              ratedSessions.map(async (sess) => {
+                let studentName = 'Verified Student';
+                let studentImage: string | undefined;
+                try {
+                  const studentSnap = await getDoc(doc(db, 'users', sess.studentId));
+                  if (studentSnap.exists()) {
+                    const sUser = studentSnap.data();
+                    studentName = sUser.name || 'Verified Student';
+                    studentImage = sUser.profileImage;
+                  }
+                } catch {
+                  // Fallback cleanly if restricted
+                }
+                return {
+                  id: sess.id,
+                  subject: sess.subject,
+                  rating: sess.rating,
+                  feedback: sess.feedback,
+                  scheduledTime: sess.scheduledTime,
+                  endTime: sess.endTime,
+                  studentName,
+                  studentImage,
+                };
+              })
+            );
+
+            if (!cancelled) {
+              setReviews(reviewsWithDetails);
+              setReviewsLoading(false);
             }
-            return {
-              ...sess,
-              studentName,
-              studentImage
-            };
-          })
-        );
-
-        if (active) {
-          setReviews(reviewsWithDetails);
-          setReviewsLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching reviews: ", error);
-        if (active) {
-          setReviewsLoading(false);
-        }
-      }
-    };
-
-    fetchReviews();
-    return () => {
-      active = false;
-    };
-  }, [id]);
-
-  useEffect(() => {
-    let active = true;
-    const fetchTutorDetails = async () => {
-      if (!id) return;
-
-      try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('../lib/firebase');
-        const docRef = doc(db, 'users', id);
-        const docSnap = await getDoc(docRef);
-        
-        if (active) {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data.role === 'tutor') {
-              const isViewerAdminOrSelf =
-                currentUser?.role === 'admin' || currentUser?.id === docSnap.id;
-              const sanitizedData = isViewerAdminOrSelf
-                ? data
-                : {
-                    ...data,
-                    nidNumber: undefined,
-                    nidFrontImg: undefined,
-                    nidBackImg: undefined,
-                    documents: undefined,
-                    balance: undefined,
-                    fcmToken: undefined,
-                    password: undefined,
-                  };
-              setTutor({ id: docSnap.id, ...sanitizedData });
-            } else {
-              setTutor(null);
-            }
-          } else {
-            setTutor(null);
+          },
+          (error) => {
+            console.error('Error listening to reviews:', error);
+            if (!cancelled) setReviewsLoading(false);
           }
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error reading tutor document: ", error);
-        if (active) {
-          setLoading(false);
-        }
+        );
+      } catch (err) {
+        console.error('Failed to subscribe reviews:', err);
+        if (!cancelled) setReviewsLoading(false);
       }
     };
 
-    fetchTutorDetails();
+    subscribeReviews();
 
     return () => {
-      active = false;
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
     };
   }, [id]);
 
+  // Pre-fill first available tutor subject & slot when modal opens
   useEffect(() => {
-    if (tutor) {
-      document.title = `${tutor.name} | Home Tutor from ${tutor.university || 'Expert Academy'} - EduTrack`;
-      const descMeta = document.querySelector('meta[name="description"]');
-      if (descMeta) {
-        descMeta.setAttribute('content', `Book home tution with ${tutor.name} (${tutor.course || 'Expert Mentor'}). Specializing in ${tutor.subjects?.join(', ') || 'academic core coaching'} in ${tutor.area || 'Dhaka'}, Bangladesh. Rated ${Number(tutor.rating || 5.0).toFixed(1)}/5.`);
+    if (showBookingModal && tutor) {
+      if (bookingSubjects.length === 0 && Array.isArray(tutor.subjects) && tutor.subjects.length > 0) {
+        setBookingSubjects([tutor.subjects[0]]);
       }
+      setBookingError('');
     }
-  }, [tutor]);
+  }, [showBookingModal, tutor]);
+
+  const loginRedirectUrl = `/login?redirect=${encodeURIComponent(`/teachers/${id || ''}`)}`;
 
   const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
     setCopied(label);
-    setTimeout(() => setCopied(null), 2000);
+    setTimeout(() => setCopied(null), 2200);
   };
 
   const shareProfile = async () => {
     const shareData = {
-      title: `${tutor?.name || 'Expert Tutor'} | EduTrack`,
-      text: `Connect with NID-verified tutor ${tutor?.name || 'Academic Mentor'} from ${tutor?.university || 'Expert institution'} on EduTrack Bangladesh.`,
+      title: `${tutor?.name || 'Verified Tutor'} | EduTrack Bangladesh`,
+      text: `Check out ${tutor?.name || 'this verified tutor'} (${tutor?.university || 'Subject Specialist'}) on EduTrack Bangladesh.`,
       url: window.location.href,
     };
-
     try {
       if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
@@ -240,27 +312,135 @@ export default function TeacherProfile() {
         copyToClipboard(window.location.href, 'profile');
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
+      if (err?.name !== 'AbortError') {
         copyToClipboard(window.location.href, 'profile');
       }
     }
   };
 
-  const initDirectChat = () => {
+  const handleShortlistToggle = async () => {
+    if (!id) return;
     if (!currentUser) {
-      navigate(`/login?redirect=${encodeURIComponent(`/messages?tId=${tutor?.id}`)}`);
+      navigate(loginRedirectUrl);
       return;
     }
-    // Verified students can start direct chats or apply session requests. Redirect them to global contact stream.
-    navigate(`/messages?tId=${tutor?.id}`);
+    setIsTogglingShortlist(true);
+    try {
+      await toggleSavedTutor(id);
+    } finally {
+      setIsTogglingShortlist(false);
+    }
   };
+
+  const handleOpenBookingModal = () => {
+    if (!currentUser) {
+      navigate(loginRedirectUrl);
+      return;
+    }
+    if (currentUser.role !== 'student') {
+      navigate('/dashboard');
+      return;
+    }
+    setShowBookingModal(true);
+  };
+
+  const handleSubmitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !tutor || !id) return;
+
+    if (activeOrPendingBooking) {
+      setBookingError('You already have an active or pending booking with this tutor.');
+      return;
+    }
+
+    const chosenSubject =
+      bookingSubjects.length > 0
+        ? bookingSubjects.join(', ')
+        : tutor.subjects?.[0] || 'General Tuition';
+
+    setIsSubmittingBooking(true);
+    setBookingError('');
+    try {
+      const scheduledIso = `${bookingDate}T${bookingSlot}`;
+      await bookSession({
+        studentId: currentUser.id,
+        tutorId: id,
+        subject: chosenSubject,
+        scheduledTime: scheduledIso,
+        status: 'requested_by_student',
+        duration: 60,
+      });
+      if (bookingNote.trim()) {
+        try {
+          await useAppStore.getState().sendMessage({
+            senderId: currentUser.id,
+            receiverId: id,
+            content: `[Booking Request - ${chosenSubject}]: ${bookingNote.trim()}`,
+          });
+        } catch {
+          // Non-blocking note message
+        }
+      }
+      setBookingNote('');
+      setShowBookingModal(false);
+      setBookingSuccessMsg('Your tuition request has been sent to the tutor.');
+      setTimeout(() => setBookingSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setBookingError(err?.message || 'Unable to submit booking request. Please try again.');
+    } finally {
+      setIsSubmittingBooking(false);
+    }
+  };
+
+  const initDirectChat = () => {
+    if (!currentUser) {
+      navigate(`/login?redirect=${encodeURIComponent(`/messages?tId=${tutor?.id || id}`)}`);
+      return;
+    }
+    navigate(`/messages?tId=${tutor?.id || id}`);
+  };
+
+  const scrollToAvailability = () => {
+    const el = document.getElementById('availability-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const availabilityEntries = useMemo(() => {
+    if (!tutor?.availabilitySlots) return [];
+    return DAYS_ORDER.map((day) => ({
+      day,
+      slots: Array.isArray(tutor.availabilitySlots[day])
+        ? tutor.availabilitySlots[day]
+        : [],
+    })).filter((entry) => entry.slots.length > 0);
+  }, [tutor?.availabilitySlots]);
+
+  const totalWeeklySlots = useMemo(
+    () => availabilityEntries.reduce((acc, e) => acc + e.slots.length, 0),
+    [availabilityEntries]
+  );
+
+  const avgRating = useMemo(() => {
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, r) => acc + Number(r.rating || 0), 0);
+      return Number((sum / reviews.length).toFixed(1));
+    }
+    return tutor?.rating ? Number(Number(tutor.rating).toFixed(1)) : 0;
+  }, [reviews, tutor?.rating]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0B132B] flex items-center justify-center p-6" id="loading-profile-stage">
-        <div className="text-center">
-          <div className="w-16 h-16 border-[6px] border-[#0D5BFF]/10 border-t-[#0D5BFF] rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white/80">Syncing Credentials Ledger...</p>
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white dark:bg-[#111A2E] rounded-3xl p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl border-4 border-slate-200 dark:border-slate-700 border-t-[#0D5BFF] animate-spin mx-auto" />
+          <h2 className="text-base font-bold text-[#0B132B] dark:text-white">
+            Loading Tutor Profile
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Verifying availability and academic credentials...
+          </p>
         </div>
       </div>
     );
@@ -268,693 +448,933 @@ export default function TeacherProfile() {
 
   if (!tutor) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0B132B] flex items-center justify-center p-6 text-center" id="missing-profile-stage">
-        <div className="max-w-md w-full bg-white dark:bg-[#111A2E] p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-xl space-y-6">
-          <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/20 rounded-3xl flex items-center justify-center text-rose-500 mx-auto border border-rose-100 dark:border-rose-900/60">
-            <Award className="w-8 h-8" />
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-full max-w-md bg-white dark:bg-[#111A2E] rounded-3xl p-8 sm:p-10 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mx-auto mb-5">
+            <GraduationCap className="w-7 h-7" />
           </div>
-          <div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-[#0B132B] dark:text-white mb-2">Mentor Not Found</h2>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed uppercase">
-              The user account specified is either blocked, does not exist, or does not maintain a verified tutor ledger.
-            </p>
-          </div>
-          <Link to="/" className="inline-block px-8 py-4 bg-[#0D5BFF] text-white font-black text-[10px] uppercase tracking-wider rounded-2xl hover:bg-blue-600 transition-all shadow-md">
-            Return to Homepage
+          <h2 className="text-xl font-black font-heading text-[#0B132B] dark:text-white mb-2">
+            Tutor Profile Unavailable
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+            This educator profile may have been deactivated or moved. Browse other verified tutors across Bangladesh.
+          </p>
+          <Link
+            to="/#find-tutors"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Browse Verified Tutors
           </Link>
         </div>
       </div>
     );
   }
 
-  // Use real ratings from sessions if available, otherwise fall back to user profile stats
-  const displayRating = reviews.length > 0 
-    ? (reviews.reduce((acc, r) => acc + (r.rating || 0), 0) / reviews.length) 
-    : (tutor?.rating || 5.0);
-  const displayTotalReviews = reviews.length > 0 
-    ? reviews.length 
-    : (tutor?.totalRatings || 0);
+  const isStrictlyVerified = Boolean(tutor.isVerified === true);
+  const locationParts = [tutor.area, tutor.thana, tutor.district].filter(Boolean);
+  const locationString =
+    locationParts.length > 0 ? locationParts.join(', ') : 'Bangladesh (Online & Home)';
+  const teachingModeLabel = tutor.teachingMode || tutor.mode || 'Home & Online';
+  const feeValue = tutor.hourlyRate || tutor.expectedSalary;
+  const hideFeeForGuest = Boolean(
+    !currentUser && tutor.privacySettings?.hideExpectedSalaryPublic
+  );
+  const isOwner = currentUser?.id === tutor.id;
+  const isStudent = currentUser?.role === 'student';
 
-  const seoTitle = `${tutor.name} - Verified ${tutor.university || 'Home'} Tutor in ${tutor.district || tutor.area || 'Bangladesh'} | EduTrack`;
-  const seoDescription = `Hire ${tutor.name} (${tutor.course || 'Expert Mentor'}) from ${tutor.university || 'top institutions'}. Subjects: ${tutor.subjects?.join(', ') || 'Academic Curriculums'}. NID verified with ${displayRating.toFixed(1)}/5 rating on EduTrack Bangladesh.`;
-  const seoKeywords = `${tutor.name}, home tutor ${tutor.district || 'dhaka'}, ${tutor.university || 'tutor'}, ${tutor.subjects?.join(', ') || 'tuition'}, ssc hsc tutor, private tutor bangladesh, ${tutor.area || 'dhaka'}`;
-
-  const tutorJsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "ProfilePage",
-        "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#webpage`,
-        "url": `https://edutrackbd.vercel.app/teachers/${tutor.id}`,
-        "name": `${tutor.name} - Verified Tutor Profile`,
-        "description": seoDescription,
-        "breadcrumb": {
-          "@type": "BreadcrumbList",
-          "itemListElement": [
-            {
-              "@type": "ListItem",
-              "position": 1,
-              "name": "Home",
-              "item": "https://edutrackbd.vercel.app/"
-            },
-            {
-              "@type": "ListItem",
-              "position": 2,
-              "name": "Tutors",
-              "item": "https://edutrackbd.vercel.app/#tutors"
-            },
-            {
-              "@type": "ListItem",
-              "position": 3,
-              "name": tutor.name,
-              "item": `https://edutrackbd.vercel.app/teachers/${tutor.id}`
-            }
-          ]
-        },
-        "mainEntity": {
-          "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#person`
-        }
-      },
-      {
-        "@type": "Person",
-        "@id": `https://edutrackbd.vercel.app/teachers/${tutor.id}#person`,
-        "name": tutor.name,
-        "jobTitle": "Academic Tutor & Educator",
-        "description": tutor.bio || seoDescription,
-        "image": tutor.profileImage || "https://edutrackbd.vercel.app/og-image.png",
-        "url": `https://edutrackbd.vercel.app/teachers/${tutor.id}`,
-        "alumniOf": {
-          "@type": "EducationalOrganization",
-          "name": tutor.university || "Bangladesh University"
-        },
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": tutor.area || "Dhaka",
-          "addressRegion": tutor.district || "Dhaka",
-          "addressCountry": "BD"
-        },
-        "knowsAbout": tutor.subjects || ["Mathematics", "Science", "English"],
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": Number(displayRating).toFixed(1),
-          "reviewCount": Math.max(displayTotalReviews, 1).toString(),
-          "bestRating": "5",
-          "worstRating": "1"
-        }
-      }
-    ]
+  const getBookingBadgeMeta = () => {
+    if (!existingBooking) return null;
+    switch (existingBooking.status) {
+      case 'requested_by_student':
+        return {
+          label: 'Request Sent • Pending Tutor Reply',
+          tone: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
+        };
+      case 'proposed_by_tutor':
+        return {
+          label: 'Tutor Proposal Received • Review in Dashboard',
+          tone: 'bg-blue-50 dark:bg-blue-950/50 text-[#0D5BFF] dark:text-blue-300 border-blue-200 dark:border-blue-800/60',
+        };
+      case 'scheduled':
+        return {
+          label: 'Confirmed Booking Scheduled',
+          tone: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+        };
+      case 'active':
+        return {
+          label: 'Live Session Active',
+          tone: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+        };
+      case 'completed':
+        return {
+          label: 'Past Session Completed',
+          tone: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+        };
+      default:
+        return null;
+    }
   };
 
+  const bookingMeta = getBookingBadgeMeta();
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.35 }}
-      className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans min-h-screen pb-24 selection:bg-[#0D5BFF] selection:text-white" 
-      id={`teacher-profile-root-${tutor.id}`}
-    >
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] pt-4 pb-28 md:pb-16 px-4 sm:px-6 lg:px-8 transition-colors">
       <SEOHead
-        title={seoTitle}
-        description={seoDescription}
-        keywords={seoKeywords}
+        title={`${tutor.name} | Verified Tutor Profile - EduTrack Bangladesh`}
+        description={`Connect with ${tutor.name} (${tutor.university || 'Academic Specialist'}) for ${tutor.subjects?.slice(0, 4).join(', ') || 'academic coaching'} in ${tutor.district || 'Bangladesh'}.`}
+        keywords={`tutor ${tutor.name}, home tutor ${tutor.district || 'Dhaka'}, ${tutor.university || ''}, ${tutor.subjects?.join(', ') || ''}`}
         canonicalUrl={`https://edutrackbd.vercel.app/teachers/${tutor.id}`}
-        ogImage={tutor.profileImage || "https://edutrackbd.vercel.app/og-image.png"}
-        ogType="profile"
-        jsonLd={tutorJsonLd}
       />
-      
-      {/* Top Banner & Navigation */}
-      <div className="bg-white dark:bg-[#111A2E] border-b border-slate-100 dark:border-slate-800/80 sticky top-0 z-45 transition-colors">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-xs font-black uppercase text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition-all group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span>EduTrack Directory</span>
-          </Link>
-          <div className="flex items-center gap-3">
+
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+        {/* Top Breadcrumb Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/#find-tutors'))}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-colors cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Tutors</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            {currentUser && !isOwner && (
+              <button
+                type="button"
+                onClick={handleShortlistToggle}
+                disabled={isTogglingShortlist}
+                className={`inline-flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  isShortlisted
+                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400'
+                    : 'bg-white dark:bg-[#111A2E] border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-rose-300'
+                }`}
+                aria-label={isShortlisted ? 'Remove from Shortlist' : 'Shortlist Tutor'}
+              >
+                <Heart className={`w-4 h-4 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+                <span>{isShortlisted ? 'Shortlisted' : 'Shortlist'}</span>
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={shareProfile}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-              id="share-profile-header-btn"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-colors cursor-pointer"
             >
-              <Share2 className="w-3.5 h-3.5 text-[#0D5BFF]" />
-              <span>{copied === 'profile' ? 'Link Copied!' : 'Share Profile'}</span>
+              {copied === 'profile' ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400">Link Copied</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" />
+                  <span>Share</span>
+                </>
+              )}
             </button>
-            <div className="px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] border border-blue-100 dark:border-blue-900/30">
-              {tutor.isVerified ? "🔒 Verified Ledger Verified" : "📜 Public Listing"}
-            </div>
           </div>
         </div>
-      </div>
 
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="max-w-6xl mx-auto px-4 mt-8"
-      >
-        
-        {/* Immersive Singular Profile Banner */}
-        <motion.div 
-          variants={cardVariants}
-          className="relative bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] rounded-[2.5rem] overflow-hidden shadow-2xl p-6 md:p-10 mb-8 border border-white/10 flex flex-col md:flex-row items-center gap-6 justify-between select-none"
-        >
-          
-          {/* Subtle Ambient Backdrop Image (Deeply Blurred) */}
-          {tutor.profileImage && (
-            <div 
-              className="absolute inset-0 bg-cover bg-center blur-3xl opacity-20 pointer-events-none scale-110" 
-              style={{ backgroundImage: `url(${tutor.profileImage})` }}
-            />
+        {/* Success Toast Banner after Booking */}
+        <AnimatePresence>
+          {bookingSuccessMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 flex items-center justify-between gap-3 text-emerald-800 dark:text-emerald-200"
+            >
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p className="text-sm font-semibold">{bookingSuccessMsg}</p>
+              </div>
+              <Link
+                to="/dashboard/activity"
+                className="text-xs font-bold text-[#0D5BFF] dark:text-blue-400 hover:underline shrink-0"
+              >
+                View Status
+              </Link>
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#0D5BFF_1.5px,transparent_1px)] [background-size:16px_16px]"></div>
-          <div className="absolute right-1/4 top-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left w-full">
-            
-            {/* Profile Avatar inside the Banner (Clean frame with soft drop glow behind) */}
-            <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-3xl bg-white/10 p-1.5 backdrop-blur-md shadow-2xl shrink-0 border border-white/20">
-              
-              {/* Outer soft glowing blur backdrop for the photo frame */}
-              {tutor.profileImage && (
-                <div 
-                  className="absolute inset-1.5 rounded-2xl bg-cover bg-center blur-md opacity-60 pointer-events-none scale-105" 
-                  style={{ backgroundImage: `url(${tutor.profileImage})` }}
-                />
-              )}
-
-              {/* Precise profile photo container */}
-              <div className="w-full h-full rounded-2xl overflow-hidden relative bg-slate-900 border border-white/10 z-10">
+        {/* Hero Profile Summary Card */}
+        <section className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 sm:p-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* Identity Block */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-5 min-w-0">
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
                 {tutor.profileImage ? (
-                  <img 
-                    src={tutor.profileImage} 
-                    alt={tutor.name} 
-                    className={`w-full h-full object-cover transition-all duration-300 ${!isVerifiedStudent ? 'blur-lg select-none pointer-events-none' : 'blur-none'}`} 
-                    referrerPolicy="no-referrer" 
+                  <img
+                    src={tutor.profileImage}
+                    alt={tutor.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#0D5BFF] to-blue-500 flex items-center justify-center text-white font-black italic text-4xl">
-                    {tutor.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                  <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1E3A8A] flex items-center justify-center text-white text-2xl font-black font-heading">
+                    {getInitials(tutor.name)}
                   </div>
+                )}
+                {tutor.isOnline && (
+                  <span
+                    className="absolute bottom-2 right-2 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111A2E]"
+                    title="Online now"
+                  />
                 )}
               </div>
 
-              {/* Verification checkmark icon layer */}
-              {tutor.isVerified && (
-                <div className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-xl p-1.5 shadow-lg shadow-emerald-500/30 border-2 border-[#1E293B] z-20">
-                  <ShieldCheck className="w-3.5 h-3.5 text-white fill-white/10" />
-                </div>
-              )}
-            </div>
-
-            {/* Title / Teacher Name Group perfectly inside and high visibility */}
-            <div className="flex-grow space-y-3">
-              <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
-                <h1 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight italic text-white drop-shadow-md">
-                  {tutor.name}
-                </h1>
-                {tutor.isVerified && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl border border-emerald-500/20">
-                    ID Verified
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs font-bold text-slate-200 uppercase tracking-widest flex items-center justify-center md:justify-start gap-2 flex-wrap">
-                <GraduationCap className="w-4 h-4 text-blue-400" />
-                <span className="text-blue-300 font-extrabold">{tutor.university || 'Certified Academic Mentor'}</span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-200">{tutor.course || 'Expert Department'}</span>
-              </p>
-            </div>
-
-            {/* Stars Rating right inside the banner */}
-            <div className="md:self-center shrink-0">
-              <div className="bg-[#0F172A]/70 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-3xl flex items-center gap-3 shadow-md justify-center text-white">
-                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                <div className="text-left">
-                  <div className="text-sm font-black tracking-tight">{displayTotalReviews > 0 ? Number(displayRating).toFixed(1) : 'New'}</div>
-                  <div className="text-[9px] text-slate-300 font-bold uppercase tracking-wider block">({displayTotalReviews} {displayTotalReviews === 1 ? 'Review' : 'Reviews'})</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </motion.div>
-
-        {/* Outer details split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 md:pt-12">
-          
-          {/* Main Info Column (Left 8 columns on large screens) */}
-          <div className="lg:col-span-8 space-y-8">
-            
-            {/* Segment: Overview Bio */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4 transition-colors"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#0D5BFF]" />
-                <span>Biography & Vision</span>
-              </h3>
-              <p className="text-sm md:text-base text-slate-700 dark:text-slate-200 italic leading-relaxed font-medium">
-                "{tutor.bio || `${tutor.name} is a highly regarded member of the EduTrack mentorship platform, having dedicated extensive study parameters and practical teaching methodology to secure outstanding student results.`}"
-              </p>
-              
-              {tutor.experience && (
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/20 text-orange-500">
-                    <Briefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Experience Level</span>
-                    <span className="text-xs font-black text-[#0B132B] dark:text-white uppercase">{tutor.experience}</span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-
-            {/* Segment: Achievements & Badges */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4 transition-colors"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-500" />
-                <span>Verified Milestones & Badges</span>
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                These gamified credentials verify live milestones, tutor ratings, and dedicated hours delivered securely on the platform.
-              </p>
-              <BadgeDisplay badgeIds={tutor.badges || []} role="tutor" />
-            </motion.div>
-
-            {/* Segment: Class & Subject expertise parameters */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[#0D5BFF]" />
-                <span>Expertise Settings</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Subjects */}
-                <div className="space-y-3">
-                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Subjects Certified</span>
-                  <div className="flex flex-wrap gap-2">
-                    {tutor.subjects && tutor.subjects.length > 0 ? (
-                      tutor.subjects.map((s: string, idx: number) => (
-                        <span key={idx} className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] dark:text-blue-300 text-[10px] font-black uppercase rounded-xl border border-blue-100/50 dark:border-blue-900/30 tracking-wider">
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold italic">See bio for subjects</span>
-                    )}
-                  </div>
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight">
+                    {tutor.name}
+                  </h1>
+                  {isStrictlyVerified && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/70 text-xs font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Verified Tutor</span>
+                    </span>
+                  )}
+                  {tutor.gender && (
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold">
+                      {tutor.gender}
+                    </span>
+                  )}
                 </div>
 
-                {/* Grade Classes */}
-                <div className="space-y-3">
-                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Classes Offered</span>
-                  <div className="flex flex-wrap gap-2">
-                    {tutor.classes && tutor.classes.length > 0 ? (
-                      tutor.classes.map((c: string, idx: number) => (
-                        <span key={idx} className="px-3.5 py-1.5 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-300 text-[10px] font-black uppercase rounded-xl border border-purple-100/50 dark:border-purple-900/30 tracking-wider">
-                          {c}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-600 dark:text-slate-300 uppercase font-bold italic">All General Grades</span>
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            </motion.div>
-
-            {/* Segment: Availability Slots */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#0D5BFF]" />
-                <span>Availability and Schedules</span>
-              </h3>
-              
-              <div className="bg-slate-50 dark:bg-[#0B132B]/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
-                <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider leading-relaxed">
-                  These represent the standard weekly time slots configured by {tutor.name}. Exact durations are customized upon conversation.
+                <p className="text-sm sm:text-base font-semibold text-slate-700 dark:text-slate-200">
+                  {[tutor.university, tutor.course].filter(Boolean).join(' • ') ||
+                    'Verified Subject Specialist'}
                 </p>
 
-                {tutor.availabilitySlots && Object.keys(tutor.availabilitySlots).length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {Object.entries(tutor.availabilitySlots).map(([day, slots]: [string, any]) => (
-                      <div key={day} className="bg-white dark:bg-[#111A2E] p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
-                        <span className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">{day}</span>
-                        <div className="text-right space-y-1">
-                          {slots.map((slot: string, sIdx: number) => (
-                            <span key={sIdx} className="inline-block bg-slate-100 dark:bg-slate-900 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold text-slate-700 dark:text-slate-300">
-                              {slot}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 dark:text-slate-300 font-bold uppercase italic">No rigid slots configured. Flexible scheduling available.</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                    <span>{locationString}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                    <span>{tutor.experience || 'Experienced Mentor'}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
+                    <strong className="text-[#0B132B] dark:text-white">
+                      {avgRating > 0 ? avgRating.toFixed(1) : 'New'}
+                    </strong>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
+                    </span>
+                  </span>
+                </div>
+
+                {bookingMeta && (
+                  <div className="pt-1">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${bookingMeta.tone}`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{bookingMeta.label}</span>
+                    </span>
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
 
-            {/* Segment: Reviews & Testimonials */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-2">
-                <Star className="w-4 h-4 text-[#0D5BFF] fill-[#0D5BFF]/10" />
-                <span>Reviews & Testimonials</span>
-                {reviews.length > 0 && (
-                  <span className="ml-auto bg-blue-50 dark:bg-blue-950 text-[#0D5BFF] dark:text-blue-300 text-xs font-black px-2.5 py-1 rounded-xl">
-                    {reviews.length} Total
-                  </span>
+            {/* Fee & Quick Action Block */}
+            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end justify-between gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="lg:text-right">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                  Monthly Tuition Fee
+                </span>
+                {hideFeeForGuest ? (
+                  <Link
+                    to={loginRedirectUrl}
+                    className="text-sm font-bold text-[#0D5BFF] hover:underline inline-flex items-center gap-1 mt-1"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    Sign in to view fee
+                  </Link>
+                ) : (
+                  <div className="flex items-baseline gap-1.5 lg:justify-end">
+                    <span className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white">
+                      {feeValue ? `৳${Number(feeValue).toLocaleString()}` : 'Negotiable'}
+                    </span>
+                    {feeValue && (
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        /month • {tutor.daysPerWeek || 3} days/wk
+                      </span>
+                    )}
+                  </div>
                 )}
-              </h3>
+              </div>
 
-              {reviewsLoading ? (
-                <div className="text-center py-8 space-y-2">
-                  <div className="w-6 h-6 border-2 border-[#0D5BFF] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest">Loading testimonials ledger...</p>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={scrollToAvailability}
+                  className="px-4 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:border-[#0D5BFF] text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Calendar className="w-4 h-4 text-[#0D5BFF]" />
+                  <span>View Availability</span>
+                </button>
+
+                {!isOwner && (
+                  <button
+                    type="button"
+                    onClick={initDirectChat}
+                    className="px-4 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#0D5BFF] text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <MessageSquare className="w-4 h-4 text-[#0D5BFF]" />
+                    <span>Message</span>
+                  </button>
+                )}
+
+                {isOwner ? (
+                  <Link
+                    to="/dashboard/profile"
+                    className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Edit My Profile</span>
+                  </Link>
+                ) : activeOrPendingBooking ? (
+                  <Link
+                    to="/dashboard/activity"
+                    className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#0B132B] dark:bg-[#0D5BFF] text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>View Booking Status</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleOpenBookingModal}
+                    className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Request Tutor</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Main 2-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+          {/* Left Primary Content */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* About / Teaching Philosophy */}
+            <section className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-[#0D5BFF]" />
+                  <span>About & Teaching Approach</span>
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {teachingModeLabel}
+                </span>
+              </div>
+
+              <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                {tutor.bio ||
+                  `${tutor.name} is an EduTrack educator offering structured one-on-one and small-group academic guidance tailored to student exam goals and concept mastery.`}
+              </p>
+
+              {/* Key Academic Facts Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                    University / Institution
+                  </span>
+                  <span className="text-sm font-bold text-[#0B132B] dark:text-white mt-0.5 block">
+                    {tutor.university || 'Academic Specialist'}
+                  </span>
                 </div>
-              ) : reviews.length > 0 ? (
-                <div className="space-y-4">
-                  {reviews.map((rev) => (
-                    <div 
-                      key={rev.id} 
-                      className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B]/40 border border-slate-100 dark:border-slate-800/60 space-y-3.5 transition-all hover:shadow-md"
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                    Department / Qualification
+                  </span>
+                  <span className="text-sm font-bold text-[#0B132B] dark:text-white mt-0.5 block">
+                    {tutor.course || 'Subject Expert'}
+                    {tutor.year ? ` • ${tutor.year} Year` : ''}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                    Preferred Areas
+                  </span>
+                  <span className="text-sm font-bold text-[#0B132B] dark:text-white mt-0.5 block">
+                    {Array.isArray(tutor.teachingAreas) && tutor.teachingAreas.length > 0
+                      ? tutor.teachingAreas.join(', ')
+                      : locationString}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                    Curriculum / Schedule
+                  </span>
+                  <span className="text-sm font-bold text-[#0B132B] dark:text-white mt-0.5 block">
+                    {[tutor.curriculum || 'Bangla & English Version', `${tutor.daysPerWeek || 3} Days/Week`]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Subjects & Target Classes */}
+            <section className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-2xs space-y-5">
+              <div>
+                <h3 className="text-base font-bold font-heading text-[#0B132B] dark:text-white mb-3">
+                  Subjects Taught
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(tutor.subjects) && tutor.subjects.length > 0 ? (
+                    tutor.subjects.map((sub: string) => (
+                      <span
+                        key={sub}
+                        className="px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 text-xs font-bold"
+                      >
+                        {sub}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      General Academic Subjects
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-bold font-heading text-[#0B132B] dark:text-white mb-3">
+                  Classes & Levels
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(tutor.classes) && tutor.classes.length > 0 ? (
+                    tutor.classes.map((cls: string) => (
+                      <span
+                        key={cls}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700 text-xs font-semibold"
+                      >
+                        {cls}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      School, College & Admission Preparation
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Weekly Availability Slots */}
+            <section
+              id="availability-section"
+              className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-2xs space-y-4 scroll-mt-24"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#0D5BFF]" />
+                    <span>Weekly Availability</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Live schedule synced directly from the tutor&apos;s calendar
+                  </p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 text-xs font-bold">
+                  {totalWeeklySlots > 0 ? `${totalWeeklySlots} Open Slots` : 'Flexible Schedule'}
+                </span>
+              </div>
+
+              {availabilityEntries.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {availabilityEntries.map((entry) => (
+                    <div
+                      key={entry.day}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800"
                     >
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        {/* Student Author */}
-                        <div className="flex items-center gap-3">
-                          {rev.studentImage ? (
-                            <img 
-                              src={rev.studentImage} 
-                              alt={rev.studentName} 
-                              className="w-8 h-8 rounded-xl object-cover border border-slate-200"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-[#0D5BFF] dark:text-blue-300 flex items-center justify-center font-bold text-xs uppercase italic">
-                              {rev.studentName.charAt(0)}
-                            </div>
-                          )}
-                          <div>
-                            <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase italic">{rev.studentName}</h4>
-                            {rev.subject && (
-                              <span className="text-[9px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
-                                Class Focus: {rev.subject}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Stars Indicator */}
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, starIdx) => (
-                            <Star 
-                              key={starIdx} 
-                              className={`w-3.5 h-3.5 ${
-                                starIdx < rev.rating 
-                                  ? 'text-amber-500 fill-amber-500' 
-                                  : 'text-slate-300 dark:text-slate-700'
-                              }`} 
-                            />
-                          ))}
-                        </div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-[#0B132B] dark:text-white mb-2">
+                        {entry.day}
                       </div>
-
-                      {/* Review Feedback Text */}
-                      <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed italic font-medium">
-                        "{rev.feedback || 'The student left a five-star rating with no text commentary.'}"
-                      </p>
-
-                      {/* Session Date */}
-                      {rev.scheduledTime && (
-                        <div className="text-[8px] text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>Session Delivered: {new Date(rev.scheduledTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {entry.slots.map((slot: string) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => {
+                              setBookingSlot(slot);
+                              if (isStudent && !activeOrPendingBooking) {
+                                setShowBookingModal(true);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-colors cursor-pointer"
+                          >
+                            <Clock className="w-3 h-3 text-[#0D5BFF]" />
+                            <span>{slot}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-10 bg-slate-50 dark:bg-[#0B132B]/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800/80">
-                  <Star className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider">No student ratings logged yet</p>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium mt-1 uppercase tracking-widest">Delivered tuition sessions will appear here after rating submission.</p>
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300">
+                  No fixed slots listed yet — send a booking request or message {tutor.name} to arrange a mutually convenient time.
                 </div>
               )}
-            </motion.div>
+            </section>
 
-          </div>
+            {/* Achievements & Badges */}
+            {Array.isArray(tutor.badges) && tutor.badges.length > 0 && (
+              <section className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-2xs space-y-4">
+                <h2 className="text-lg font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                  <Award className="w-5 h-5 text-[#0D5BFF]" />
+                  <span>Milestones & Recognition</span>
+                </h2>
+                <BadgeDisplay badgeIds={tutor.badges} role="tutor" />
+              </section>
+            )}
 
-          {/* Sidebar Area Card (Right 4 columns) */}
-          <div className="lg:col-span-4 space-y-8">
-            
-            {/* Financials card */}
-            <motion.div 
-              variants={cardVariants}
-              className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-xl space-y-6 transition-colors"
-            >
-              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Standard Remuneration</span>
-              
-              <div className="flex items-baseline gap-1 text-[#0B132B] dark:text-white">
-                <span className="text-2xl font-bold">৳</span>
-                <span className="text-5xl font-black italic">{(tutor.hourlyRate || 800).toLocaleString()}</span>
-                <span className="text-xs text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider ml-1">/ Month</span>
-              </div>
-
-              <div className="space-y-3.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
-                  <span>Days per Week</span>
-                  <span className="font-mono text-[#0B132B] dark:text-white font-black">{tutor.daysPerWeek || 3} Days</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
-                  <span>Service Zone</span>
-                  <span className="text-[#0B132B] dark:text-white font-black flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                    {tutor.area || 'Dhanmondi'}, {tutor.district || 'Dhaka'}
+            {/* Verified Student Reviews */}
+            <section className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  <span>Student Feedback</span>
+                </h2>
+                {reviews.length > 0 && (
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                    {avgRating.toFixed(1)} average from {reviews.length}{' '}
+                    {reviews.length === 1 ? 'session' : 'sessions'}
                   </span>
-                </div>
-                {tutor.thana && (
-                  <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-600 dark:text-slate-300">
-                    <span>Thana Sector</span>
-                    <span className="text-slate-700 dark:text-slate-200 font-black">{tutor.thana}</span>
-                  </div>
                 )}
-                
-                {/* Embedded dynamic share action */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60">
-                  <button
-                    onClick={shareProfile}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-wider rounded-2xl border border-slate-200/60 dark:border-slate-800/80 transition-all cursor-pointer shadow-sm active:scale-95"
-                    id="share-profile-financials-btn"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>{copied === 'profile' ? 'Link Copied to Clipboard!' : 'Share Teacher Profile'}</span>
-                  </button>
-                </div>
               </div>
-            </motion.div>
 
-            {/* 30-Minute Class Push Alert Subscription Card */}
-            <TutorNotifyMeCard 
-              tutor={tutor} 
-              onRequireAuth={() => navigate(`/login?redirect=${encodeURIComponent(`/teacher/${tutor.id}`)}`)} 
-            />
-
-            {/* Direct Contact Ledger - Security Lockdown Zone */}
-            <div className={`rounded-[2.5rem] p-6 border-2 transition-all overflow-hidden relative shadow-xl ${
-              !currentUser 
-                ? 'bg-blue-50/10 border-[#0D5BFF]/15 dark:bg-blue-950/5 dark:border-blue-900/20'
-                : canSeeContactInfo
-                  ? 'bg-emerald-50/10 border-emerald-500/25 dark:bg-emerald-950/5 dark:border-emerald-500/15'
-                  : 'bg-[#0D5BFF]/5 border-[#0D5BFF]/20 dark:bg-blue-950/5 dark:border-blue-900/20'
-            }`}>
-              
-              {!currentUser ? (
-                // Lock screen: Guest cannot view.
-                <div className="space-y-6">
-                  <div className="flex items-start gap-3">
-                    <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] border border-blue-100 dark:border-blue-900/30">
-                      <Lock className="w-5 h-5 animate-pulse" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">Credentials Locked</h4>
-                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PUBLIC SAFETY PROTOCOL</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-bold">
-                    Direct communication ledgers and unmasked credentials remain protected. Only verified students or designated system administrators may interact or view them.
-                  </p>
-
-                  <div className="bg-slate-100 dark:bg-slate-900/80 p-4 rounded-3xl space-y-3.5 border border-slate-200/50 dark:border-slate-800/80">
-                    <div>
-                      <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verify E-Mail Node</span>
-                      <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-1">{maskEmail(tutor.email)}</p>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
-                      <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-1">{maskPhone(tutor.phone)}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Link 
-                      to={`/login?redirect=${encodeURIComponent(`/teacher/${tutor.id}`)}`}
-                      className="block text-center w-full py-4 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl shadow-lg shadow-[#0D5BFF]/15 transition-all"
-                    >
-                      Log In as Student
-                    </Link>
-                    <p className="text-center text-[9px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                      Don't have an account? <Link to="/signup" className="text-[#0D5BFF] hover:underline">Register now</Link>
-                    </p>
-                  </div>
-
+              {reviewsLoading ? (
+                <div className="space-y-3">
+                  <div className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                  <div className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
                 </div>
-              ) : !canSeeContactInfo ? (
-                // Locked screen for student context: Can start a chat and see beautiful masked details
-                <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-start gap-3">
-                    <div className="p-3 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/40 border border-[#0D5BFF]/25 dark:border-blue-900/40">
-                      <Lock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">Direct Contacts Masked</h4>
-                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PRIVACY PROTECTION PROTOCOL</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-bold">
-                    For public safety and security, raw email addresses and phone numbers are masked. Please coordinate using our encrypted direct peer messaging network.
-                  </p>
-
-                  <div className="space-y-4">
-                    
-                    {/* Masked Phone */}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
-                      <div>
-                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
-                        <p className="text-sm font-mono font-black text-slate-600 dark:text-slate-300 tracking-wider mt-0.5">{maskPhone(tutor.phone)}</p>
-                      </div>
-                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
-                    </div>
-
-                    {/* Masked Email */}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 flex items-center justify-between">
-                      <div>
-                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verified E-Mail Node</span>
-                        <p className="text-sm font-mono font-black text-slate-600 dark:text-slate-300 break-all mt-0.5">{maskEmail(tutor.email)}</p>
-                      </div>
-                      <span className="px-2 py-1 bg-slate-50 dark:bg-slate-800 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase rounded-lg border border-slate-100 dark:border-slate-800">Protected</span>
-                    </div>
-
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <button 
-                      onClick={initDirectChat}
-                      className="w-full py-4.5 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl shadow-lg shadow-[#0D5BFF]/15 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+              ) : reviews.length > 0 ? (
+                <div className="space-y-3">
+                  {reviews.map((rev) => (
+                    <article
+                      key={rev.id}
+                      className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 space-y-2.5"
                     >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Initiate Direct Chat</span>
-                    </button>
-                  </div>
-
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {rev.studentImage ? (
+                            <img
+                              src={rev.studentImage}
+                              alt={rev.studentName}
+                              className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0D5BFF] dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
+                              {getInitials(rev.studentName)}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#0B132B] dark:text-white truncate">
+                              {rev.studentName}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                              {rev.subject || 'Tuition Session'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3.5 h-3.5 ${
+                                star <= Number(rev.rating)
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-slate-300 dark:text-slate-700'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {rev.feedback && (
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                          &ldquo;{rev.feedback}&rdquo;
+                        </p>
+                      )}
+                    </article>
+                  ))}
                 </div>
               ) : (
-                // Privileged administrator or verified self-profile access
-                <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-start gap-3">
-                    <div className="p-3 rounded-2xl bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-500 border border-emerald-200 dark:border-emerald-900/40">
-                      <CheckCircle className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Credentials Unlocked</h4>
-                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5">PRIVILEGED LEDGER ACCESS</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    
-                    {/* Unmasked Phone */}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Direct Phone Contact</span>
-                        <p className="text-sm font-mono font-black text-slate-800 dark:text-white tracking-wider mt-0.5">{tutor.phone || 'Contact via email / chat'}</p>
-                      </div>
-                      {tutor.phone && (
-                        <button 
-                          onClick={() => copyToClipboard(tutor.phone, 'phone')}
-                          className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[9px] font-black text-[#0B132B] dark:text-white uppercase transition-all rounded-xl border border-slate-200/50 dark:border-slate-800 cursor-pointer"
-                        >
-                          {copied === 'phone' ? 'Copied' : 'Copy'}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Unmasked Email */}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest block">Verified E-Mail Node</span>
-                        <p className="text-sm font-mono font-black text-slate-800 dark:text-white break-all mt-0.5">{tutor.email || 'N/A'}</p>
-                      </div>
-                      {tutor.email && (
-                        <button 
-                          onClick={() => copyToClipboard(tutor.email, 'email')}
-                          className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[9px] font-black text-[#0B132B] dark:text-white uppercase transition-all rounded-xl border border-slate-200/50 dark:border-slate-800 cursor-pointer"
-                        >
-                          {copied === 'email' ? 'Copied' : 'Copy'}
-                        </button>
-                      )}
-                    </div>
-
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <button 
-                      onClick={initDirectChat}
-                      className="w-full py-4.5 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl shadow-lg shadow-[#0D5BFF]/15 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Initiate Direct Chat</span>
-                    </button>
-                  </div>
-
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300">
+                  No written student reviews yet. Be the first to rate a completed session with {tutor.name}.
                 </div>
               )}
-
-            </div>
-
+            </section>
           </div>
 
+          {/* Right Sidebar: Trust, Contact Privacy & Alerts */}
+          <aside className="lg:col-span-4 space-y-6">
+            {/* Verification Trust Card (Status Badges Only — Zero Private Docs) */}
+            <div className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-4">
+              <h3 className="text-base font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-emerald-500" />
+                <span>Safety & Verification</span>
+              </h3>
+              <div className="space-y-2.5 text-xs sm:text-sm">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    National ID Check
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      tutor.nidStatus === 'approved'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {tutor.nidStatus === 'approved' ? 'Verified' : 'Under Review'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    Academic Credentials
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      tutor.academicStatus === 'approved'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {tutor.academicStatus === 'approved' ? 'Verified' : 'Under Review'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Identity documents are reviewed privately by EduTrack compliance administrators and are never exposed publicly.
+              </p>
+            </div>
+
+            {/* Conditional Contact Unlock Card */}
+            <div className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
+                  {contactUnlocked ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  ) : (
+                    <Lock className="w-5 h-5 text-[#0D5BFF]" />
+                  )}
+                  <span>Direct Contact</span>
+                </h3>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    contactUnlocked
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {contactUnlocked ? 'Unlocked' : 'Protected'}
+                </span>
+              </div>
+
+              {contactUnlocked ? (
+                <div className="space-y-2.5">
+                  {tutor.phone && (
+                    <a
+                      href={`tel:${tutor.phone}`}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800 hover:border-[#0D5BFF] transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-[#0B132B] dark:text-white">
+                        <Phone className="w-4 h-4 text-[#0D5BFF]" />
+                        <span>{tutor.phone}</span>
+                      </span>
+                      <span className="text-xs font-bold text-[#0D5BFF]">Call</span>
+                    </a>
+                  )}
+                  {(tutor.whatsappNumber || tutor.phone) && (
+                    <a
+                      href={normalizeWhatsAppLink(tutor.whatsappNumber || tutor.phone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/50 hover:border-emerald-400 transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                        <MessageCircle className="w-4 h-4" />
+                        <span>{tutor.whatsappNumber || tutor.phone}</span>
+                      </span>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        WhatsApp
+                      </span>
+                    </a>
+                  )}
+                  {tutor.email && (
+                    <a
+                      href={`mailto:${tutor.email}`}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800 hover:border-[#0D5BFF] transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-[#0B132B] dark:text-white min-w-0">
+                        <Mail className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+                        <span className="truncate">{tutor.email}</span>
+                      </span>
+                      <span className="text-xs font-bold text-[#0D5BFF] shrink-0">Email</span>
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Phone, WhatsApp, and email remain private until your tuition request is accepted and confirmed. You can still message or request a session anytime.
+                  </div>
+                  {!currentUser ? (
+                    <Link
+                      to={loginRedirectUrl}
+                      className="w-full py-3 min-h-[44px] rounded-xl bg-[#0B132B] dark:bg-[#0D5BFF] hover:opacity-95 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-opacity"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Sign In to Request & Unlock</span>
+                    </Link>
+                  ) : !isOwner && !activeOrPendingBooking && isStudent ? (
+                    <button
+                      type="button"
+                      onClick={handleOpenBookingModal}
+                      className="w-full py-3 min-h-[44px] rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Send Booking Request</span>
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* 30-Minute Pre-Class Push Alerts Card */}
+            <TutorNotifyMeCard
+              tutor={tutor}
+              onRequireAuth={() => navigate(loginRedirectUrl)}
+            />
+          </aside>
         </div>
+      </div>
 
-      </motion.div>
+      {/* Mobile Sticky Bottom Action Bar (320px–767px) */}
+      {!isOwner && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-4 py-3 pb-safe shadow-[0_-6px_24px_rgba(11,19,43,0.08)]">
+          <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+                {tutor.daysPerWeek || 3} Days/Week
+              </span>
+              <span className="text-base font-black text-[#0B132B] dark:text-white truncate block">
+                {hideFeeForGuest
+                  ? 'Sign in for fee'
+                  : feeValue
+                    ? `৳${Number(feeValue).toLocaleString()}/mo`
+                    : 'Negotiable'}
+              </span>
+            </div>
 
-    </motion.div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleShortlistToggle}
+                disabled={isTogglingShortlist}
+                className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+                  isShortlisted
+                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-500'
+                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+                aria-label="Shortlist Tutor"
+              >
+                <Heart className={`w-5 h-5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+              </button>
+
+              {activeOrPendingBooking ? (
+                <Link
+                  to="/dashboard/activity"
+                  className="px-4 h-11 rounded-xl bg-[#0B132B] dark:bg-[#0D5BFF] text-white text-xs font-bold flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>View Status</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenBookingModal}
+                  className="px-5 h-11 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Request Tutor</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Tutor / Book Session Modal */}
+      <AnimatePresence>
+        {showBookingModal && (
+          <div
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setShowBookingModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-lg bg-white dark:bg-[#111A2E] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[90dvh] overflow-y-auto p-5 sm:p-7 pb-safe"
+            >
+              <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-lg font-black font-heading text-[#0B132B] dark:text-white">
+                    Request Tuition Session
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Send a request to {tutor.name} ({tutor.university || 'Verified Tutor'})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBookingModal(false)}
+                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  aria-label="Close booking dialog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitBooking} className="space-y-5 pt-5">
+                {bookingError && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{bookingError}</span>
+                  </div>
+                )}
+
+                {/* Subject selection */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Select Subject(s)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(Array.isArray(tutor.subjects) && tutor.subjects.length > 0
+                      ? tutor.subjects
+                      : ['Mathematics', 'English', 'Physics', 'General Coaching']
+                    ).map((sub: string) => {
+                      const active = bookingSubjects.includes(sub);
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() =>
+                            setBookingSubjects((prev) =>
+                              active ? prev.filter((s) => s !== sub) : [...prev, sub]
+                            )
+                          }
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white'
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {sub}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Date & Time */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Preferred Start Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                      value={bookingDate}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Preferred Time
+                    </label>
+                    <select
+                      value={bookingSlot}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                      onChange={(e) => setBookingSlot(e.target.value)}
+                      className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    >
+                      {Array.from(
+                        new Set([
+                          ...availabilityEntries.flatMap((e) => e.slots),
+                          '03:00 PM',
+                          '04:00 PM',
+                          '05:00 PM',
+                          '06:30 PM',
+                          '08:00 PM',
+                        ])
+                      ).map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Optional Message */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Note for Tutor (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={bookingNote}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                    onChange={(e) => setBookingNote(e.target.value)}
+                    placeholder="Share your class, area, or specific goals..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-[#0B132B] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF]"
+                  />
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBookingModal(false)}
+                    className="w-full sm:w-auto px-5 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingBooking}
+                    className="w-full sm:flex-1 py-3 min-h-[44px] rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>{isSubmittingBooking ? 'Sending Request...' : 'Send Booking Request'}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

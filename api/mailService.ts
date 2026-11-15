@@ -26,13 +26,13 @@ function escapeHtml(value: string): string {
 
 /**
  * Generates the official EduTrack Bangladesh 6-Digit Email Verification HTML template.
- * Built with table-based layout and inline CSS for Gmail, Outlook, Apple Mail, and mobile clients.
+ * 100% text-only, table-based layout with inline CSS (zero images, SVGs, icons, emojis,
+ * gradients, pill badges, dashed borders, or heavy shadows) for flawless Gmail/Outlook/mobile rendering.
  */
 export function generateOtpEmailHtml({
   email,
   otpCode,
   expiresMinutes = 5,
-  baseUrl = process.env.APP_URL || "https://edutrackbd.vercel.app",
 }: {
   email: string;
   otpCode: string;
@@ -45,13 +45,11 @@ export function generateOtpEmailHtml({
   const safeExpiresMinutes = Number.isFinite(Number(expiresMinutes)) && Number(expiresMinutes) > 0
     ? Math.round(Number(expiresMinutes))
     : 5;
-  const cleanBaseUrl = String(baseUrl || "https://edutrackbd.vercel.app").replace(/\/$/, "");
-  const logoUrl = `${cleanBaseUrl}/logo.png`;
   const currentYear = new Date().getFullYear();
-  const preheaderText = "Complete your EduTrack registration with your secure verification code.";
+  const preheaderText = "Use your 6-digit verification code to complete your EduTrack Bangladesh registration.";
 
   return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,192 +58,111 @@ export function generateOtpEmailHtml({
   <meta name="color-scheme" content="light dark">
   <meta name="supported-color-schemes" content="light dark">
   <title>Verify your email | EduTrack Bangladesh</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
   <style type="text/css">
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     table { border-collapse: collapse !important; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #F1F5F9; }
     @media screen and (max-width: 600px) {
       .email-container { width: 100% !important; max-width: 100% !important; }
       .card-padding { padding: 28px 20px !important; }
-      .otp-code-text { font-size: 32px !important; letter-spacing: 8px !important; }
+      .otp-code-text { font-size: 32px !important; letter-spacing: 6px !important; }
       .main-heading { font-size: 22px !important; }
     }
     @media (prefers-color-scheme: dark) {
-      .email-bg { background-color: #0F172A !important; }
+      .email-bg { background-color: #0B132B !important; }
       .email-card { background-color: #101828 !important; border-color: #1E293B !important; }
       .brand-title, .main-heading, .otp-code-text, .strong-text { color: #FFFFFF !important; }
       .body-text, .footer-text { color: #CBD5E1 !important; }
       .otp-box { background-color: #172554 !important; border-color: #1E3A8A !important; }
-      .otp-label, .brand-link, .expires-highlight { color: #60A5FA !important; }
-      .security-pill { background-color: #1E3A8A !important; color: #93C5FD !important; }
-      .ignore-box { background-color: #1E293B !important; border-color: #334155 !important; }
+      .otp-label, .brand-link, .brand-sub { color: #60A5FA !important; }
       .divider-line { border-color: #1E293B !important; }
     }
   </style>
 </head>
 <body class="email-bg" style="margin: 0; padding: 0; background-color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #101828; -webkit-font-smoothing: antialiased;">
-  <!-- Hidden Preheader Text -->
   <div style="display: none; font-size: 1px; color: #F1F5F9; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all;">
-    ${preheaderText}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+    ${preheaderText}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
   </div>
 
-  <!-- Outer Wrapper Table -->
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-bg" style="background-color: #F1F5F9; width: 100%; margin: 0; padding: 36px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-bg" style="background-color: #F1F5F9; width: 100%; margin: 0; padding: 32px 16px;">
     <tr>
       <td align="center" valign="top">
-        <!--[if mso]>
-        <table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" width="560">
-        <tr>
-        <td align="center" valign="top" width="560">
-        <![endif]-->
-
-        <!-- Main Card Container (560px) -->
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-container email-card" style="max-width: 560px; width: 100%; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 20px; box-shadow: 0 8px 28px rgba(16, 24, 40, 0.06); overflow: hidden;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-container email-card" style="max-width: 560px; width: 100%; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px;">
           <tr>
-            <td class="card-padding" style="padding: 40px 44px 36px 44px; text-align: center;">
+            <td class="card-padding" style="padding: 36px 36px 32px 36px; text-align: left;">
 
-              <!-- 1. Header: Original EduTrack Logo + EduTrack Bangladesh Branding -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 24px auto;">
+              <!-- 1. Brand Header (Text-Only) -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 24px 0;">
                 <tr>
-                  <!-- Original EduTrack Logo -->
-                  <td valign="middle" align="center" style="padding-right: 14px;">
-                    <a href="${cleanBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img
-                        src="${logoUrl}"
-                        alt="EduTrack"
-                        width="44"
-                        height="44"
-                        style="display: block; width: 44px; height: 44px; border-radius: 12px; background-color: #155DFC; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; font-weight: 800; line-height: 44px; text-align: center; border: 0;"
-                      />
-                    </a>
-                  </td>
-                  <!-- Subtle Vertical Separator -->
-                  <td valign="middle" style="border-left: 1px solid #CBD5E1; height: 34px; padding-left: 14px; text-align: left;">
-                    <div class="brand-title" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 800; color: #101828; letter-spacing: -0.5px; line-height: 1.05;">
-                      EduTrack
+                  <td align="left" style="padding-bottom: 20px; border-bottom: 1px solid #E2E8F0;" class="divider-line">
+                    <div class="brand-title" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 800; color: #101828; letter-spacing: -0.4px; line-height: 1.1;">
+                      Edu<span class="brand-link" style="color: #155DFC;">Track</span>
                     </div>
-                    <div class="body-text" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; color: #475569; letter-spacing: 3.2px; text-transform: uppercase; margin-top: 4px; line-height: 1;">
+                    <div class="brand-sub" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; color: #155DFC; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; line-height: 1;">
                       BANGLADESH
                     </div>
                   </td>
                 </tr>
               </table>
 
-              <!-- Thin Header Divider -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 24px 0;">
-                <tr>
-                  <td class="divider-line" style="border-top: 1px solid #E2E8F0; font-size: 1px; line-height: 1px; height: 1px;">&nbsp;</td>
-                </tr>
-              </table>
-
-              <!-- 2. Security Label ("ACCOUNT SECURITY") -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 20px auto;">
-                <tr>
-                  <td class="security-pill" align="center" style="background-color: #EFF6FF; color: #155DFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; padding: 7px 18px; border-radius: 999px;">
-                    ACCOUNT SECURITY
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Clean Minimal Envelope Badge (Pure Table/HTML for Universal Compatibility) -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 18px auto;">
-                <tr>
-                  <td align="center" valign="middle" width="56" height="56" style="width: 56px; height: 56px; background-color: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 16px; text-align: center;">
-                    <span style="display: inline-block; width: 26px; height: 26px; line-height: 26px; border-radius: 999px; background-color: #155DFC; color: #FFFFFF; font-family: Arial, sans-serif; font-size: 14px; font-weight: 700; text-align: center;">&#10003;</span>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- 3. Main Heading -->
-              <h1 class="main-heading" style="margin: 0 0 12px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 26px; font-weight: 800; color: #101828; letter-spacing: -0.4px; line-height: 1.25;">
+              <!-- 2. Main Heading -->
+              <h1 class="main-heading" style="margin: 0 0 12px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 800; color: #101828; letter-spacing: -0.3px; line-height: 1.25;">
                 Verify your email address
               </h1>
 
-              <!-- 4. Description -->
-              <p class="body-text" style="margin: 0 auto 26px auto; max-width: 440px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 400; color: #475569; line-height: 1.6;">
-                Welcome to <strong class="brand-link" style="color: #155DFC; font-weight: 700;">EduTrack!</strong> Use the verification code below to complete your registration.
+              <!-- 3. Description -->
+              <p class="body-text" style="margin: 0 0 24px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 400; color: #475569; line-height: 1.6;">
+                Welcome to EduTrack! Use the verification code below to complete your registration.
               </p>
 
-              <!-- 5. Verification Code Container (Light Blue #EFF6FF, Solid Subtle Border, No Dashed Border) -->
+              <!-- 4. OTP Section (Clean Light-Blue Container, Solid Subtle Border) -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 24px 0;">
                 <tr>
-                  <td class="otp-box" align="center" style="background-color: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 16px; padding: 28px 20px;">
-                    <div class="otp-label" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 800; color: #155DFC; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 14px 0;">
+                  <td class="otp-box" align="center" style="background-color: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 10px; padding: 24px 20px;">
+                    <div class="otp-label" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; color: #155DFC; letter-spacing: 1.8px; text-transform: uppercase; margin: 0 0 12px 0;">
                       YOUR VERIFICATION CODE
                     </div>
-
-                    <!-- Selectable & Copyable 6-Digit OTP -->
-                    <div
-                      class="otp-code-text"
-                      style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 38px; font-weight: 800; color: #101828; letter-spacing: 10px; text-indent: 10px; line-height: 1.2; margin: 0 0 16px 0; user-select: all; -webkit-user-select: all; -moz-user-select: all;"
-                    >${safeOtp}</div>
-
-                    <!-- 6. Expiration Information (Server-Defined Expiry) -->
+                    <div class="otp-code-text" style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 36px; font-weight: 800; color: #101828; letter-spacing: 8px; text-indent: 8px; line-height: 1.2; margin: 0 0 12px 0; user-select: all; -webkit-user-select: all; -moz-user-select: all;">${safeOtp}</div>
                     <div class="body-text" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; color: #475569; line-height: 1.4; margin: 0;">
-                      <span style="color: #155DFC; font-weight: 700;">&#9201;</span>
-                      This code expires in <strong class="expires-highlight" style="color: #155DFC; font-weight: 700;">${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}.</strong>
+                      Valid for ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}.
                     </div>
                   </td>
                 </tr>
               </table>
 
-              <!-- 7. Security Message -->
-              <p class="body-text" style="margin: 0 auto 6px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.55;">
-                Enter this code in the EduTrack verification window. Never share this verification code with anyone.
-              </p>
-              <p class="body-text" style="margin: 0 auto 22px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.55;">
-                EduTrack staff will never ask you for this code.
+              <!-- 5. Security Message -->
+              <p class="body-text" style="margin: 0 0 14px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.6;">
+                Never share this verification code with anyone. EduTrack staff will never ask for this code.
               </p>
 
-              <!-- 8. Unrequested Email Notice -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 26px 0;">
+              <!-- 6. Unrequested Email -->
+              <p class="body-text" style="margin: 0 0 28px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.6;">
+                Didn't request this? You can safely ignore this email.
+              </p>
+
+              <!-- 7. Footer (Minimal) -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td class="ignore-box" align="center" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 13px 18px;">
-                    <span class="body-text" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.5;">
-                      <strong class="strong-text" style="color: #101828; font-weight: 700;">Didn’t request this?</strong> You can safely ignore this email.
-                    </span>
+                  <td class="divider-line" style="border-top: 1px solid #E2E8F0; padding-top: 20px; text-align: left;">
+                    <p class="strong-text" style="margin: 0 0 4px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; color: #101828; line-height: 1.5;">
+                      EduTrack Bangladesh
+                    </p>
+                    <p class="footer-text" style="margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; color: #475569; line-height: 1.5;">
+                      <a href="mailto:edutrackbangladesh@gmail.com" class="brand-link" style="color: #155DFC; font-weight: 600; text-decoration: underline;">Contact Support</a>
+                      <span style="color: #94A3B8;"> &middot; </span>
+                      <span>${safeEmail}</span>
+                    </p>
+                    <p class="footer-text" style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; color: #475569; line-height: 1.5;">
+                      &copy; ${currentYear} EduTrack Bangladesh
+                    </p>
                   </td>
                 </tr>
               </table>
-
-              <!-- Thin Footer Divider -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 22px 0;">
-                <tr>
-                  <td class="divider-line" style="border-top: 1px solid #E2E8F0; font-size: 1px; line-height: 1px; height: 1px;">&nbsp;</td>
-                </tr>
-              </table>
-
-              <!-- 9. Footer -->
-              <p class="body-text" style="margin: 0 0 12px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; line-height: 1.5;">
-                Need help? <a href="mailto:edutrackbangladesh@gmail.com" class="brand-link" style="color: #155DFC; font-weight: 700; text-decoration: underline;">Contact EduTrack Support</a>
-              </p>
-              <p class="footer-text" style="margin: 0 0 4px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.5;">
-                &copy; ${currentYear} EduTrack Bangladesh &middot; Automated security email for ${safeEmail}
-              </p>
-              <p class="footer-text" style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.5;">
-                Please do not reply to this message.
-              </p>
 
             </td>
           </tr>
         </table>
-
-        <!--[if mso]>
-        </td>
-        </tr>
-        </table>
-        <![endif]-->
       </td>
     </tr>
   </table>
@@ -990,24 +907,21 @@ export function generateOtpEmailText({
   const currentYear = new Date().getFullYear();
 
   return [
-    "EduTrack Bangladesh — Account Security",
-    "----------------------------------------",
+    "EduTrack BANGLADESH",
+    "",
     "Verify your email address",
     "",
     "Welcome to EduTrack! Use the verification code below to complete your registration.",
     "",
     `YOUR VERIFICATION CODE: ${cleanDigits}`,
+    `Valid for ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}.`,
     "",
-    `This code expires in ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}.`,
-    "",
-    "Enter this code in the EduTrack verification window.",
-    "Never share this verification code with anyone. EduTrack staff will never ask you for this code.",
-    "",
+    "Never share this verification code with anyone. EduTrack staff will never ask for this code.",
     "Didn't request this? You can safely ignore this email.",
     "",
-    "Need help? Contact EduTrack Support: edutrackbangladesh@gmail.com",
-    `© ${currentYear} EduTrack Bangladesh · Automated security email for ${email}`,
-    "Please do not reply to this message.",
+    "EduTrack Bangladesh",
+    `Contact Support: edutrackbangladesh@gmail.com (${email})`,
+    `© ${currentYear} EduTrack Bangladesh`,
   ].join("\n");
 }
 

@@ -7,7 +7,13 @@ import './index.css';
 if ('caches' in window) {
   caches.keys().then((keys) => {
     keys.forEach((key) => {
-      if (key === 'edutrack-app-v3' || key === 'edutrack-dynamic-v1' || key.startsWith('workbox-')) {
+      if (
+        key === 'edutrack-app-v3' ||
+        key === 'edutrack-app-v4' ||
+        key === 'edutrack-dynamic-v1' ||
+        key === 'edutrack-dynamic-v4' ||
+        key.startsWith('workbox-')
+      ) {
         caches.delete(key).catch(() => {});
       }
     });
@@ -19,6 +25,18 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
         registration.update().catch(() => {});
       })
       .catch((error) => {

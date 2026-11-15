@@ -60,21 +60,104 @@ export function inferDivisionFromDistrict(district: string): string {
   return 'Dhaka';
 }
 
+const SIGNUP_DRAFT_KEY = 'edutrack_signup_draft';
+const OTP_CHALLENGE_STORAGE_KEY = 'edutrack_otp_challenge';
+
+interface PersistedOtpChallenge {
+  challengeId: string;
+  email: string;
+  otpLength: number;
+  expiresAtMs: number;
+  resendAvailableAtMs: number;
+  serverOffsetMs: number;
+  isOpen: boolean;
+}
+
+function readPersistedOtpChallenge(): PersistedOtpChallenge | null {
+  try {
+    const raw = sessionStorage.getItem(OTP_CHALLENGE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed.challengeId !== 'string' ||
+      typeof parsed.email !== 'string' ||
+      typeof parsed.expiresAtMs !== 'number'
+    ) {
+      return null;
+    }
+    const serverOffsetMs = typeof parsed.serverOffsetMs === 'number' ? parsed.serverOffsetMs : 0;
+    if (parsed.expiresAtMs <= Date.now() + serverOffsetMs) {
+      sessionStorage.removeItem(OTP_CHALLENGE_STORAGE_KEY);
+      return null;
+    }
+    return {
+      challengeId: parsed.challengeId,
+      email: parsed.email,
+      otpLength: typeof parsed.otpLength === 'number' ? parsed.otpLength : 6,
+      expiresAtMs: parsed.expiresAtMs,
+      resendAvailableAtMs: typeof parsed.resendAvailableAtMs === 'number' ? parsed.resendAvailableAtMs : 0,
+      serverOffsetMs,
+      isOpen: Boolean(parsed.isOpen),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedOtpChallenge(challenge: PersistedOtpChallenge | null) {
+  try {
+    if (!challenge) {
+      sessionStorage.removeItem(OTP_CHALLENGE_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(OTP_CHALLENGE_STORAGE_KEY, JSON.stringify(challenge));
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
 export default function Signup() {
   const [searchParams] = useSearchParams();
   const initialRole = searchParams.get('role') === 'tutor' ? 'tutor' : 'student';
-  const [role, setRole] = useState<'student' | 'tutor'>(initialRole);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [sameAsMobile, setSameAsMobile] = useState<boolean>(true);
-  const [formData, setFormData] = useState<any>({
-    division: 'Dhaka',
+
+  const savedDraft = React.useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem(SIGNUP_DRAFT_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const [role, setRole] = useState<'student' | 'tutor'>(() => {
+    if (searchParams.get('role') === 'tutor') return 'tutor';
+    if (searchParams.get('role') === 'student') return 'student';
+    return savedDraft?.role === 'tutor' ? 'tutor' : initialRole;
+  });
+  const [step, setStep] = useState<1 | 2 | 3>(() =>
+    savedDraft?.step === 2 || savedDraft?.step === 3 ? savedDraft.step : 1
+  );
+  const [sameAsMobile, setSameAsMobile] = useState<boolean>(() =>
+    typeof savedDraft?.sameAsMobile === 'boolean' ? savedDraft.sameAsMobile : true
+  );
+  const [formData, setFormData] = useState<any>(() => {
+    const restored = savedDraft?.formData && typeof savedDraft.formData === 'object' ? { ...savedDraft.formData } : {};
+    delete restored.password;
+    return {
+      division: 'Dhaka',
+      ...restored,
+    };
   });
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState<boolean>(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [referralCodeInput, setReferralCodeInput] = useState(searchParams.get('ref') || '');
+  const [referralCodeInput, setReferralCodeInput] = useState(() =>
+    searchParams.get('ref') || savedDraft?.referralCodeInput || ''
+  );
 
   useEffect(() => {
     const paramRole = searchParams.get('role');
@@ -82,6 +165,25 @@ export default function Signup() {
       setRole(paramRole);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (signupSuccess) return;
+    try {
+      const { password: _omitted, ...safeFormData } = formData || {};
+      sessionStorage.setItem(
+        SIGNUP_DRAFT_KEY,
+        JSON.stringify({
+          role,
+          step,
+          sameAsMobile,
+          referralCodeInput,
+          formData: safeFormData,
+        })
+      );
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [role, step, sameAsMobile, referralCodeInput, formData, signupSuccess]);
 
   // Keep whatsappNumber synced with phone when sameAsMobile is checked
   useEffect(() => {
@@ -95,27 +197,52 @@ export default function Signup() {
     }
   }, [sameAsMobile, formData.phone]);
 
-  // OTP Verification Flow State (Standardized 6-Digit Contract)
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpLength, setOtpLength] = useState<number>(6);
+  // OTP Verification Flow State (Standardized 6-Digit Contract + Persistent Challenge)
+  const restoredOtpChallenge = React.useMemo(() => readPersistedOtpChallenge(), []);
+  const [showOtpModal, setShowOtpModal] = useState(() => Boolean(restoredOtpChallenge?.isOpen));
+  const [otpChallengeId, setOtpChallengeId] = useState<string>(() => restoredOtpChallenge?.challengeId || '');
+  const [otpLength, setOtpLength] = useState<number>(() => restoredOtpChallenge?.otpLength || 6);
   const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(300);
+  const [otpExpiresAtMs, setOtpExpiresAtMs] = useState<number | undefined>(() => restoredOtpChallenge?.expiresAtMs);
+  const [resendAvailableAtMs, setResendAvailableAtMs] = useState<number>(() => restoredOtpChallenge?.resendAvailableAtMs || 0);
+  const [serverOffsetMs, setServerOffsetMs] = useState<number>(() => restoredOtpChallenge?.serverOffsetMs || 0);
   const [otpError, setOtpError] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
-  const [resendTimer, setResendTimer] = useState(60);
+  const [resendTimer, setResendTimer] = useState(() => {
+    if (!restoredOtpChallenge?.resendAvailableAtMs) return 0;
+    const serverNow = Date.now() + (restoredOtpChallenge.serverOffsetMs || 0);
+    return Math.max(0, Math.ceil((restoredOtpChallenge.resendAvailableAtMs - serverNow) / 1000));
+  });
   const [resendSuccessMsg, setResendSuccessMsg] = useState('');
   const [ipNoticeMsg, setIpNoticeMsg] = useState('');
+  const verifiedChallengeRef = React.useRef<{ email: string; challengeId: string } | null>(null);
 
   useEffect(() => {
-    let interval: any = null;
-    if (showOtpModal && resendTimer > 0) {
-      interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1);
-      }, 1000);
+    if (!showOtpModal || !resendAvailableAtMs) {
+      setResendTimer(0);
+      return;
     }
-    return () => {
-      if (interval) clearInterval(interval);
+
+    const syncResendTimer = () => {
+      const serverNow = Date.now() + serverOffsetMs;
+      const remaining = Math.max(0, Math.ceil((resendAvailableAtMs - serverNow) / 1000));
+      setResendTimer(remaining);
     };
-  }, [showOtpModal, resendTimer]);
+
+    syncResendTimer();
+    const interval = setInterval(syncResendTimer, 500);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') syncResendTimer();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', syncResendTimer);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', syncResendTimer);
+    };
+  }, [showOtpModal, resendAvailableAtMs, serverOffsetMs]);
 
   const signup = useAppStore((state) => state.signup);
   const currentUser = useAppStore((state) => state.currentUser);
@@ -317,35 +444,113 @@ export default function Signup() {
       return;
     }
 
+    const trimmedEmail = formData.email.trim();
+    const normalizedEmail = trimmedEmail.toLowerCase();
+
+    // If an active, unexpired challenge already exists for this exact email in this browser session,
+    // reopen the modal seamlessly instead of invalidating the code already delivered to their inbox.
+    const existingChallenge = readPersistedOtpChallenge();
+    if (
+      existingChallenge &&
+      existingChallenge.email === normalizedEmail &&
+      (!verifiedChallengeRef.current || verifiedChallengeRef.current.challengeId !== existingChallenge.challengeId)
+    ) {
+      const serverNow = Date.now() + existingChallenge.serverOffsetMs;
+      if (existingChallenge.expiresAtMs > serverNow) {
+        setOtpChallengeId(existingChallenge.challengeId);
+        setOtpLength(existingChallenge.otpLength);
+        setOtpExpiresAtMs(existingChallenge.expiresAtMs);
+        setResendAvailableAtMs(existingChallenge.resendAvailableAtMs);
+        setServerOffsetMs(existingChallenge.serverOffsetMs);
+        setOtpError('');
+        setResendSuccessMsg(
+          `A ${existingChallenge.otpLength}-digit verification code is already active for ${trimmedEmail}. Please enter it below or resend once the timer completes.`
+        );
+        writePersistedOtpChallenge({ ...existingChallenge, isOpen: true });
+        setShowOtpModal(true);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: formData.email.trim(),
+          email: trimmedEmail,
           name: formData.name.trim(),
         }),
       });
 
       const data = await res.json();
+      const clientNow = Date.now();
+      const nextOffset = typeof data.serverNow === 'number' ? data.serverNow - clientNow : 0;
+
+      // If a valid challenge was issued seconds ago on another tab/submission, restore it instead of blocking
+      if (res.status === 429 && data.challengeId && typeof data.expiresAt === 'number') {
+        const activeExpiresAt = data.expiresAt;
+        const activeResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + 55_000;
+        const waitSec = Math.max(1, Math.ceil((activeResendAt - (clientNow + nextOffset)) / 1000));
+
+        verifiedChallengeRef.current = null;
+        setOtpChallengeId(data.challengeId);
+        setOtpLength(6);
+        setServerOffsetMs(nextOffset);
+        setOtpExpiresAtMs(activeExpiresAt);
+        setResendAvailableAtMs(activeResendAt);
+        setResendTimer(waitSec);
+        setOtpError('');
+        setResendSuccessMsg(
+          `A 6-digit verification code was already sent to ${trimmedEmail}. Enter that code below (new code available in ${waitSec}s).`
+        );
+        writePersistedOtpChallenge({
+          challengeId: data.challengeId,
+          email: normalizedEmail,
+          otpLength: 6,
+          expiresAtMs: activeExpiresAt,
+          resendAvailableAtMs: activeResendAt,
+          serverOffsetMs: nextOffset,
+          isOpen: true,
+        });
+        setShowOtpModal(true);
+        setLoading(false);
+        return;
+      }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to send OTP verification code to your email.');
+        throw new Error(data.message || data.error || 'Failed to send OTP verification code to your email.');
       }
 
       const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
       const serverExpiry = typeof data.expiresInSeconds === 'number' ? data.expiresInSeconds : 300;
-      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 60;
+      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 55;
+      const nextExpiresAt = typeof data.expiresAt === 'number' ? data.expiresAt : clientNow + nextOffset + serverExpiry * 1000;
+      const nextResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + serverCooldown * 1000;
+      const nextChallengeId = typeof data.challengeId === 'string' ? data.challengeId : '';
 
+      verifiedChallengeRef.current = null;
+      setOtpChallengeId(nextChallengeId);
       setOtpLength(serverOtpLen);
       setOtpExpirySeconds(serverExpiry);
+      setServerOffsetMs(nextOffset);
+      setOtpExpiresAtMs(nextExpiresAt);
+      setResendAvailableAtMs(nextResendAt);
       setIpNoticeMsg('');
       setOtpError('');
       setResendSuccessMsg(
-        `A ${serverOtpLen}-digit verification code has been dispatched to ${formData.email.trim()}. Please check your inbox or spam folder.`
+        `A ${serverOtpLen}-digit verification code has been dispatched to ${trimmedEmail}. Please check your inbox or spam folder.`
       );
       setResendTimer(serverCooldown);
+      writePersistedOtpChallenge({
+        challengeId: nextChallengeId,
+        email: normalizedEmail,
+        otpLength: serverOtpLen,
+        expiresAtMs: nextExpiresAt,
+        resendAvailableAtMs: nextResendAt,
+        serverOffsetMs: nextOffset,
+        isOpen: true,
+      });
       setShowOtpModal(true);
       setLoading(false);
     } catch (err: any) {
@@ -368,33 +573,63 @@ export default function Signup() {
     setResendSuccessMsg('');
     setIpNoticeMsg('');
 
+    const trimmedEmail = formData.email.trim();
+    const normalizedEmail = trimmedEmail.toLowerCase();
+
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: formData.email.trim(),
+          email: trimmedEmail,
           name: formData.name.trim(),
         }),
       });
 
       const data = await res.json();
+      const clientNow = Date.now();
+      const nextOffset = typeof data.serverNow === 'number' ? data.serverNow - clientNow : 0;
+
+      if (res.status === 429) {
+        if (typeof data.resendAvailableAt === 'number') {
+          setServerOffsetMs(nextOffset);
+          setResendAvailableAtMs(data.resendAvailableAt);
+        }
+        throw new Error(data.error || 'Please wait before requesting a new verification code.');
+      }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to resend verification code.');
+        throw new Error(data.message || data.error || 'Failed to resend verification code.');
       }
 
       const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
       const serverExpiry = typeof data.expiresInSeconds === 'number' ? data.expiresInSeconds : 300;
-      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 60;
+      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 55;
+      const nextExpiresAt = typeof data.expiresAt === 'number' ? data.expiresAt : clientNow + nextOffset + serverExpiry * 1000;
+      const nextResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + serverCooldown * 1000;
+      const nextChallengeId = typeof data.challengeId === 'string' ? data.challengeId : '';
 
+      verifiedChallengeRef.current = null;
+      setOtpChallengeId(nextChallengeId);
       setOtpLength(serverOtpLen);
       setOtpExpirySeconds(serverExpiry);
+      setServerOffsetMs(nextOffset);
+      setOtpExpiresAtMs(nextExpiresAt);
+      setResendAvailableAtMs(nextResendAt);
       setIpNoticeMsg('');
       setResendSuccessMsg(
-        `A new ${serverOtpLen}-digit verification code has been sent to ${formData.email.trim()}. Please check your inbox or spam folder.`
+        `A new ${serverOtpLen}-digit verification code has been sent to ${trimmedEmail}. Please check your inbox or spam folder.`
       );
       setResendTimer(serverCooldown);
+      writePersistedOtpChallenge({
+        challengeId: nextChallengeId,
+        email: normalizedEmail,
+        otpLength: serverOtpLen,
+        expiresAtMs: nextExpiresAt,
+        resendAvailableAtMs: nextResendAt,
+        serverOffsetMs: nextOffset,
+        isOpen: true,
+      });
     } catch (err: any) {
       setOtpError(err.message || 'Failed to resend verification code.');
     } finally {
@@ -410,23 +645,46 @@ export default function Signup() {
       throw new Error(lenErr);
     }
 
+    const trimmedEmail = formData.email.trim();
+    const normalizedEmail = trimmedEmail.toLowerCase();
+
     setOtpLoading(true);
     setOtpError('');
 
     try {
-      const verifyRes = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          otp: cleanCode,
-        }),
-      });
+      const alreadyVerifiedForThisChallenge =
+        verifiedChallengeRef.current &&
+        verifiedChallengeRef.current.email === normalizedEmail &&
+        (!otpChallengeId || verifiedChallengeRef.current.challengeId === otpChallengeId);
 
-      const verifyData = await verifyRes.json();
+      if (!alreadyVerifiedForThisChallenge) {
+        const verifyRes = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            otp: cleanCode,
+            challengeId: otpChallengeId || undefined,
+          }),
+        });
 
-      if (!verifyRes.ok || !verifyData.success) {
-        throw new Error(verifyData.error || 'Invalid or expired 6-digit OTP code.');
+        const verifyData = await verifyRes.json();
+
+        if (!verifyRes.ok || !verifyData.success) {
+          if (
+            verifyData.code === 'OTP_EXPIRED' ||
+            verifyData.code === 'OTP_MAX_ATTEMPTS' ||
+            verifyData.code === 'OTP_NOT_FOUND'
+          ) {
+            writePersistedOtpChallenge(null);
+          }
+          throw new Error(verifyData.error || 'Invalid or expired 6-digit OTP code.');
+        }
+
+        verifiedChallengeRef.current = {
+          email: normalizedEmail,
+          challengeId: verifyData.challengeId || otpChallengeId || 'verified',
+        };
       }
 
       const normalizedPhone = normalizeBdPhone(formData.phone);
@@ -440,11 +698,12 @@ export default function Signup() {
         formData.address?.trim() ||
         [formData.area, formData.thana, formData.district].filter(Boolean).join(', ');
 
+      // Preserve exact user-entered password (never .trim())
       const password = formData.password;
       const payload = {
         ...formData,
         name: formData.name.trim(),
-        email: formData.email.trim(),
+        email: trimmedEmail,
         phone: normalizedPhone,
         whatsappNumber: finalWhatsapp,
         division: inferredDivision,
@@ -456,6 +715,12 @@ export default function Signup() {
       delete payload.password;
 
       await signup(payload, password, referralCodeInput);
+      try {
+        sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
+        writePersistedOtpChallenge(null);
+      } catch {
+        // Ignore
+      }
       setSignupSuccess(true);
     } catch (err: any) {
       console.error('OTP verification / Firebase signup error:', err);
@@ -1379,12 +1644,21 @@ export default function Signup() {
           email={formData.email || ''}
           otpLength={otpLength}
           initialExpirySeconds={otpExpirySeconds}
+          expiresAtMs={otpExpiresAtMs}
+          serverOffsetMs={serverOffsetMs}
+          challengeId={otpChallengeId}
           ipNoticeMsg={ipNoticeMsg}
           errorMsg={otpError}
           successMsg={resendSuccessMsg}
           loading={otpLoading}
           resendTimer={resendTimer}
-          onClose={() => setShowOtpModal(false)}
+          onClose={() => {
+            setShowOtpModal(false);
+            const current = readPersistedOtpChallenge();
+            if (current) {
+              writePersistedOtpChallenge({ ...current, isOpen: false });
+            }
+          }}
           onVerify={handleVerifyAndCompleteSignup}
           onComplete={handleCompleteRedirect}
           onResend={handleResendOtp}
