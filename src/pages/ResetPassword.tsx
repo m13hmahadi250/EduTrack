@@ -150,8 +150,8 @@ export default function ResetPassword() {
     e.preventDefault();
     setFormError('');
 
-    if (newPassword.length < 6) {
-      setFormError('Password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      setFormError('Password must be at least 8 characters long.');
       return;
     }
 
@@ -439,7 +439,7 @@ export default function ResetPassword() {
                       setNewPassword(e.target.value);
                       setFormError('');
                     }}
-                    placeholder="Enter new password (min. 6 chars)"
+                    placeholder="Enter new password (min. 8 chars)"
                     className="w-full pl-11 pr-12 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#0D5BFF] dark:focus:border-[#0D5BFF] rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 transition-all"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />

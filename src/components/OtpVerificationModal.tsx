@@ -5,6 +5,8 @@ import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, R
 interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
+  otpLength?: number;
+  initialExpirySeconds?: number;
   ipNoticeMsg?: string;
   errorMsg?: string;
   successMsg?: string;
@@ -16,12 +18,13 @@ interface OtpVerificationModalProps {
   onResend: () => Promise<void>;
 }
 
-const OTP_LENGTH = 6;
-const EMPTY_DIGITS = ['', '', '', '', '', ''];
+const DEFAULT_OTP_LENGTH = 6;
 
 export default function OtpVerificationModal({
   isOpen,
   email,
+  otpLength = DEFAULT_OTP_LENGTH,
+  initialExpirySeconds = 300,
   ipNoticeMsg,
   errorMsg,
   successMsg,
@@ -32,25 +35,26 @@ export default function OtpVerificationModal({
   onComplete,
   onResend,
 }: OtpVerificationModalProps) {
-  const [digits, setDigits] = useState<string[]>(EMPTY_DIGITS);
+  const createEmptyDigits = () => Array(otpLength).fill('');
+  const [digits, setDigits] = useState<string[]>(createEmptyDigits);
   const [isVerified, setIsVerified] = useState(false);
   const [localError, setLocalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
 
-  // 5-Minute OTP Expiry Countdown (300 seconds)
-  const [expirySeconds, setExpirySeconds] = useState(300);
+  // 5-Minute OTP Expiry Countdown (300 seconds default)
+  const [expirySeconds, setExpirySeconds] = useState(initialExpirySeconds);
 
   const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Focus first input and reset 5-minute countdown on modal open
   useEffect(() => {
     if (isOpen && !isVerified) {
-      setDigits([...EMPTY_DIGITS]);
+      setDigits(Array(otpLength).fill(''));
       setLocalError('');
       setIsSubmitting(false);
       setIsShaking(false);
-      setExpirySeconds(300);
+      setExpirySeconds(initialExpirySeconds);
       const timer = setTimeout(() => {
         if (digitInputRefs.current[0]) {
           digitInputRefs.current[0].focus();
@@ -59,7 +63,7 @@ export default function OtpVerificationModal({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, isVerified]);
+  }, [isOpen, isVerified, otpLength, initialExpirySeconds]);
 
   // 5-minute Countdown interval
   useEffect(() => {
@@ -68,21 +72,23 @@ export default function OtpVerificationModal({
       setExpirySeconds((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a new 6-digit OTP.');
-          setDigits([...EMPTY_DIGITS]);
+          setLocalError(
+            `Verification code has expired (5-minute limit). Please click "Resend code" for a new ${otpLength}-digit OTP.`
+          );
+          setDigits(Array(otpLength).fill(''));
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, isVerified]);
+  }, [isOpen, isVerified, otpLength]);
 
   // If external error arrives, trigger shake, display error, and refocus slot 0
   useEffect(() => {
     if (errorMsg) {
       setLocalError(errorMsg);
-      setDigits([...EMPTY_DIGITS]);
+      setDigits(Array(otpLength).fill(''));
       setIsShaking(true);
       const shakeTimer = setTimeout(() => setIsShaking(false), 600);
       const focusTimer = setTimeout(() => {
@@ -96,7 +102,7 @@ export default function OtpVerificationModal({
         clearTimeout(focusTimer);
       };
     }
-  }, [errorMsg]);
+  }, [errorMsg, otpLength]);
 
   // Auto-proceed to dashboard 2.5s after showing approved animation if user doesn't click
   useEffect(() => {
@@ -117,19 +123,19 @@ export default function OtpVerificationModal({
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text');
-    const cleanDigits = pasted.replace(/\D/g, '').slice(0, OTP_LENGTH).split('');
+    const cleanDigits = pasted.replace(/\D/g, '').slice(0, otpLength).split('');
     if (cleanDigits.length > 0) {
       setLocalError('');
-      const newDigits = [...EMPTY_DIGITS];
+      const newDigits = Array(otpLength).fill('');
       cleanDigits.forEach((d, i) => {
-        if (i < OTP_LENGTH) newDigits[i] = d;
+        if (i < otpLength) newDigits[i] = d;
       });
       setDigits(newDigits);
-      const nextIndex = Math.min(cleanDigits.length - 1, OTP_LENGTH - 1);
+      const nextIndex = Math.min(cleanDigits.length - 1, otpLength - 1);
       if (digitInputRefs.current[nextIndex]) {
         digitInputRefs.current[nextIndex]?.focus();
       }
-      if (cleanDigits.length === OTP_LENGTH) {
+      if (cleanDigits.length === otpLength) {
         triggerVerification(newDigits.join(''));
       }
     }
@@ -141,17 +147,17 @@ export default function OtpVerificationModal({
 
     // Handle multi-character paste or browser autofill in onChange
     if (clean.length > 1) {
-      const cleanDigits = clean.slice(0, OTP_LENGTH).split('');
+      const cleanDigits = clean.slice(0, otpLength).split('');
       const newDigits = [...digits];
       cleanDigits.forEach((d, i) => {
-        if (index + i < OTP_LENGTH) {
+        if (index + i < otpLength) {
           newDigits[index + i] = d;
         }
       });
       setDigits(newDigits);
-      const nextIdx = Math.min(index + cleanDigits.length - 1, OTP_LENGTH - 1);
+      const nextIdx = Math.min(index + cleanDigits.length - 1, otpLength - 1);
       digitInputRefs.current[nextIdx]?.focus();
-      if (newDigits.every(d => d !== '')) {
+      if (newDigits.every((d) => d !== '')) {
         triggerVerification(newDigits.join(''));
       }
       return;
@@ -163,13 +169,13 @@ export default function OtpVerificationModal({
     setDigits(newDigits);
 
     // Auto-focus next input field
-    if (singleDigit && index < OTP_LENGTH - 1) {
+    if (singleDigit && index < otpLength - 1) {
       digitInputRefs.current[index + 1]?.focus();
       digitInputRefs.current[index + 1]?.select();
     }
 
     // Auto-trigger verification when all 6 digits are completed
-    if (newDigits.every(d => d !== '')) {
+    if (newDigits.every((d) => d !== '')) {
       triggerVerification(newDigits.join(''));
     }
   };
@@ -189,7 +195,7 @@ export default function OtpVerificationModal({
       e.preventDefault();
       digitInputRefs.current[index - 1]?.focus();
       digitInputRefs.current[index - 1]?.select();
-    } else if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+    } else if (e.key === 'ArrowRight' && index < otpLength - 1) {
       e.preventDefault();
       digitInputRefs.current[index + 1]?.focus();
       digitInputRefs.current[index + 1]?.select();
@@ -197,13 +203,13 @@ export default function OtpVerificationModal({
   };
 
   const triggerVerification = async (codeStr: string) => {
-    if (codeStr.length !== OTP_LENGTH) {
-      setLocalError(`Please enter all ${OTP_LENGTH} digits of the verification code.`);
+    if (codeStr.length !== otpLength) {
+      setLocalError(`Please enter all ${otpLength} digits of the verification code.`);
       return;
     }
     if (expirySeconds === 0) {
-      setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh OTP.');
-      setDigits([...EMPTY_DIGITS]);
+      setLocalError('Verification code has expired (5-minute limit). Please click "Resend code" for a fresh 6-digit OTP.');
+      setDigits(Array(otpLength).fill(''));
       return;
     }
     if (isSubmitting) return;
@@ -217,7 +223,7 @@ export default function OtpVerificationModal({
     } catch (err: any) {
       const errorMessage = err.message || 'Incorrect verification code. Please check your inbox and try again.';
       setLocalError(errorMessage);
-      setDigits([...EMPTY_DIGITS]);
+      setDigits(Array(otpLength).fill(''));
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 600);
       setTimeout(() => {
@@ -233,8 +239,8 @@ export default function OtpVerificationModal({
 
   const handleInternalResend = async () => {
     setLocalError('');
-    setDigits([...EMPTY_DIGITS]);
-    setExpirySeconds(300);
+    setDigits(Array(otpLength).fill(''));
+    setExpirySeconds(initialExpirySeconds);
     await onResend();
     setTimeout(() => {
       if (digitInputRefs.current[0]) {
@@ -302,7 +308,7 @@ export default function OtpVerificationModal({
                 </div>
 
                 <h2 id="otp-modal-title" className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  Enter 6-Digit Verification Code
+                  Enter {otpLength}-Digit Verification Code
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                   We sent a one-time security code to your email address:
@@ -429,7 +435,7 @@ export default function OtpVerificationModal({
                           disabled={isSubmitting || expirySeconds === 0}
                           placeholder={expirySeconds === 0 ? '—' : '•'}
                           className="w-full h-full text-center font-mono font-bold text-xl sm:text-2xl bg-transparent outline-none cursor-text placeholder:text-slate-300 dark:placeholder:text-slate-600 select-text tabular-nums"
-                          aria-label={`Verification code digit ${idx + 1} of ${OTP_LENGTH}`}
+                          aria-label={`Verification code digit ${idx + 1} of ${otpLength}`}
                         />
                       </div>
                     );

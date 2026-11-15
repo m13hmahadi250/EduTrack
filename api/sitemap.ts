@@ -448,3 +448,6 @@ export async function generateSitemap(req: Request, res: Response) {
     res.status(200).send(fallbackXml);
   }
 }
+
+export default generateSitemap;
+

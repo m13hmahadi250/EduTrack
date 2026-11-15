@@ -95,8 +95,10 @@ export default function Signup() {
     }
   }, [sameAsMobile, formData.phone]);
 
-  // OTP Verification Flow State
+  // OTP Verification Flow State (Standardized 6-Digit Contract)
   const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpLength, setOtpLength] = useState<number>(6);
+  const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(300);
   const [otpError, setOtpError] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
@@ -332,12 +334,18 @@ export default function Signup() {
         throw new Error(data.error || 'Failed to send OTP verification code to your email.');
       }
 
+      const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
+      const serverExpiry = typeof data.expiresInSeconds === 'number' ? data.expiresInSeconds : 300;
+      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 60;
+
+      setOtpLength(serverOtpLen);
+      setOtpExpirySeconds(serverExpiry);
       setIpNoticeMsg('');
       setOtpError('');
       setResendSuccessMsg(
-        `Verification code dispatched to ${formData.email.trim()}. Please check your inbox or spam folder.`
+        `A ${serverOtpLen}-digit verification code has been dispatched to ${formData.email.trim()}. Please check your inbox or spam folder.`
       );
-      setResendTimer(60);
+      setResendTimer(serverCooldown);
       setShowOtpModal(true);
       setLoading(false);
     } catch (err: any) {
@@ -376,11 +384,17 @@ export default function Signup() {
         throw new Error(data.error || 'Failed to resend verification code.');
       }
 
+      const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
+      const serverExpiry = typeof data.expiresInSeconds === 'number' ? data.expiresInSeconds : 300;
+      const serverCooldown = typeof data.resendCooldownSeconds === 'number' ? data.resendCooldownSeconds : 60;
+
+      setOtpLength(serverOtpLen);
+      setOtpExpirySeconds(serverExpiry);
       setIpNoticeMsg('');
       setResendSuccessMsg(
-        `A new 4-digit verification code has been sent to ${formData.email.trim()}. Please check your inbox or spam folder.`
+        `A new ${serverOtpLen}-digit verification code has been sent to ${formData.email.trim()}. Please check your inbox or spam folder.`
       );
-      setResendTimer(60);
+      setResendTimer(serverCooldown);
     } catch (err: any) {
       setOtpError(err.message || 'Failed to resend verification code.');
     } finally {
@@ -389,9 +403,11 @@ export default function Signup() {
   };
 
   const handleVerifyAndCompleteSignup = async (code: string) => {
-    if (code.length !== 4) {
-      setOtpError('Please enter all 4 digits of the OTP code received in your inbox.');
-      throw new Error('Please enter all 4 digits of the OTP code received in your inbox.');
+    const cleanCode = String(code || '').replace(/\D/g, '');
+    if (cleanCode.length !== otpLength) {
+      const lenErr = `Please enter all ${otpLength} digits of the verification code received in your inbox.`;
+      setOtpError(lenErr);
+      throw new Error(lenErr);
     }
 
     setOtpLoading(true);
@@ -403,14 +419,14 @@ export default function Signup() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email.trim(),
-          otp: code,
+          otp: cleanCode,
         }),
       });
 
       const verifyData = await verifyRes.json();
 
       if (!verifyRes.ok || !verifyData.success) {
-        throw new Error(verifyData.error || 'Invalid or expired OTP code.');
+        throw new Error(verifyData.error || 'Invalid or expired 6-digit OTP code.');
       }
 
       const normalizedPhone = normalizeBdPhone(formData.phone);
@@ -759,7 +775,7 @@ export default function Signup() {
                       onChange={handleInputChange}
                       onBlur={handleBlur}
                       error={touched.email ? errors.email : undefined}
-                      helperText="We'll send a 4-digit verification code here"
+                      helperText="We'll send a 6-digit verification code here"
                       value={formData.email || ''}
                       accentColor={accentColor}
                       placeholder="e.g. name@example.com"
@@ -1361,6 +1377,8 @@ export default function Signup() {
         <OtpVerificationModal
           isOpen={showOtpModal}
           email={formData.email || ''}
+          otpLength={otpLength}
+          initialExpirySeconds={otpExpirySeconds}
           ipNoticeMsg={ipNoticeMsg}
           errorMsg={otpError}
           successMsg={resendSuccessMsg}

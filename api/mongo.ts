@@ -114,3 +114,8 @@ export const UserMirror = mongoose.models.UserMirror || mongoose.model("UserMirr
 export const SystemConfigMirror = mongoose.models.SystemConfigMirror || mongoose.model("SystemConfigMirror", SystemConfigMirrorSchema);
 export const AdminMailMirror = mongoose.models.AdminMailMirror || mongoose.model("AdminMailMirror", AdminMailMirrorSchema);
 export const TuitionMirror = mongoose.models.TuitionMirror || mongoose.model("TuitionMirror", TuitionMirrorSchema);
+
+export default function mongoModuleHandler(_req: any, res: any) {
+  res.status(200).json({ status: "EduTrack MongoDB Mirror Module Active" });
+}
+

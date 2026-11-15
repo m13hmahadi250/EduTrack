@@ -282,6 +282,92 @@ async function runTests() {
       assert.equal(rules.includes("incoming().studentId == request.auth.uid"), true);
       assert.equal(rules.includes("affectedKeys().hasOnly(['applications', 'status'])"), true);
     });
+
+    // -------------------------------------------------------------------------
+    // 7. 6-Digit OTP Contract & Legacy 4-Digit Challenge Invalidation
+    // -------------------------------------------------------------------------
+    await test("Legacy 4-digit plaintext OTP records in cache are automatically rejected and invalidated", async () => {
+      const legacyEmail = `legacy_4digit_${Date.now()}@edutrackbd.test`;
+      const now = Date.now();
+
+      // Simulate a legacy 4-digit plaintext OTP entry on disk
+      const legacyRecord = {
+        email: legacyEmail,
+        otp: "4821",
+        expiresAt: now + 240_000,
+        attempts: 0,
+      };
+      fs.writeFileSync(OTP_CACHE_FILE, JSON.stringify([legacyRecord]), { mode: 0o600 });
+
+      // Attempting to verify with 4 digits or 6 digits against a legacy record must fail cleanly
+      const res4 = await fetch(`${baseUrl}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: legacyEmail, otp: "4821" }),
+      });
+      assert.equal(res4.status, 400);
+
+      const res6 = await fetch(`${baseUrl}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: legacyEmail, otp: "482100" }),
+      });
+      assert.equal(res6.status, 400);
+      const body6 = await res6.json();
+      assert.equal(body6.success, false);
+    });
+
+    await test("Backend, email template, Signup page, and OtpVerificationModal all enforce 6-digit OTPs with zero 4-digit mismatches", async () => {
+      const { generateOtpEmailHtml, generateOtpEmailText } = await import("../api/mailService");
+      const appSource = fs.readFileSync(path.resolve("api/app.ts"), "utf-8");
+      const signupSource = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+      const modalSource = fs.readFileSync(path.resolve("src/components/OtpVerificationModal.tsx"), "utf-8");
+
+      assert.equal(appSource.includes("4-digit"), false, "api/app.ts must not reference 4-digit OTPs");
+      assert.equal(appSource.includes('subject: "Verify your email | EduTrack Bangladesh"'), true, "OTP email subject must not leak OTP");
+      assert.equal(signupSource.includes("4-digit"), false, "Signup.tsx must not reference 4-digit OTPs");
+      assert.equal(signupSource.includes("4 digits"), false, "Signup.tsx must not require 4 digits");
+      assert.equal(modalSource.includes("DEFAULT_OTP_LENGTH = 6"), true, "OtpVerificationModal must default to 6 digits");
+
+      const renderedHtml = generateOtpEmailHtml({
+        email: "student@edutrackbd.test",
+        otpCode: "482916",
+        expiresMinutes: 5,
+      });
+      const renderedText = generateOtpEmailText({
+        email: "student@edutrackbd.test",
+        otpCode: "482916",
+        expiresMinutes: 5,
+      });
+
+      assert.equal(renderedHtml.includes("Complete your EduTrack registration with your secure verification code."), true);
+      assert.equal(renderedHtml.includes("ACCOUNT SECURITY"), true);
+      assert.equal(renderedHtml.includes("Verify your email address"), true);
+      assert.equal(renderedHtml.includes("YOUR VERIFICATION CODE"), true);
+      assert.equal(renderedHtml.includes(">482916<"), true);
+      assert.equal(renderedHtml.includes("5 minutes."), true);
+      assert.equal(renderedHtml.includes("Never share this verification code with anyone."), true);
+      assert.equal(renderedHtml.includes("EduTrack staff will never ask you for this code."), true);
+      assert.equal(renderedHtml.includes("You can safely ignore this email."), true);
+      assert.equal(renderedHtml.includes("Contact EduTrack Support"), true);
+      assert.equal(renderedHtml.includes("#155DFC"), true);
+      assert.equal(renderedHtml.includes("#101828"), true);
+      assert.equal(renderedHtml.includes("#EFF6FF"), true);
+      assert.equal(renderedHtml.includes("#475569"), true);
+      assert.equal(renderedHtml.includes("dashed"), false, "OTP box must not use dashed borders");
+      assert.equal(renderedText.includes("YOUR VERIFICATION CODE: 482916"), true);
+    });
+
+    await test("Password length validation is standardized to 8+ characters across Signup, ResetPassword, and Backend API", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "dummy_token", newPassword: "short" }),
+      });
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.equal(body.error.includes("8 characters"), true);
+    });
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
@@ -293,6 +379,7 @@ async function runTests() {
   if (failed > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runTests();

@@ -883,38 +883,6 @@ export const useAppStore = create<AppState>((set, get) => {
         // Setup real-time listeners for data
         setupListeners(firebaseUser.uid, userData.role, set, get);
       } catch (error: any) {
-        // Auto-provision primary main admin on the fly if the credentials match
-        const lowerEmail = trimmedEmail.toLowerCase();
-        if ((lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') && password === 'Mahdi250') {
-          try {
-            const signupRes = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
-            const uid = signupRes.user.uid;
-            const newUser: User = {
-              id: uid,
-              email: trimmedEmail.toLowerCase(),
-              name: 'Main Provider Admin',
-              phone: '01711223344',
-              role: 'admin',
-              balance: 0,
-              isVerified: true,
-              isTrackingOn: false,
-              rating: 5,
-              showTour: true,
-              createdAt: new Date().toISOString(),
-              referralPoints: 0,
-              serviceDiscounts: 0,
-            };
-            await setDoc(doc(db, 'users', uid), newUser);
-            set({ currentUser: newUser, isLoading: false, isInitialized: true });
-            try {
-              localStorage.setItem('edutrack_cached_user', JSON.stringify(newUser));
-            } catch (e) {}
-            setupListeners(uid, newUser.role, set, get);
-            return;
-          } catch (signupErr) {
-            console.error("Auto-provision of main admin failed:", signupErr);
-          }
-        }
         set({ isLoading: false });
         throw error;
       }

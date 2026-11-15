@@ -1,7 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, collection, getDocs, query, where } from 'firebase/firestore';
 
 interface TutorData {
   id: string;
@@ -46,40 +44,6 @@ const CANONICAL_URL = 'https://edutrackbd.vercel.app';
 export async function fetchActiveTutorsFromFirebase(): Promise<TutorData[]> {
   const tutors: TutorData[] = [];
 
-  // Method 1: Use Firebase SDK with experimentalForceLongPolling for robust Node environment support
-  try {
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-      const db = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-      }, firebaseConfig.firestoreDatabaseId || '(default)');
-
-      const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
-      const snapshot = await getDocs(q);
-
-      snapshot.forEach((doc) => {
-        const data = doc.data() as TutorData;
-        const tutorId = data.id || doc.id;
-        if (tutorId && !data.isBlocked) {
-          tutors.push({
-            ...data,
-            id: tutorId
-          });
-        }
-      });
-
-      if (tutors.length > 0) {
-        console.log(`[Sitemap Generator] Successfully fetched ${tutors.length} active tutors via Firebase SDK.`);
-        return tutors;
-      }
-    }
-  } catch (sdkError: any) {
-    console.warn('[Sitemap Generator] Firebase SDK fetch notice:', sdkError?.message || sdkError);
-  }
-
-  // Method 2: Fallback to direct Firestore REST API
   try {
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
     if (fs.existsSync(configPath)) {
@@ -88,38 +52,45 @@ export async function fetchActiveTutorsFromFirebase(): Promise<TutorData[]> {
       const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
       const apiKey = firebaseConfig.apiKey;
 
-      const restUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/users?key=${apiKey}&pageSize=300`;
-      const res = await fetch(restUrl);
-      if (res.ok) {
-        const json = await res.json();
-        const documents = json.documents || [];
-        for (const doc of documents) {
-          const fields = doc.fields || {};
-          const role = fields.role?.stringValue;
-          const isBlocked = fields.isBlocked?.booleanValue;
-          if (role === 'tutor' && !isBlocked) {
-            const docName = doc.name || '';
-            const rawId = docName.split('/').pop() || fields.id?.stringValue;
-            if (rawId) {
-              tutors.push({
-                id: fields.id?.stringValue || rawId,
-                name: fields.name?.stringValue,
-                district: fields.district?.stringValue,
-                university: fields.university?.stringValue,
-                profileImage: fields.profileImage?.stringValue,
-                isVerified: fields.isVerified?.booleanValue,
-                showOnHomePage: fields.showOnHomePage?.booleanValue,
-                createdAt: fields.createdAt?.stringValue || doc.createTime,
-                updatedAt: fields.updatedAt?.stringValue || doc.updateTime,
-              });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+
+      try {
+        const restUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/users?key=${apiKey}&pageSize=300`;
+        const res = await fetch(restUrl, { signal: controller.signal });
+        if (res.ok) {
+          const json = await res.json();
+          const documents = json.documents || [];
+          for (const doc of documents) {
+            const fields = doc.fields || {};
+            const role = fields.role?.stringValue;
+            const isBlocked = fields.isBlocked?.booleanValue;
+            if (role === 'tutor' && !isBlocked) {
+              const docName = doc.name || '';
+              const rawId = docName.split('/').pop() || fields.id?.stringValue;
+              if (rawId) {
+                tutors.push({
+                  id: fields.id?.stringValue || rawId,
+                  name: fields.name?.stringValue,
+                  district: fields.district?.stringValue,
+                  university: fields.university?.stringValue,
+                  profileImage: fields.profileImage?.stringValue,
+                  isVerified: fields.isVerified?.booleanValue,
+                  showOnHomePage: fields.showOnHomePage?.booleanValue,
+                  createdAt: fields.createdAt?.stringValue || doc.createTime,
+                  updatedAt: fields.updatedAt?.stringValue || doc.updateTime,
+                });
+              }
             }
           }
+          console.log(`[Sitemap Generator] Fetched ${tutors.length} active tutors via Firestore REST API.`);
         }
-        console.log(`[Sitemap Generator] Successfully fetched ${tutors.length} active tutors via Firestore REST API.`);
+      } finally {
+        clearTimeout(timeout);
       }
     }
   } catch (restError: any) {
-    console.warn('[Sitemap Generator] Firestore REST API fetch notice:', restError?.message || restError);
+    console.log('[Sitemap Generator] Using existing/static sitemap fallback:', restError?.message || 'offline');
   }
 
   return tutors;
@@ -133,7 +104,6 @@ export function generateSitemapXml(tutors: TutorData[], baseUrl: string = CANONI
   xml += `        xmlns:xhtml="http://www.w3.org/1999/xhtml"\n`;
   xml += `        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
-  // 1. Core High-Priority Static Application Pages
   const staticPages = [
     {
       loc: `${baseUrl}/`,
@@ -176,7 +146,6 @@ export function generateSitemapXml(tutors: TutorData[], baseUrl: string = CANONI
     xml += `  </url>\n`;
   }
 
-  // 2. Dynamic Tutor Profile Pages crawled from Firebase
   for (const tutor of tutors) {
     if (!tutor.id) continue;
     const tutorUrl = `${baseUrl}/teachers/${encodeURIComponent(tutor.id)}`;
@@ -208,37 +177,26 @@ export function generateSitemapXml(tutors: TutorData[], baseUrl: string = CANONI
 }
 
 export async function runSitemapBuild() {
-  console.log('[Sitemap Generator] Starting dynamic sitemap crawling from Firebase...');
+  console.log('[Sitemap Generator] Checking sitemap...');
   try {
-    const tutors = await fetchActiveTutorsFromFirebase();
-    console.log(`[Sitemap Generator] Total active tutors discovered: ${tutors.length}`);
-
-    const xmlContent = generateSitemapXml(tutors);
-
-    // Write to public/sitemap.xml
     const publicPath = path.join(process.cwd(), 'public', 'sitemap.xml');
-    fs.writeFileSync(publicPath, xmlContent, 'utf-8');
-    console.log(`[Sitemap Generator] Wrote sitemap.xml to ${publicPath}`);
+    const tutors = await fetchActiveTutorsFromFirebase();
 
-    // Write to dist/sitemap.xml if dist exists
-    const distDir = path.join(process.cwd(), 'dist');
-    if (fs.existsSync(distDir)) {
-      const distPath = path.join(distDir, 'sitemap.xml');
-      fs.writeFileSync(distPath, xmlContent, 'utf-8');
-      console.log(`[Sitemap Generator] Wrote sitemap.xml to ${distPath}`);
+    // Only overwrite public/sitemap.xml if we fetched tutors or if public/sitemap.xml doesn't exist yet
+    if (tutors.length > 0 || !fs.existsSync(publicPath)) {
+      const xmlContent = generateSitemapXml(tutors);
+      fs.writeFileSync(publicPath, xmlContent, 'utf-8');
+      console.log(`[Sitemap Generator] Wrote sitemap.xml (${tutors.length} tutors) to ${publicPath}`);
+    } else {
+      console.log('[Sitemap Generator] Preserved existing public/sitemap.xml.');
     }
-
-    console.log('[Sitemap Generator] Sitemap generation complete!');
   } catch (err) {
-    console.error('[Sitemap Generator Error]:', err);
+    console.warn('[Sitemap Generator Notice]:', err);
   }
 }
 
-// Execute directly if run from CLI
 runSitemapBuild().then(() => {
   process.exit(0);
-}).catch((err) => {
-  console.error('[Sitemap Generator Error]:', err);
+}).catch(() => {
   process.exit(0);
 });
-
