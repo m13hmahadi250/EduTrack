@@ -14,6 +14,15 @@ import {
 import { db } from '../lib/firebase';
 import { useAppStore, User } from '../store';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
+import UserAvatar from './UserAvatar';
+import {
+  formatInstitutionWithLocation,
+  formatTeachingModeLabel,
+  formatTutorClassesRange,
+  formatTutorSubjectsSummary,
+  isTutorVerified,
+} from '../../shared/tutorListing';
+import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
 import {
   BookOpen,
   MapPin,
@@ -1229,7 +1238,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                           <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <Link
-                                to={`/tutor/${app.tutorId}`}
+                                to={`/teachers/${app.tutorId}`}
                                 className="text-sm font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] flex items-center gap-1"
                               >
                                 <span>{app.tutorName}</span>
@@ -1348,47 +1357,84 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       ===================================================================== */}
       {mode === 'student' && activeSubTab === 'recommended' && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recommendedTutorsForStudent.map(({ tutor, reasons }) => (
+          {recommendedTutorsForStudent.map(({ tutor, reasons }) => {
+            const subjectSummary = formatTutorSubjectsSummary(tutor, 5);
+            const institutionLine =
+              formatInstitutionWithLocation(tutor.university, tutor.district) ||
+              'Verified University Educator';
+            const classRange = formatTutorClassesRange(tutor);
+            const modeLabel = formatTeachingModeLabel(tutor.teachingMode);
+
+            return (
             <div
               key={tutor.id}
-              className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between gap-4"
+              className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 flex flex-col justify-between gap-3"
             >
               <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <Link
-                    to={`/tutor/${tutor.id}`}
-                    className="text-base font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] truncate"
-                  >
-                    {tutor.name}
-                  </Link>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                    ✓ Verified
-                  </span>
+                <div className="flex items-start gap-3 mb-2">
+                  {(() => {
+                    const sessions = useAppStore.getState().sessions || [];
+                    const photoUnlocked =
+                      currentUser?.role === 'student'
+                        ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, sessions)
+                        : false;
+                    return (
+                      <UserAvatar
+                        src={photoUnlocked ? tutor.profileImage : undefined}
+                        locked={!photoUnlocked}
+                        name={tutor.name}
+                        className="w-12 h-12 rounded-xl border border-slate-200/70 dark:border-slate-700"
+                        textClassName="text-sm font-black text-white"
+                      />
+                    );
+                  })()}
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      to={`/teachers/${tutor.id}`}
+                      className="text-[15px] font-bold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] dark:hover:text-blue-400 leading-snug break-words block"
+                    >
+                      {tutor.name}
+                    </Link>
+                    {isTutorVerified(tutor) && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">
-                  {tutor.university || 'Verified University Educator'} • {tutor.district || 'Dhaka'}
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-snug break-words">
+                  {institutionLine}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
-                  Subjects: {tutor.subjects?.join(', ') || 'General Science & Math'}
+                <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 mt-1.5 leading-snug break-words">
+                  <span>{subjectSummary.text}</span>
+                  {subjectSummary.moreLabel && (
+                    <span className="ml-1.5 font-semibold text-[#0D5BFF] dark:text-blue-400">
+                      {subjectSummary.moreLabel}
+                    </span>
+                  )}
                 </p>
-                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-[#0D5BFF] dark:text-blue-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
+                  {classRange} · {modeLabel}
+                </p>
+                <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs font-semibold text-[#0D5BFF] dark:text-blue-400 leading-snug break-words">
                   Why matched: {reasons.join(' · ')}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-2 pt-2">
-                <span className="text-xs font-extrabold text-[#0B132B] dark:text-white tabular-nums">
+              <div className="flex items-center justify-between gap-2 pt-1.5">
+                <span className="text-xs sm:text-sm font-extrabold text-[#0B132B] dark:text-white tabular-nums">
                   {tutor.hourlyRate ? `৳${tutor.hourlyRate.toLocaleString()}/mo` : 'Negotiable'}
                 </span>
                 <Link
-                  to={`/tutor/${tutor.id}`}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold"
+                  to={`/teachers/${tutor.id}`}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center justify-center transition-colors shrink-0"
                 >
                   View Profile
                 </Link>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

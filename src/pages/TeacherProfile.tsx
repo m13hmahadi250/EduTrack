@@ -4,6 +4,7 @@ import { useAppStore } from '../store';
 import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import SEOHead from '../components/SEOHead';
+import UserAvatar from '../components/UserAvatar';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 import {
   canUnlockTutorContact,
@@ -50,15 +51,6 @@ const DAYS_ORDER = [
   'Friday',
 ];
 
-function getInitials(name?: string) {
-  if (!name) return 'ET';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
 function normalizeWhatsAppLink(num?: string) {
   if (!num) return '';
   const digits = num.replace(/\D/g, '');
@@ -82,6 +74,7 @@ export default function TeacherProfile() {
 
   const [tutor, setTutor] = useState<any | null>(null);
   const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [photoUnlocked, setPhotoUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -153,6 +146,7 @@ export default function TeacherProfile() {
             if (!docSnap.exists()) {
               setTutor(null);
               setContactUnlocked(false);
+              setPhotoUnlocked(false);
               setLoading(false);
               return;
             }
@@ -160,14 +154,19 @@ export default function TeacherProfile() {
             if (raw.role !== 'tutor') {
               setTutor(null);
               setContactUnlocked(false);
+              setPhotoUnlocked(false);
               setLoading(false);
               return;
             }
 
-            const { tutor: safeTutor, contactUnlocked: unlocked } =
-              sanitizeTutorProfileForViewer(raw, viewerContext, storeSessions);
+            const {
+              tutor: safeTutor,
+              contactUnlocked: unlocked,
+              photoUnlocked: canViewPhoto,
+            } = sanitizeTutorProfileForViewer(raw, viewerContext, storeSessions);
             setTutor(safeTutor);
             setContactUnlocked(unlocked);
+            setPhotoUnlocked(canViewPhoto);
             setLoading(false);
           },
           (error) => {
@@ -202,17 +201,21 @@ export default function TeacherProfile() {
     const subscribeReviews = async () => {
       setReviewsLoading(true);
       try {
-        const [{ collection, query, where, onSnapshot, doc, getDoc }, { db }] =
+        const [{ collection, query, where, onSnapshot }, { db }] =
           await Promise.all([
             import('firebase/firestore'),
             import('../lib/firebase'),
           ]);
         if (cancelled) return;
 
-        const q = query(collection(db, 'sessions'), where('tutorId', '==', id));
+        const q = query(
+          collection(db, 'sessions'),
+          where('tutorId', '==', id),
+          where('rating', '>', 0)
+        );
         unsubscribe = onSnapshot(
           q,
-          async (querySnapshot) => {
+          (querySnapshot) => {
             if (cancelled) return;
             const ratedSessions: any[] = [];
             querySnapshot.forEach((docSnap) => {
@@ -228,32 +231,16 @@ export default function TeacherProfile() {
               )
             );
 
-            const reviewsWithDetails = await Promise.all(
-              ratedSessions.map(async (sess) => {
-                let studentName = 'Verified Student';
-                let studentImage: string | undefined;
-                try {
-                  const studentSnap = await getDoc(doc(db, 'users', sess.studentId));
-                  if (studentSnap.exists()) {
-                    const sUser = studentSnap.data();
-                    studentName = sUser.name || 'Verified Student';
-                    studentImage = sUser.profileImage;
-                  }
-                } catch {
-                  // Fallback cleanly if restricted
-                }
-                return {
-                  id: sess.id,
-                  subject: sess.subject,
-                  rating: sess.rating,
-                  feedback: sess.feedback,
-                  scheduledTime: sess.scheduledTime,
-                  endTime: sess.endTime,
-                  studentName,
-                  studentImage,
-                };
-              })
-            );
+            const reviewsWithDetails = ratedSessions.map((sess) => ({
+              id: sess.id,
+              subject: sess.subject,
+              rating: sess.rating,
+              feedback: sess.feedback,
+              scheduledTime: sess.scheduledTime,
+              endTime: sess.endTime,
+              studentName: sess.studentDisplayName || 'Verified Student',
+              studentImage: undefined,
+            }));
 
             if (!cancelled) {
               setReviews(reviewsWithDetails);
@@ -605,46 +592,36 @@ export default function TeacherProfile() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             {/* Identity Block */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-5 min-w-0">
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
-                {tutor.profileImage ? (
-                  <img
-                    src={tutor.profileImage}
-                    alt={tutor.name}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1E3A8A] flex items-center justify-center text-white text-2xl font-black font-heading">
-                    {getInitials(tutor.name)}
-                  </div>
-                )}
-                {tutor.isOnline && (
-                  <span
-                    className="absolute bottom-2 right-2 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111A2E]"
-                    title="Online now"
-                  />
-                )}
-              </div>
+              <UserAvatar
+                src={photoUnlocked ? tutor.profileImage : undefined}
+                locked={!photoUnlocked}
+                name={tutor.name}
+                isOnline={Boolean(tutor.isOnline)}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border border-slate-200 dark:border-slate-700"
+                fallbackClassName="bg-gradient-to-br from-[#0B132B] to-[#1E3A8A] text-white"
+                textClassName="text-2xl font-black font-heading"
+                onlineDotClassName="w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111A2E]"
+              />
 
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-2 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight">
+                  <h1 className="text-2xl sm:text-3xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight break-words leading-snug">
                     {tutor.name}
                   </h1>
                   {isStrictlyVerified && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/70 text-xs font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/70 text-xs font-bold shrink-0">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Verified Tutor</span>
                     </span>
                   )}
                   {tutor.gender && (
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold">
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold shrink-0">
                       {tutor.gender}
                     </span>
                   )}
                 </div>
 
-                <p className="text-sm sm:text-base font-semibold text-slate-700 dark:text-slate-200">
+                <p className="text-sm sm:text-base font-semibold text-slate-700 dark:text-slate-200 break-words leading-snug">
                   {[tutor.university, tutor.course].filter(Boolean).join(' • ') ||
                     'Verified Subject Specialist'}
                 </p>
@@ -669,16 +646,22 @@ export default function TeacherProfile() {
                   </span>
                 </div>
 
-                {bookingMeta && (
-                  <div className="pt-1">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {bookingMeta && (
                     <span
                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${bookingMeta.tone}`}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>{bookingMeta.label}</span>
                     </span>
-                  </div>
-                )}
+                  )}
+                  {!photoUnlocked && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                      <Lock className="w-3.5 h-3.5 text-[#0D5BFF] shrink-0" />
+                      <span>Photo Protected • Unlocks Upon Confirmed Tuition</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -970,23 +953,19 @@ export default function TeacherProfile() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          {rev.studentImage ? (
-                            <img
-                              src={rev.studentImage}
-                              alt={rev.studentName}
-                              className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0D5BFF] dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
-                              {getInitials(rev.studentName)}
-                            </div>
-                          )}
+                          <UserAvatar
+                            src={undefined}
+                            locked={true}
+                            name={rev.studentName}
+                            className="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700"
+                            fallbackClassName="bg-blue-100 dark:bg-blue-950/70 text-[#0D5BFF] dark:text-blue-300"
+                            textClassName="font-bold text-xs"
+                          />
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#0B132B] dark:text-white truncate">
+                            <p className="text-sm font-bold text-[#0B132B] dark:text-white break-words leading-snug">
                               {rev.studentName}
                             </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 break-words leading-snug">
                               {rev.subject || 'Tuition Session'}
                             </p>
                           </div>

@@ -18,6 +18,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { usePersistentInput } from '../hooks/usePersistentInput';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
+import UserAvatar from '../components/UserAvatar';
+import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
 
 export default function Messages() {
   const { currentUser, users, messages, sendMessage, markMessagesAsRead, sessions } = useAppStore();
@@ -195,15 +197,22 @@ export default function Messages() {
                   }`}
                 >
                   <div className="relative flex-shrink-0">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic shadow-sm overflow-hidden ${
-                      selectedUserId === partner.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}>
-                      {partner.profileImage ? (
-                        <img src={partner.profileImage} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        partner.name.charAt(0)
-                      )}
-                    </div>
+                    {(() => {
+                      const unlocked =
+                        currentUser.role === 'student' && partner.role === 'tutor'
+                          ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, partner.id, sessions)
+                          : true;
+                      return (
+                        <UserAvatar
+                          src={unlocked ? partner.profileImage : undefined}
+                          locked={!unlocked}
+                          name={partner.name}
+                          className="w-14 h-14 rounded-2xl shadow-sm"
+                          fallbackClassName={selectedUserId === partner.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-[#0B132B] dark:text-white'}
+                          textClassName="text-lg font-black"
+                        />
+                      );
+                    })()}
                     {unreadCount > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[9px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0B132B] animate-bounce shadow-md">
                         {unreadCount}
@@ -214,8 +223,8 @@ export default function Messages() {
                     )}
                   </div>
                   <div className="text-left flex-1 min-w-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <h3 className={`text-xs font-black uppercase italic truncate pr-2 ${
+                    <div className="flex justify-between items-start gap-2 mb-1">
+                      <h3 className={`text-sm font-bold break-words leading-snug ${
                         selectedUserId === partner.id ? 'text-white' : 'text-[#0B132B] dark:text-white'
                       }`}>
                         {partner.name}
@@ -266,16 +275,25 @@ export default function Messages() {
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 dark:bg-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-xl font-black italic text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 overflow-hidden shrink-0">
-                    {selectedUser.profileImage ? (
-                      <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      selectedUser.name.charAt(0)
-                    )}
-                  </div>
+                  {(() => {
+                    const unlocked =
+                      currentUser.role === 'student' && selectedUser.role === 'tutor'
+                        ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, selectedUser.id, sessions)
+                        : true;
+                    return (
+                      <UserAvatar
+                        src={unlocked ? selectedUser.profileImage : undefined}
+                        locked={!unlocked}
+                        name={selectedUser.name}
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-slate-700"
+                        fallbackClassName="bg-slate-200 dark:bg-slate-800 text-[#0B132B] dark:text-white"
+                        textClassName="text-base sm:text-lg font-black"
+                      />
+                    );
+                  })()}
                   <div className="min-w-0">
-                    <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white flex items-center gap-1.5 truncate">
-                       <span className="truncate">{selectedUser.name}</span>
+                    <h3 className="text-sm sm:text-base font-bold text-[#0B132B] dark:text-white flex flex-wrap items-center gap-1.5 leading-snug break-words">
+                       <span className="break-words">{selectedUser.name}</span>
                        {selectedUser.isVerified ? (
                           <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                        ) : (

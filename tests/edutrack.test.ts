@@ -18,7 +18,12 @@ import {
 } from "../shared/profileCompletion";
 import {
   filterPublicTutors,
+  formatInstitutionDisplay,
+  formatInstitutionWithLocation,
+  formatTeachingModeLabel,
   formatTutorClassesBadge,
+  formatTutorClassesRange,
+  formatTutorSubjectsSummary,
   isTutorEligibleForHome,
   isTutorEligibleForStudentSearch,
   isTutorVerified,
@@ -26,7 +31,13 @@ import {
   matchesCurriculumFilter,
   matchesDistrictFilter,
 } from "../shared/tutorListing";
-import { sanitizeTutorProfileForViewer } from "../shared/tutorPrivacy";
+import {
+  CONFIRMED_PHOTO_STATUSES,
+  canViewTutorPhoto,
+  getAuthorizedTutorPhotoUrl,
+  sanitizeTutorProfileForViewer,
+} from "../shared/tutorPrivacy";
+import { getAvatarInitials, isValidAvatarUrl } from "../src/components/UserAvatar";
 
 const OTP_CACHE_FILE = path.join(os.tmpdir(), "edutrack_otp_cache.json");
 const RESET_CACHE_FILE = path.join(os.tmpdir(), "edutrack_reset_tokens_cache.json");
@@ -244,36 +255,73 @@ async function runTests() {
     });
 
     // -------------------------------------------------------------------------
-    // 4. File Upload Validation Security
+    // 4. File Upload Validation Security & Auth Gating
     // -------------------------------------------------------------------------
-    await test("POST /api/storage/presign rejects disallowed folders and path traversal", async () => {
-      const res = await fetch(`${baseUrl}/api/storage/presign`, {
+    await test("POST /api/storage/presign and /api/storage/upload require authentication (401 without token)", async () => {
+      const presignRes = await fetch(`${baseUrl}/api/storage/presign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileName: "avatar.png",
           fileType: "image/png",
-          folder: "../etc/passwd",
-        }),
-      });
-      assert.equal(res.status, 400);
-      const body = await res.json();
-      assert.equal(body.error.toLowerCase().includes("invalid target storage folder"), true);
-    });
-
-    await test("POST /api/storage/presign rejects executable and HTML MIME types", async () => {
-      const res = await fetch(`${baseUrl}/api/storage/presign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: "payload.html",
-          fileType: "text/html",
           folder: "profiles",
         }),
       });
-      assert.equal(res.status, 400);
-      const body = await res.json();
-      assert.equal(body.error.toLowerCase().includes("unsupported file type"), true);
+      assert.equal(presignRes.status, 401);
+
+      const formData = new FormData();
+      formData.append("folder", "profiles");
+      formData.append("image", new Blob([Buffer.from([0x89, 0x50, 0x4e, 0x47])], { type: "image/png" }), "test.png");
+      const uploadRes = await fetch(`${baseUrl}/api/storage/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      assert.equal(uploadRes.status, 401);
+    });
+
+    await test("Authenticated POST /api/storage/presign rejects disallowed folders, path traversal, and HTML MIME types", async () => {
+      const authApp = createApp({
+        verifyIdToken: async (token: string) => {
+          if (token === "valid-user-token") return { uid: "tut_auth_1", email: "tutor@edutrackbd.test" };
+          throw new Error("Invalid token");
+        },
+      });
+      const authSrv = await startTestServer(authApp);
+      try {
+        const res = await fetch(`${authSrv.baseUrl}/api/storage/presign`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer valid-user-token",
+          },
+          body: JSON.stringify({
+            fileName: "avatar.png",
+            fileType: "image/png",
+            folder: "../etc/passwd",
+          }),
+        });
+        assert.equal(res.status, 400);
+        const body = await res.json();
+        assert.equal(body.error.toLowerCase().includes("invalid target storage folder"), true);
+
+        const mimeRes = await fetch(`${authSrv.baseUrl}/api/storage/presign`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer valid-user-token",
+          },
+          body: JSON.stringify({
+            fileName: "payload.html",
+            fileType: "text/html",
+            folder: "profiles",
+          }),
+        });
+        assert.equal(mimeRes.status, 400);
+        const mimeBody = await mimeRes.json();
+        assert.equal(mimeBody.error.toLowerCase().includes("unsupported file type"), true);
+      } finally {
+        await new Promise<void>((resolve) => authSrv.server.close(() => resolve()));
+      }
     });
 
     // -------------------------------------------------------------------------
@@ -430,22 +478,31 @@ async function runTests() {
 
       const guestView = sanitizeTutorProfileForViewer(sampleTutor, null, []);
       assert.equal(guestView.contactUnlocked, false);
+      assert.equal(guestView.photoUnlocked, false);
+      assert.equal(guestView.tutor?.profileImage, undefined);
+      assert.equal(guestView.tutor?.hasProfilePhoto, true);
       assert.equal(guestView.tutor?.phone, undefined);
       assert.equal(guestView.tutor?.nidNumber, undefined);
 
       const studentViewer = { id: "student_1", role: "student" as const };
       const pendingSessions = [{ id: "s1", studentId: "student_1", tutorId: "tutor_1", status: "requested_by_student" }];
       assert.equal(canUnlockTutorContact(studentViewer, "tutor_1", pendingSessions), false);
+      assert.equal(canViewTutorPhoto(studentViewer, "tutor_1", pendingSessions), false);
       assert.ok(hasActiveOrPendingBooking("student_1", "tutor_1", pendingSessions));
 
       const confirmedSessions = [{ id: "s1", studentId: "student_1", tutorId: "tutor_1", status: "scheduled" }];
       const confirmedView = sanitizeTutorProfileForViewer(sampleTutor, studentViewer, confirmedSessions);
       assert.equal(confirmedView.contactUnlocked, true);
+      assert.equal(confirmedView.photoUnlocked, true);
       assert.equal(confirmedView.tutor?.phone, "01711223344");
+      assert.equal(confirmedView.tutor?.profileImage, "/api/media/tutor-photo/tutor_1");
       assert.equal(confirmedView.tutor?.nidNumber, undefined);
+      assert.equal(confirmedView.tutor?.nidFrontImg, undefined);
+      assert.equal(confirmedView.tutor?.documents, undefined);
 
       const adminView = sanitizeTutorProfileForViewer(sampleTutor, { id: "admin_1", role: "admin" }, []);
       assert.equal(adminView.contactUnlocked, true);
+      assert.equal(adminView.photoUnlocked, true);
       assert.equal(adminView.tutor?.nidNumber, "19991234567890");
     });
 
@@ -1313,7 +1370,7 @@ async function runTests() {
         // ---------------------------------------------------------------------
         // 13. Public Tutor Listing Restoration, Filter Accuracy & Privacy QA
         // ---------------------------------------------------------------------
-        await test("sanitizeTutorProfileForViewer preserves public R2 image & strips PII; Home unwraps .tutor cleanly", () => {
+        await test("sanitizeTutorProfileForViewer hides raw R2 image & strips PII for public guests; Home unwraps .tutor cleanly", () => {
           const rawTutor = {
             id: "tut_r2_1",
             role: "tutor",
@@ -1345,9 +1402,11 @@ async function runTests() {
           assert.equal(Boolean(wrapped.tutor), true);
           // Wrapper object must NOT pass isTutorEligibleForHome (prevents regression of the unwrapping bug)
           assert.equal(isTutorEligibleForHome(wrapped), false);
-          // Unwrapped tutor passes eligibility and preserves R2 image while stripping private/PII fields
+          // Unwrapped tutor passes eligibility, marks hasProfilePhoto=true, and strips raw profileImage + private/PII fields
           assert.equal(isTutorEligibleForHome(wrapped.tutor), true);
-          assert.equal(wrapped.tutor!.profileImage, rawTutor.profileImage);
+          assert.equal(wrapped.photoUnlocked, false);
+          assert.equal(wrapped.tutor!.profileImage, undefined);
+          assert.equal((wrapped.tutor as any).hasProfilePhoto, true);
           assert.equal(wrapped.tutor!.phone, undefined);
           assert.equal(wrapped.tutor!.email, undefined);
           assert.equal(wrapped.tutor!.address, undefined);
@@ -1443,9 +1502,9 @@ async function runTests() {
           assert.equal(isTutorEligibleForStudentSearch(hiddenByAdmin), true);
           assert.equal(isTutorEligibleForStudentSearch(hiddenByPrivacy), false);
 
-          // Card class badge reads real Firestore `classes` (not hardcoded Class 6 - 12)
-          assert.equal(formatTutorClassesBadge(verifiedChattogram), "Class 1, Class 2 +4");
-          assert.equal(formatTutorClassesBadge(verifiedEnglishVersion), "Class 9, Class 10 +1");
+          // Card class badge reads real Firestore `classes` cleanly and preserves non-consecutive gaps
+          assert.equal(formatTutorClassesBadge(verifiedChattogram), "Class 1–3, Class 8, Class 10, SSC");
+          assert.equal(formatTutorClassesBadge(verifiedEnglishVersion), "Class 9–10, HSC");
 
           // Subject & Tag filters
           assert.deepEqual(
@@ -1520,13 +1579,15 @@ async function runTests() {
           assert.equal(homeSrc.includes("const { tutor: safeTutor } = sanitizeTutorProfileForViewer"), true);
           assert.equal(homeSrc.includes("isTutorEligibleForHome"), true);
           assert.equal(homeSrc.includes("filterPublicTutors"), true);
-          assert.equal(homeSrc.includes("formatTutorClassesBadge"), true);
+          assert.equal(homeSrc.includes("formatTutorClassesRange"), true);
+          assert.equal(homeSrc.includes("formatTutorSubjectsSummary"), true);
           assert.equal(homeSrc.includes("tutorsError"), true);
           assert.equal(homeSrc.includes("tutorsLoading"), true);
 
           // StudentDashboard & TeacherProfile share eligibility & privacy guards
           assert.equal(studentDashSrc.includes("isTutorEligibleForStudentSearch"), true);
-          assert.equal(teacherProfileSrc.includes("const { tutor: safeTutor, contactUnlocked: unlocked }"), true);
+          assert.equal(teacherProfileSrc.includes("sanitizeTutorProfileForViewer"), true);
+          assert.equal(teacherProfileSrc.includes("photoUnlocked: canViewPhoto"), true);
           assert.equal(rulesSrc.includes("allow read: if isSignedIn() || resource.data.role == 'tutor';"), true);
 
           // Live read-only Firestore check verifying real tutor records remain intact (if network reachable)
@@ -1561,6 +1622,577 @@ async function runTests() {
           } catch {
             // Skip live network check cleanly if running in an offline sandbox
           }
+        });
+        // ---------------------------------------------------------------------
+        // 14. Tutor Name Visibility, Resilient Avatars & Responsive Card Suite
+        // ---------------------------------------------------------------------
+        await test("UserAvatar URL validation and initials extraction handle valid R2, relative, broken, and long names", () => {
+          assert.equal(isValidAvatarUrl("https://pub-c230d7705bd9456f8ca928739c35bad2.r2.dev/profiles/avatar.jpg"), true);
+          assert.equal(isValidAvatarUrl("/admin_profile.png"), true);
+          assert.equal(isValidAvatarUrl("data:image/png;base64,iVBORw0KGgo="), true);
+          assert.equal(isValidAvatarUrl(""), false);
+          assert.equal(isValidAvatarUrl("   "), false);
+          assert.equal(isValidAvatarUrl(null), false);
+          assert.equal(isValidAvatarUrl(undefined), false);
+          assert.equal(isValidAvatarUrl("null"), false);
+          assert.equal(isValidAvatarUrl("undefined"), false);
+          assert.equal(isValidAvatarUrl("not-a-valid-url"), false);
+
+          assert.equal(getAvatarInitials("MOHAMMAD RIDWANUL KARIM"), "MRK");
+          assert.equal(getAvatarInitials("Md shahariar islam"), "MSI");
+          assert.equal(getAvatarInitials("Mohammed Shahariar Islam"), "MSI");
+          assert.equal(getAvatarInitials("Ridwan"), "RI");
+          assert.equal(getAvatarInitials(""), "ET");
+        });
+
+        await test("Tutor search, marketplace, homepage, profile, and dashboards prevent name/university truncation and broken images", () => {
+          const avatarSrc = fs.readFileSync(path.resolve("src/components/UserAvatar.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const marketplaceSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const messagesSrc = fs.readFileSync(path.resolve("src/pages/Messages.tsx"), "utf-8");
+          const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
+          const adminDirSrc = fs.readFileSync(path.resolve("src/components/admin/AdminUserDirectory.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const navbarSrc = fs.readFileSync(path.resolve("src/components/Navbar.tsx"), "utf-8");
+          const sidebarSrc = fs.readFileSync(path.resolve("src/components/Sidebar.tsx"), "utf-8");
+          const chatWindowSrc = fs.readFileSync(path.resolve("src/components/ChatWindow.tsx"), "utf-8");
+          const classLogsSrc = fs.readFileSync(path.resolve("src/components/ClassLogsCalendar.tsx"), "utf-8");
+          const mapTrackerSrc = fs.readFileSync(path.resolve("src/components/MapTracker.tsx"), "utf-8");
+
+          // UserAvatar handles broken/404 image fallback and resets error when src changes
+          assert.equal(avatarSrc.includes("onError={() => setHasError(true)}"), true);
+          assert.equal(avatarSrc.includes("setHasError(false)"), true);
+          assert.equal(avatarSrc.includes('referrerPolicy="no-referrer"'), true);
+          assert.equal(avatarSrc.includes('alt=""'), true, "Must prevent overflowing broken alt text inside avatar boxes");
+
+          // StudentDashboard TutorRow renders full wrapping names/institutions, View Profile link, 44px touch targets, and no nested mobile scroll trap
+          const tutorRowMatch = studentDashSrc.match(/const TutorRow = [\s\S]*?^const MapLoading/m);
+          assert.ok(tutorRowMatch, "TutorRow block must exist in StudentDashboard.tsx");
+          const tutorRowCode = tutorRowMatch![0];
+          assert.equal(tutorRowCode.includes("<UserAvatar"), true);
+          assert.equal(tutorRowCode.includes("break-words"), true);
+          assert.equal(tutorRowCode.includes("truncate"), false, "TutorRow must not truncate tutor names or university names");
+          assert.equal(tutorRowCode.includes("to={`/teachers/${tutor.id}`}"), true);
+          assert.equal(tutorRowCode.includes("min-w-[44px] min-h-[44px]"), true);
+          assert.equal(studentDashSrc.includes("lg:max-h-[720px] lg:overflow-y-auto"), true);
+
+          // Home TutorPreviewCard must wrap tutor name, subjects, and university cleanly
+          const homeCardMatch = homeSrc.match(/const TutorPreviewCard = [\s\S]*$/);
+          assert.ok(homeCardMatch, "TutorPreviewCard block must exist in Home.tsx");
+          const homeCardCode = homeCardMatch![0];
+          assert.equal(homeCardCode.includes("<UserAvatar"), true);
+          assert.equal(homeCardCode.includes("truncate"), false, "Home TutorPreviewCard must not truncate tutor names or universities");
+
+          // TuitionMarketplaceHub must route to /teachers/:id (not broken /tutor/:id) and avoid truncating names/universities
+          assert.equal(marketplaceSrc.includes("/tutor/${tutor.id}"), false, "Must not link to non-existent /tutor/:id route");
+          assert.equal(marketplaceSrc.includes("/teachers/${tutor.id}"), true);
+          assert.equal(marketplaceSrc.includes("<UserAvatar"), true);
+          assert.equal(marketplaceSrc.includes("isTutorVerified(tutor)"), true);
+
+          // All major avatar surfaces across the app must wire UserAvatar / onerror fallback
+          for (const [label, src] of [
+            ["TeacherProfile", teacherProfileSrc],
+            ["Messages", messagesSrc],
+            ["AdminDashboard", adminDashSrc],
+            ["AdminUserDirectory", adminDirSrc],
+            ["TutorDashboard", tutorDashSrc],
+            ["Navbar", navbarSrc],
+            ["Sidebar", sidebarSrc],
+            ["ChatWindow", chatWindowSrc],
+            ["ClassLogsCalendar", classLogsSrc],
+          ] as const) {
+            assert.equal(src.includes("<UserAvatar"), true, `${label} must use resilient UserAvatar`);
+          }
+          assert.equal(mapTrackerSrc.includes("onerror="), true, "MapTracker Leaflet HTML marker must guard against 404 images");
+          assert.equal(mapTrackerSrc.includes("<UserAvatar"), true, "MapTracker selected tutor card must use UserAvatar");
+        });
+
+        // ---------------------------------------------------------------------
+        // 15. Secure Tutor Photo Privacy, Conditional Unlock & Reviews Fix
+        // ---------------------------------------------------------------------
+        await test("canViewTutorPhoto enforces guest lock, pending denial, confirmation unlock, revocation, and owner/admin overrides", () => {
+          const tutorId = "tut_priv_1";
+          const confirmedStudent = { id: "stu_confirmed", role: "student" as const };
+          const unrelatedStudent = { id: "stu_other", role: "student" as const };
+          const ownerTutor = { id: tutorId, role: "tutor" as const };
+          const otherTutor = { id: "tut_other", role: "tutor" as const };
+          const adminViewer = { id: "admin_1", role: "admin" as const };
+
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("scheduled"), true);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("active"), true);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("completed"), true);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("requested_by_student"), false);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("proposed_by_tutor"), false);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("cancelled"), false);
+          assert.equal(CONFIRMED_PHOTO_STATUSES.has("rejected"), false);
+
+          // Guests and unrelated users never unlock
+          assert.equal(canViewTutorPhoto(null, tutorId, []), false);
+          assert.equal(canViewTutorPhoto(confirmedStudent, tutorId, []), false);
+          assert.equal(canViewTutorPhoto(otherTutor, tutorId, []), false);
+
+          // Pending / rejected / cancelled bookings never unlock
+          for (const nonConfirmedStatus of ["requested_by_student", "proposed_by_tutor", "rejected", "cancelled"]) {
+            const sessions = [{ id: "s1", studentId: confirmedStudent.id, tutorId, status: nonConfirmedStatus }];
+            assert.equal(
+              canViewTutorPhoto(confirmedStudent, tutorId, sessions),
+              false,
+              `Status ${nonConfirmedStatus} must NOT unlock tutor photo`
+            );
+          }
+
+          // Confirmed tuition statuses unlock photo for the matched student only
+          for (const okStatus of ["scheduled", "active", "completed"]) {
+            const sessions = [{ id: "s1", studentId: confirmedStudent.id, tutorId, status: okStatus }];
+            assert.equal(canViewTutorPhoto(confirmedStudent, tutorId, sessions), true);
+            assert.equal(canViewTutorPhoto(unrelatedStudent, tutorId, sessions), false);
+          }
+
+          // Immediate revocation when confirmed session transitions to cancelled/rejected
+          const cancelledSessions = [{ id: "s1", studentId: confirmedStudent.id, tutorId, status: "cancelled" }];
+          assert.equal(canViewTutorPhoto(confirmedStudent, tutorId, cancelledSessions), false);
+
+          // Owner & Admin always permitted
+          assert.equal(canViewTutorPhoto(ownerTutor, tutorId, []), true);
+          assert.equal(canViewTutorPhoto(adminViewer, tutorId, []), true);
+
+          // Proxy URL formatting helper
+          assert.equal(getAuthorizedTutorPhotoUrl("tut_1", 3), "/api/media/tutor-photo/tut_1?v=3");
+          assert.equal(getAuthorizedTutorPhotoUrl("tut_1"), "/api/media/tutor-photo/tut_1");
+        });
+
+        await test("sanitizeTutorProfileForViewer never leaks raw R2 URLs or verification docs even after confirmation", () => {
+          const tutorRecord = {
+            id: "tut_media_1",
+            role: "tutor" as const,
+            name: "Mohammed Shahariar Islam",
+            profileImage: "https://pub-example.r2.dev/profiles/shahariar.webp",
+            profilePhotoKey: "profiles/1700-shahariar.webp",
+            photoVersion: 7,
+            nidNumber: "1995012345678",
+            nidFrontImg: "https://pub-example.r2.dev/nid/front.webp",
+            nidBackImg: "https://pub-example.r2.dev/nid/back.webp",
+            documents: ["https://pub-example.r2.dev/documents/buet-id.pdf"],
+            phone: "01700001122",
+            email: "shahariar@example.com",
+          };
+
+          const confirmedStudent = { id: "stu_1", role: "student" as const };
+          const confirmedSessions = [{ id: "sess_1", studentId: "stu_1", tutorId: "tut_media_1", status: "active" }];
+          const confirmedView = sanitizeTutorProfileForViewer(tutorRecord, confirmedStudent, confirmedSessions);
+
+          assert.equal(confirmedView.photoUnlocked, true);
+          assert.equal(confirmedView.tutor!.profileImage, "/api/media/tutor-photo/tut_media_1?v=7");
+          assert.equal(confirmedView.tutor!.profileImage!.includes("r2.dev"), false);
+          assert.equal((confirmedView.tutor as any).profilePhotoKey, undefined);
+          assert.equal(confirmedView.tutor!.nidNumber, undefined);
+          assert.equal(confirmedView.tutor!.nidFrontImg, undefined);
+          assert.equal(confirmedView.tutor!.nidBackImg, undefined);
+          assert.equal(confirmedView.tutor!.documents, undefined);
+
+          // Revoke session -> photo immediately locked again
+          const revokedView = sanitizeTutorProfileForViewer(tutorRecord, confirmedStudent, [
+            { id: "sess_1", studentId: "stu_1", tutorId: "tut_media_1", status: "cancelled" },
+          ]);
+          assert.equal(revokedView.photoUnlocked, false);
+          assert.equal(revokedView.tutor!.profileImage, undefined);
+          assert.equal((revokedView.tutor as any).hasProfilePhoto, true);
+        });
+
+        await test("GET /api/media/tutor-photo/:tutorId strictly enforces token auth, confirmed booking, owner/admin, and sensitive key guards", async () => {
+          let sessionIsConfirmed = false;
+          let photoSourceKey = "profiles/1700-tutor.webp";
+          const fakeImageBytes = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
+
+          const mediaApp = createApp({
+            verifyIdToken: async (token: string) => {
+              if (token === "stu-token") return { uid: "stu_ok", email: "stu@edutrackbd.test" };
+              if (token === "stu-blocked") return { uid: "stu_blk", email: "blk@edutrackbd.test" };
+              if (token === "tut-owner") return { uid: "tut_target", email: "tut@edutrackbd.test" };
+              if (token === "admin-token") return { uid: "adm_1", email: "admin@edutrackbd.test" };
+              throw new Error("Invalid token");
+            },
+            mediaStore: {
+              getUserRoleAndStatus: async (uid: string) => {
+                if (uid === "stu_ok") return { role: "student", isBlocked: false };
+                if (uid === "stu_blk") return { role: "student", isBlocked: true };
+                if (uid === "tut_target") return { role: "tutor", isBlocked: false };
+                if (uid === "adm_1") return { role: "admin", isBlocked: false };
+                return null;
+              },
+              getTutorPhotoSource: async (tutorId: string) => {
+                if (tutorId !== "tut_target") return null;
+                return { key: photoSourceKey, url: `https://pub-mock.r2.dev/${photoSourceKey}` };
+              },
+              hasConfirmedSession: async (studentId: string, tutorId: string) => {
+                return studentId === "stu_ok" && tutorId === "tut_target" && sessionIsConfirmed;
+              },
+            },
+            r2ObjectFetcher: async () => ({ buffer: fakeImageBytes, contentType: "image/webp" }),
+          });
+
+          const mediaSrv = await startTestServer(mediaApp);
+          try {
+            // 1. Unauthenticated guest -> 401 + no-store headers
+            const guestRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`);
+            assert.equal(guestRes.status, 401);
+            assert.equal(guestRes.headers.get("cache-control")?.includes("no-store"), true);
+
+            // 2. Unconfirmed / pending student -> 403
+            sessionIsConfirmed = false;
+            const unconfirmedRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer stu-token" },
+            });
+            assert.equal(unconfirmedRes.status, 403);
+
+            // 3. Blocked student -> 403
+            const blockedRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer stu-blocked" },
+            });
+            assert.equal(blockedRes.status, 403);
+
+            // 4. Confirmed student -> 200 WebP bytes with private no-store cache headers
+            sessionIsConfirmed = true;
+            const confirmedRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer stu-token" },
+            });
+            assert.equal(confirmedRes.status, 200);
+            assert.equal(confirmedRes.headers.get("content-type")?.includes("image/webp"), true);
+            assert.equal(
+              confirmedRes.headers.get("cache-control"),
+              "private, no-store, no-cache, must-revalidate, max-age=0"
+            );
+            const buf = Buffer.from(await confirmedRes.arrayBuffer());
+            assert.equal(buf.equals(fakeImageBytes), true);
+
+            // 5. Revoked / cancelled booking -> immediately returns 403 again
+            sessionIsConfirmed = false;
+            const revokedRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer stu-token" },
+            });
+            assert.equal(revokedRes.status, 403);
+
+            // 6. Owner tutor & Admin -> 200
+            const ownerRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer tut-owner" },
+            });
+            assert.equal(ownerRes.status, 200);
+
+            const adminRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer admin-token" },
+            });
+            assert.equal(adminRes.status, 200);
+
+            // 7. Sensitive folder guard (nid/ or documents/) -> 403 even for confirmed student/admin
+            sessionIsConfirmed = true;
+            photoSourceKey = "nid/1700-secret-nid.webp";
+            const nidGuardRes = await fetch(`${mediaSrv.baseUrl}/api/media/tutor-photo/tut_target`, {
+              headers: { Authorization: "Bearer stu-token" },
+            });
+            assert.equal(nidGuardRes.status, 403);
+          } finally {
+            await new Promise<void>((resolve) => mediaSrv.server.close(() => resolve()));
+          }
+        });
+
+        await test("Sitemap XML never leaks private tutor photos or R2 URLs", async () => {
+          const { buildSitemapXml } = await import("../api/sitemap");
+          const xml = buildSitemapXml("https://edutrackbd.vercel.app", {
+            tutors: [
+              {
+                id: "tut_sitemap_1",
+                name: "Tanvir Hasan",
+                district: "Dhaka",
+                isVerified: true,
+              },
+            ],
+            tuitions: [],
+          });
+          assert.equal(xml.includes("https://edutrackbd.vercel.app/teachers/tut_sitemap_1"), true);
+          assert.equal(xml.includes("r2.dev"), false);
+          assert.equal(xml.includes("/api/media/tutor-photo/"), false);
+          const tutorUrlBlock =
+            xml.match(/<url>\s*<loc>https:\/\/edutrackbd\.vercel\.app\/teachers\/tut_sitemap_1<\/loc>[\s\S]*?<\/url>/)?.[0] ||
+            "";
+          assert.equal(Boolean(tutorUrlBlock), true);
+          assert.equal(tutorUrlBlock.includes("<image:image>"), false);
+        });
+
+        await test("Frontend components, Store, and Firestore Rules enforce private photo locking and fix reviews query permissions", () => {
+          const avatarSrc = fs.readFileSync(path.resolve("src/components/UserAvatar.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+
+          // UserAvatar supports locked mode emitting zero <img> tags and up to 3 initials
+          assert.equal(avatarSrc.includes("locked = false"), true);
+          assert.equal(avatarSrc.includes("const showImage = !locked && !hasError && Boolean(effectiveSrc);"), true);
+          assert.equal(avatarSrc.includes(".slice(0, 3)"), true);
+
+          // TeacherProfile fixes reviews permission error & locks hero avatar + review avatars
+          assert.equal(teacherProfileSrc.includes("where('rating', '>', 0)"), true);
+          assert.equal(teacherProfileSrc.includes("doc(db, 'users', sess.studentId)"), false);
+          assert.equal(teacherProfileSrc.includes("locked={!photoUnlocked}"), true);
+          assert.equal(teacherProfileSrc.includes("Photo Protected"), true);
+
+          // Home locks TutorPreviewCard avatars and sanitizes cached tutors on read
+          assert.equal(homeSrc.includes("locked={true}"), true);
+          assert.equal(homeSrc.includes("sanitizeTutorProfileForViewer(t, null, []).tutor"), true);
+
+          // TutorDashboard removes preload <img>, routes NID/academic docs to protected folders, offers dual preview
+          assert.equal(tutorDashSrc.includes('alt="Preload"'), false);
+          assert.equal(tutorDashSrc.includes('folder="nid"'), true);
+          assert.equal(tutorDashSrc.includes('folder="documents"'), true);
+          assert.equal(tutorDashSrc.includes("Public Guest View"), true);
+          assert.equal(tutorDashSrc.includes("Confirmed Student View"), true);
+
+          // Store isolates private media to subcollection, clears Blob cache on auth/session transitions, persists studentDisplayName
+          assert.equal(storeSrc.includes("'private', 'media'"), true);
+          assert.equal(storeSrc.includes("clearAuthorizedPhotoCache()"), true);
+          assert.equal(storeSrc.includes("studentDisplayName"), true);
+
+          // Firestore rules protect /users/{userId}/private/{docId}, collectionGroup private, and public rating > 0
+          assert.equal(rulesSrc.includes("match /private/{docId}"), true);
+          assert.equal(rulesSrc.includes("match /{path=**}/private/{docId}"), true);
+          assert.equal(rulesSrc.includes("resource.data.get('rating', 0) > 0"), true);
+        });
+
+        // ---------------------------------------------------------------------
+        // 16. Compact Tutor Card Formatting, Search Fidelity & UI Contrast
+        // ---------------------------------------------------------------------
+        await test("formatTutorSubjectsSummary formats 1, 5, 16+ subjects cleanly, deduplicates, and prioritizes primarySubjects", () => {
+          const singleSub = formatTutorSubjectsSummary({ subjects: ["Physics"] }, 5);
+          assert.deepEqual(singleSub.visible, ["Physics"]);
+          assert.equal(singleSub.hiddenCount, 0);
+          assert.equal(singleSub.moreLabel, "");
+          assert.equal(singleSub.text, "Physics");
+
+          const fiveSubs = formatTutorSubjectsSummary(
+            { subjects: ["Bangla", "English", "Math", "Physics", "Chemistry"] },
+            5
+          );
+          assert.equal(fiveSubs.visible.length, 5);
+          assert.equal(fiveSubs.hiddenCount, 0);
+          assert.equal(fiveSubs.moreLabel, "");
+
+          const sixteenSubs = formatTutorSubjectsSummary(
+            {
+              subjects: [
+                "Bangla",
+                "English",
+                "bangla", // duplicate different case
+                "General Math",
+                "Higher Math",
+                "Physics",
+                "Chemistry",
+                "Biology",
+                "ICT",
+                "Economics",
+                "Accounting",
+                "Finance",
+                "Geography",
+                "History",
+                "Civics",
+                "Religion",
+                "Agricultural Studies",
+              ],
+            },
+            5
+          );
+          assert.equal(sixteenSubs.totalCount, 16);
+          assert.deepEqual(sixteenSubs.visible, [
+            "Bangla",
+            "English",
+            "General Math",
+            "Higher Math",
+            "Physics",
+          ]);
+          assert.equal(sixteenSubs.hiddenCount, 11);
+          assert.equal(sixteenSubs.moreLabel, "+11 more");
+
+          const prioritized = formatTutorSubjectsSummary(
+            {
+              primarySubjects: ["Higher Math", "Physics"],
+              subjects: ["Bangla", "English", "General Math", "Physics", "Chemistry", "Biology"],
+            },
+            5
+          );
+          assert.deepEqual(prioritized.visible, [
+            "Higher Math",
+            "Physics",
+            "Bangla",
+            "English",
+            "General Math",
+          ]);
+          assert.equal(prioritized.hiddenCount, 2);
+          assert.equal(prioritized.moreLabel, "+2 more");
+        });
+
+        await test("formatTutorClassesRange formats consecutive runs, SSC/HSC, and preserves non-consecutive gaps", () => {
+          assert.equal(
+            formatTutorClassesRange({
+              classes: [
+                "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+                "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+              ],
+            }),
+            "Class 1–10"
+          );
+          assert.equal(
+            formatTutorClassesRange({ classes: ["Class 5", "Class 6", "Class 7", "Class 8"] }),
+            "Class 5–8"
+          );
+          assert.equal(
+            formatTutorClassesRange({ classes: ["Class 9", "Class 10", "SSC"] }),
+            "Class 9–10 (SSC)"
+          );
+          assert.equal(
+            formatTutorClassesRange({ classes: ["Class 11", "Class 12"] }),
+            "HSC"
+          );
+          assert.equal(
+            formatTutorClassesRange({ classes: ["Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "HSC 1st Year"] }),
+            "Class 6–10, HSC"
+          );
+          assert.equal(
+            formatTutorClassesRange({ classes: ["Class 6", "Class 8", "Class 10"] }),
+            "Class 6, Class 8, Class 10"
+          );
+          assert.equal(formatTutorClassesRange({ classes: ["Class 8"] }), "Class 8");
+          assert.equal(formatTutorClassesRange({ classes: ["University"] }), "University");
+        });
+
+        await test("formatInstitutionDisplay, formatInstitutionWithLocation, and formatTeachingModeLabel clean university and mode lines", () => {
+          assert.equal(
+            formatInstitutionDisplay("International Islamic University Chittagong"),
+            "IIUC"
+          );
+          assert.equal(
+            formatInstitutionDisplay("Bangladesh University of Engineering and Technology"),
+            "BUET"
+          );
+          assert.equal(formatInstitutionDisplay("University of Dhaka"), "DU");
+          assert.equal(formatInstitutionDisplay("North South University"), "NSU");
+          assert.equal(formatInstitutionDisplay("Premier University"), "Premier University");
+
+          // Prevent location duplication (including Chattogram/Chittagong alias)
+          assert.equal(
+            formatInstitutionWithLocation("Chattogram College", "Chattogram"),
+            "Chattogram College"
+          );
+          assert.equal(
+            formatInstitutionWithLocation("University of Chattogram Campus", "Chattogram"),
+            "University of Chattogram Campus"
+          );
+          assert.equal(
+            formatInstitutionWithLocation("Chittagong Medical College", "Chattogram"),
+            "CMC · Chattogram"
+          );
+          assert.equal(
+            formatInstitutionWithLocation("International Islamic University Chittagong", "Chattogram"),
+            "IIUC · Chattogram"
+          );
+          assert.equal(
+            formatInstitutionWithLocation("Bangladesh University of Engineering and Technology", "Dhaka"),
+            "BUET · Dhaka"
+          );
+
+          assert.equal(formatTeachingModeLabel("Home & Online"), "Home / Online");
+          assert.equal(formatTeachingModeLabel("both"), "Home / Online");
+          assert.equal(formatTeachingModeLabel("Online"), "Online");
+          assert.equal(formatTeachingModeLabel("Home Tuition"), "Home");
+        });
+
+        await test("filterPublicTutors searches full subject and class lists even when card summary shows 5 subjects", () => {
+          const denseTutor = {
+            id: "tut_dense_1",
+            role: "tutor",
+            name: "Mohammad Tariqul Islam",
+            university: "International Islamic University Chittagong",
+            district: "Chattogram",
+            subjects: [
+              "Bangla",
+              "English",
+              "General Math",
+              "Science",
+              "Social Science",
+              "Physics",
+              "Chemistry",
+              "Biology",
+              "ICT",
+              "Higher Math (EV)",
+            ],
+            classes: ["Class 6", "Class 8", "Class 10"],
+            isVerified: true,
+          };
+
+          const cardSummary = formatTutorSubjectsSummary(denseTutor, 5);
+          assert.equal(cardSummary.visible.includes("Higher Math (EV)"), false);
+          assert.equal(cardSummary.moreLabel, "+5 more");
+
+          // Authoritative search still finds hidden 10th subject and specific non-consecutive class
+          assert.deepEqual(
+            filterPublicTutors([denseTutor], { subject: "Higher Math (EV)" }).map((t) => t.id),
+            ["tut_dense_1"]
+          );
+          assert.deepEqual(
+            filterPublicTutors([denseTutor], { searchQuery: "ICT" }).map((t) => t.id),
+            ["tut_dense_1"]
+          );
+          assert.deepEqual(
+            filterPublicTutors([denseTutor], { studentClass: "Class 6 - 8" }).map((t) => t.id),
+            ["tut_dense_1"]
+          );
+          assert.deepEqual(
+            filterPublicTutors([denseTutor], { studentClass: "Class 9 - 10" }).map((t) => t.id),
+            ["tut_dense_1"]
+          );
+        });
+
+        await test("Home, StudentDashboard, and TeacherProfile maintain compact cards, dark mode contrast, privacy lock, and full detail views", () => {
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const marketplaceSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+
+          // Home TutorPreviewCard uses compact shared formatters & locked avatar without truncation
+          assert.equal(homeSrc.includes("formatInstitutionWithLocation"), true);
+          assert.equal(homeSrc.includes("formatTeachingModeLabel"), true);
+          assert.equal(homeSrc.includes("formatTutorSubjectsSummary"), true);
+          assert.equal(homeSrc.includes("formatTutorClassesRange"), true);
+
+          // StudentDashboard TutorRow & Find Tutor search tab fixes
+          assert.equal(studentDashSrc.includes("formatInstitutionDisplay"), true);
+          assert.equal(studentDashSrc.includes("formatTeachingModeLabel"), true);
+          assert.equal(studentDashSrc.includes("formatTutorSubjectsSummary"), true);
+          assert.equal(studentDashSrc.includes("formatTutorClassesRange"), true);
+          assert.equal(studentDashSrc.includes("All Subjects Taught"), true);
+          assert.equal(studentDashSrc.includes("dark:bg-slate-800/90"), true);
+
+          const searchTabMatch = studentDashSrc.match(
+            /activeTab === 'find'[\s\S]*?activeTab === 'activity'/
+          );
+          assert.ok(searchTabMatch, "Find Tutor search tab block must exist");
+          const searchTabCode = searchTabMatch![0];
+          assert.equal(searchTabCode.includes("text-[7px]"), false, "Find Tutor tab must remove tiny 7px text");
+          assert.equal(searchTabCode.includes("text-[8px]"), false, "Find Tutor tab must remove tiny 8px text");
+
+          const tutorRowMatch = studentDashSrc.match(/const TutorRow = [\s\S]*?^const MapLoading/m);
+          assert.ok(tutorRowMatch, "TutorRow block must exist");
+          assert.equal(tutorRowMatch![0].includes("text-[7px]"), false);
+          assert.equal(tutorRowMatch![0].includes("text-[8px]"), false);
+
+          // TeacherProfile preserves full university name rather than shortened abbreviation
+          assert.equal(teacherProfileSrc.includes("tutor.university"), true);
+          assert.equal(teacherProfileSrc.includes("formatInstitutionDisplay"), false);
+
+          // TuitionMarketplaceHub Recommended cards share compact subject/class formatters
+          assert.equal(marketplaceSrc.includes("formatTutorSubjectsSummary"), true);
+          assert.equal(marketplaceSrc.includes("formatTutorClassesRange"), true);
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

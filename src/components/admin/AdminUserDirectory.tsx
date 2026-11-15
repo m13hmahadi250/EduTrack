@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
 import { useBackHandler } from '../../utils/mobileWebView';
+import UserAvatar from '../UserAvatar';
 
 // Helper to format user registration date and time
 export const formatJoinDate = (createdAt?: string) => {
@@ -716,17 +717,17 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 className={`p-4 space-y-3 ${isBlocked ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center font-black italic border border-blue-100 dark:border-blue-900/40 relative overflow-hidden shrink-0">
-                      {user.profileImage ? (
-                        <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        <span className="text-sm">{user.name?.charAt(0).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <UserAvatar
+                      src={user.profileImage}
+                      name={user.name}
+                      className="w-11 h-11 rounded-2xl border border-blue-100 dark:border-blue-900/40"
+                      fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
+                      textClassName="text-sm font-black"
+                    />
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[170px]">
+                        <span className="text-sm font-black text-slate-900 dark:text-white break-words leading-snug">
                           {user.name || 'No Name'}
                         </span>
                         {user.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
@@ -893,21 +894,22 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                     {/* User Identity Info */}
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center font-black italic border border-blue-50 dark:border-blue-900/40 relative overflow-hidden shrink-0">
-                          {user.profileImage ? (
-                            <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className="text-[10px]">{user.name?.charAt(0).toUpperCase()}</span>
-                          )}
+                        <UserAvatar
+                          src={user.profileImage}
+                          name={user.name}
+                          className="w-8 h-8 rounded-xl border border-blue-50 dark:border-blue-900/40"
+                          fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
+                          textClassName="text-[10px] font-black"
+                        >
                           {isBlocked && (
                             <div className="absolute inset-0 bg-rose-500/80 flex items-center justify-center text-white text-[7px] font-black italic">
                               BLOCKED
                             </div>
                           )}
-                        </div>
+                        </UserAvatar>
                         <div className="min-w-0">
-                          <div className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-1 flex-wrap">
-                            <span className="truncate max-w-[120px]">{user.name || 'No Name'}</span>
+                          <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1 flex-wrap">
+                            <span className="break-words">{user.name || 'No Name'}</span>
                             {user.isVerified && (
                               <span title="Verified Badge User" className="shrink-0 flex items-center"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/15" /></span>
                             )}
@@ -964,7 +966,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                         </span>
                         
                         {isUserTutor && user.university && (
-                          <span className="text-[7px] font-extrabold text-slate-400 dark:text-slate-500 font-mono truncate max-w-[110px]" title={user.university}>
+                          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 break-words leading-snug" title={user.university}>
                             🎓 {user.university}
                           </span>
                         )}
@@ -1257,16 +1259,16 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] dark:text-[#5a91ff] flex items-center justify-center font-black italic border border-blue-50 dark:border-blue-900/30 overflow-hidden shrink-0">
-                  {inspectingUser.profileImage ? (
-                    <img src={inspectingUser.profileImage} alt={inspectingUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <span className="text-lg">{inspectingUser.name?.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-base font-black uppercase tracking-wider text-slate-800 dark:text-white italic flex items-center gap-2">
+              <div className="flex items-start gap-4 min-w-0">
+                <UserAvatar
+                  src={inspectingUser.profileImage}
+                  name={inspectingUser.name}
+                  className="w-12 h-12 rounded-2xl border border-blue-50 dark:border-blue-900/30"
+                  fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF] dark:text-[#5a91ff]"
+                  textClassName="text-lg font-black"
+                />
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-2 break-words leading-snug">
                     {inspectingUser.name || 'Anonymous User'}
                     {inspectingUser.isVerified && (
                       <ShieldCheck className="w-4 h-4 text-emerald-500 fill-emerald-500/15" />

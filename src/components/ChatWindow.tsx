@@ -4,6 +4,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { Send, User as UserIcon, ShieldAlert, Check, CheckCheck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePersistentInput } from '../hooks/usePersistentInput';
+import UserAvatar from './UserAvatar';
+import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
 
 interface ChatWindowProps {
   recipientId: string;
@@ -11,12 +13,13 @@ interface ChatWindowProps {
 }
 
 export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
-  const { messages, sendMessage, markMessagesAsRead, currentUser, users, typingStatus, setTyping } = useAppStore(useShallow((state) => ({
+  const { messages, sendMessage, markMessagesAsRead, currentUser, users, sessions, typingStatus, setTyping } = useAppStore(useShallow((state) => ({
     messages: state.messages,
     sendMessage: state.sendMessage,
     markMessagesAsRead: state.markMessagesAsRead,
     currentUser: state.currentUser,
     users: state.users,
+    sessions: state.sessions,
     typingStatus: state.typingStatus,
     setTyping: state.setTyping
   })));
@@ -164,15 +167,24 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
               <ArrowLeft className="w-4.5 h-4.5" />
             </button>
           )}
-          {recipient.profileImage ? (
-            <img src={recipient.profileImage} alt={recipient.name} className="w-8.5 h-8.5 rounded-lg object-cover shrink-0" />
-          ) : (
-            <div className="w-8.5 h-8.5 bg-white border border-slate-100 rounded-lg flex items-center justify-center text-[#0D5BFF] font-black italic shrink-0">
-              {recipient.name.charAt(0)}
-            </div>
-          )}
+          {(() => {
+            const unlocked =
+              currentUser?.role === 'student' && recipient.role === 'tutor'
+                ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, recipient.id, sessions)
+                : true;
+            return (
+              <UserAvatar
+                src={unlocked ? recipient.profileImage : undefined}
+                locked={!unlocked}
+                name={recipient.name}
+                className="w-9 h-9 rounded-xl border border-slate-200/70 dark:border-slate-700"
+                fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[#0D5BFF]"
+                textClassName="text-xs font-black"
+              />
+            );
+          })()}
           <div className="min-w-0">
-            <h4 className="text-xs sm:text-sm font-semibold text-[#0B132B] truncate">
+            <h4 className="text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white break-words leading-snug">
               {recipient.role === 'admin' ? 'EDUTRACK ADMIN' : recipient.name}
             </h4>
             <div className="flex items-center gap-1 mt-0.5">

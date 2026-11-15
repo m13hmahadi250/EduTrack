@@ -4,6 +4,7 @@ import { useAppStore } from '../store';
 import { Logo } from './Logo';
 import { motion } from 'motion/react';
 import { prefetchPage } from '../utils/prefetch';
+import UserAvatar from './UserAvatar';
 import { 
   BarChart3, 
   Calendar, 
@@ -193,17 +194,17 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
 
       {/* User Info & Logout Card */}
       <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100/60 dark:border-slate-800/60 transition-colors duration-300">
-        <div className="flex items-center space-x-3 truncate">
-          <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-950/40 rounded-2xl flex-shrink-0 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black italic overflow-hidden">
-            {currentUser.profileImage ? (
-              <img src={currentUser.profileImage} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              currentUser.name.charAt(0).toUpperCase()
-            )}
-          </div>
-          <div className="truncate">
-            <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[130px] uppercase italic transition-colors leading-normal">{currentUser.name}</div>
-            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest transition-colors leading-none mt-0.5">
+        <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
+          <UserAvatar
+            src={currentUser.profileImage}
+            name={currentUser.name}
+            className="w-10 h-10 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40"
+            fallbackClassName="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+            textClassName="text-sm font-black"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-[#0B132B] dark:text-white break-words leading-snug transition-colors">{currentUser.name}</div>
+            <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider transition-colors leading-none mt-1">
               {currentUser.role === 'tutor'
                 ? 'Teacher'
                 : currentUser.role === 'admin'

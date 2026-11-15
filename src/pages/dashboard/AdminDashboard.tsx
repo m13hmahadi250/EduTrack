@@ -36,6 +36,7 @@ import { motion, AnimatePresence } from "motion/react";
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatJoinDate } from "../../components/admin/AdminUserDirectory";
+import UserAvatar from "../../components/UserAvatar";
 
 const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
 const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
@@ -1040,31 +1041,25 @@ export default function AdminDashboard() {
                       />
                     </div>
 
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-black italic text-slate-400 group-hover:text-[#0D5BFF] transition-colors overflow-hidden shrink-0">
-                      {tutor.profileImage ? (
-                        <img
-                          src={tutor.profileImage}
-                          alt={tutor.name}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                        />
-                      ) : (
-                        tutor.name.charAt(0)
-                      )}
-                    </div>
+                    <UserAvatar
+                      src={tutor.profileImage}
+                      name={tutor.name}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-md"
+                      fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[#0D5BFF] dark:text-blue-400"
+                      textClassName="text-2xl font-black"
+                    />
                     
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <h4 className="text-base sm:text-lg font-black text-[#0B132B] uppercase italic">
+                        <h4 className="text-base sm:text-lg font-extrabold text-[#0B132B] dark:text-white break-words leading-snug">
                           {tutor.name}
                         </h4>
-                        <span className="text-[8px] font-black font-mono text-[#0D5BFF] bg-blue-50 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold font-mono text-[#0D5BFF] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md shrink-0">
                           ID: {tutor.id}
                         </span>
                       </div>
                       
-                      <p className="text-[9.5px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-0.5 truncate">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 break-words leading-snug">
                         {tutor.university || "Independent Expert"} • {tutor.course || "General Tutor"}
                       </p>
 
@@ -1906,24 +1901,19 @@ export default function AdminDashboard() {
 
               {/* Left Column: Info */}
               <div className="flex-1 p-6 sm:p-10 md:p-12 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-slate-100 h-1/2 md:h-auto">
-                <div className="flex items-center gap-6 mb-10">
-                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl font-black italic text-[#0D5BFF] shadow-inner overflow-hidden">
-                    {selectedTutor.profileImage ? (
-                      <img
-                        src={selectedTutor.profileImage}
-                        alt={selectedTutor.name}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      selectedTutor.name.charAt(0)
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-3xl font-black text-[#0B132B] uppercase italic leading-none mb-2">
+                <div className="flex items-start sm:items-center gap-4 sm:gap-6 mb-8">
+                  <UserAvatar
+                    src={selectedTutor.profileImage}
+                    name={selectedTutor.name}
+                    className="w-20 h-20 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner"
+                    fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[#0D5BFF] dark:text-blue-400"
+                    textClassName="text-2xl font-black"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white leading-snug break-words mb-1.5">
                       {selectedTutor.name}
                     </h3>
-                    <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 break-words leading-snug">
                       {selectedTutor.university || "Expert Profile"}
                     </p>
                   </div>

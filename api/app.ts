@@ -6,7 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import compression from "compression";
 import multer from "multer";
 import sharp from "sharp";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
@@ -28,6 +28,11 @@ import {
   lookupFirebaseUserByEmail,
   updateFirebaseUserPassword,
   firestoreQueryByField,
+  verifyFirebaseIdToken,
+  firestoreGetDocWithToken,
+  firestoreGetSubdoc,
+  firestoreHasConfirmedSession,
+  VerifiedFirebaseToken,
 } from "./firebaseAdmin.js";
 
 export interface FirebaseResetAdapter {
@@ -63,11 +68,36 @@ export type EmailSender = (params: {
   brevoLink?: string;
 }>;
 
+export interface MediaAuthorizationStore {
+  getUserRoleAndStatus: (
+    uid: string,
+    callerIdToken?: string
+  ) => Promise<{ role: string; isBlocked?: boolean } | null>;
+  getTutorPhotoSource: (
+    tutorId: string,
+    callerIdToken?: string
+  ) => Promise<{ key?: string; url?: string } | null>;
+  hasConfirmedSession: (
+    studentId: string,
+    tutorId: string,
+    callerIdToken?: string
+  ) => Promise<boolean>;
+}
+
 export interface AppDeps {
   now?: () => number;
   authStore?: AuthChallengeStore;
   emailSender?: EmailSender;
   firebaseResetAdapter?: FirebaseResetAdapter;
+  verifyIdToken?: (idToken: string) => Promise<VerifiedFirebaseToken>;
+  mediaStore?: MediaAuthorizationStore;
+  r2ObjectFetcher?: (keyOrUrl: string) => Promise<{ buffer: Buffer; contentType: string } | null>;
+  storageUploader?: (params: {
+    folder: string;
+    fileName: string;
+    mimetype: string;
+    buffer: Buffer;
+  }) => Promise<{ publicUrl: string; key: string }>;
 }
 
 function maskEmailForLog(email: string): string {
@@ -76,6 +106,43 @@ function maskEmailForLog(email: string): string {
   const local = parts[0];
   const prefix = local.slice(0, Math.min(2, local.length));
   return `${prefix}***@${parts[1]}`;
+}
+
+function isSensitiveStorageKeyOrUrl(candidate: string): boolean {
+  const normalized = String(candidate || "").trim().toLowerCase();
+  return (
+    normalized.startsWith("nid/") ||
+    normalized.startsWith("documents/") ||
+    normalized.startsWith("homework/") ||
+    normalized.includes("/nid/") ||
+    normalized.includes("/documents/") ||
+    normalized.includes("/homework/")
+  );
+}
+
+function extractR2KeyFromUrl(urlOrKey: string): string | null {
+  const raw = String(urlOrKey || "").trim();
+  if (!raw) return null;
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    return raw.replace(/^\/+/, "");
+  }
+  try {
+    const parsed = new URL(raw);
+    const pubBase = process.env.R2_PUBLIC_URL?.trim().replace(/\/$/, "");
+    if (pubBase && raw.startsWith(pubBase + "/")) {
+      return decodeURIComponent(raw.slice(pubBase.length + 1));
+    }
+    const bucket = process.env.R2_BUCKET_NAME?.trim();
+    if (bucket && parsed.pathname.startsWith(`/${bucket}/`)) {
+      return decodeURIComponent(parsed.pathname.slice(bucket.length + 2));
+    }
+    if (parsed.hostname.endsWith(".r2.dev") || parsed.hostname.endsWith(".r2.cloudflarestorage.com")) {
+      return decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 // Lazy S3 client initialization
@@ -115,15 +182,69 @@ const FIREBASE_WEB_API_KEY =
   process.env.VITE_FIREBASE_API_KEY ||
   ["I", "Z", "Q", "a", "F", "J", "p", "6", "Z", "U", "p", "i", "m", "d", "L", "P", "g", "M", "5", "I", "T", "5", "u", "Z", "h", "3", "e", "h", "P", "R", "k", "G", "B", "y", "S", "a", "z", "I", "A"].reverse().join("");
 
+const defaultMediaStore: MediaAuthorizationStore = {
+  getUserRoleAndStatus: async (uid: string, callerIdToken?: string) => {
+    const docSnap = await firestoreGetDocWithToken("users", uid, callerIdToken);
+    if (!docSnap?.data) return null;
+    return {
+      role: String(docSnap.data.role || ""),
+      isBlocked: Boolean(docSnap.data.isBlocked),
+    };
+  },
+  getTutorPhotoSource: async (tutorId: string, callerIdToken?: string) => {
+    const privateDoc = await firestoreGetSubdoc("users", tutorId, "private", "media", callerIdToken).catch(() => null);
+    if (privateDoc?.data) {
+      const privKey = typeof privateDoc.data.profilePhotoKey === "string" ? privateDoc.data.profilePhotoKey.trim() : "";
+      const privUrl = typeof privateDoc.data.profileImage === "string" ? privateDoc.data.profileImage.trim() : "";
+      if (privKey || privUrl) {
+        return { key: privKey || undefined, url: privUrl || undefined };
+      }
+    }
+    const publicDoc = await firestoreGetDocWithToken("users", tutorId, callerIdToken);
+    if (publicDoc?.data) {
+      const legacyKey = typeof publicDoc.data.profilePhotoKey === "string" ? publicDoc.data.profilePhotoKey.trim() : "";
+      const legacyUrl = typeof publicDoc.data.profileImage === "string" ? publicDoc.data.profileImage.trim() : "";
+      if (legacyKey || legacyUrl) {
+        return { key: legacyKey || undefined, url: legacyUrl || undefined };
+      }
+    }
+    return null;
+  },
+  hasConfirmedSession: async (studentId: string, tutorId: string, callerIdToken?: string) => {
+    return firestoreHasConfirmedSession(studentId, tutorId, callerIdToken);
+  },
+};
+
 export function createApp(deps?: AppDeps) {
   const app = express();
   const getNow = deps?.now || (() => Date.now());
   const emailSender = deps?.emailSender || sendBrevoEmail;
+  const verifyIdTokenFn = deps?.verifyIdToken || verifyFirebaseIdToken;
+  const mediaStore = deps?.mediaStore || defaultMediaStore;
   const firebaseResetAdapter: FirebaseResetAdapter = deps?.firebaseResetAdapter || {
     isConfigured: isFirebaseAdminConfigured,
     lookupUserByEmail: lookupFirebaseUserByEmail,
     updatePassword: updateFirebaseUserPassword,
   };
+
+  async function requireAuthenticatedUser(req: express.Request): Promise<{
+    uid: string;
+    email?: string;
+    token: string;
+  } | null> {
+    const authHeader = String(req.headers.authorization || "").trim();
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return null;
+    }
+    const token = authHeader.slice(7).trim();
+    if (!token) return null;
+    try {
+      const verified = await verifyIdTokenFn(token);
+      return { uid: verified.uid, email: verified.email, token };
+    } catch {
+      return null;
+    }
+  }
 
   // Enable Gzip/Brotli compression middleware for all responses
   app.use(compression({ threshold: 0 }));
@@ -141,8 +262,10 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  if (req.path.startsWith("/api/auth/")) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  if (req.path.startsWith("/api/auth/") || req.path.startsWith("/api/media/")) {
+    res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
   } else if (req.method === "GET" && req.path.startsWith("/api/")) {
     // Cache safe public API queries for up to 5 minutes with automatic revalidation
     res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
@@ -172,13 +295,116 @@ app.get("/api/sitemap.xml", generateSitemap);
 app.get("/api/sitemap", generateSitemap);
 
 /**
+ * Authenticated Private Tutor Photo Proxy
+ * - Never exposes raw Cloudflare R2 URLs in public state or HTML
+ * - Verifies Firebase ID token and checks role / confirmed session authorization
+ */
+app.get("/api/media/tutor-photo/:tutorId", async (req, res) => {
+  try {
+    res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    const tutorId = String(req.params.tutorId || "").trim();
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(tutorId)) {
+      return res.status(400).json({ error: "Invalid tutor identifier" });
+    }
+
+    const authCtx = await requireAuthenticatedUser(req);
+    if (!authCtx) {
+      return res.status(401).json({ error: "Authentication required to view private media" });
+    }
+
+    const requester = await mediaStore.getUserRoleAndStatus(authCtx.uid, authCtx.token);
+    if (!requester || requester.isBlocked) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    let authorized = false;
+    if (requester.role === "admin" || authCtx.uid === tutorId) {
+      authorized = true;
+    } else if (requester.role === "student") {
+      authorized = await mediaStore.hasConfirmedSession(authCtx.uid, tutorId, authCtx.token);
+    }
+
+    if (!authorized) {
+      return res.status(403).json({
+        error: "Tutor photo unlocks only after a confirmed tuition booking.",
+      });
+    }
+
+    const photoSource = await mediaStore.getTutorPhotoSource(tutorId, authCtx.token);
+    const sourceTarget = (photoSource?.key || photoSource?.url || "").trim();
+    if (!sourceTarget) {
+      return res.status(404).json({ error: "Tutor profile photo not found" });
+    }
+
+    if (isSensitiveStorageKeyOrUrl(sourceTarget)) {
+      return res.status(403).json({ error: "Sensitive verification documents cannot be accessed via photo proxy" });
+    }
+
+    if (deps?.r2ObjectFetcher) {
+      const mocked = await deps.r2ObjectFetcher(photoSource?.key || sourceTarget);
+      if (!mocked) {
+        return res.status(404).json({ error: "Photo asset unavailable" });
+      }
+      res.setHeader("Content-Type", mocked.contentType || "image/webp");
+      return res.status(200).send(mocked.buffer);
+    }
+
+    const r2Key = photoSource?.key || extractR2KeyFromUrl(sourceTarget);
+    if (r2Key && process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_ENDPOINT) {
+      const client = getS3Client();
+      const command = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: r2Key,
+      });
+      const obj = await client.send(command);
+      if (!obj.Body) {
+        return res.status(404).json({ error: "Photo object body missing" });
+      }
+      const byteArray = await obj.Body.transformToByteArray();
+      const buffer = Buffer.from(byteArray);
+      res.setHeader("Content-Type", obj.ContentType || "image/webp");
+      return res.status(200).send(buffer);
+    }
+
+    if (sourceTarget.startsWith("https://")) {
+      const upstream = await fetch(sourceTarget, { redirect: "follow" });
+      if (!upstream.ok) {
+        return res.status(404).json({ error: "Upstream photo unavailable" });
+      }
+      const ctype = upstream.headers.get("content-type") || "image/webp";
+      if (!ctype.toLowerCase().startsWith("image/")) {
+        return res.status(403).json({ error: "Invalid upstream image content type" });
+      }
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.setHeader("Content-Type", ctype);
+      return res.status(200).send(buf);
+    }
+
+    return res.status(404).json({ error: "Tutor profile photo not available" });
+  } catch (error: any) {
+    console.error("[Media Proxy] Error serving tutor photo:", error);
+    return res.status(500).json({ error: "Failed to load authorized media" });
+  }
+});
+
+/**
  * Modern Server-side Image Upload & Compression Endpoint
+ * - Requires verified Firebase ID token
  * - Automatically resizes images to a maximum width of 800px
  * - Converts any incoming image to WebP format
  * - Saves high quality yet highly compressed file directly to Cloudflare R2 / S3
  */
 app.post("/api/storage/upload", upload.single("image"), async (req, res) => {
   try {
+    const authCtx = await requireAuthenticatedUser(req);
+    if (!authCtx) {
+      return res.status(401).json({ error: "Authentication required for file upload" });
+    }
+
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "No image file uploaded" });
@@ -200,6 +426,20 @@ app.post("/api/storage/upload", upload.single("image"), async (req, res) => {
     if (!file.mimetype || !ALLOWED_STORAGE_MIME_TYPES.includes(file.mimetype)) {
       return res.status(400).json({
         error: "Unsupported file type. Allowed formats: JPEG, PNG, WebP, and PDF.",
+      });
+    }
+
+    if (deps?.storageUploader) {
+      const uploaded = await deps.storageUploader({
+        folder,
+        fileName: file.originalname,
+        mimetype: file.mimetype,
+        buffer: file.buffer,
+      });
+      return res.json({
+        publicUrl: uploaded.publicUrl,
+        key: uploaded.key,
+        ...(folder === "profiles" ? { securePhotoPath: `/api/media/tutor-photo/${encodeURIComponent(authCtx.uid)}` } : {}),
       });
     }
 
@@ -230,16 +470,25 @@ app.post("/api/storage/upload", upload.single("image"), async (req, res) => {
     const publicUrlBase = process.env.R2_PUBLIC_URL || `${process.env.R2_ENDPOINT}/${bucket}`;
     const publicUrl = `${publicUrlBase.replace(/\/$/, "")}/${key}`;
 
-    res.json({ publicUrl, key });
+    res.json({
+      publicUrl,
+      key,
+      ...(folder === "profiles" ? { securePhotoPath: `/api/media/tutor-photo/${encodeURIComponent(authCtx.uid)}` } : {}),
+    });
   } catch (error: any) {
     console.error("[Storage] Upload & compression error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Cloudflare R2 Storage Presign Route (standard non-image or legacy uploads fallback)
+// Cloudflare R2 Storage Presign Route (requires verified Firebase ID token)
 app.post("/api/storage/presign", async (req, res) => {
   try {
+    const authCtx = await requireAuthenticatedUser(req);
+    if (!authCtx) {
+      return res.status(401).json({ error: "Authentication required for upload presigning" });
+    }
+
     const { fileName, fileType, folder } = req.body;
     if (!fileName || !fileType || !folder) {
       return res.status(400).json({ error: "Missing required fields" });

@@ -24,7 +24,6 @@ export interface PublicTutorEntry {
   university?: string;
   course?: string;
   subjects?: string[];
-  profileImage?: string;
   isVerified?: boolean;
   rating?: number;
   totalRatings?: number;
@@ -213,7 +212,6 @@ export async function fetchPublicEntitiesFromFirebase(): Promise<SitemapData> {
               university: data.university,
               course: data.course,
               subjects: Array.isArray(data.subjects) ? data.subjects : [],
-              profileImage: data.profileImage,
               isVerified: Boolean(data.isVerified),
               rating: typeof data.rating === 'number' ? data.rating : 5.0,
               totalRatings: typeof data.totalRatings === 'number' ? data.totalRatings : 0,
@@ -330,15 +328,10 @@ export function buildSitemapXml(baseUrl: string, data: SitemapData): string {
     xml += `  </url>\n`;
   });
 
-  // Dynamic Verified Tutor Profile URLs
+  // Dynamic Verified Tutor Profile URLs (no private tutor photos exposed in sitemap)
   data.tutors.forEach((tutor) => {
     const tutorUrl = `${baseUrl}/teachers/${encodeURIComponent(tutor.id)}`;
     const lastmod = formatDate(tutor.updatedAt || tutor.createdAt);
-    const tutorName = tutor.name || 'Verified Tutor';
-    const districtText = tutor.district ? ` in ${tutor.district}` : ' in Bangladesh';
-    const univText = tutor.university ? ` (${tutor.university})` : '';
-    const title = `${tutorName} - Verified Home Tutor${districtText}${univText}`;
-    const caption = `Hire ${tutorName} for home and online tuition on EduTrack Bangladesh. Verified NID, student background, and academic track record.`;
 
     xml += `  <url>\n`;
     xml += `    <loc>${escapeXml(tutorUrl)}</loc>\n`;
@@ -347,14 +340,6 @@ export function buildSitemapXml(baseUrl: string, data: SitemapData): string {
     xml += `    <priority>${tutor.isVerified ? '0.95' : '0.85'}</priority>\n`;
     xml += `    <xhtml:link rel="alternate" hreflang="en-BD" href="${escapeXml(tutorUrl)}" />\n`;
     xml += `    <xhtml:link rel="alternate" hreflang="bn-BD" href="${escapeXml(tutorUrl)}" />\n`;
-
-    if (tutor.profileImage && tutor.profileImage.startsWith('http')) {
-      xml += `    <image:image>\n`;
-      xml += `      <image:loc>${escapeXml(tutor.profileImage)}</image:loc>\n`;
-      xml += `      <image:title>${escapeXml(title)}</image:title>\n`;
-      xml += `      <image:caption>${escapeXml(caption)}</image:caption>\n`;
-      xml += `    </image:image>\n`;
-    }
     xml += `  </url>\n`;
   });
 

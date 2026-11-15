@@ -17,6 +17,7 @@ import { Logo } from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { prefetchPage } from '../utils/prefetch';
 import { useBackHandler } from '../utils/mobileWebView';
+import UserAvatar from './UserAvatar';
 
 const getFormattedName = (fullName: string) => {
   if (!fullName) return '';
@@ -262,18 +263,13 @@ const Navbar = memo(() => {
                     aria-expanded={profileMenuOpen}
                     aria-haspopup="true"
                   >
-                    {currentUser.profileImage ? (
-                      <img
-                        src={currentUser.profileImage}
-                        alt={currentUser.name}
-                        className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-blue-100 dark:bg-blue-950/80 text-[#0B132B] dark:text-blue-200 font-bold text-xs flex items-center justify-center border border-blue-200/70 dark:border-blue-800/60">
-                        {getUserInitials(currentUser.name)}
-                      </div>
-                    )}
+                    <UserAvatar
+                      src={currentUser.profileImage}
+                      name={currentUser.name}
+                      className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-slate-200 dark:border-slate-700"
+                      fallbackClassName="bg-blue-100 dark:bg-blue-950/80 text-[#0B132B] dark:text-blue-200"
+                      textClassName="font-bold text-xs"
+                    />
                     <span className="font-semibold text-sm text-[#0B132B] dark:text-white hidden lg:block max-w-[110px] truncate">
                       {getFormattedName(currentUser.name)}
                     </span>

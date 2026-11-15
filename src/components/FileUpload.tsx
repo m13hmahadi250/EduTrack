@@ -9,6 +9,7 @@ interface FileUploadProps {
   allowedTypes?: string[];
   maxSizeMB?: number;
   label?: string;
+  folder?: 'nid' | 'documents' | 'homework' | 'profiles';
 }
 
 export default function FileUpload({ 
@@ -16,7 +17,8 @@ export default function FileUpload({
   onUpload, 
   allowedTypes = ['image/*', 'application/pdf'],
   maxSizeMB = 5,
-  label = 'Upload File'
+  label = 'Upload File',
+  folder = 'documents',
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -68,17 +70,19 @@ export default function FileUpload({
     setProgress(0);
 
     try {
+      const idToken = await auth.currentUser.getIdToken();
       const isImg = file.type.startsWith('image/');
-      const folder = isImg ? 'profiles' : 'documents';
+      const targetFolder = folder || 'documents';
       
       if (isImg) {
         // Use server-side compression endpoint
         const formData = new FormData();
         formData.append('image', file);
-        formData.append('folder', folder);
+        formData.append('folder', targetFolder);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/storage/upload', true);
+        xhr.setRequestHeader('Authorization', `Bearer ${idToken}`);
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -119,11 +123,14 @@ export default function FileUpload({
         // Fallback to legacy/standard presign direct upload for docs (PDFs, etc)
         const response = await fetch('/api/storage/presign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
           body: JSON.stringify({
             fileName: file.name,
             fileType: file.type,
-            folder
+            folder: targetFolder,
           })
         });
 

@@ -31,6 +31,8 @@ import {
   Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import UserAvatar from './UserAvatar';
+import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
 
 const AnimatingCount = memo(function AnimatingCount({ value, className = '' }: { value: number | string; className?: string }) {
   return (
@@ -2187,18 +2189,23 @@ Please show this to your tutor during your live tuition.
                     >
                       {/* Partner Identity Header */}
                       <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-md shrink-0 overflow-hidden">
-                          {p.partner?.profileImage ? (
-                            <img 
-                              src={p.partner.profileImage} 
-                              alt={partnerName} 
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover rounded-2xl" 
+                        {(() => {
+                          const currentUser = useAppStore.getState().currentUser;
+                          const sessions = useAppStore.getState().sessions || [];
+                          const unlocked =
+                            role === 'student' && currentUser
+                              ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, p.id, sessions)
+                              : true;
+                          return (
+                            <UserAvatar
+                              src={unlocked ? p.partner?.profileImage : undefined}
+                              locked={!unlocked}
+                              name={partnerName}
+                              className="w-12 h-12 rounded-2xl border border-slate-200/70 dark:border-slate-700 shadow-md"
+                              textClassName="font-black text-sm text-white"
                             />
-                          ) : (
-                            partnerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-                          )}
-                        </div>
+                          );
+                        })()}
                         <div className="min-w-0">
                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
                             {partnerName}
@@ -2395,18 +2402,29 @@ Please show this to your tutor during your live tuition.
                             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-sm hover:shadow-md transition-shadow duration-300"
                           >
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-extrabold text-[11px] text-slate-600 dark:text-slate-350 shrink-0 overflow-hidden">
-                                {p.partner?.profileImage ? (
-                                  <img src={p.partner.profileImage} alt={partnerName} referrerPolicy="no-referrer" className="w-full h-full object-cover rounded-xl" />
-                                ) : (
-                                  partnerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <h5 className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200 tracking-tight truncate">
+                              {(() => {
+                                const currentUser = useAppStore.getState().currentUser;
+                                const sessions = useAppStore.getState().sessions || [];
+                                const unlocked =
+                                  role === 'student' && currentUser
+                                    ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, p.id, sessions)
+                                    : true;
+                                return (
+                                  <UserAvatar
+                                    src={unlocked ? p.partner?.profileImage : undefined}
+                                    locked={!unlocked}
+                                    name={partnerName}
+                                    className="w-9 h-9 rounded-xl border border-slate-200/70 dark:border-slate-700"
+                                    fallbackClassName="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                    textClassName="font-extrabold text-[11px]"
+                                  />
+                                );
+                              })()}
+                              <div className="min-w-0 flex-1">
+                                <h5 className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug break-words">
                                   {partnerName}
                                 </h5>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-snug break-words mt-0.5">
                                   {partnerUni}
                                 </p>
                               </div>
@@ -2600,19 +2618,30 @@ Please show this to your tutor during your live tuition.
                                     className="bg-slate-50/60 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-300"
                                   >
                                     {/* Identity block */}
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0D5BFF] to-blue-600 flex items-center justify-center font-black text-white text-[10px] shadow-sm shrink-0 overflow-hidden">
-                                        {pImg ? (
-                                          <img src={pImg} alt={pName} referrerPolicy="no-referrer" className="w-full h-full object-cover rounded-xl" />
-                                        ) : (
-                                          pName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-                                        )}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <h6 className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white truncate">
+                                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                                      {(() => {
+                                        const currentUser = useAppStore.getState().currentUser;
+                                        const sessions = useAppStore.getState().sessions || [];
+                                        const unlocked =
+                                          role === 'student' && currentUser
+                                            ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, partnerData.id, sessions)
+                                            : true;
+                                        return (
+                                          <UserAvatar
+                                            src={unlocked ? pImg : undefined}
+                                            locked={!unlocked}
+                                            name={pName}
+                                            className="w-9 h-9 rounded-xl shadow-sm"
+                                            fallbackClassName="bg-gradient-to-tr from-[#0D5BFF] to-blue-600 text-white"
+                                            textClassName="font-black text-[11px]"
+                                          />
+                                        );
+                                      })()}
+                                      <div className="min-w-0 flex-1">
+                                        <h6 className="text-xs font-bold text-slate-800 dark:text-white leading-snug break-words">
                                           {pName}
                                         </h6>
-                                        <p className="text-[7.5px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-snug break-words mt-0.5">
                                           {pUni}
                                         </p>
                                       </div>

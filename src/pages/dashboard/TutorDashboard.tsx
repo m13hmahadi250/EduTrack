@@ -12,6 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { calculateEarnedBadges } from '../../utils/badges';
 import { triggerConfetti } from '../../utils/confetti';
 import BadgeDisplay from '../../components/BadgeDisplay';
+import UserAvatar from '../../components/UserAvatar';
 import {
   Bell,
   MapPin,
@@ -1090,15 +1091,6 @@ export default function TutorDashboard() {
         )}
       </AnimatePresence>
 
-      {activeTab === "pro_profile" && currentUser?.profileImage && (
-        <img
-          src={currentUser.profileImage}
-          alt="Preload"
-          className="hidden"
-          referrerPolicy="no-referrer"
-          loading="lazy"
-        />
-      )}
       <AnimatePresence>
         <motion.div
           key={activeTab}
@@ -2060,11 +2052,17 @@ export default function TutorDashboard() {
                     <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
                       <ImageUpload
                         currentImageUrl={currentUser.profileImage}
-                        onUpload={(url) =>
-                          updateUser(currentUser.id, { profileImage: url })
+                        onUpload={(url, key) =>
+                          updateUser(currentUser.id, {
+                            profileImage: url,
+                            profilePhotoKey: key || "",
+                          })
                         }
                         onDelete={() =>
-                          updateUser(currentUser.id, { profileImage: "" })
+                          updateUser(currentUser.id, {
+                            profileImage: "",
+                            profilePhotoKey: "",
+                          })
                         }
                       />
                     </Suspense>
@@ -2427,6 +2425,7 @@ export default function TutorDashboard() {
                           <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
                             <FileUpload
                               currentFileUrl={profileForm.nidFrontImg}
+                              folder="nid"
                               onUpload={(url) =>
                                 setProfileForm({
                                   ...profileForm,
@@ -2444,6 +2443,7 @@ export default function TutorDashboard() {
                           <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
                             <FileUpload
                               currentFileUrl={profileForm.nidBackImg}
+                              folder="nid"
                               onUpload={(url) =>
                                 setProfileForm({
                                   ...profileForm,
@@ -2500,6 +2500,7 @@ export default function TutorDashboard() {
                           <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
                             <FileUpload
                               currentFileUrl=""
+                              folder="documents"
                               onUpload={(url) =>
                                 setProfileForm({
                                   ...profileForm,
@@ -3620,38 +3621,42 @@ export default function TutorDashboard() {
                                   className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
                                 >
                                   <div>
-                                    <div className="flex items-center space-x-4 mb-6">
-                                      <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950/40 rounded-[1.5rem] flex items-center justify-center text-lg font-black italic text-[#0D5BFF] uppercase group-hover:bg-[#0D5BFF] group-hover:text-white transition-colors duration-300">
-                                        {student.name.charAt(0)}
-                                      </div>
+                                    <div className="flex items-start space-x-3.5 sm:space-x-4 mb-5">
+                                      <UserAvatar
+                                        src={student.profileImage}
+                                        name={student.name}
+                                        className="w-14 h-14 rounded-2xl border border-slate-200/70 dark:border-slate-700"
+                                        fallbackClassName="bg-blue-100 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300"
+                                        textClassName="text-lg font-black"
+                                      />
                                       <div className="min-w-0 flex-1">
-                                        <h4 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic truncate flex items-center gap-1.5">
-                                          <span className="truncate">{student.name}</span>
+                                        <h4 className="text-base font-bold text-[#0B132B] dark:text-white flex flex-wrap items-center gap-1.5 leading-snug break-words">
+                                          <span className="break-words">{student.name}</span>
                                           {student.gender === 'Male' && <span title="Male" className="shrink-0 flex items-center"><Mars className="w-4 h-4 text-sky-500 font-bold" /></span>}
                                           {student.gender === 'Female' && <span title="Female" className="shrink-0 flex items-center"><Venus className="w-4 h-4 text-rose-500 font-bold" /></span>}
                                         </h4>
-                                        <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">
+                                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 break-words leading-snug mt-0.5">
                                           {student.school || "Autonomous Learner"}
                                         </p>
                                       </div>
                                     </div>
 
-                                    <div className="space-y-4 mb-6 border-b border-slate-50 dark:border-slate-800/50 pb-6">
-                                      <div className="flex justify-between items-center text-xs">
-                                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                    <div className="space-y-3.5 mb-6 border-b border-slate-100 dark:border-slate-800/50 pb-5">
+                                      <div className="flex justify-between items-center gap-3 text-xs">
+                                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">
                                           Class / Level
                                         </span>
-                                        <span className="font-bold text-[#0B132B] dark:text-white uppercase">
+                                        <span className="font-bold text-[#0B132B] dark:text-white text-right break-words">
                                           {student.studentClass || "Not Specified"}
                                         </span>
                                       </div>
 
-                                      <div className="flex justify-between items-start text-xs">
-                                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pt-0.5">
-                                          Inbound Location
+                                      <div className="flex justify-between items-start gap-3 text-xs">
+                                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pt-0.5 shrink-0">
+                                          Location
                                         </span>
-                                        <span className="font-bold text-[#0B132B] dark:text-slate-200 max-w-[150px] text-right truncate" title={student.address || student.area || student.district}>
-                                          {student.area || student.district ? `${student.area || ""}, ${student.district || ""}` : (student.address || "Contact for info")}
+                                        <span className="font-bold text-[#0B132B] dark:text-slate-200 text-right break-words" title={student.address || student.area || student.district}>
+                                          {student.area || student.district ? [student.area, student.district].filter(Boolean).join(', ') : (student.address || "Contact for info")}
                                         </span>
                                       </div>
 
@@ -3978,13 +3983,17 @@ export default function TutorDashboard() {
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20 font-sans font-sans">
                   Student Profile & Academic details
                 </span>
-                <div className="mt-4 sm:mt-6 flex items-center gap-4 sm:gap-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-[1.2rem] sm:rounded-[1.5rem] border border-white/10 flex items-center justify-center text-2xl sm:text-3xl font-black italic text-sky-200 shrink-0">
-                    {viewingProfileUser.name?.charAt(0) || 'S'}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xl sm:text-3xl font-black uppercase italic leading-tight truncate">{viewingProfileUser.name}</h3>
-                    <p className="text-xs text-slate-300 font-medium mt-1 sm:mt-2 truncate">
+                <div className="mt-4 sm:mt-6 flex items-start sm:items-center gap-4 sm:gap-5">
+                  <UserAvatar
+                    src={viewingProfileUser.profileImage}
+                    name={viewingProfileUser.name}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-white/15"
+                    fallbackClassName="bg-white/10 text-sky-200"
+                    textClassName="text-xl sm:text-2xl font-black"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl sm:text-2xl font-black text-white leading-snug break-words">{viewingProfileUser.name}</h3>
+                    <p className="text-xs sm:text-sm text-slate-200 font-medium mt-1 break-words leading-snug">
                       {viewingProfileUser.university || viewingProfileUser.studentClass ? `Class ${viewingProfileUser.studentClass} • ${viewingProfileUser.university || 'Verified School'}` : 'Academic Student'}
                     </p>
                   </div>
@@ -4230,30 +4239,62 @@ export default function TutorDashboard() {
 
               {guestTutor && (
                 <div className="space-y-5">
-                  <div className="flex items-center gap-4">
-                    {guestTutor.profileImage ? (
-                      <img
-                        src={guestTutor.profileImage}
-                        alt={guestTutor.name}
-                        className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
-                        referrerPolicy="no-referrer"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3.5">
+                      <UserAvatar
+                        src={undefined}
+                        locked={true}
+                        name={guestTutor.name}
+                        className="w-14 h-14 rounded-2xl border border-slate-200 dark:border-slate-700"
+                        textClassName="text-base font-black text-white"
                       />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center text-2xl font-black">
-                        {guestTutor.name?.charAt(0) || "T"}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          Public Guest View
+                        </p>
+                        <p className="text-xs font-bold text-[#0B132B] dark:text-white mt-0.5">
+                          Initials Badge Only (Photo Hidden)
+                        </p>
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <h4 className="text-lg font-black text-[#0B132B] dark:text-white flex items-center gap-2 flex-wrap">
-                        <span>{guestTutor.name}</span>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/60 flex items-center gap-3.5">
+                      <UserAvatar
+                        src={currentUser.profileImage}
+                        locked={false}
+                        name={currentUser.name}
+                        className="w-14 h-14 rounded-2xl border border-blue-200 dark:border-blue-700"
+                        textClassName="text-base font-black text-white"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[#0D5BFF] dark:text-blue-400">
+                          Confirmed Student View
+                        </p>
+                        <p className="text-xs font-bold text-[#0B132B] dark:text-white mt-0.5">
+                          {currentUser.profileImage ? "Photo Unlocked After Booking" : "Upload Photo to Display"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <UserAvatar
+                      src={undefined}
+                      locked={true}
+                      name={guestTutor.name}
+                      className="w-16 h-16 rounded-2xl border border-slate-200 dark:border-slate-700"
+                      textClassName="text-xl font-black text-white"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-lg font-black text-[#0B132B] dark:text-white flex items-center gap-2 flex-wrap leading-snug break-words">
+                        <span className="break-words">{guestTutor.name}</span>
                         {guestTutor.isVerified && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
                             <ShieldCheck className="w-3.5 h-3.5" />
                             Verified
                           </span>
                         )}
                       </h4>
-                      <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-0.5">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 mt-1 break-words leading-snug">
                         {guestTutor.university || "Educational Expert"}
                         {guestTutor.district ? ` • ${guestTutor.district}${guestTutor.thana ? `, ${guestTutor.thana}` : ""}` : ""}
                       </p>

@@ -16,11 +16,13 @@ import {
   getDoc, 
   onSnapshot, 
   collection, 
+  collectionGroup,
   query, 
   where, 
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   increment,
   Timestamp,
   getDocs
@@ -28,7 +30,14 @@ import {
 import { auth, db } from './lib/firebase';
 import { sendWelcomeMail } from './services/mailService';
 import { reverseGeocodeLocation } from './utils/geocoding';
-import { hasActiveOrPendingBooking, TutorPrivacySettings } from '../shared/tutorPrivacy';
+import {
+  CONFIRMED_PHOTO_STATUSES,
+  hasActiveOrPendingBooking,
+  resolveTutorHasProfilePhoto,
+  sanitizeTutorProfileForViewer,
+  TutorPrivacySettings,
+} from '../shared/tutorPrivacy';
+import { clearAuthorizedPhotoCache } from './lib/authorizedMedia';
 import {
   AccountType,
   StudentProfileRecord,
@@ -66,6 +75,9 @@ export interface User {
   phone: string;
   email: string;
   profileImage?: string;
+  profilePhotoKey?: string;
+  hasProfilePhoto?: boolean;
+  photoVersion?: number;
   balance?: number;
   
   // Shared / Filtering
@@ -167,6 +179,7 @@ export interface Session {
   feedback?: string;
   studentPermissionGranted?: boolean;
   tutorRequestedEnd?: boolean;
+  studentDisplayName?: string;
 }
 
 export interface Withdrawal {
@@ -490,6 +503,10 @@ export const useAppStore = create<AppState>((set, get) => {
           const prevUserId = get().currentUser?.id;
           if (prevUserId && prevUserId !== firebaseUser.uid) {
             cleanupListeners();
+            clearAuthorizedPhotoCache();
+            try {
+              localStorage.removeItem('edutrack_cached_home_tutors');
+            } catch {}
             set({
               users: [],
               payments: [],
@@ -503,6 +520,14 @@ export const useAppStore = create<AppState>((set, get) => {
               studentProfiles: [],
               typingStatus: {},
             });
+          }
+          if (userData.role === 'tutor') {
+            try {
+              const privateSnap = await getDoc(doc(db, 'users', firebaseUser.uid, 'private', 'media'));
+              if (privateSnap.exists()) {
+                userData = normalizeUserProfileFields({ ...userData, ...privateSnap.data() } as User);
+              }
+            } catch {}
           }
           set({ currentUser: userData, isLoading: false, isInitialized: true });
           try {
@@ -599,9 +624,11 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     } else {
       cleanupListeners();
+      clearAuthorizedPhotoCache();
       clearEphemeralAuthStorage();
       try {
         localStorage.removeItem('edutrack_cached_user');
+        localStorage.removeItem('edutrack_cached_home_tutors');
         localStorage.removeItem('edutrack_last_gps_location');
         localStorage.removeItem('auth_post_login_destination');
       } catch (e) {}
@@ -879,6 +906,14 @@ export const useAppStore = create<AppState>((set, get) => {
               }
             }
           }
+          if (userData.role === 'tutor') {
+            try {
+              const privateSnap = await getDoc(doc(db, 'users', firebaseUser.uid, 'private', 'media'));
+              if (privateSnap.exists()) {
+                userData = normalizeUserProfileFields({ ...userData, ...privateSnap.data() } as User);
+              }
+            } catch {}
+          }
         } else {
           // Self-heal user document if user authenticated in Firebase Auth
           const lowerEmail = trimmedEmail.toLowerCase();
@@ -912,6 +947,7 @@ export const useAppStore = create<AppState>((set, get) => {
         }
 
         cleanupListeners();
+        clearAuthorizedPhotoCache();
         // Reset stale collection slices before binding authenticated user's listeners
         set({
           currentUser: userData,
@@ -930,6 +966,7 @@ export const useAppStore = create<AppState>((set, get) => {
         });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+          localStorage.removeItem('edutrack_cached_home_tutors');
         } catch (e) {}
 
         // Setup real-time listeners for data
@@ -1007,6 +1044,14 @@ export const useAppStore = create<AppState>((set, get) => {
                   console.error("Error updating admin role in Google login:", e);
                 }
               }
+            }
+            if (userData.role === 'tutor') {
+              try {
+                const privateSnap = await getDoc(doc(db, 'users', firebaseUser.uid, 'private', 'media'));
+                if (privateSnap.exists()) {
+                  userData = normalizeUserProfileFields({ ...userData, ...privateSnap.data() } as User);
+                }
+              } catch {}
             }
           } else {
             const lowerGEmail = firebaseUser.email?.toLowerCase();
@@ -1095,6 +1140,7 @@ export const useAppStore = create<AppState>((set, get) => {
           }
 
           cleanupListeners();
+          clearAuthorizedPhotoCache();
           set({
             currentUser: userData,
             users: [],
@@ -1113,6 +1159,7 @@ export const useAppStore = create<AppState>((set, get) => {
           });
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+            localStorage.removeItem('edutrack_cached_home_tutors');
           } catch (e) {}
           localStorage.removeItem('google_auth_requested_role');
           localStorage.removeItem('google_auth_additional_user_data');
@@ -1176,9 +1223,11 @@ export const useAppStore = create<AppState>((set, get) => {
       const prevUid = get().currentUser?.id;
       set({ isLoggingOut: true });
       cleanupListeners();
+      clearAuthorizedPhotoCache();
       clearEphemeralAuthStorage();
       try {
         localStorage.removeItem('edutrack_cached_user');
+        localStorage.removeItem('edutrack_cached_home_tutors');
         localStorage.removeItem('edutrack_last_gps_location');
         localStorage.removeItem('auth_post_login_destination');
         if (prevUid) {
@@ -1311,9 +1360,33 @@ export const useAppStore = create<AppState>((set, get) => {
         newUser.profileCompletionPercentage = completion.percentage;
 
         const cleanedUser = cleanUndefined(newUser);
+        const publicUserToSave: Record<string, any> = { ...cleanedUser };
 
-        // Save/Merge to Firestore
-        await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
+        if (cleanedUser.role === 'tutor') {
+          const tutorPrivateMedia = cleanUndefined({
+            profileImage: cleanedUser.profileImage || '',
+            profilePhotoKey: (cleanedUser as any).profilePhotoKey || '',
+            nidFrontImg: cleanedUser.nidFrontImg,
+            nidBackImg: cleanedUser.nidBackImg,
+            documents: cleanedUser.documents,
+            updatedAt: new Date().toISOString(),
+          });
+          publicUserToSave.hasProfilePhoto = Boolean(cleanMeaningfulString(cleanedUser.profileImage));
+          publicUserToSave.photoVersion = Date.now();
+          publicUserToSave.profileImage = '';
+          delete publicUserToSave.profilePhotoKey;
+          delete publicUserToSave.nidFrontImg;
+          delete publicUserToSave.nidBackImg;
+          delete publicUserToSave.documents;
+
+          // Save/Merge public profile and isolated private media
+          await setDoc(doc(db, 'users', uid), publicUserToSave, { merge: true });
+          await setDoc(doc(db, 'users', uid, 'private', 'media'), tutorPrivateMedia, { merge: true });
+        } else {
+          // Save/Merge to Firestore
+          await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
+        }
+
         if (initialStudentProfiles.length > 0) {
           await setDoc(
             doc(db, 'student_profiles', initialStudentProfiles[0].id),
@@ -1415,13 +1488,62 @@ export const useAppStore = create<AppState>((set, get) => {
         }
 
         payloadToWrite = cleanUndefined(payloadToWrite);
-        await updateDoc(doc(db, 'users', id), payloadToWrite as any);
+        const isTargetTutor = baseUser?.role === 'tutor' || payloadToWrite.role === 'tutor';
+        const privateMediaUpdates: Record<string, any> = {};
+        const publicPayload: Record<string, any> = { ...payloadToWrite };
+
+        if (isTargetTutor) {
+          const privateKeys = ['profileImage', 'profilePhotoKey', 'nidFrontImg', 'nidBackImg', 'documents'] as const;
+          for (const key of privateKeys) {
+            if (Object.prototype.hasOwnProperty.call(publicPayload, key)) {
+              privateMediaUpdates[key] = publicPayload[key];
+              delete publicPayload[key];
+            }
+          }
+
+          if (Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'profileImage')) {
+            const hasPhoto = Boolean(cleanMeaningfulString(privateMediaUpdates.profileImage));
+            publicPayload.hasProfilePhoto = hasPhoto;
+            publicPayload.photoVersion = Date.now();
+            publicPayload.profileImage = '';
+            if (!hasPhoto && !Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'profilePhotoKey')) {
+              privateMediaUpdates.profilePhotoKey = '';
+            }
+            clearAuthorizedPhotoCache(id);
+          }
+
+          if (Object.keys(privateMediaUpdates).length > 0) {
+            privateMediaUpdates.updatedAt = new Date().toISOString();
+            await setDoc(doc(db, 'users', id, 'private', 'media'), privateMediaUpdates, { merge: true });
+          }
+
+          // Clean up any legacy private doc fields if updating tutor media
+          if (Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'nidFrontImg')) {
+            publicPayload.nidFrontImg = deleteField();
+          }
+          if (Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'nidBackImg')) {
+            publicPayload.nidBackImg = deleteField();
+          }
+          if (Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'documents')) {
+            publicPayload.documents = deleteField();
+          }
+        }
+
+        if (Object.keys(publicPayload).length > 0) {
+          await updateDoc(doc(db, 'users', id), publicPayload as any);
+        }
 
         // Update local state and localStorage cache immediately after confirmed write
         if (current?.id === id) {
           const updatedCurrent = normalizeUserProfileFields({
             ...current,
             ...payloadToWrite,
+            ...(isTargetTutor && Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'profileImage')
+              ? {
+                  hasProfilePhoto: publicPayload.hasProfilePhoto,
+                  photoVersion: publicPayload.photoVersion,
+                }
+              : {}),
           } as User);
           set({ currentUser: updatedCurrent });
           try {
@@ -1432,7 +1554,18 @@ export const useAppStore = create<AppState>((set, get) => {
         if (usersList.some(u => u.id === id)) {
           set({
             users: usersList.map(u =>
-              u.id === id ? normalizeUserProfileFields({ ...u, ...payloadToWrite } as User) : u
+              u.id === id
+                ? normalizeUserProfileFields({
+                    ...u,
+                    ...payloadToWrite,
+                    ...(isTargetTutor && Object.prototype.hasOwnProperty.call(privateMediaUpdates, 'profileImage')
+                      ? {
+                          hasProfilePhoto: publicPayload.hasProfilePhoto,
+                          photoVersion: publicPayload.photoVersion,
+                        }
+                      : {}),
+                  } as User)
+                : u
             )
           });
         }
@@ -2033,9 +2166,10 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         const session = get().sessions.find(s => s.id === sessionId);
         if (!session) return;
+        const studentDisplayName = get().currentUser?.name || 'Verified Student';
 
-        // Update session with rating
-        await updateDoc(doc(db, 'sessions', sessionId), { rating, feedback });
+        // Update session with rating and anonymized/display name for public review rendering
+        await updateDoc(doc(db, 'sessions', sessionId), { rating, feedback, studentDisplayName });
 
         // Update tutor rating stats
         const tutorRef = doc(db, 'users', session.tutorId);
@@ -2456,11 +2590,21 @@ export const useAppStore = create<AppState>((set, get) => {
 function persistOfflineData(uid: string, state: any) {
   if (!uid) return;
   try {
+    const viewerRole: Role | undefined = state.currentUser?.role;
+    const currentSessions: Session[] = Array.isArray(state.sessions) ? state.sessions : [];
+    const safeUsers = Array.isArray(state.users)
+      ? state.users.map((u: User) =>
+          viewerRole && viewerRole !== 'admin' && u.role === 'tutor' && u.id !== uid
+            ? sanitizeTutorProfileForViewer(u, { id: uid, role: viewerRole }, currentSessions).tutor
+            : u
+        )
+      : [];
+
     const cacheData = {
-      sessions: state.sessions || [],
+      sessions: currentSessions,
       classLogs: state.classLogs || [],
       messages: state.messages || [],
-      users: state.users || [],
+      users: safeUsers,
       homeworkAssignments: state.homeworkAssignments || [],
       payments: state.payments || [],
       notifications: state.notifications || [],
@@ -2475,18 +2619,26 @@ function persistOfflineData(uid: string, state: any) {
   }
 }
 
-function loadOfflineData(uid: string, set: any) {
+function loadOfflineData(uid: string, role: Role, set: any) {
   if (!uid) return;
   try {
     const raw = localStorage.getItem(`edutrack_offline_cache_${uid}`);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed) {
+        const cachedSessions: Session[] = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+        const cachedUsers: User[] = Array.isArray(parsed.users)
+          ? parsed.users.map((u: User) =>
+              role !== 'admin' && u.role === 'tutor' && u.id !== uid
+                ? (sanitizeTutorProfileForViewer(u, { id: uid, role }, cachedSessions).tutor as User)
+                : u
+            )
+          : [];
         set({
-          sessions: parsed.sessions || [],
+          sessions: cachedSessions,
           classLogs: parsed.classLogs || [],
           messages: parsed.messages || [],
-          users: parsed.users || [],
+          users: cachedUsers,
           homeworkAssignments: parsed.homeworkAssignments || [],
           payments: parsed.payments || [],
           notifications: parsed.notifications || [],
@@ -2505,13 +2657,67 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   cleanupListeners();
 
   // Load local offline cached schedules & messages immediately so app works seamlessly offline
-  loadOfflineData(uid, set);
+  loadOfflineData(uid, role, set);
+
+  let rawUsersList: User[] = [];
+  const privateMediaByUserId = new Map<string, Partial<User>>();
+  let previousConfirmedTutorIds = new Set<string>();
+  let legacyMediaMigrated = false;
+
+  const syncUsersWithSessions = () => {
+    const currentSessions: Session[] = get().sessions || [];
+    let users = rawUsersList.map((raw) => {
+      const privateMedia = privateMediaByUserId.get(raw.id);
+      const hydrated = privateMedia ? ({ ...raw, ...privateMedia } as User) : raw;
+
+      if (hydrated.role === 'admin') {
+        return {
+          id: hydrated.id,
+          name: 'ADMIN ACCOUNT',
+          email: hydrated.email,
+          role: 'admin',
+          profileImage: '/admin_profile.png',
+          isVerified: true,
+        } as User;
+      }
+
+      if (role !== 'admin' && hydrated.id !== uid) {
+        if (hydrated.role === 'tutor') {
+          return sanitizeTutorProfileForViewer(
+            hydrated,
+            { id: uid, role },
+            currentSessions
+          ).tutor as User;
+        }
+        const sanitized = { ...hydrated };
+        delete sanitized.nidNumber;
+        delete sanitized.nidFrontImg;
+        delete sanitized.nidBackImg;
+        delete sanitized.documents;
+        delete sanitized.profilePhotoKey;
+        delete sanitized.balance;
+        delete sanitized.fcmToken;
+        delete (sanitized as any).password;
+        return sanitized;
+      }
+
+      return hydrated;
+    });
+
+    if (role !== 'admin') {
+      users = users.filter((user) => !user.isBlocked);
+    }
+    set({ users });
+    persistOfflineData(uid, get());
+  };
 
   // 1. Listen to OWN user document for real-time profile updates (balance, verification, etc.)
   const unsubSelf = onSnapshot(doc(db, 'users', uid), async (snapshot) => {
     if (snapshot.exists()) {
       const rawData = { id: snapshot.id, ...snapshot.data() } as User;
-      const userData = normalizeUserProfileFields(rawData);
+      const ownPrivateMedia = privateMediaByUserId.get(uid);
+      const mergedSelf = ownPrivateMedia ? ({ ...rawData, ...ownPrivateMedia } as User) : rawData;
+      const userData = normalizeUserProfileFields(mergedSelf);
       const lowerSelfEmail = userData.email?.toLowerCase();
       if (lowerSelfEmail === 'edutrackbangladesh@gmail.com' || lowerSelfEmail === 'm13hmahadi.personal@gmail.com') {
         if (userData.role !== 'admin' || !userData.isVerified) {
@@ -2526,6 +2732,51 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
             console.error("Error upgrading main admin role in Firestore:", e);
           }
           return;
+        }
+      }
+
+      // Auto-migrate legacy tutor private media fields off the public user doc without losing any existing photo/NID/docs
+      if (
+        rawData.role === 'tutor' &&
+        auth.currentUser?.uid === uid &&
+        !legacyMediaMigrated &&
+        (cleanMeaningfulString(rawData.profileImage) ||
+          cleanMeaningfulString(rawData.nidFrontImg) ||
+          cleanMeaningfulString(rawData.nidBackImg) ||
+          (Array.isArray(rawData.documents) && rawData.documents.length > 0))
+      ) {
+        legacyMediaMigrated = true;
+        try {
+          const mediaRef = doc(db, 'users', uid, 'private', 'media');
+          const existingMediaSnap = await getDoc(mediaRef);
+          const existingMedia = existingMediaSnap.exists() ? existingMediaSnap.data() : {};
+          const migratedMedia = cleanUndefined({
+            profileImage: existingMedia.profileImage || rawData.profileImage || '',
+            profilePhotoKey: existingMedia.profilePhotoKey || rawData.profilePhotoKey || '',
+            nidFrontImg: existingMedia.nidFrontImg || rawData.nidFrontImg,
+            nidBackImg: existingMedia.nidBackImg || rawData.nidBackImg,
+            documents:
+              Array.isArray(existingMedia.documents) && existingMedia.documents.length > 0
+                ? existingMedia.documents
+                : rawData.documents,
+            updatedAt: new Date().toISOString(),
+          });
+          privateMediaByUserId.set(uid, migratedMedia);
+          await setDoc(mediaRef, migratedMedia, { merge: true });
+          await updateDoc(doc(db, 'users', uid), {
+            hasProfilePhoto: resolveTutorHasProfilePhoto({
+              ...rawData,
+              profileImage: migratedMedia.profileImage,
+            }),
+            photoVersion: rawData.photoVersion || Date.now(),
+            profileImage: '',
+            nidFrontImg: deleteField(),
+            nidBackImg: deleteField(),
+            documents: deleteField(),
+            profilePhotoKey: deleteField(),
+          });
+        } catch (migErr) {
+          console.warn('Non-blocking legacy tutor media isolation skipped:', migErr);
         }
       }
 
@@ -2544,9 +2795,13 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
         }
       }
 
-      set({ currentUser: userData });
+      const finalMergedSelf = normalizeUserProfileFields({
+        ...userData,
+        ...(privateMediaByUserId.get(uid) || {}),
+      } as User);
+      set({ currentUser: finalMergedSelf });
       try {
-        localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+        localStorage.setItem('edutrack_cached_user', JSON.stringify(finalMergedSelf));
       } catch {}
     } else {
       // User document not found in snapshot: check if auth is still active before clearing
@@ -2558,6 +2813,49 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     handleFirestoreError(error, OperationType.GET, `users/${uid}`);
   });
   activeUnsubscribes.push(unsubSelf);
+
+  // 1a. Subscribe to owner's private media doc for tutors, or all private media docs for admins
+  if (role === 'tutor') {
+    const unsubOwnPrivateMedia = onSnapshot(
+      doc(db, 'users', uid, 'private', 'media'),
+      (snap) => {
+        if (snap.exists()) {
+          const mediaData = snap.data() as Partial<User>;
+          privateMediaByUserId.set(uid, mediaData);
+          const cur = get().currentUser;
+          if (cur && cur.id === uid) {
+            const hydrated = normalizeUserProfileFields({ ...cur, ...mediaData } as User);
+            set({ currentUser: hydrated });
+            try {
+              localStorage.setItem('edutrack_cached_user', JSON.stringify(hydrated));
+            } catch {}
+          }
+        }
+      },
+      (err) => {
+        console.warn('Non-blocking: could not listen to own private media:', err);
+      }
+    );
+    activeUnsubscribes.push(unsubOwnPrivateMedia);
+  } else if (role === 'admin') {
+    const unsubAdminPrivateMedia = onSnapshot(
+      collectionGroup(db, 'private'),
+      (snapshot) => {
+        snapshot.docs.forEach((docSnap) => {
+          if (docSnap.id !== 'media') return;
+          const parentUserId = docSnap.ref.parent.parent?.id;
+          if (parentUserId) {
+            privateMediaByUserId.set(parentUserId, docSnap.data() as Partial<User>);
+          }
+        });
+        syncUsersWithSessions();
+      },
+      (err) => {
+        console.warn('Non-blocking: admin private media group listener error:', err);
+      }
+    );
+    activeUnsubscribes.push(unsubAdminPrivateMedia);
+  }
 
   // 1b. Listen to Guardian-managed student profiles for student/guardian accounts
   if (role === 'student') {
@@ -2595,37 +2893,8 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
 
   const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-    let users = snapshot.docs.map(doc => {
-      const raw = { id: doc.id, ...doc.data() } as User;
-      if (raw.role === 'admin') {
-        return {
-          id: raw.id,
-          name: 'ADMIN ACCOUNT',
-          email: raw.email,
-          role: 'admin',
-          profileImage: '/admin_profile.png',
-          isVerified: true,
-        } as User;
-      }
-      // Strip private identity documents and financial balances of other users for non-admin roles
-      if (role !== 'admin' && raw.id !== uid) {
-        const sanitized = { ...raw };
-        delete sanitized.nidNumber;
-        delete sanitized.nidFrontImg;
-        delete sanitized.nidBackImg;
-        delete sanitized.documents;
-        delete sanitized.balance;
-        delete sanitized.fcmToken;
-        delete (sanitized as any).password;
-        return sanitized;
-      }
-      return raw;
-    });
-    if (role !== 'admin') {
-      users = users.filter(user => !user.isBlocked);
-    }
-    set({ users });
-    persistOfflineData(uid, get());
+    rawUsersList = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as User));
+    syncUsersWithSessions();
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'users');
   });
@@ -2656,8 +2925,19 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
   const unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
     const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
+    const nextConfirmedTutorIds = new Set(
+      sessions
+        .filter((s) => s.studentId === uid && CONFIRMED_PHOTO_STATUSES.has(s.status))
+        .map((s) => s.tutorId)
+    );
+    for (const prevTutorId of previousConfirmedTutorIds) {
+      if (!nextConfirmedTutorIds.has(prevTutorId)) {
+        clearAuthorizedPhotoCache(prevTutorId);
+      }
+    }
+    previousConfirmedTutorIds = nextConfirmedTutorIds;
     set({ sessions });
-    persistOfflineData(uid, get());
+    syncUsersWithSessions();
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'sessions');
   });

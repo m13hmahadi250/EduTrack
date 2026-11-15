@@ -8,6 +8,14 @@ import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import { useAppStore } from '../store';
 import { ZoomIn, ZoomOut, Focus, Navigation, MapPin, Crosshair, Route } from 'lucide-react';
 import { getCurrentAccuratePosition, watchAccuratePosition } from '../utils/geocoding';
+import UserAvatar, { getAvatarInitials, isValidAvatarUrl } from './UserAvatar';
+import {
+  fetchAuthorizedTutorPhoto,
+  getCachedAuthorizedPhotoUrl,
+  isAuthorizedProxyPhotoUrl,
+  parseAuthorizedProxyPhotoUrl,
+  subscribeAuthorizedPhotoCache,
+} from '../lib/authorizedMedia';
 
 // Fix typical leaflet marker icon assets
 // @ts-ignore
@@ -87,10 +95,22 @@ const createCustomCircularMarker = (
     ? (isStart ? '#10b981' : '#0891b2')
     : (isStart ? '#b45309' : '#475569');
 
-  const avatarContent = image 
-    ? `<img src="${image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" />`
+  const safeInitials = getAvatarInitials(name);
+  let resolvedImage = '';
+  if (image && isAuthorizedProxyPhotoUrl(image)) {
+    const parsedProxy = parseAuthorizedProxyPhotoUrl(image);
+    const cachedBlob = parsedProxy
+      ? getCachedAuthorizedPhotoUrl(parsedProxy.tutorId, parsedProxy.version)
+      : null;
+    resolvedImage = cachedBlob || '';
+  } else if (isValidAvatarUrl(image)) {
+    resolvedImage = image!;
+  }
+  const safeImage = resolvedImage ? resolvedImage.replace(/"/g, '&quot;') : '';
+  const avatarContent = safeImage
+    ? `<img src="${safeImage}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div style="display: none; width: 100%; height: 100%; border-radius: 50%; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: ${themeColor}; background: ${themeBg};">${safeInitials}</div>`
     : `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: ${themeColor}; background: ${themeBg};">
-        ${name.charAt(0).toUpperCase()}
+        ${safeInitials}
       </div>`;
 
   return L.divIcon({
@@ -395,6 +415,29 @@ const MapTracker = memo(({
   const [activeLayer, setActiveLayer] = useState<MapLayerPresetId>(theme === 'dark' ? 'dark' : 'streets');
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [routeDetails, setRouteDetails] = useState<{ distanceKm: string; durationMins: number } | null>(null);
+  const [authPhotoEpoch, setAuthPhotoEpoch] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuthorizedPhotoCache(() => {
+      setAuthPhotoEpoch((n) => n + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const candidateUrls = [
+      tutorImage,
+      ...(Array.isArray(tutors) ? tutors.map((t) => t.image) : []),
+    ];
+    candidateUrls.forEach((url) => {
+      if (url && isAuthorizedProxyPhotoUrl(url)) {
+        const parsed = parseAuthorizedProxyPhotoUrl(url);
+        if (parsed && !getCachedAuthorizedPhotoUrl(parsed.tutorId, parsed.version)) {
+          fetchAuthorizedTutorPhoto(parsed.tutorId, parsed.version).catch(() => {});
+        }
+      }
+    });
+  }, [tutorImage, tutors]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -888,7 +931,7 @@ const MapTracker = memo(({
       });
     }
 
-  }, [mapInstance, tutorLocation?.[0], tutorLocation?.[1], studentLocation?.[0], studentLocation?.[1], tutorName, studentName, tutorImage, studentImage, eta, JSON.stringify(tutors), JSON.stringify(students), selectedTutorId, selectedTutorObj, routeDetails]);
+  }, [mapInstance, tutorLocation?.[0], tutorLocation?.[1], studentLocation?.[0], studentLocation?.[1], tutorName, studentName, tutorImage, studentImage, eta, JSON.stringify(tutors), JSON.stringify(students), selectedTutorId, selectedTutorObj, routeDetails, authPhotoEpoch]);
 
   return (
     <div className="relative w-full h-full min-h-[320px] @container [container-type:size] overflow-hidden">
@@ -966,16 +1009,16 @@ const MapTracker = memo(({
           </div>
           
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              {selectedTutorObj.image ? (
-                <img src={selectedTutorObj.image} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs border-2 border-emerald-500">
-                  {selectedTutorObj.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <div className="flex items-center gap-2.5">
+              <UserAvatar
+                src={selectedTutorObj.image}
+                name={selectedTutorObj.name}
+                className="w-8 h-8 rounded-full border-2 border-emerald-500"
+                fallbackClassName="bg-emerald-50 text-emerald-600"
+                textClassName="font-black text-xs"
+              />
               <div className="flex flex-col min-w-0 text-left">
-                <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight">
                   {selectedTutorObj.name}
                 </div>
                 {routeDetails ? (

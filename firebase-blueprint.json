@@ -53,7 +53,10 @@
         "studentName": { "type": "string" },
         "curriculum": { "type": "string" },
         "teachingMode": { "type": "string" },
-        "profileCompletionPercentage": { "type": "number" }
+        "profileCompletionPercentage": { "type": "number" },
+        "hasProfilePhoto": { "type": "boolean" },
+        "photoVersion": { "type": "number" },
+        "privacySettings": { "type": "object" }
       },
       "required": ["id", "role", "name", "email"]
     },
@@ -127,7 +130,8 @@
         "duration": { "type": "number" },
         "meetingLink": { "type": "string" },
         "rating": { "type": "number" },
-        "feedback": { "type": "string" }
+        "feedback": { "type": "string" },
+        "studentDisplayName": { "type": "string" }
       },
       "required": ["id", "studentId", "tutorId", "subject", "status", "scheduledTime"]
     },
@@ -270,6 +274,20 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "title", "subject", "district", "status"]
+    },
+    "PrivateMedia": {
+      "title": "PrivateMedia",
+      "description": "Owner-and-admin-only private media and verification documents (profile photo URL/key, NID images, academic documents).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "profileImage": { "type": "string" },
+        "profilePhotoKey": { "type": "string" },
+        "nidFrontImg": { "type": "string" },
+        "nidBackImg": { "type": "string" },
+        "documents": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -288,6 +306,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": "PrivateMedia",
+      "description": "Owner and Admin only private photos and verification documents"
     },
     "/referrals/{referralId}": {
       "schema": "Referral",

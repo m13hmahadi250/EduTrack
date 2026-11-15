@@ -4,11 +4,15 @@ import { useAppStore } from '../store';
 const AIChatWidget = React.lazy(() => import('../components/AIChatWidget'));
 import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
+import UserAvatar from '../components/UserAvatar';
 import { prefetchPage } from '../utils/prefetch';
 import { sanitizeTutorProfileForViewer } from '../../shared/tutorPrivacy';
 import {
   filterPublicTutors,
-  formatTutorClassesBadge,
+  formatInstitutionWithLocation,
+  formatTeachingModeLabel,
+  formatTutorClassesRange,
+  formatTutorSubjectsSummary,
   isTutorEligibleForHome,
   isTutorVerified,
 } from '../../shared/tutorListing';
@@ -66,7 +70,8 @@ export default function Home() {
       if (!Array.isArray(parsed)) return [];
       return parsed
         .map((item: any) => (item && item.tutor && !item.role ? item.tutor : item))
-        .filter((t: any) => isTutorEligibleForHome(t));
+        .map((t: any) => sanitizeTutorProfileForViewer(t, null, []).tutor)
+        .filter((t: any) => Boolean(t && isTutorEligibleForHome(t)));
     } catch {
       return [];
     }
@@ -105,22 +110,21 @@ export default function Home() {
       const { db } = await import('../lib/firebase');
       const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
       const querySnapshot = await getDocs(q);
-      const viewerCtx = currentUser ? { id: currentUser.id, role: currentUser.role } : null;
       const fetched = querySnapshot.docs
         .map(docSnap => {
           const raw = { id: docSnap.id, ...(docSnap.data() as any) };
-          const { tutor: safeTutor } = sanitizeTutorProfileForViewer(raw, viewerCtx, []);
+          const { tutor: safeTutor } = sanitizeTutorProfileForViewer(raw, null, []);
           return safeTutor;
         })
         .filter((t): t is Record<string, any> => Boolean(t && isTutorEligibleForHome(t)));
 
       fetched.sort((a, b) => {
         const scoreA =
-          (a.profileImage ? 4 : 0) +
+          (a.hasProfilePhoto ? 4 : 0) +
           (Array.isArray(a.subjects) && a.subjects.length > 0 ? 2 : 0) +
           (Number(a.rating) || 0);
         const scoreB =
-          (b.profileImage ? 4 : 0) +
+          (b.hasProfilePhoto ? 4 : 0) +
           (Array.isArray(b.subjects) && b.subjects.length > 0 ? 2 : 0) +
           (Number(b.rating) || 0);
         if (scoreB !== scoreA) return scoreB - scoreA;
@@ -823,18 +827,21 @@ export default function Home() {
               )}
 
               {tutorsLoading && displayedTutors.length === 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                   {Array.from({ length: 4 }).map((_, idx) => (
                     <div
                       key={idx}
-                      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 flex items-center gap-4 animate-pulse"
+                      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 space-y-2.5 animate-pulse"
                     >
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0" />
-                      <div className="flex-1 space-y-2.5">
-                        <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-800" />
-                        <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800/70" />
-                        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800/70" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                        <div className="flex-1 space-y-2 pt-0.5">
+                          <div className="h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
+                          <div className="h-3 w-1/3 rounded bg-slate-100 dark:bg-slate-800/70" />
+                        </div>
                       </div>
+                      <div className="h-3.5 w-full rounded bg-slate-100 dark:bg-slate-800/70" />
+                      <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800/70" />
                     </div>
                   ))}
                 </div>
@@ -862,7 +869,7 @@ export default function Home() {
                   </div>
                 )
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-stretch">
                   {displayedTutors.map((t) => {
                     const isFavorite = currentUser?.savedTutors?.includes(t.id) || localFavorites.includes(t.id);
                     return (
@@ -2277,22 +2284,17 @@ const AdminTestimonialManager = ({
                                 : "bg-white dark:bg-[#1E293B]/40 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 border-slate-100 dark:border-slate-800/50"
                             } ${story.showOnHomePage === false ? "opacity-75 border-dashed" : ""}`}
                           >
-                            <div className="flex items-center gap-3 overflow-hidden flex-1">
-                              {story.avatar ? (
-                                <img
-                                  src={story.avatar}
-                                  alt=""
-                                  className="w-9 h-9 rounded-full object-cover border border-slate-100 dark:border-slate-800 shadow-sm shrink-0"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] text-slate-500 shrink-0">
-                                  {story.author ? story.author[0] : "S"}
-                                </div>
-                              )}
-                              <div className="overflow-hidden flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <h4 className="text-xs font-black text-[#0B132B] dark:text-white uppercase truncate">
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <UserAvatar
+                                src={story.avatar}
+                                name={story.author || 'Story Author'}
+                                className="w-9 h-9 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm"
+                                fallbackClassName="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                textClassName="text-[11px] font-black"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="text-xs font-bold text-[#0B132B] dark:text-white break-words leading-snug">
                                     {story.author || "Unnamed Author"}
                                   </h4>
                                   {story.showOnHomePage === false ? (
@@ -2305,7 +2307,7 @@ const AdminTestimonialManager = ({
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[9px] font-black text-[#0D5BFF] uppercase truncate mt-0.5">
+                                <p className="text-[11px] font-bold text-[#0D5BFF] break-words mt-0.5">
                                   {story.role || "Guardian"}
                                 </p>
                               </div>
@@ -2393,24 +2395,19 @@ const AdminTestimonialManager = ({
                             className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-[#1E293B]/40 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 text-left transition-all flex flex-col gap-2.5"
                           >
                             <div className="flex items-center justify-between gap-2 overflow-hidden">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                {cand.avatar ? (
-                                  <img
-                                    src={cand.avatar}
-                                    alt=""
-                                    className="w-7 h-7 rounded-full object-cover shadow-sm shrink-0"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                ) : (
-                                  <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[9px] text-slate-500 shrink-0">
-                                    {cand.author ? cand.author[0] : "S"}
-                                  </div>
-                                )}
-                                <div className="overflow-hidden">
-                                  <h4 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase truncate">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <UserAvatar
+                                  src={cand.avatar}
+                                  name={cand.author || 'Student'}
+                                  className="w-7 h-7 rounded-full shadow-sm"
+                                  fallbackClassName="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                  textClassName="text-[10px] font-black"
+                                />
+                                <div className="min-w-0">
+                                  <h4 className="text-xs font-bold text-[#0B132B] dark:text-white break-words leading-snug">
                                     {cand.author}
                                   </h4>
-                                  <p className="text-[8px] font-bold text-[#0D5BFF] uppercase truncate mt-0.5">
+                                  <p className="text-[11px] font-bold text-[#0D5BFF] break-words mt-0.5">
                                     {cand.role}
                                   </p>
                                 </div>
@@ -2784,86 +2781,88 @@ const TutorPreviewCard = React.memo(({
   onToggleFavorite: () => void; 
 }) => {
   const name = tutor.name || 'Verified Tutor';
-  const uni = tutor.university || tutor.uni || '';
-  const subj = (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : tutor.subj) || 'General Subjects';
-  const img = tutor.profileImage || tutor.img;
+  const institutionLabel = formatInstitutionWithLocation(
+    tutor.university || tutor.uni,
+    tutor.district
+  );
+  const subjectSummary = formatTutorSubjectsSummary(tutor, 5);
   const isVerified = isTutorVerified(tutor);
-  const classRange = formatTutorClassesBadge(tutor);
-  const modeLabel = tutor.teachingMode || tutor.mode || 'Home & Online';
+  const classRange = formatTutorClassesRange(tutor);
+  const modeLabel = formatTeachingModeLabel(tutor.teachingMode || tutor.mode);
 
   return (
     <Link 
       to={`/teachers/${tutor.id}`} 
       onMouseEnter={() => prefetchPage('TeacherProfile')}
       onFocus={() => prefetchPage('TeacherProfile')}
-      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 hover:border-[#0D5BFF]/50 dark:hover:border-[#0D5BFF]/50 shadow-2xs hover:shadow-md transition-all duration-200 group flex items-center gap-4 relative"
+      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 hover:border-[#0D5BFF]/50 dark:hover:border-[#0D5BFF]/60 shadow-2xs hover:shadow-sm transition-all duration-200 group flex flex-col justify-between gap-2.5 h-full min-w-0"
     >
-      {/* Left: Tutor Avatar (Respects Tutor Public Privacy Controls) */}
-      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700">
-        {img ? (
-          <img 
-            src={img} 
-            alt={name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-            referrerPolicy="no-referrer" 
-            loading="lazy" 
+      <div className="space-y-2 min-w-0">
+        {/* Header: Privacy-Safe Avatar, Full Readable Name, Verification & Shortlist */}
+        <div className="flex items-start gap-3 min-w-0">
+          <UserAvatar
+            src={undefined}
+            locked={true}
+            name={name}
+            className="w-12 h-12 rounded-xl border border-slate-200/70 dark:border-slate-700/80 shrink-0"
+            textClassName="text-sm font-black text-white"
           />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#0B132B] to-[#1E293B] flex flex-col items-center justify-center text-white">
-            <span className="text-xl font-black italic text-blue-400">
-              {name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* Right: Tutor Details matching Reference Screenshot */}
-      <div className="flex-1 min-w-0 pr-6">
-        <div className="flex flex-wrap items-center gap-2 mb-1">
-          <h3 className="text-base sm:text-lg font-extrabold text-[#0B132B] dark:text-white group-hover:text-[#0D5BFF] transition-colors truncate">
-            {name}
-          </h3>
-          {isVerified && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-[#0D5BFF] dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 text-[11px] font-bold shrink-0">
-              <Check className="w-3 h-3 stroke-[3]" />
-              <span>Verified</span>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-semibold text-[#0B132B] dark:text-white group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400 transition-colors leading-snug break-words">
+              {name}
+            </h3>
+            {isVerified && (
+              <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0D5BFF] dark:text-blue-400 mt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span>Verified</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            aria-label={isFavorite ? "Remove from Saved" : "Save Tutor"}
+            title={isFavorite ? "Remove from Saved" : "Save Tutor"}
+            className="min-w-[40px] min-h-[40px] -mt-1 -mr-1.5 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer shrink-0"
+          >
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+          </button>
+        </div>
+
+        {/* Subjects: First 5 unique subjects + accurate "+N more" */}
+        <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed break-words">
+          <span className="font-medium">{subjectSummary.text}</span>
+          {subjectSummary.moreLabel && (
+            <span className="font-semibold text-[#0D5BFF] dark:text-blue-400 whitespace-nowrap">
+              {' '}
+              {subjectSummary.moreLabel}
             </span>
           )}
-        </div>
-
-        <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 truncate">
-          {subj}
         </p>
 
-        {(uni || tutor.district) && (
-          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 truncate mt-0.5">
-            {[uni, tutor.district].filter(Boolean).join(' • ')}
+        {/* Institution: Shortened intelligently with non-repeating location */}
+        {institutionLabel && (
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-snug line-clamp-2 break-words">
+            {institutionLabel}
           </p>
         )}
-
-        <div className="flex flex-wrap items-center gap-2 mt-3">
-          <span className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 text-[11px] font-bold">
-            {classRange}
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
-            {modeLabel}
-          </span>
-        </div>
       </div>
 
-      {/* Favorite Toggle Button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggleFavorite();
-        }}
-        className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-        title={isFavorite ? "Remove from Saved" : "Save Tutor"}
-      >
-        <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
-      </button>
+      {/* Footer: Smart Teaching Class Range & Teaching Mode */}
+      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px] min-w-0">
+        <span className="font-semibold text-[#0B132B] dark:text-slate-200 leading-snug break-words min-w-0">
+          {classRange}
+        </span>
+        <span className="font-semibold text-slate-600 dark:text-slate-300 shrink-0 whitespace-nowrap">
+          {modeLabel}
+        </span>
+      </div>
     </Link>
   );
 });

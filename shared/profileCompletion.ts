@@ -593,8 +593,8 @@ export function calculateProfileCompletion(
       {
         key: 'profileImage',
         label: 'Profile Photo',
-        completed: isMeaningfulValue(user.profileImage),
-        displayValue: isMeaningfulValue(user.profileImage) ? 'Uploaded' : 'Optional',
+        completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
+        displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
         targetTab: 'pro_profile',
         targetFieldId: 'tutor-field-photo',
         category: 'basic',
@@ -739,8 +739,8 @@ export function calculateProfileCompletion(
       {
         key: 'profileImage',
         label: 'Profile Photo',
-        completed: isMeaningfulValue(user.profileImage),
-        displayValue: isMeaningfulValue(user.profileImage) ? 'Uploaded' : 'Optional',
+        completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
+        displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
         targetTab: 'account',
         targetFieldId: 'account-field-photo',
         category: 'basic',
@@ -843,8 +843,8 @@ export function calculateProfileCompletion(
     {
       key: 'profileImage',
       label: 'Profile Photo',
-      completed: isMeaningfulValue(user.profileImage),
-      displayValue: isMeaningfulValue(user.profileImage) ? 'Uploaded' : 'Optional',
+      completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
+      displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
       targetTab: 'account',
       targetFieldId: 'account-field-photo',
       category: 'basic',

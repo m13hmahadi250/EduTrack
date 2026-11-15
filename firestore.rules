@@ -82,6 +82,9 @@ service cloud.firestore {
                (data.get('curriculum', null) == null || data.curriculum is string) &&
                (data.get('teachingMode', null) == null || data.teachingMode is string) &&
                (data.get('profileCompletionPercentage', null) == null || data.profileCompletionPercentage is number) &&
+               (data.get('hasProfilePhoto', null) == null || data.hasProfilePhoto is bool) &&
+               (data.get('photoVersion', null) == null || data.photoVersion is number || data.photoVersion is string) &&
+               (data.get('privacySettings', null) == null || data.privacySettings is map) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
@@ -106,6 +109,18 @@ service cloud.firestore {
                     ));
 
       allow delete: if isAdmin();
+
+      // Owner & Admin only private media and verification documents (profileImage, profilePhotoKey, NID, academic docs)
+      match /private/{docId} {
+        allow read: if isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow create, update: if isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Collection group access so Admins can hydrate all tutor private photos and verification docs
+    match /{path=**}/private/{docId} {
+      allow read: if isAdmin();
     }
 
     // --- Payments Collection ---

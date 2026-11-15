@@ -60,6 +60,64 @@ export function isTutorEligibleForStudentSearch(tutor: any): boolean {
   return isTutorVerified(tutor);
 }
 
+export interface FormattedSubjectsSummary {
+  visible: string[];
+  hiddenCount: number;
+  totalCount: number;
+  text: string;
+  moreLabel: string;
+  fullText: string;
+}
+
+export function formatTutorSubjectsSummary(
+  tutor: any,
+  maxVisible = 5
+): FormattedSubjectsSummary {
+  const limit = Math.max(1, maxVisible);
+  const primarySources: string[] = [];
+  if (tutor && typeof tutor === 'object' && tutor.primarySubjects) {
+    primarySources.push(...parseSubjectsList(tutor.primarySubjects));
+  }
+  const allSubjects = parseSubjectsList(tutor?.subjects, tutor?.subject);
+
+  // Prefer primary teaching subjects first when available, then existing subject order, deduplicated
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  for (const s of [...primarySources, ...allSubjects]) {
+    const key = s.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      ordered.push(s);
+    }
+  }
+
+  if (ordered.length === 0) {
+    return {
+      visible: [],
+      hiddenCount: 0,
+      totalCount: 0,
+      text: 'General Academic Subjects',
+      moreLabel: '',
+      fullText: 'General Academic Subjects',
+    };
+  }
+
+  const visible = ordered.slice(0, limit);
+  const hiddenCount = Math.max(0, ordered.length - visible.length);
+  const text = visible.join(', ');
+  const moreLabel = hiddenCount > 0 ? `+${hiddenCount} more` : '';
+  const fullText = moreLabel ? `${text} ${moreLabel}` : text;
+
+  return {
+    visible,
+    hiddenCount,
+    totalCount: ordered.length,
+    text,
+    moreLabel,
+    fullText,
+  };
+}
+
 export function getTutorClassesList(tutor: any): string[] {
   if (!tutor || typeof tutor !== 'object') return [];
   const rawSources: unknown[] = [];
@@ -94,11 +152,245 @@ export function getTutorClassesList(tutor: any): string[] {
   return out;
 }
 
-export function formatTutorClassesBadge(tutor: any): string {
+export function formatTutorClassesRange(tutor: any): string {
   const classes = getTutorClassesList(tutor);
   if (classes.length === 0) return 'All Academic Levels';
-  if (classes.length <= 2) return classes.join(', ');
-  return `${classes.slice(0, 2).join(', ')} +${classes.length - 2}`;
+
+  const numericSet = new Set<number>();
+  let hasSsc = false;
+  let hasHsc = false;
+  let hasOLevel = false;
+  let hasALevel = false;
+  let hasAdmission = false;
+  let hasUniversity = false;
+  const extraTiers: string[] = [];
+  const extraSeen = new Set<string>();
+
+  const pushExtra = (label: string) => {
+    const key = label.toLowerCase();
+    if (!extraSeen.has(key)) {
+      extraSeen.add(key);
+      extraTiers.push(label);
+    }
+  };
+
+  for (const rawItem of classes) {
+    const item = rawItem.trim();
+    const lower = item.toLowerCase();
+
+    // Check explicit pre-formatted ranges like "Class 1-10" or "Class 5–8"
+    const explicitRangeMatch = item.match(/^class\s*(\d{1,2})\s*[-–to]+\s*(\d{1,2})$/i);
+    if (explicitRangeMatch) {
+      const a = Number(explicitRangeMatch[1]);
+      const b = Number(explicitRangeMatch[2]);
+      if (a >= 1 && b <= 12 && a <= b) {
+        for (let n = a; n <= b; n++) numericSet.add(n);
+        continue;
+      }
+    }
+
+    // Check single school classes: "Class 8", "Std 6", or bare "8"
+    const classNumMatch =
+      item.match(/^(?:class|std|grade)[\s.-]*(\d{1,2})(?:\b|$)/i) ||
+      item.match(/^(\d{1,2})$/);
+    if (classNumMatch) {
+      const n = Number(classNumMatch[1]);
+      if (n >= 1 && n <= 12) {
+        numericSet.add(n);
+        continue;
+      }
+    }
+
+    if (/\b(o[\s-]*level|igcse)\b/i.test(lower)) {
+      hasOLevel = true;
+      continue;
+    }
+    if (/\b(a[\s-]*level)\b/i.test(lower)) {
+      hasALevel = true;
+      continue;
+    }
+    if (/\b(admission|varsity\s*admission|medical\s*admission|engineering\s*admission|buet\s*admission)\b/i.test(lower)) {
+      hasAdmission = true;
+      continue;
+    }
+    if (/\b(hsc|intermediate|alim)\b/i.test(lower)) {
+      hasHsc = true;
+      continue;
+    }
+    if (/\b(ssc|dakhil)\b/i.test(lower)) {
+      hasSsc = true;
+      continue;
+    }
+    if (/\b(university|undergraduate|honours|honors|bachelor|bsc|bba|masters|msc)\b/i.test(lower)) {
+      hasUniversity = true;
+      continue;
+    }
+    if (/^primary$/i.test(lower)) {
+      pushExtra('Primary');
+      continue;
+    }
+    if (/^(kg|kindergarten|nursery|play)$/i.test(lower)) {
+      pushExtra(lower === 'kg' ? 'KG' : item);
+      continue;
+    }
+
+    pushExtra(item);
+  }
+
+  // If both Class 11 and Class 12 are present, represent them as HSC cleanly
+  if (numericSet.has(11) && numericSet.has(12)) {
+    numericSet.delete(11);
+    numericSet.delete(12);
+    hasHsc = true;
+  }
+
+  // Group genuinely consecutive numeric classes into ranges without inventing missing levels
+  const sortedNums = Array.from(numericSet).sort((a, b) => a - b);
+  const runs: Array<{ start: number; end: number }> = [];
+  for (const num of sortedNums) {
+    const last = runs[runs.length - 1];
+    if (last && num === last.end + 1) {
+      last.end = num;
+    } else {
+      runs.push({ start: num, end: num });
+    }
+  }
+
+  const segments: string[] = [...extraTiers];
+  let sscHandled = false;
+
+  for (const run of runs) {
+    if (run.start === run.end) {
+      segments.push(`Class ${run.start}`);
+    } else if (run.start === 9 && run.end === 10 && hasSsc) {
+      segments.push('Class 9–10 (SSC)');
+      sscHandled = true;
+    } else {
+      if (run.start <= 9 && run.end >= 10 && hasSsc) {
+        sscHandled = true;
+      }
+      segments.push(`Class ${run.start}–${run.end}`);
+    }
+  }
+
+  if (hasSsc && !sscHandled) segments.push('SSC');
+  if (hasOLevel) segments.push('O Level');
+  if (hasHsc) segments.push('HSC');
+  if (hasALevel) segments.push('A Level');
+  if (hasAdmission) segments.push('Admission');
+  if (hasUniversity) segments.push('University');
+
+  // Deduplicate defensively preserving order
+  const finalSegments: string[] = [];
+  const finalSeen = new Set<string>();
+  for (const seg of segments) {
+    const key = seg.toLowerCase();
+    if (!finalSeen.has(key)) {
+      finalSeen.add(key);
+      finalSegments.push(seg);
+    }
+  }
+
+  return finalSegments.length > 0 ? finalSegments.join(', ') : 'All Academic Levels';
+}
+
+export function formatTutorClassesBadge(tutor: any): string {
+  return formatTutorClassesRange(tutor);
+}
+
+const RECOGNIZED_INSTITUTIONS: Array<[RegExp, string]> = [
+  [/^international islamic university[\s,]*chitt?agong$/i, 'IIUC'],
+  [/^bangladesh university of engineering (?:and|&) technology$/i, 'BUET'],
+  [/^(?:university of dhaka|dhaka university)$/i, 'DU'],
+  [/^chitt?agong university of engineering (?:and|&) technology$/i, 'CUET'],
+  [/^rajshahi university of engineering (?:and|&) technology$/i, 'RUET'],
+  [/^khulna university of engineering (?:and|&) technology$/i, 'KUET'],
+  [/^dhaka university of engineering (?:and|&) technology$/i, 'DUET'],
+  [/^shahjalal university of science (?:and|&) technology$/i, 'SUST'],
+  [/^(?:university of chitt?agong|chitt?agong university)$/i, 'CU'],
+  [/^jahangirnagar university$/i, 'JU'],
+  [/^jagannath university$/i, 'JnU'],
+  [/^(?:university of rajshahi|rajshahi university)$/i, 'RU'],
+  [/^khulna university$/i, 'KU'],
+  [/^bangladesh university of professionals$/i, 'BUP'],
+  [/^islamic university of technology$/i, 'IUT'],
+  [/^ahsanullah university of science (?:and|&) technology$/i, 'AUST'],
+  [/^north south university$/i, 'NSU'],
+  [/^brac university$/i, 'BRACU'],
+  [/^independent university[\s,]*bangladesh$/i, 'IUB'],
+  [/^american international university[\s-]*bangladesh$/i, 'AIUB'],
+  [/^east west university$/i, 'EWU'],
+  [/^united international university$/i, 'UIU'],
+  [/^daffodil international university$/i, 'DIU'],
+  [/^dhaka medical college$/i, 'DMC'],
+  [/^chitt?agong medical college$/i, 'CMC'],
+  [/^sir salimullah medical college$/i, 'SSMC'],
+  [/^bangladesh agricultural university$/i, 'BAU'],
+  [/^noakhali science (?:and|&) technology university$/i, 'NSTU'],
+  [/^military institute of science (?:and|&) technology$/i, 'MIST'],
+  [/^bangladesh university of textiles$/i, 'BUTEX'],
+];
+
+export function formatInstitutionDisplay(rawInstitution: unknown): string {
+  const cleaned = cleanMeaningfulString(rawInstitution);
+  if (!cleaned) return '';
+
+  // If formatted like "International Islamic University Chittagong (IIUC)" and acronym is standard
+  const parenMatch = cleaned.match(/^(.+?)\s*\(([A-Z]{2,8})\)\s*$/);
+  if (parenMatch) {
+    const baseName = parenMatch[1].trim();
+    for (const [pattern, abbr] of RECOGNIZED_INSTITUTIONS) {
+      if (pattern.test(baseName)) return abbr;
+    }
+    return cleaned;
+  }
+
+  for (const [pattern, abbr] of RECOGNIZED_INSTITUTIONS) {
+    if (pattern.test(cleaned)) return abbr;
+  }
+
+  // Do not invent abbreviations for unknown institutions
+  return cleaned;
+}
+
+export function formatInstitutionWithLocation(
+  rawInstitution: unknown,
+  rawDistrict?: unknown
+): string {
+  const uni = formatInstitutionDisplay(rawInstitution);
+  const district = cleanMeaningfulString(rawDistrict);
+  if (!uni && !district) return '';
+  if (!uni) return district;
+  if (!district) return uni;
+
+  const uniLower = uni.toLowerCase();
+  const distLower = district.toLowerCase();
+  const distAlias = normalizeDistrictAlias(district);
+  if (
+    uniLower.includes(distLower) ||
+    (distAlias && uniLower.includes(distAlias)) ||
+    (distAlias === 'chattogram' && uniLower.includes('chittagong'))
+  ) {
+    return uni;
+  }
+  return `${uni} · ${district}`;
+}
+
+export function formatTeachingModeLabel(rawMode: unknown): string {
+  const cleaned = cleanMeaningfulString(rawMode);
+  if (!cleaned) return 'Home / Online';
+  const lower = cleaned.toLowerCase();
+  if (
+    lower === 'both' ||
+    lower.includes('home & online') ||
+    lower.includes('home and online') ||
+    (lower.includes('home') && lower.includes('online'))
+  ) {
+    return 'Home / Online';
+  }
+  if (lower.includes('online')) return 'Online';
+  if (lower.includes('home')) return 'Home';
+  return cleaned;
 }
 
 export function matchesDistrictFilter(tutor: any, selectedDistrict: string): boolean {

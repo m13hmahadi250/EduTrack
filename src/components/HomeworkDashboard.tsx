@@ -634,6 +634,7 @@ export default function HomeworkDashboard() {
                   </label>
                   <FileUpload
                     currentFileUrl={pdfUrl}
+                    folder="homework"
                     onUpload={(url) => setPdfUrl(url)}
                     allowedTypes={['application/pdf']}
                     label="Upload PDF Task Document"
@@ -723,6 +724,7 @@ export default function HomeworkDashboard() {
                   </label>
                   <FileUpload
                     currentFileUrl={submissionFileUrl}
+                    folder="homework"
                     onUpload={(url) => setSubmissionFileUrl(url)}
                     allowedTypes={['application/pdf', 'image/*']}
                     label="Upload PDF or Images of Completed Homework"

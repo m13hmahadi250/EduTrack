@@ -88,10 +88,13 @@ function createAdminUserMarkerIcon(user: User, isSelected: boolean) {
   const isVerified = user.isVerified || (user.nidStatus === 'approved' && user.academicStatus === 'approved');
   const hasGps = Boolean(user.location && user.location.lat && user.location.lng);
 
-  const initial = (user.name || 'U').charAt(0).toUpperCase();
-  const avatarHtml = user.profileImage
-    ? `<img src="${user.profileImage}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" />`
-    : `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: ${themeColor}; background: ${isTutor ? '#EFF6FF' : '#ECFEFF'};">${initial}</div>`;
+  const initial = (user.name || 'U').trim().split(/\s+/).slice(0, 3).map((p) => p[0] || '').join('').toUpperCase() || 'ET';
+  const safeImage = user.profileImage && !user.profileImage.startsWith('/api/media/')
+    ? user.profileImage.replace(/"/g, '&quot;')
+    : '';
+  const avatarHtml = safeImage
+    ? `<img src="${safeImage}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div style="display: none; width: 100%; height: 100%; border-radius: 50%; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: ${themeColor}; background: ${isTutor ? '#EFF6FF' : '#ECFEFF'};">${initial}</div>`
+    : `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: ${themeColor}; background: ${isTutor ? '#EFF6FF' : '#ECFEFF'};">${initial}</div>`;
 
   const selectedRing = isSelected ? `border: 3.5px solid #F59E0B; transform: scale(1.15); box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);` : `border: 2.5px solid ${themeColor}; box-shadow: 0 8px 24px rgba(0,0,0,0.22);`;
 
@@ -382,7 +385,7 @@ export default function AdminUserMap({ users, onMessageUser, onSelectUser }: Adm
         <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 220px; max-width: 280px; padding: 4px;">
           <div style="display: flex; items-center; gap: 10px; margin-bottom: 8px;">
             <div style="width: 44px; height: 44px; border-radius: 12px; overflow: hidden; background: #F1F5F9; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; color: ${roleBadgeBg};">
-              ${user.profileImage ? `<img src="${user.profileImage}" style="width: 100%; height: 100%; object-fit: cover;" />` : (user.name || 'U').charAt(0)}
+              ${user.profileImage && !user.profileImage.startsWith('/api/media/') ? `<img src="${user.profileImage.replace(/"/g, '&quot;')}" style="width: 100%; height: 100%; object-fit: cover;" referrerpolicy="no-referrer" />` : (user.name || 'U').charAt(0).toUpperCase()}
             </div>
             <div style="min-width: 0; flex: 1;">
               <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
@@ -863,8 +866,8 @@ export default function AdminUserMap({ users, onMessageUser, onSelectUser }: Adm
             <div className="absolute bottom-6 left-6 right-6 z-[1000] bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200/90 shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-3 duration-200">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-700 overflow-hidden shrink-0">
-                  {selectedUser.profileImage ? (
-                    <img src={selectedUser.profileImage} alt="" className="w-full h-full object-cover" />
+                  {selectedUser.profileImage && !selectedUser.profileImage.startsWith('/api/media/') ? (
+                    <img src={selectedUser.profileImage} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     (selectedUser.name || 'U').charAt(0)
                   )}
@@ -939,8 +942,8 @@ export default function AdminUserMap({ users, onMessageUser, onSelectUser }: Adm
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative shrink-0">
                       <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-slate-700 overflow-hidden shadow-xs">
-                        {user.profileImage ? (
-                          <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                        {user.profileImage && !user.profileImage.startsWith('/api/media/') ? (
+                          <img src={user.profileImage} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                           (user.name || 'U').charAt(0)
                         )}

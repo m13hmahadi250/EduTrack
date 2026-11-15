@@ -6,7 +6,7 @@ import ImageCropModal from './ImageCropModal';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
-  onUpload: (url: string) => void;
+  onUpload: (url: string, key?: string) => void;
   onDelete?: () => void;
 }
 
@@ -52,6 +52,8 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
     setProgress(0);
 
     try {
+      const idToken = await auth.currentUser.getIdToken();
+
       // Create FormData to send raw file to server for 'sharp' compression & webp conversion
       const formData = new FormData();
       formData.append('image', file);
@@ -59,6 +61,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/storage/upload', true);
+      xhr.setRequestHeader('Authorization', `Bearer ${idToken}`);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -71,7 +74,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
           try {
             const data = JSON.parse(xhr.responseText);
             if (data.publicUrl) {
-              onUpload(data.publicUrl);
+              onUpload(data.publicUrl, data.key);
               setIsUploading(false);
               setProgress(0);
             } else {

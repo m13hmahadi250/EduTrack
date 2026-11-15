@@ -3,6 +3,9 @@ import { useAppStore, Message, Notification as AppNotification } from '../store'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, WifiOff, Wifi, ArrowRight, BellRing, Settings } from 'lucide-react';
+import UserAvatar from './UserAvatar';
+import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { getCachedAuthorizedPhotoUrl, isAuthorizedProxyPhotoUrl, parseAuthorizedProxyPhotoUrl } from '../lib/authorizedMedia';
 
 interface ActiveToast {
   id: string;
@@ -334,7 +337,12 @@ export default function MessageToastCenter() {
         if (isTabHidden || isNotOnMessagesPath) {
           const sender = users.find(u => u.id === m.senderId);
           const senderName = sender ? sender.name : 'Unknown User';
-          const senderAvatar = sender?.profileImage;
+          const currentSessions = useAppStore.getState().sessions || [];
+          const photoAllowed =
+            currentUser.role === 'student' && sender?.role === 'tutor'
+              ? canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, sender.id, currentSessions)
+              : true;
+          const senderAvatar = photoAllowed ? sender?.profileImage : undefined;
 
           const msgKey = `msg_${m.id}`;
           const contentKey = `msg_text_${senderName}_${m.content}`;
@@ -348,8 +356,21 @@ export default function MessageToastCenter() {
             senderAvatar
           });
 
+          let nativeIcon = '/android-chrome-192x192.png';
+          if (senderAvatar) {
+            if (isAuthorizedProxyPhotoUrl(senderAvatar)) {
+              const parsedProxy = parseAuthorizedProxyPhotoUrl(senderAvatar);
+              const cachedBlob = parsedProxy
+                ? getCachedAuthorizedPhotoUrl(parsedProxy.tutorId, parsedProxy.version)
+                : null;
+              nativeIcon = cachedBlob || '/android-chrome-192x192.png';
+            } else {
+              nativeIcon = senderAvatar;
+            }
+          }
+
           triggerNativeNotification(`New Message from ${senderName}`, m.content, {
-            icon: senderAvatar || '/android-chrome-192x192.png',
+            icon: nativeIcon,
             tag: 'edutrack-msg-' + m.senderId,
             onClickUrl: '/messages'
           });
@@ -538,16 +559,13 @@ export default function MessageToastCenter() {
                       : 'bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-[#0D5BFF]/20 border-transparent overflow-hidden'
                   }`}>
                     {isMsg ? (
-                      toast.senderAvatar ? (
-                        <img 
-                          src={toast.senderAvatar} 
-                          alt={toast.senderName} 
-                          className="w-full h-full object-cover" 
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span className="font-sans font-black italic text-sm">{toast.senderName.charAt(0).toUpperCase()}</span>
-                      )
+                      <UserAvatar
+                        src={toast.senderAvatar}
+                        locked={!toast.senderAvatar}
+                        name={toast.senderName}
+                        className="w-full h-full rounded-2xl"
+                        textClassName="text-sm font-black text-white"
+                      />
                     ) : isNotif ? (
                       toast.notifType === 'success' ? (
                         <span className="text-emerald-500 font-bold text-lg">✓</span>
