@@ -46,9 +46,39 @@
         "availabilitySlots": { "type": "object" },
         "showTour": { "type": "boolean" },
         "whatsappNumber": { "type": "string" },
-        "badges": { "type": "array", "items": { "type": "string" } }
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "accountType": { "type": "string", "enum": ["student", "guardian"] },
+        "guardianRelationship": { "type": "string" },
+        "activeStudentProfileId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "curriculum": { "type": "string" },
+        "teachingMode": { "type": "string" },
+        "profileCompletionPercentage": { "type": "number" }
       },
       "required": ["id", "role", "name", "email"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "A child/student academic profile managed by a guardian account.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "guardianId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "school": { "type": "string" },
+        "curriculum": { "type": "string" },
+        "subjects": { "type": "array", "items": { "type": "string" } },
+        "gender": { "type": "string" },
+        "district": { "type": "string" },
+        "thana": { "type": "string" },
+        "area": { "type": "string" },
+        "address": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "guardianId", "studentName", "studentClass", "school"]
     },
     "Payment": {
       "title": "Payment",
@@ -294,6 +324,10 @@
     "/error_logs/{errorId}": {
       "schema": "ErrorLog",
       "description": "Secure client error logs"
+    },
+    "/student_profiles/{profileId}": {
+      "schema": "StudentProfile",
+      "description": "Child/student profiles managed by parent/guardian accounts"
     }
   }
 }

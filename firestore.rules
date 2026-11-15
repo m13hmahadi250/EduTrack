@@ -73,20 +73,33 @@ service cloud.firestore {
                (data.get('isBlocked', null) == null || data.isBlocked is bool) &&
                (data.get('showTour', null) == null || data.showTour is bool) &&
                (data.get('whatsappNumber', null) == null || data.whatsappNumber is string) &&
+               (data.get('accountType', null) == null || data.accountType in ['student', 'guardian']) &&
+               (data.get('guardianRelationship', null) == null || data.guardianRelationship is string) &&
+               (data.get('activeStudentProfileId', null) == null || data.activeStudentProfileId is string) &&
+               (data.get('studentName', null) == null || data.studentName is string) &&
+               (data.get('school', null) == null || data.school is string) &&
+               (data.get('studentClass', null) == null || data.studentClass is string) &&
+               (data.get('curriculum', null) == null || data.curriculum is string) &&
+               (data.get('teachingMode', null) == null || data.teachingMode is string) &&
+               (data.get('profileCompletionPercentage', null) == null || data.profileCompletionPercentage is number) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
       allow read: if isSignedIn() || resource.data.role == 'tutor';
 
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
-                    (incoming().role != 'admin' || isSuperAdmin());
+                    (incoming().role != 'admin' || isSuperAdmin()) &&
+                    incoming().get('nidStatus', null) == null &&
+                    incoming().get('academicStatus', null) == null;
 
       allow update: if isAdmin() || (
                        (isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && 
                        (incoming().role == existing().role || isSuperAdmin()) && 
                        incoming().email == existing().email && 
                        (incoming().balance == existing().balance || (incoming().role == 'tutor' && incoming().balance < existing().balance) || isSuperAdmin()) && 
-                       (incoming().isVerified == existing().isVerified || isSuperAdmin())
+                       (incoming().isVerified == existing().isVerified || isSuperAdmin()) &&
+                       incoming().get('nidStatus', null) == existing().get('nidStatus', null) &&
+                       incoming().get('academicStatus', null) == existing().get('academicStatus', null)
                     ) || (
                        isSignedIn() && 
                        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingSum', 'totalRatings'])
@@ -421,6 +434,43 @@ service cloud.firestore {
         resource.data.get('studentId', '') == request.auth.uid ||
         resource.data.get('userId', '') == request.auth.uid
       ));
+    }
+
+    // --- Guardian Managed Student Profiles ---
+    match /student_profiles/{profileId} {
+      function isValidStudentProfile(data) {
+        return data.keys().hasAll(['id', 'guardianId', 'studentName', 'studentClass', 'school']) &&
+               data.id == profileId &&
+               isValidId(data.guardianId) &&
+               data.studentName is string && data.studentName.size() <= 128 &&
+               data.studentClass is string && data.studentClass.size() <= 128 &&
+               data.school is string && data.school.size() <= 200 &&
+               (data.get('curriculum', null) == null || data.curriculum is string) &&
+               (data.get('subjects', null) == null || data.subjects is list) &&
+               (data.get('gender', null) == null || data.gender is string) &&
+               (data.get('district', null) == null || data.district is string) &&
+               (data.get('thana', null) == null || data.thana is string) &&
+               (data.get('area', null) == null || data.area is string) &&
+               (data.get('address', null) == null || data.address is string) &&
+               (data.get('notes', null) == null || data.notes is string) &&
+               (data.get('createdAt', null) == null || data.createdAt is string) &&
+               (data.get('updatedAt', null) == null || data.updatedAt is string);
+      }
+
+      allow list: if isAdmin() || (isSignedIn() && resource.data.guardianId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.guardianId == request.auth.uid);
+
+      allow create: if isSignedIn() && isValidId(profileId) && isValidStudentProfile(incoming()) &&
+                    incoming().guardianId == request.auth.uid;
+
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.guardianId == request.auth.uid &&
+        incoming().guardianId == resource.data.guardianId &&
+        isValidStudentProfile(incoming())
+      );
+
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.guardianId == request.auth.uid);
     }
   }
 }

@@ -29,7 +29,15 @@ import { auth, db } from './lib/firebase';
 import { sendWelcomeMail } from './services/mailService';
 import { reverseGeocodeLocation } from './utils/geocoding';
 import { hasActiveOrPendingBooking, TutorPrivacySettings } from '../shared/tutorPrivacy';
+import {
+  AccountType,
+  StudentProfileRecord,
+  calculateProfileCompletion,
+  cleanMeaningfulString,
+  normalizeUserProfileFields,
+} from '../shared/profileCompletion';
 
+export type { AccountType, StudentProfileRecord };
 export type Role = 'student' | 'tutor' | 'admin';
 
 export function consumePostLoginDestination(defaultPath = '/dashboard'): string {
@@ -68,12 +76,17 @@ export interface User {
   thana?: string;
   teachingAreas?: string[]; // Areas where the tutor provides service
   
-  // Student Specific
+  // Student / Guardian Specific
+  accountType?: AccountType;
+  guardianRelationship?: string;
+  activeStudentProfileId?: string;
+  studentName?: string;
   address?: string;
   group?: string;
   subject?: string;
   studentClass?: string;
   school?: string;
+  profileCompletionPercentage?: number;
   
   // Tutor Specific
   semester?: string;
@@ -118,7 +131,7 @@ export interface User {
   whatsappNumber?: string;
   badges?: string[];
   notifyTutorIds?: string[];
-  teachingMode?: 'Home' | 'Online' | 'Both' | string;
+  teachingMode?: 'Home' | 'Online' | 'Both' | 'Home Tutoring' | 'Online Tutoring' | 'Home & Online' | string;
   curriculum?: string;
   privacySettings?: TutorPrivacySettings;
 }
@@ -241,6 +254,7 @@ interface AppState {
   classLogs: ClassLog[];
   homeworkAssignments: HomeworkAssignment[];
   referrals: Referral[];
+  studentProfiles: StudentProfileRecord[];
   isLoading: boolean;
   isInitialized: boolean;
   isLoggingOut: boolean;
@@ -258,6 +272,12 @@ interface AppState {
   setUserActiveStatus: (id: string, isOnline: boolean) => Promise<void>;
   toggleTracking: (id: string, isOn: boolean) => Promise<void>;
   updateAvailabilitySlots: (slots: { [key: string]: string[] }) => Promise<void>;
+
+  // Guardian Managed Student Profiles
+  createStudentProfile: (profileData: Omit<StudentProfileRecord, 'id' | 'guardianId' | 'createdAt' | 'updatedAt'>) => Promise<StudentProfileRecord>;
+  updateStudentProfile: (profileId: string, updates: Partial<Omit<StudentProfileRecord, 'id' | 'guardianId'>>) => Promise<void>;
+  deleteStudentProfile: (profileId: string) => Promise<void>;
+  setActiveStudentProfile: (profileId: string) => Promise<void>;
   
   // Class verification actions
   logClass: (studentId: string, tutorId: string, subject: string, date: string, notes?: string) => Promise<void>;
@@ -445,7 +465,7 @@ export const useAppStore = create<AppState>((set, get) => {
         }
 
         if (userDoc.exists()) {
-          let userData = userDoc.data() as User;
+          let userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
           const lowercaseEmail = firebaseUser.email?.toLowerCase();
           if (lowercaseEmail === 'edutrackbangladesh@gmail.com' || lowercaseEmail === 'm13hmahadi.personal@gmail.com') {
             if (userData.role !== 'admin' || !userData.isVerified) {
@@ -480,6 +500,7 @@ export const useAppStore = create<AppState>((set, get) => {
               classLogs: [],
               homeworkAssignments: [],
               referrals: [],
+              studentProfiles: [],
               typingStatus: {},
             });
           }
@@ -567,6 +588,7 @@ export const useAppStore = create<AppState>((set, get) => {
             classLogs: [],
             homeworkAssignments: [],
             referrals: [],
+            studentProfiles: [],
             typingStatus: {},
           });
           setupListeners(firebaseUser.uid, cleanedUser.role, set, get);
@@ -594,6 +616,7 @@ export const useAppStore = create<AppState>((set, get) => {
         classLogs: [],
         homeworkAssignments: [],
         referrals: [],
+        studentProfiles: [],
         typingStatus: {},
         isLoading: false,
         isInitialized: true,
@@ -604,7 +627,7 @@ export const useAppStore = create<AppState>((set, get) => {
   const cachedUserInitial = typeof window !== 'undefined' ? (() => {
     try {
       const raw = localStorage.getItem('edutrack_cached_user');
-      return raw ? JSON.parse(raw) as User : null;
+      return raw ? normalizeUserProfileFields(JSON.parse(raw) as User) : null;
     } catch {
       return null;
     }
@@ -621,6 +644,7 @@ export const useAppStore = create<AppState>((set, get) => {
     classLogs: [],
     homeworkAssignments: [],
     referrals: [],
+    studentProfiles: [],
     isLoading: false,
     isInitialized: true,
     isLoggingOut: false,
@@ -972,7 +996,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
           let userData: User;
           if (userDoc.exists()) {
-            userData = userDoc.data() as User;
+            userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
             const lowercaseEmail = firebaseUser.email?.toLowerCase();
             if (lowercaseEmail === 'edutrackbangladesh@gmail.com' || lowercaseEmail === 'm13hmahadi.personal@gmail.com') {
               if (userData.role !== 'admin' || !userData.isVerified) {
@@ -991,14 +1015,14 @@ export const useAppStore = create<AppState>((set, get) => {
             const finalRole = isMainAdmin ? 'admin' : (requestedRole || 'student');
             const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
-            const newUser: User = {
+            const rawGoogleUser: User = {
               id: firebaseUser.uid,
               email: firebaseUser.email!,
               name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
               phone: firebaseUser.phoneNumber || (additionalUserData?.phone || ''),
               role: finalRole,
               balance: 0,
-              isVerified: isMainAdmin ? true : false,
+              isVerified: isMainAdmin || finalRole === 'student',
               isTrackingOn: false,
               rating: isMainAdmin ? 5 : 0,
               profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
@@ -1009,10 +1033,52 @@ export const useAppStore = create<AppState>((set, get) => {
               serviceDiscounts: 0,
               ...additionalUserData
             };
+            const newUser = normalizeUserProfileFields(rawGoogleUser);
+            const initialCompletion = calculateProfileCompletion(newUser);
+            newUser.profileCompletionPercentage = initialCompletion.percentage;
 
             const cleanedUser = cleanUndefined(newUser);
             await setDoc(userDocRef, cleanedUser);
             userData = cleanedUser;
+
+            if (
+              userData.role === 'student' &&
+              userData.accountType === 'guardian' &&
+              (cleanMeaningfulString(userData.studentName) || cleanMeaningfulString(userData.studentClass))
+            ) {
+              const spId = `sp_${firebaseUser.uid}_${Date.now()}`;
+              const nowIso = new Date().toISOString();
+              const spRecord: StudentProfileRecord = cleanUndefined({
+                id: spId,
+                guardianId: firebaseUser.uid,
+                studentName: cleanMeaningfulString(userData.studentName) || 'Student',
+                studentClass: cleanMeaningfulString(userData.studentClass) || '',
+                school: cleanMeaningfulString(userData.school) || '',
+                curriculum: cleanMeaningfulString(userData.curriculum || userData.group) || '',
+                subjects: userData.subjects || [],
+                district: userData.district || '',
+                thana: userData.thana || '',
+                area: userData.area || '',
+                address: userData.address || '',
+                createdAt: nowIso,
+                updatedAt: nowIso,
+              });
+              try {
+                await setDoc(doc(db, 'student_profiles', spId), spRecord);
+                const updatedCompletion = calculateProfileCompletion(userData, { studentProfiles: [spRecord] });
+                userData = {
+                  ...userData,
+                  activeStudentProfileId: spId,
+                  profileCompletionPercentage: updatedCompletion.percentage,
+                };
+                await updateDoc(userDocRef, {
+                  activeStudentProfileId: spId,
+                  profileCompletionPercentage: updatedCompletion.percentage,
+                });
+              } catch (spErr) {
+                console.warn('Non-blocking: could not initialize Google guardian student profile:', spErr);
+              }
+            }
 
             if (userData.email && userData.role === 'tutor') {
               sendWelcomeMail({
@@ -1040,6 +1106,7 @@ export const useAppStore = create<AppState>((set, get) => {
             classLogs: [],
             homeworkAssignments: [],
             referrals: [],
+            studentProfiles: [],
             typingStatus: {},
             isLoading: false,
             isInitialized: true,
@@ -1139,6 +1206,7 @@ export const useAppStore = create<AppState>((set, get) => {
         classLogs: [],
         homeworkAssignments: [],
         referrals: [],
+        studentProfiles: [],
         typingStatus: {},
         isLoggingOut: false,
       });
@@ -1190,7 +1258,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
         const referralCode = `EDU-${userData.name ? userData.name.split(' ')[0].toUpperCase() : 'USER'}-${uid.substring(0, 4).toUpperCase()}`;
 
-        const newUser: User = {
+        const rawNewUser: User = {
           ...userData,
           id: uid,
           role: finalRole,
@@ -1206,12 +1274,60 @@ export const useAppStore = create<AppState>((set, get) => {
           serviceDiscounts: 0,
         } as User;
 
+        const newUser = normalizeUserProfileFields(rawNewUser);
+        let initialStudentProfiles: StudentProfileRecord[] = [];
+
+        if (
+          finalRole === 'student' &&
+          newUser.accountType === 'guardian' &&
+          (cleanMeaningfulString(newUser.studentName) ||
+            cleanMeaningfulString(newUser.studentClass) ||
+            cleanMeaningfulString(newUser.school))
+        ) {
+          const spId = `sp_${uid}_${Date.now()}`;
+          const nowIso = new Date().toISOString();
+          const initialStudentProfile: StudentProfileRecord = cleanUndefined({
+            id: spId,
+            guardianId: uid,
+            studentName: cleanMeaningfulString(newUser.studentName) || 'Student',
+            studentClass: cleanMeaningfulString(newUser.studentClass) || '',
+            school: cleanMeaningfulString(newUser.school) || '',
+            curriculum: cleanMeaningfulString(newUser.curriculum || newUser.group) || '',
+            subjects: newUser.subjects || [],
+            district: newUser.district || '',
+            thana: newUser.thana || '',
+            area: newUser.area || '',
+            address: newUser.address || '',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          });
+          initialStudentProfiles = [initialStudentProfile];
+          newUser.activeStudentProfileId = spId;
+        }
+
+        const completion = calculateProfileCompletion(newUser, {
+          studentProfiles: initialStudentProfiles,
+        });
+        newUser.profileCompletionPercentage = completion.percentage;
+
         const cleanedUser = cleanUndefined(newUser);
 
         // Save/Merge to Firestore
         await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
+        if (initialStudentProfiles.length > 0) {
+          await setDoc(
+            doc(db, 'student_profiles', initialStudentProfiles[0].id),
+            initialStudentProfiles[0]
+          );
+        }
+
         clearEphemeralAuthStorage();
-        set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
+        set({
+          currentUser: cleanedUser,
+          studentProfiles: initialStudentProfiles,
+          isLoading: false,
+          isInitialized: true,
+        });
         try {
           localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
         } catch (e) {}
@@ -1257,22 +1373,276 @@ export const useAppStore = create<AppState>((set, get) => {
 
     updateUser: async (id, data) => {
       try {
-        const cleanedData = cleanUndefined(data);
-        await updateDoc(doc(db, 'users', id), cleanedData as any);
-        // Update local state immediately for snappy UI
         const current = get().currentUser;
+        const baseUser = current?.id === id ? current : get().users.find(u => u.id === id);
+        let payloadToWrite: Partial<User> = cleanUndefined(data);
+
+        if (baseUser) {
+          const mergedNormalized = normalizeUserProfileFields({
+            ...baseUser,
+            ...payloadToWrite,
+          });
+          // Sync canonical mirror fields if related fields were updated
+          if (payloadToWrite.school !== undefined) {
+            payloadToWrite.school = mergedNormalized.school;
+          }
+          if (payloadToWrite.curriculum !== undefined || payloadToWrite.group !== undefined) {
+            payloadToWrite.curriculum = mergedNormalized.curriculum;
+            payloadToWrite.group = mergedNormalized.group;
+          }
+          if (payloadToWrite.subjects !== undefined || payloadToWrite.subject !== undefined) {
+            payloadToWrite.subjects = mergedNormalized.subjects;
+            payloadToWrite.subject = mergedNormalized.subject;
+          }
+          const isProfileMutation = Object.keys(payloadToWrite).some(
+            (k) =>
+              ![
+                'location',
+                'lastLocation',
+                'lastLocationUpdatedAt',
+                'lastActiveAt',
+                'isOnline',
+                'showTour',
+                'hasDismissedProfileNotice',
+              ].includes(k)
+          );
+          if (isProfileMutation) {
+            const completion = calculateProfileCompletion(mergedNormalized, {
+              studentProfiles: current?.id === id ? get().studentProfiles : undefined,
+            });
+            payloadToWrite.profileCompletionPercentage = completion.percentage;
+          }
+        }
+
+        payloadToWrite = cleanUndefined(payloadToWrite);
+        await updateDoc(doc(db, 'users', id), payloadToWrite as any);
+
+        // Update local state and localStorage cache immediately after confirmed write
         if (current?.id === id) {
-          set({ currentUser: { ...current, ...cleanedData } as User });
+          const updatedCurrent = normalizeUserProfileFields({
+            ...current,
+            ...payloadToWrite,
+          } as User);
+          set({ currentUser: updatedCurrent });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedCurrent));
+          } catch {}
         }
         const usersList = get().users;
         if (usersList.some(u => u.id === id)) {
           set({
-            users: usersList.map(u => u.id === id ? { ...u, ...cleanedData } as User : u)
+            users: usersList.map(u =>
+              u.id === id ? normalizeUserProfileFields({ ...u, ...payloadToWrite } as User) : u
+            )
           });
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
       }
+    },
+
+    createStudentProfile: async (profileData) => {
+      const current = get().currentUser;
+      if (!current) {
+        throw new Error('You must be signed in to add a student profile.');
+      }
+      const id = `sp_${current.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const nowIso = new Date().toISOString();
+      const record: StudentProfileRecord = cleanUndefined({
+        ...profileData,
+        id,
+        guardianId: current.id,
+        studentName: cleanMeaningfulString(profileData.studentName) || profileData.studentName.trim(),
+        studentClass: cleanMeaningfulString(profileData.studentClass) || profileData.studentClass.trim(),
+        school: cleanMeaningfulString(profileData.school) || profileData.school.trim(),
+        curriculum: cleanMeaningfulString(profileData.curriculum) || '',
+        subjects: Array.isArray(profileData.subjects) ? profileData.subjects.filter(Boolean) : [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+
+      try {
+        await setDoc(doc(db, 'student_profiles', id), record);
+        const nextProfiles = [...get().studentProfiles.filter(p => p.id !== id), record];
+        set({ studentProfiles: nextProfiles });
+
+        const summaryUpdate: Partial<User> = {
+          activeStudentProfileId: id,
+          studentName: record.studentName,
+          studentClass: record.studentClass,
+          school: record.school,
+          curriculum: record.curriculum || '',
+          group: record.curriculum || '',
+          subjects: record.subjects || current.subjects || [],
+        };
+        const updatedUserCandidate = normalizeUserProfileFields({
+          ...current,
+          ...summaryUpdate,
+        });
+        const completion = calculateProfileCompletion(updatedUserCandidate, {
+          studentProfiles: nextProfiles,
+        });
+        summaryUpdate.profileCompletionPercentage = completion.percentage;
+
+        await updateDoc(doc(db, 'users', current.id), cleanUndefined(summaryUpdate) as any);
+        const finalUser = normalizeUserProfileFields({
+          ...current,
+          ...summaryUpdate,
+        } as User);
+        set({ currentUser: finalUser });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(finalUser));
+        } catch {}
+        return record;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `student_profiles/${id}`);
+        throw error;
+      }
+    },
+
+    updateStudentProfile: async (profileId, updates) => {
+      const current = get().currentUser;
+      if (!current) return;
+      const existing = get().studentProfiles.find((p) => p.id === profileId);
+      if (!existing) {
+        throw new Error('Student profile not found.');
+      }
+      const nextRecord: StudentProfileRecord = cleanUndefined({
+        ...existing,
+        ...updates,
+        studentName:
+          updates.studentName !== undefined
+            ? cleanMeaningfulString(updates.studentName) || updates.studentName.trim()
+            : existing.studentName,
+        studentClass:
+          updates.studentClass !== undefined
+            ? cleanMeaningfulString(updates.studentClass) || updates.studentClass.trim()
+            : existing.studentClass,
+        school:
+          updates.school !== undefined
+            ? cleanMeaningfulString(updates.school) || updates.school.trim()
+            : existing.school,
+        curriculum:
+          updates.curriculum !== undefined
+            ? cleanMeaningfulString(updates.curriculum)
+            : existing.curriculum,
+        updatedAt: new Date().toISOString(),
+      });
+
+      try {
+        await updateDoc(doc(db, 'student_profiles', profileId), cleanUndefined(nextRecord) as any);
+        const nextProfiles = get().studentProfiles.map((p) =>
+          p.id === profileId ? nextRecord : p
+        );
+        set({ studentProfiles: nextProfiles });
+
+        const isActive =
+          !current.activeStudentProfileId || current.activeStudentProfileId === profileId;
+        if (isActive) {
+          const summaryUpdate: Partial<User> = {
+            activeStudentProfileId: profileId,
+            studentName: nextRecord.studentName,
+            studentClass: nextRecord.studentClass,
+            school: nextRecord.school,
+            curriculum: nextRecord.curriculum || '',
+            group: nextRecord.curriculum || '',
+            subjects: nextRecord.subjects || current.subjects || [],
+          };
+          const updatedCandidate = normalizeUserProfileFields({
+            ...current,
+            ...summaryUpdate,
+          });
+          summaryUpdate.profileCompletionPercentage = calculateProfileCompletion(updatedCandidate, {
+            studentProfiles: nextProfiles,
+          }).percentage;
+
+          await updateDoc(doc(db, 'users', current.id), cleanUndefined(summaryUpdate) as any);
+          const finalUser = normalizeUserProfileFields({
+            ...current,
+            ...summaryUpdate,
+          } as User);
+          set({ currentUser: finalUser });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(finalUser));
+          } catch {}
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `student_profiles/${profileId}`);
+        throw error;
+      }
+    },
+
+    deleteStudentProfile: async (profileId) => {
+      const current = get().currentUser;
+      if (!current) return;
+      try {
+        await deleteDoc(doc(db, 'student_profiles', profileId));
+        const nextProfiles = get().studentProfiles.filter((p) => p.id !== profileId);
+        set({ studentProfiles: nextProfiles });
+
+        if (current.activeStudentProfileId === profileId) {
+          const fallback = nextProfiles[0];
+          const summaryUpdate: Partial<User> = fallback
+            ? {
+                activeStudentProfileId: fallback.id,
+                studentName: fallback.studentName,
+                studentClass: fallback.studentClass,
+                school: fallback.school,
+                curriculum: fallback.curriculum || '',
+                group: fallback.curriculum || '',
+                subjects: fallback.subjects || [],
+              }
+            : {
+                activeStudentProfileId: '',
+                studentName: '',
+                studentClass: '',
+                school: '',
+              };
+          const updatedCandidate = normalizeUserProfileFields({
+            ...current,
+            ...summaryUpdate,
+          });
+          summaryUpdate.profileCompletionPercentage = calculateProfileCompletion(updatedCandidate, {
+            studentProfiles: nextProfiles,
+          }).percentage;
+          await updateDoc(doc(db, 'users', current.id), cleanUndefined(summaryUpdate) as any);
+          const finalUser = normalizeUserProfileFields({
+            ...current,
+            ...summaryUpdate,
+          } as User);
+          set({ currentUser: finalUser });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(finalUser));
+          } catch {}
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `student_profiles/${profileId}`);
+        throw error;
+      }
+    },
+
+    setActiveStudentProfile: async (profileId) => {
+      const current = get().currentUser;
+      if (!current) return;
+      const target = get().studentProfiles.find((p) => p.id === profileId);
+      if (!target) return;
+      const summaryUpdate: Partial<User> = {
+        activeStudentProfileId: target.id,
+        studentName: target.studentName,
+        studentClass: target.studentClass,
+        school: target.school,
+        curriculum: target.curriculum || '',
+        group: target.curriculum || '',
+        subjects: target.subjects || [],
+      };
+      const updatedCandidate = normalizeUserProfileFields({
+        ...current,
+        ...summaryUpdate,
+      });
+      summaryUpdate.profileCompletionPercentage = calculateProfileCompletion(updatedCandidate, {
+        studentProfiles: get().studentProfiles,
+      }).percentage;
+      await get().updateUser(current.id, summaryUpdate);
     },
 
     deleteUser: async (id) => {
@@ -2096,6 +2466,7 @@ function persistOfflineData(uid: string, state: any) {
       notifications: state.notifications || [],
       withdrawals: state.withdrawals || [],
       referrals: state.referrals || [],
+      studentProfiles: state.studentProfiles || [],
       cachedAt: new Date().toISOString()
     };
     localStorage.setItem(`edutrack_offline_cache_${uid}`, JSON.stringify(cacheData));
@@ -2120,7 +2491,8 @@ function loadOfflineData(uid: string, set: any) {
           payments: parsed.payments || [],
           notifications: parsed.notifications || [],
           withdrawals: parsed.withdrawals || [],
-          referrals: parsed.referrals || []
+          referrals: parsed.referrals || [],
+          studentProfiles: parsed.studentProfiles || []
         });
       }
     }
@@ -2138,12 +2510,16 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   // 1. Listen to OWN user document for real-time profile updates (balance, verification, etc.)
   const unsubSelf = onSnapshot(doc(db, 'users', uid), async (snapshot) => {
     if (snapshot.exists()) {
-      const userData = { id: snapshot.id, ...snapshot.data() } as User;
+      const rawData = { id: snapshot.id, ...snapshot.data() } as User;
+      const userData = normalizeUserProfileFields(rawData);
       const lowerSelfEmail = userData.email?.toLowerCase();
       if (lowerSelfEmail === 'edutrackbangladesh@gmail.com' || lowerSelfEmail === 'm13hmahadi.personal@gmail.com') {
         if (userData.role !== 'admin' || !userData.isVerified) {
           const updatedData = { ...userData, role: 'admin' as Role, isVerified: true };
           set({ currentUser: updatedData });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedData));
+          } catch {}
           try {
             await updateDoc(doc(db, 'users', uid), { role: 'admin', isVerified: true });
           } catch (e) {
@@ -2152,7 +2528,26 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
           return;
         }
       }
+
+      // Safe idempotent migration: if a legacy student doc saved school into `university` or saved literal "Not Specified", heal canonical `school` field in Firestore
+      if (
+        rawData.role === 'student' &&
+        auth.currentUser?.uid === uid &&
+        ((rawData.school === 'Not Specified' || !cleanMeaningfulString(rawData.school)) && cleanMeaningfulString(rawData.university))
+      ) {
+        try {
+          await updateDoc(doc(db, 'users', uid), {
+            school: userData.school || '',
+          });
+        } catch (migErr) {
+          console.warn('Non-blocking legacy student school migration skipped:', migErr);
+        }
+      }
+
       set({ currentUser: userData });
+      try {
+        localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+      } catch {}
     } else {
       // User document not found in snapshot: check if auth is still active before clearing
       if (!auth.currentUser || auth.currentUser.uid !== uid) {
@@ -2163,6 +2558,28 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     handleFirestoreError(error, OperationType.GET, `users/${uid}`);
   });
   activeUnsubscribes.push(unsubSelf);
+
+  // 1b. Listen to Guardian-managed student profiles for student/guardian accounts
+  if (role === 'student') {
+    const studentProfilesQuery = query(
+      collection(db, 'student_profiles'),
+      where('guardianId', '==', uid)
+    );
+    const unsubStudentProfiles = onSnapshot(
+      studentProfilesQuery,
+      (snapshot) => {
+        const studentProfiles = snapshot.docs.map(
+          (docSnap) => ({ id: docSnap.id, ...docSnap.data() } as StudentProfileRecord)
+        );
+        set({ studentProfiles });
+        persistOfflineData(uid, get());
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'student_profiles');
+      }
+    );
+    activeUnsubscribes.push(unsubStudentProfiles);
+  }
 
   // 2. Listen to other users based on the role to speed up loading and reduce bandwidth/PII exposure
   let usersQuery;

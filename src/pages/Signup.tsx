@@ -18,8 +18,14 @@ import {
   Phone,
   MessageCircle,
   ShieldCheck,
-  User
+  User,
+  Users
 } from 'lucide-react';
+import {
+  AccountType,
+  cleanMeaningfulString,
+  parseSubjectsList,
+} from '../../shared/profileCompletion';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BANGLADESH_DISTRICTS,
@@ -119,7 +125,8 @@ function writePersistedOtpChallenge(challenge: PersistedOtpChallenge | null) {
 
 export default function Signup() {
   const [searchParams] = useSearchParams();
-  const initialRole = searchParams.get('role') === 'tutor' ? 'tutor' : 'student';
+  const paramRoleRaw = searchParams.get('role');
+  const initialRole: 'student' | 'tutor' = paramRoleRaw === 'tutor' ? 'tutor' : 'student';
 
   const savedDraft = React.useMemo(() => {
     try {
@@ -132,9 +139,14 @@ export default function Signup() {
   }, []);
 
   const [role, setRole] = useState<'student' | 'tutor'>(() => {
-    if (searchParams.get('role') === 'tutor') return 'tutor';
-    if (searchParams.get('role') === 'student') return 'student';
+    if (paramRoleRaw === 'tutor') return 'tutor';
+    if (paramRoleRaw === 'student' || paramRoleRaw === 'guardian') return 'student';
     return savedDraft?.role === 'tutor' ? 'tutor' : initialRole;
+  });
+  const [accountType, setAccountType] = useState<AccountType>(() => {
+    if (paramRoleRaw === 'guardian') return 'guardian';
+    if (paramRoleRaw === 'student') return 'student';
+    return savedDraft?.accountType === 'guardian' ? 'guardian' : 'student';
   });
   const [step, setStep] = useState<1 | 2 | 3>(() =>
     savedDraft?.step === 2 || savedDraft?.step === 3 ? savedDraft.step : 1
@@ -147,6 +159,7 @@ export default function Signup() {
     delete restored.password;
     return {
       division: 'Dhaka',
+      teachingMode: 'Home & Online',
       ...restored,
     };
   });
@@ -161,8 +174,14 @@ export default function Signup() {
 
   useEffect(() => {
     const paramRole = searchParams.get('role');
-    if (paramRole === 'tutor' || paramRole === 'student') {
-      setRole(paramRole);
+    if (paramRole === 'tutor') {
+      setRole('tutor');
+    } else if (paramRole === 'guardian') {
+      setRole('student');
+      setAccountType('guardian');
+    } else if (paramRole === 'student') {
+      setRole('student');
+      setAccountType('student');
     }
   }, [searchParams]);
 
@@ -174,6 +193,7 @@ export default function Signup() {
         SIGNUP_DRAFT_KEY,
         JSON.stringify({
           role,
+          accountType,
           step,
           sameAsMobile,
           referralCodeInput,
@@ -183,7 +203,7 @@ export default function Signup() {
     } catch {
       // Ignore storage quota errors
     }
-  }, [role, step, sameAsMobile, referralCodeInput, formData, signupSuccess]);
+  }, [role, accountType, step, sameAsMobile, referralCodeInput, formData, signupSuccess]);
 
   // Keep whatsappNumber synced with phone when sameAsMobile is checked
   useEffect(() => {
@@ -259,8 +279,13 @@ export default function Signup() {
     const errs: Record<string, string> = {};
 
     if (targetStep === 1) {
-      if (!formData.name || !formData.name.trim()) {
-        errs.name = 'Full name is required';
+      if (!cleanMeaningfulString(formData.name)) {
+        errs.name = accountType === 'guardian' && role === 'student'
+          ? 'Guardian full name is required'
+          : 'Full name is required';
+      }
+      if (role === 'student' && accountType === 'guardian' && !cleanMeaningfulString(formData.guardianRelationship)) {
+        errs.guardianRelationship = 'Please select your relationship to the student';
       }
       if (!formData.email || !formData.email.trim()) {
         errs.email = 'Email address is required';
@@ -279,7 +304,7 @@ export default function Signup() {
         }
       }
 
-      if (!formData.gender || !formData.gender.trim()) {
+      if (!cleanMeaningfulString(formData.gender)) {
         errs.gender = 'Please select your gender';
       }
       if (!formData.password) {
@@ -290,36 +315,42 @@ export default function Signup() {
     }
 
     if (targetStep === 2) {
-      if (!formData.district || !formData.district.trim()) {
+      if (!cleanMeaningfulString(formData.district)) {
         errs.district = 'Please select your district';
       }
-      if (!formData.thana || !formData.thana.trim()) {
+      if (!cleanMeaningfulString(formData.thana)) {
         errs.thana = 'Please select your thana / upazila';
       }
-      if (!formData.area || !formData.area.trim()) {
+      if (!cleanMeaningfulString(formData.area)) {
         errs.area = 'Please enter your area or neighborhood';
       }
     }
 
     if (targetStep === 3) {
       if (role === 'student') {
-        if (!formData.studentClass || !formData.studentClass.trim()) {
+        if (accountType === 'guardian' && !cleanMeaningfulString(formData.studentName)) {
+          errs.studentName = "Student's full name is required";
+        }
+        if (!cleanMeaningfulString(formData.studentClass)) {
           errs.studentClass = 'Class / grade is required';
         }
-        if (!formData.group || !formData.group.trim()) {
-          errs.group = 'Curriculum or group is required';
+        if (!cleanMeaningfulString(formData.school)) {
+          errs.school = 'School or college name is required';
         }
-        if (!formData.subject || !formData.subject.trim()) {
+        if (!cleanMeaningfulString(formData.curriculum || formData.group)) {
+          errs.group = 'Curriculum or medium is required';
+        }
+        if (!cleanMeaningfulString(formData.subject)) {
           errs.subject = 'Subjects needed are required';
         }
       } else {
-        if (!formData.university || !formData.university.trim()) {
+        if (!cleanMeaningfulString(formData.university)) {
           errs.university = 'University or college name is required';
         }
-        if (!formData.course || !formData.course.trim()) {
+        if (!cleanMeaningfulString(formData.course)) {
           errs.course = 'Department / degree is required';
         }
-        if (!formData.year || !formData.year.trim()) {
+        if (!cleanMeaningfulString(formData.year)) {
           errs.year = 'Current academic year is required';
         }
       }
@@ -695,22 +726,45 @@ export default function Signup() {
       const inferredDivision =
         formData.division || inferDivisionFromDistrict(formData.district) || 'Dhaka';
       const fallbackAddress =
-        formData.address?.trim() ||
-        [formData.area, formData.thana, formData.district].filter(Boolean).join(', ');
+        cleanMeaningfulString(formData.address) ||
+        [formData.area, formData.thana, formData.district].map((v) => cleanMeaningfulString(v)).filter(Boolean).join(', ');
+      const cleanCurriculum = cleanMeaningfulString(formData.curriculum || formData.group);
+      const cleanSchool = cleanMeaningfulString(formData.school);
+      const parsedSubjects = parseSubjectsList(formData.subjects, formData.subject);
 
       // Preserve exact user-entered password (never .trim())
       const password = formData.password;
-      const payload = {
+      const payload: any = {
         ...formData,
-        name: formData.name.trim(),
+        name: cleanMeaningfulString(formData.name) || formData.name.trim(),
         email: trimmedEmail,
         phone: normalizedPhone,
         whatsappNumber: finalWhatsapp,
         division: inferredDivision,
         address: fallbackAddress,
-        school: formData.school?.trim() || 'Not Specified',
-        semester: formData.semester?.trim() || formData.year || 'Current Session',
+        area: cleanMeaningfulString(formData.area),
+        district: cleanMeaningfulString(formData.district),
+        thana: cleanMeaningfulString(formData.thana),
+        school: role === 'student' ? cleanSchool : undefined,
+        curriculum: cleanCurriculum,
+        group: cleanCurriculum,
+        subjects: parsedSubjects,
+        subject: parsedSubjects.join(', '),
+        semester: cleanMeaningfulString(formData.semester),
         role,
+        ...(role === 'student'
+          ? {
+              accountType,
+              ...(accountType === 'guardian'
+                ? {
+                    guardianRelationship: cleanMeaningfulString(formData.guardianRelationship),
+                    studentName: cleanMeaningfulString(formData.studentName),
+                  }
+                : {}),
+            }
+          : {
+              teachingMode: cleanMeaningfulString(formData.teachingMode) || 'Home & Online',
+            }),
       };
       delete payload.password;
 
@@ -752,15 +806,26 @@ export default function Signup() {
     navigate(targetDest, { replace: true });
   };
 
-  const accentColor = role === 'student' ? '#0D5BFF' : '#D97706';
+  const accentColor =
+    role === 'tutor' ? '#D97706' : accountType === 'guardian' ? '#059669' : '#0D5BFF';
 
   const stepLabels = [
     { num: 1, title: 'Account & Contact', subtitle: 'Basic details & WhatsApp' },
     { num: 2, title: 'Location', subtitle: 'District, Thana & Area' },
     {
       num: 3,
-      title: role === 'student' ? 'Tuition Preferences' : 'Academic Profile',
-      subtitle: role === 'student' ? 'Class & subjects' : 'University & degree',
+      title:
+        role === 'tutor'
+          ? 'Academic Profile'
+          : accountType === 'guardian'
+          ? 'Student Profile'
+          : 'Academic Details',
+      subtitle:
+        role === 'tutor'
+          ? 'University & teaching mode'
+          : accountType === 'guardian'
+          ? 'Child class, school & subjects'
+          : 'Class, school & subjects',
     },
   ];
 
@@ -838,23 +903,24 @@ export default function Signup() {
               </p>
             </div>
 
-            {/* Clear Role Selection Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7" role="radiogroup" aria-label="Select account role">
+            {/* Clear 3-Way Role Selection Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7" role="radiogroup" aria-label="Select account role">
               <button
                 type="button"
                 onClick={() => {
                   setRole('student');
+                  setAccountType('student');
                   setError('');
                 }}
-                className={`flex items-start gap-3.5 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                  role === 'student'
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                  role === 'student' && accountType === 'student'
                     ? 'border-[#0D5BFF] bg-blue-50/60 dark:bg-blue-950/40 shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600'
                 }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                    role === 'student'
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    role === 'student' && accountType === 'student'
                       ? 'bg-[#0D5BFF] text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                   }`}
@@ -862,18 +928,57 @@ export default function Signup() {
                   <GraduationCap className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      I am a Student / Guardian
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      I am a Student
                     </span>
-                    {role === 'student' && (
+                    {role === 'student' && accountType === 'student' && (
                       <span className="w-5 h-5 rounded-full bg-[#0D5BFF] text-white flex items-center justify-center shrink-0">
                         <Check className="w-3 h-3 stroke-[3]" />
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
-                    Find verified tutors, post tuition jobs & track sessions
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                    Manage your own tuition, homework &amp; live classes
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRole('student');
+                  setAccountType('guardian');
+                  setError('');
+                }}
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                  role === 'student' && accountType === 'guardian'
+                    ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    role === 'student' && accountType === 'guardian'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Users className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Parent / Guardian
+                    </span>
+                    {role === 'student' && accountType === 'guardian' && (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                    Hire verified tutors &amp; manage student profiles
                   </p>
                 </div>
               </button>
@@ -884,14 +989,14 @@ export default function Signup() {
                   setRole('tutor');
                   setError('');
                 }}
-                className={`flex items-start gap-3.5 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
                   role === 'tutor'
                     ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/30 shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600'
                 }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                     role === 'tutor'
                       ? 'bg-amber-500 text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -900,9 +1005,9 @@ export default function Signup() {
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      I am a Tutor / Teacher
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      I am a Tutor
                     </span>
                     {role === 'tutor' && (
                       <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
@@ -910,8 +1015,8 @@ export default function Signup() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
-                    Apply to verified tuitions, build your profile & earn
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                    Apply to verified tuitions, build your profile &amp; earn
                   </p>
                 </div>
               </button>
@@ -1016,9 +1121,15 @@ export default function Signup() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
+                    <div className={role === 'student' && accountType === 'guardian' ? 'sm:col-span-1' : 'sm:col-span-2'}>
                       <Input
-                        label={role === 'student' ? 'Student or Guardian Full Name' : 'Tutor Full Name'}
+                        label={
+                          role === 'tutor'
+                            ? 'Tutor Full Name'
+                            : accountType === 'guardian'
+                            ? 'Guardian Full Name'
+                            : 'Student Full Name'
+                        }
                         name="name"
                         required
                         autoComplete="name"
@@ -1027,9 +1138,56 @@ export default function Signup() {
                         error={touched.name ? errors.name : undefined}
                         value={formData.name || ''}
                         accentColor={accentColor}
-                        placeholder={role === 'student' ? 'e.g. Tariqul Islam' : 'e.g. Arif Hossain'}
+                        placeholder={
+                          role === 'tutor'
+                            ? 'e.g. Arif Hossain'
+                            : accountType === 'guardian'
+                            ? 'e.g. Nusrat Jahan'
+                            : 'e.g. Tariqul Islam'
+                        }
                       />
                     </div>
+
+                    {role === 'student' && accountType === 'guardian' && (
+                      <div className="space-y-1.5 w-full">
+                        <div className="flex justify-between items-center px-0.5">
+                          <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                            Relationship to Student <span className="text-rose-600 font-bold ml-0.5">*</span>
+                          </label>
+                          {touched.guardianRelationship && errors.guardianRelationship && (
+                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                              {errors.guardianRelationship}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <select
+                            name="guardianRelationship"
+                            required
+                            value={formData.guardianRelationship || ''}
+                            onChange={handleInputChange}
+                            onBlur={handleBlur}
+                            className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all duration-200 appearance-none cursor-pointer ${
+                              touched.guardianRelationship && errors.guardianRelationship
+                                ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600'
+                                : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-emerald-600'
+                            }`}
+                          >
+                            <option value="" disabled>
+                              Select Relationship
+                            </option>
+                            <option value="Mother">Mother</option>
+                            <option value="Father">Father</option>
+                            <option value="Elder Sibling">Elder Sibling</option>
+                            <option value="Uncle / Aunt">Uncle / Aunt</option>
+                            <option value="Legal Guardian">Legal Guardian</option>
+                          </select>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 dark:text-slate-300">
+                            <ChevronDown className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <Input
                       label="Email Address"
@@ -1369,9 +1527,11 @@ export default function Signup() {
                         )}
                         <span>
                           Step 3 of 3:{' '}
-                          {role === 'student'
-                            ? 'Student Class & Subject Preferences'
-                            : 'Tutor Academic Credentials'}
+                          {role === 'tutor'
+                            ? 'Tutor Academic & Teaching Profile'
+                            : accountType === 'guardian'
+                            ? 'Linked Student Academic Details'
+                            : 'Student Class, School & Subject Details'}
                         </span>
                       </h2>
                     </div>
@@ -1379,28 +1539,59 @@ export default function Signup() {
                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                       {role === 'student' ? (
                         <>
+                          {accountType === 'guardian' && (
+                            <div className="sm:col-span-2">
+                              <Input
+                                label="Student's Full Name"
+                                name="studentName"
+                                required
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                error={touched.studentName ? errors.studentName : undefined}
+                                placeholder="e.g. Aayan Rahman"
+                                value={formData.studentName || ''}
+                                accentColor="#059669"
+                              />
+                            </div>
+                          )}
                           <Input
-                            label="Student Class / Grade"
+                            label={accountType === 'guardian' ? "Student's Class / Grade" : 'Student Class / Grade'}
                             name="studentClass"
                             required
                             onChange={handleInputChange}
                             onBlur={handleBlur}
                             error={touched.studentClass ? errors.studentClass : undefined}
-                            placeholder="e.g. Class 9, HSC 1st Year, O Level"
+                            placeholder="e.g. Class 8, SSC Candidate, O Level"
                             value={formData.studentClass || ''}
-                            accentColor="#0D5BFF"
+                            accentColor={accentColor}
                           />
                           <Input
-                            label="Curriculum / Group"
+                            label="Curriculum / Medium / Group"
                             name="group"
                             required
-                            onChange={handleInputChange}
+                            onChange={(e: any) => {
+                              handleInputChange(e);
+                              setFormData((prev: any) => ({ ...prev, curriculum: e.target.value }));
+                            }}
                             onBlur={handleBlur}
                             error={touched.group ? errors.group : undefined}
-                            placeholder="e.g. Science, Bangla Medium, English Version"
-                            value={formData.group || ''}
-                            accentColor="#0D5BFF"
+                            placeholder="e.g. Bangla Medium (Science), English Version"
+                            value={formData.curriculum || formData.group || ''}
+                            accentColor={accentColor}
                           />
+                          <div className="sm:col-span-2">
+                            <Input
+                              label={accountType === 'guardian' ? "Student's School / College Name" : 'School / College Name'}
+                              name="school"
+                              required
+                              onChange={handleInputChange}
+                              onBlur={handleBlur}
+                              error={touched.school ? errors.school : undefined}
+                              placeholder="e.g. Viqarunnisa Noon School & College"
+                              value={formData.school || ''}
+                              accentColor={accentColor}
+                            />
+                          </div>
                           <div className="sm:col-span-2">
                             <Input
                               label="Subjects Needed"
@@ -1409,20 +1600,9 @@ export default function Signup() {
                               onChange={handleInputChange}
                               onBlur={handleBlur}
                               error={touched.subject ? errors.subject : undefined}
-                              placeholder="e.g. Physics, Chemistry, Higher Math"
+                              placeholder="e.g. Mathematics, Physics, English"
                               value={formData.subject || ''}
-                              accentColor="#0D5BFF"
-                            />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <Input
-                              label="School / College Name (Optional)"
-                              name="school"
-                              onChange={handleInputChange}
-                              onBlur={handleBlur}
-                              placeholder="e.g. Viqarunnisa Noon School & College"
-                              value={formData.school || ''}
-                              accentColor="#0D5BFF"
+                              accentColor={accentColor}
                             />
                           </div>
                         </>
@@ -1463,14 +1643,43 @@ export default function Signup() {
                             value={formData.year || ''}
                             accentColor="#D97706"
                           />
+                          <div className="space-y-1.5 w-full">
+                            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                              Preferred Teaching Mode
+                            </label>
+                            <div className="relative">
+                              <select
+                                name="teachingMode"
+                                value={formData.teachingMode || 'Home & Online'}
+                                onChange={handleInputChange}
+                                className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-amber-500 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer"
+                              >
+                                <option value="Home & Online">Home &amp; Online Tutoring</option>
+                                <option value="Home Tutoring">Home Tutoring Only</option>
+                                <option value="Online Tutoring">Online Tutoring Only</option>
+                              </select>
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 dark:text-slate-300">
+                                <ChevronDown className="w-4 h-4" />
+                              </div>
+                            </div>
+                          </div>
+                          <Input
+                            label="Semester / Session (Optional)"
+                            name="semester"
+                            onChange={handleInputChange}
+                            onBlur={handleBlur}
+                            placeholder="e.g. 5th Semester or Session 2021-22"
+                            value={formData.semester || ''}
+                            accentColor="#D97706"
+                          />
                           <div className="sm:col-span-2">
                             <Input
-                              label="Semester / Session (Optional)"
-                              name="semester"
+                              label="Primary Teaching Subjects (Optional)"
+                              name="subject"
                               onChange={handleInputChange}
                               onBlur={handleBlur}
-                              placeholder="e.g. 5th Semester or Session 2021-22"
-                              value={formData.semester || ''}
+                              placeholder="e.g. Mathematics, Physics, Chemistry"
+                              value={formData.subject || ''}
                               accentColor="#D97706"
                             />
                           </div>
@@ -1543,7 +1752,15 @@ export default function Signup() {
                     }`}
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Create {role === 'tutor' ? 'Tutor' : 'Student'} Account</span>
+                    <span>
+                      Create{' '}
+                      {role === 'tutor'
+                        ? 'Tutor'
+                        : accountType === 'guardian'
+                        ? 'Guardian'
+                        : 'Student'}{' '}
+                      Account
+                    </span>
                   </motion.button>
                 )}
               </div>
@@ -1566,7 +1783,10 @@ export default function Signup() {
                 setError('');
                 setLoading(true);
                 try {
-                  const data = { ...formData };
+                  const data = {
+                    ...formData,
+                    ...(role === 'student' ? { accountType } : {}),
+                  };
                   delete data.password;
                   await useAppStore.getState().loginWithGoogle(role, data, '/dashboard');
                   setSignupSuccess(true);
@@ -1622,7 +1842,10 @@ export default function Signup() {
                   fill="#EA4335"
                 />
               </svg>
-              <span>Continue with Google as {role === 'tutor' ? 'Tutor' : 'Student'}</span>
+              <span>
+                Continue with Google as{' '}
+                {role === 'tutor' ? 'Tutor' : accountType === 'guardian' ? 'Guardian' : 'Student'}
+              </span>
             </button>
 
             <p className="mt-6 text-center text-xs font-semibold text-slate-700 dark:text-slate-300">

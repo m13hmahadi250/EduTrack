@@ -60,9 +60,15 @@ import {
   Eye,
   EyeOff,
   Lock,
+  AlertCircle,
 } from "lucide-react";
 import { useBackHandler } from "../../utils/mobileWebView";
 import { sanitizeTutorProfileForViewer } from "../../../shared/tutorPrivacy";
+import {
+  calculateProfileCompletion,
+  cleanMeaningfulString,
+  getTutorVerificationStatus,
+} from "../../../shared/profileCompletion";
 import { motion, AnimatePresence } from "motion/react";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from "../../utils/geocoding";
@@ -433,21 +439,20 @@ export default function TutorDashboard() {
     return BookOpen;
   };
 
-  const isProfileIncomplete =
-    (!currentUser?.bio ||
-      !currentUser?.hourlyRate ||
-      !currentUser?.nidNumber ||
-      !currentUser?.nidFrontImg ||
-      !currentUser?.documents?.length) &&
-    !currentUser?.hasDismissedProfileNotice;
+  const tutorCompletion = useMemo(
+    () => calculateProfileCompletion(currentUser),
+    [currentUser]
+  );
 
-  const missingFields = [
-    !currentUser?.bio && "Bio",
-    !currentUser?.hourlyRate && "Tutor Fee",
-    (!currentUser?.nidNumber || !currentUser?.nidFrontImg) && "NID Credentials",
-    (!currentUser?.documents || currentUser?.documents.length === 0) &&
-      "Academic Documents",
-  ].filter(Boolean) as string[];
+  const tutorVerification = useMemo(
+    () => getTutorVerificationStatus(currentUser),
+    [currentUser]
+  );
+
+  const isProfileIncomplete =
+    !tutorCompletion.isComplete && !currentUser?.hasDismissedProfileNotice;
+
+  const missingFields = tutorCompletion.missingFields.map((f) => f.label);
 
   const refreshLocationManual = () => {
     if ("geolocation" in navigator) {
@@ -508,29 +513,37 @@ export default function TutorDashboard() {
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [profileUpdateError, setProfileUpdateError] = useState("");
   const [sameWhatsappAsPhone, setSameWhatsappAsPhone] = useState<boolean>(() => {
     if (!currentUser?.whatsappNumber || !currentUser?.phone) return true;
     return currentUser.whatsappNumber.replace(/\D/g, '') === currentUser.phone.replace(/\D/g, '');
   });
   const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || "",
     phone: currentUser?.phone || "",
-    bio: currentUser?.bio || "",
+    university: cleanMeaningfulString(currentUser?.university),
+    course: cleanMeaningfulString(currentUser?.course),
+    year: cleanMeaningfulString(currentUser?.year),
+    semester: cleanMeaningfulString(currentUser?.semester),
+    teachingMode: cleanMeaningfulString(currentUser?.teachingMode) || "Home & Online",
+    curriculum: cleanMeaningfulString(currentUser?.curriculum),
+    bio: cleanMeaningfulString(currentUser?.bio),
     hourlyRate: currentUser?.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
     daysPerWeek: currentUser?.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
-    experience: currentUser?.experience || "",
+    experience: cleanMeaningfulString(currentUser?.experience),
     subjects: currentUser?.subjects || [],
     classes: currentUser?.classes || [],
     availabilitySlots: currentUser?.availabilitySlots || {},
-    district: currentUser?.district || "",
-    area: currentUser?.area || "",
-    thana: currentUser?.thana || "",
+    district: cleanMeaningfulString(currentUser?.district),
+    area: cleanMeaningfulString(currentUser?.area),
+    thana: cleanMeaningfulString(currentUser?.thana),
     teachingAreas: currentUser?.teachingAreas || [],
-    nidNumber: currentUser?.nidNumber || "",
-    birthDate: currentUser?.birthDate || "",
+    nidNumber: cleanMeaningfulString(currentUser?.nidNumber),
+    birthDate: cleanMeaningfulString(currentUser?.birthDate),
     nidFrontImg: currentUser?.nidFrontImg || "",
     nidBackImg: currentUser?.nidBackImg || "",
     documents: currentUser?.documents || [],
-    gender: currentUser?.gender || "",
+    gender: cleanMeaningfulString(currentUser?.gender),
     whatsappNumber: currentUser?.whatsappNumber || currentUser?.phone || "",
     privacySettings: {
       hidePhotoFromPublic: Boolean(currentUser?.privacySettings?.hidePhotoFromPublic),
@@ -538,6 +551,23 @@ export default function TutorDashboard() {
       hideFromSearch: Boolean(currentUser?.privacySettings?.hideFromSearch),
     },
   });
+
+  const navigateToMissingField = (fieldId?: string | null) => {
+    handleTabChange("pro_profile");
+    setIsEditingProfile(true);
+    setProfileUpdateError("");
+    if (fieldId) {
+      setTimeout(() => {
+        const el = document.getElementById(fieldId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (typeof (el as HTMLElement).focus === "function") {
+            (el as HTMLElement).focus({ preventScroll: true });
+          }
+        }
+      }, 220);
+    }
+  };
 
   // Sync profile form when currentUser changes or editing is toggled
   useEffect(() => {
@@ -549,24 +579,31 @@ export default function TutorDashboard() {
           userWa.replace(/\D/g, "") === userPhone.replace(/\D/g, "")
       );
       setProfileForm({
+        name: currentUser.name || "",
         phone: userPhone,
-        bio: currentUser.bio || "",
+        university: cleanMeaningfulString(currentUser.university),
+        course: cleanMeaningfulString(currentUser.course),
+        year: cleanMeaningfulString(currentUser.year),
+        semester: cleanMeaningfulString(currentUser.semester),
+        teachingMode: cleanMeaningfulString(currentUser.teachingMode) || "Home & Online",
+        curriculum: cleanMeaningfulString(currentUser.curriculum),
+        bio: cleanMeaningfulString(currentUser.bio),
         hourlyRate: currentUser.hourlyRate ? currentUser.hourlyRate.toLocaleString('en-US') : "",
         daysPerWeek: currentUser.daysPerWeek !== undefined ? currentUser.daysPerWeek.toString() : "3",
-        experience: currentUser.experience || "",
+        experience: cleanMeaningfulString(currentUser.experience),
         subjects: currentUser.subjects || [],
         classes: currentUser.classes || [],
         availabilitySlots: currentUser.availabilitySlots || {},
-        district: currentUser.district || "",
-        area: currentUser.area || "",
-        thana: currentUser.thana || "",
+        district: cleanMeaningfulString(currentUser.district),
+        area: cleanMeaningfulString(currentUser.area),
+        thana: cleanMeaningfulString(currentUser.thana),
         teachingAreas: currentUser.teachingAreas || [],
-        nidNumber: currentUser.nidNumber || "",
-        birthDate: currentUser.birthDate || "",
+        nidNumber: cleanMeaningfulString(currentUser.nidNumber),
+        birthDate: cleanMeaningfulString(currentUser.birthDate),
         nidFrontImg: currentUser.nidFrontImg || "",
         nidBackImg: currentUser.nidBackImg || "",
         documents: currentUser.documents || [],
-        gender: currentUser.gender || "",
+        gender: cleanMeaningfulString(currentUser.gender),
         whatsappNumber: userWa,
         privacySettings: {
           hidePhotoFromPublic: Boolean(currentUser.privacySettings?.hidePhotoFromPublic),
@@ -672,17 +709,52 @@ export default function TutorDashboard() {
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
+    setProfileUpdateError("");
+
+    const cleanName = cleanMeaningfulString(profileForm.name);
+    const cleanPhone = cleanMeaningfulString(profileForm.phone);
+    const cleanUniv = cleanMeaningfulString(profileForm.university);
+    const cleanCourse = cleanMeaningfulString(profileForm.course);
+    const cleanYear = cleanMeaningfulString(profileForm.year);
+    const parsedRate = Number(String(profileForm.hourlyRate || "").replace(/,/g, ""));
+
+    if (!cleanName || !cleanPhone) {
+      setProfileUpdateError("Tutor full name and contact phone number are required.");
+      return;
+    }
+    if (!cleanUniv || !cleanCourse || !cleanYear) {
+      setProfileUpdateError("University/College, Department/Degree, and Year/Batch are required.");
+      return;
+    }
+    if (profileForm.hourlyRate && (!Number.isFinite(parsedRate) || parsedRate <= 0)) {
+      setProfileUpdateError("Expected monthly fee must be a positive amount.");
+      return;
+    }
+
     setIsUpdating(true);
     try {
       const existingLocation = currentUser.location ? currentUser.location : undefined;
       const syncedWhatsapp = sameWhatsappAsPhone
-        ? (profileForm.phone || currentUser.phone || "").trim()
-        : (profileForm.whatsappNumber || profileForm.phone || "").trim();
+        ? cleanPhone
+        : cleanMeaningfulString(profileForm.whatsappNumber) || cleanPhone;
       await updateUser(currentUser.id, {
         ...profileForm,
-        phone: (profileForm.phone || currentUser.phone || "").trim(),
+        name: cleanName,
+        phone: cleanPhone,
         whatsappNumber: syncedWhatsapp,
-        hourlyRate: Number(String(profileForm.hourlyRate).replace(/,/g, '')),
+        university: cleanUniv,
+        course: cleanCourse,
+        year: cleanYear,
+        semester: cleanMeaningfulString(profileForm.semester),
+        teachingMode: cleanMeaningfulString(profileForm.teachingMode) || "Home & Online",
+        curriculum: cleanMeaningfulString(profileForm.curriculum),
+        subject: (profileForm.subjects || []).join(", "),
+        bio: cleanMeaningfulString(profileForm.bio),
+        experience: cleanMeaningfulString(profileForm.experience),
+        district: cleanMeaningfulString(profileForm.district),
+        thana: cleanMeaningfulString(profileForm.thana),
+        area: cleanMeaningfulString(profileForm.area),
+        hourlyRate: parsedRate > 0 ? parsedRate : 0,
         daysPerWeek: profileForm.daysPerWeek ? Number(profileForm.daysPerWeek) : 3,
         privacySettings: {
           hidePhotoFromPublic: Boolean(profileForm.privacySettings?.hidePhotoFromPublic),
@@ -692,10 +764,13 @@ export default function TutorDashboard() {
         ...(existingLocation ? { location: existingLocation } : {})
       });
       setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
+      setTimeout(() => setUpdateSuccess(false), 3500);
       setIsEditingProfile(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update profile", error);
+      setProfileUpdateError(
+        error?.message || "Could not synchronize tutor profile changes to Firestore. Please try again."
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -957,55 +1032,53 @@ export default function TutorDashboard() {
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/20 rounded-full -ml-24 -mb-24 blur-2xl" />
 
               <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                       <Bell className="w-4 h-4 text-white animate-bounce" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                      Optimization Required
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">
+                      Profile Completion • {tutorCompletion.percentage}% ({tutorCompletion.completedCount}/{tutorCompletion.totalCount})
                     </span>
                   </div>
                   <h3 className="text-2xl font-black uppercase italic leading-tight">
-                    Complete your profile to unlock full system capabilities
+                    Complete your teaching profile to rank higher in student searches
                   </h3>
-                  <div className="flex flex-wrap gap-2 my-3">
-                    {missingFields.map((field) => (
-                      <span
-                        key={field}
-                        className="px-3 py-1 bg-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/10"
+                  <div className="flex flex-wrap gap-2 my-2">
+                    {tutorCompletion.missingFields.map((mf) => (
+                      <button
+                        key={mf.key}
+                        type="button"
+                        onClick={() => navigateToMissingField(mf.targetFieldId)}
+                        className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/15 cursor-pointer transition-colors"
                       >
-                        Missing: {field}
-                      </span>
+                        Missing: {mf.label}
+                      </button>
                     ))}
                   </div>
                   <p className="text-[10px] font-medium text-blue-100 uppercase tracking-widest max-w-xl">
-                    Our optimized matching algorithm prioritizes experts with
-                    100% complete profiles. Providing all credentials ensures
-                    faster verification and higher ranking in student search
-                    results.
+                    Profile completion reflects your teaching info (bio, fee, subjects, classes, location &amp; schedule). Identity verification badges are tracked separately below.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 shrink-0">
                   <button
-                    onClick={() => {
-                      handleTabChange("pro_profile");
-                      setIsEditingProfile(true);
-                    }}
-                    className="px-8 py-4 bg-white text-[#0D5BFF] border-2 border-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-blue-50 transition-all shadow-2xl shadow-blue-900/40 flex items-center gap-2 group/btn"
+                    type="button"
+                    onClick={() => navigateToMissingField(tutorCompletion.firstMissingFieldId)}
+                    className="px-8 py-4 bg-white text-[#0D5BFF] border-2 border-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-blue-50 transition-all shadow-2xl shadow-blue-900/40 flex items-center gap-2 group/btn cursor-pointer"
                   >
                     <span>Update My Experts Profile</span>
                     <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowProfileNotice(false);
                       updateUser(currentUser.id, {
                         hasDismissedProfileNotice: true,
                       });
                     }}
-                    className="p-4 bg-white/10 text-white rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-white/5"
+                    className="p-4 bg-white/10 text-white rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-white/5 cursor-pointer"
                     title="Dismiss notification"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -2041,66 +2114,125 @@ export default function TutorDashboard() {
                     </div>
                   )}
 
-                  {/* Verification Status Progress */}
-                  <div className="w-full space-y-4 mb-10">
-                    <div className="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                  {/* Profile Completion Meter (Independent of Verification Status) */}
+                  <div className="w-full p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-3 mb-6">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        Profile Completion
+                      </span>
+                      <span
+                        className={`text-sm font-black font-mono ${
+                          tutorCompletion.isComplete ? "text-emerald-600" : "text-[#0D5BFF]"
+                        }`}
+                      >
+                        {tutorCompletion.percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          tutorCompletion.isComplete ? "bg-emerald-500" : "bg-[#0D5BFF]"
+                        }`}
+                        style={{ width: `${tutorCompletion.percentage}%` }}
+                      />
+                    </div>
+                    {!tutorCompletion.isComplete && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {tutorCompletion.missingFields.map((mf) => (
+                          <button
+                            key={mf.key}
+                            type="button"
+                            onClick={() => navigateToMissingField(mf.targetFieldId)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-800 dark:text-amber-300 cursor-pointer"
+                          >
+                            + {mf.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Independent Verification Status Summary */}
+                  <div className="w-full space-y-3 mb-8">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                          Verification Status
+                        </span>
+                        <span
+                          className={`px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                            tutorVerification.overall === "approved"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : tutorVerification.overall === "rejected" || tutorVerification.overall === "changes_required"
+                              ? "bg-rose-50 text-rose-700"
+                              : tutorVerification.overall === "pending_review"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          }`}
+                        >
+                          {tutorVerification.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        {tutorVerification.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                       <div className="flex items-center gap-3">
                         <ShieldCheck
-                          className={`w-4 h-4 ${currentUser.nidStatus === "approved" ? "text-emerald-500" : currentUser.nidStatus === "rejected" ? "text-rose-500" : "text-slate-300"}`}
+                          className={`w-4 h-4 ${
+                            tutorVerification.nidStatus === "approved"
+                              ? "text-emerald-500"
+                              : tutorVerification.nidStatus === "rejected"
+                              ? "text-rose-500"
+                              : "text-slate-400"
+                          }`}
                         />
                         <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white">
                           NID Identity
                         </span>
                       </div>
                       <span
-                        className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
-                          currentUser.nidStatus === "approved"
-                            ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
-                            : currentUser.nidStatus === "rejected"
-                              ? "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30"
-                              : "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30"
+                        className={`px-3.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                          tutorVerification.nidStatus === "approved"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            : tutorVerification.nidStatus === "rejected"
+                            ? "bg-rose-50 text-rose-600 border-rose-100"
+                            : tutorVerification.nidStatus === "pending"
+                            ? "bg-amber-50 text-amber-600 border-amber-100"
+                            : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                         }`}
                       >
-                        <div
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            currentUser.nidStatus === "approved"
-                              ? "bg-emerald-500"
-                              : currentUser.nidStatus === "rejected"
-                                ? "bg-rose-500"
-                                : "bg-amber-500 animate-pulse"
-                          }`}
-                        />
-                        {currentUser.nidStatus || "Pending"}
+                        {tutorVerification.nidStatus.replace("_", " ")}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                    <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                       <div className="flex items-center gap-3">
                         <GraduationCap
-                          className={`w-4 h-4 ${currentUser.academicStatus === "approved" ? "text-emerald-500" : currentUser.academicStatus === "rejected" ? "text-rose-500" : "text-slate-300"}`}
+                          className={`w-4 h-4 ${
+                            tutorVerification.academicStatus === "approved"
+                              ? "text-emerald-500"
+                              : tutorVerification.academicStatus === "rejected"
+                              ? "text-rose-500"
+                              : "text-slate-400"
+                          }`}
                         />
                         <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white">
                           Academic Certs
                         </span>
                       </div>
                       <span
-                        className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-2 ${
-                          currentUser.academicStatus === "approved"
-                            ? "bg-emerald-50 text-emerald-600 border-emerald-100/60 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
-                            : currentUser.academicStatus === "rejected"
-                              ? "bg-rose-50 text-rose-600 border-rose-100/60 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30"
-                              : "bg-amber-50 text-amber-600 border-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30"
+                        className={`px-3.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                          tutorVerification.academicStatus === "approved"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            : tutorVerification.academicStatus === "rejected"
+                            ? "bg-rose-50 text-rose-600 border-rose-100"
+                            : tutorVerification.academicStatus === "pending"
+                            ? "bg-amber-50 text-amber-600 border-amber-100"
+                            : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                         }`}
                       >
-                        <div
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            currentUser.academicStatus === "approved"
-                              ? "bg-emerald-500"
-                              : currentUser.academicStatus === "rejected"
-                                ? "bg-rose-500"
-                                : "bg-amber-500 animate-pulse"
-                          }`}
-                        />
-                        {currentUser.academicStatus || "Pending"}
+                        {tutorVerification.academicStatus.replace("_", " ")}
                       </span>
                     </div>
                   </div>
@@ -2129,16 +2261,18 @@ export default function TutorDashboard() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       if (isEditingProfile) {
                         handleProfileUpdate({
                           preventDefault: () => {},
                         } as React.FormEvent);
                       } else {
+                        setProfileUpdateError("");
                         setIsEditingProfile(true);
                       }
                     }}
-                    className="w-full min-h-[52px] py-5 bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-xl shadow-blue-500/20 hover:-translate-y-1 transition-all"
+                    className="w-full min-h-[52px] py-5 bg-[#0D5BFF] text-white rounded-[2rem] font-black uppercase italic tracking-widest shadow-xl shadow-blue-500/20 hover:-translate-y-1 transition-all cursor-pointer"
                   >
                     {isEditingProfile
                       ? "Confirm Changes"
@@ -2170,7 +2304,85 @@ export default function TutorDashboard() {
                       </div>
                     )}
 
+                    {profileUpdateError && (
+                      <div className="mb-8 p-5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-3xl flex items-center gap-4 text-rose-700 dark:text-rose-200 text-xs font-bold">
+                        <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+                        <span>{profileUpdateError}</span>
+                      </div>
+                    )}
+
                     <form onSubmit={handleProfileUpdate} className="space-y-8">
+                      {/* Core Academic & Teaching Details */}
+                      <div className="p-5 sm:p-6 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-3xl space-y-5">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-[#0D5BFF]">
+                          Academic &amp; Teaching Profile
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <ProfileField
+                            id="tutor-field-name"
+                            label="Full Name *"
+                            value={profileForm.name}
+                            onChange={(v) => setProfileForm({ ...profileForm, name: v })}
+                            placeholder="e.g. Arif Hossain"
+                          />
+                          <ProfileField
+                            id="tutor-field-university"
+                            label="University / Medical / College *"
+                            value={profileForm.university}
+                            onChange={(v) => setProfileForm({ ...profileForm, university: v })}
+                            placeholder="e.g. BUET, University of Dhaka"
+                          />
+                          <ProfileField
+                            label="Department / Degree *"
+                            value={profileForm.course}
+                            onChange={(v) => setProfileForm({ ...profileForm, course: v })}
+                            placeholder="e.g. B.Sc. in CSE"
+                          />
+                          <ProfileField
+                            label="Academic Year / Batch *"
+                            value={profileForm.year}
+                            onChange={(v) => setProfileForm({ ...profileForm, year: v })}
+                            placeholder="e.g. 3rd Year / Graduated"
+                          />
+                          <ProfileField
+                            label="Semester / Session (Optional)"
+                            value={profileForm.semester}
+                            onChange={(v) => setProfileForm({ ...profileForm, semester: v })}
+                            placeholder="e.g. 6th Semester"
+                          />
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider ml-1">
+                              Teaching Mode *
+                            </label>
+                            <select
+                              id="tutor-field-teaching-mode"
+                              value={profileForm.teachingMode || "Home & Online"}
+                              onChange={(e) =>
+                                setProfileForm({ ...profileForm, teachingMode: e.target.value })
+                              }
+                              className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                            >
+                              <option value="Home & Online">Home &amp; Online Tutoring</option>
+                              <option value="Home Tutoring">Home Tutoring</option>
+                              <option value="Online Tutoring">Online Tutoring</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <ProfileField
+                              label="Primary Curriculum Medium (Optional)"
+                              value={profileForm.curriculum}
+                              onChange={(v) => setProfileForm({ ...profileForm, curriculum: v })}
+                              placeholder="e.g. NCTB Bangla Medium, English Version, Cambridge O/A Level"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                          Identity Verification Documents (Tracked Separately from Completion)
+                        </h4>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <ProfileField
                           label="National ID (NID)"
@@ -2307,6 +2519,7 @@ export default function TutorDashboard() {
                           </label>
                           <div className="relative">
                             <select
+                              id="tutor-field-district"
                               value={profileForm.district || ""}
                               onChange={(e) => {
                                 const newDist = e.target.value;
@@ -2362,6 +2575,7 @@ export default function TutorDashboard() {
                         </div>
 
                         <ProfileField
+                          id="tutor-field-area"
                           label="Area"
                           value={profileForm.area}
                           onChange={(v) =>
@@ -2453,6 +2667,7 @@ export default function TutorDashboard() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <ProfileField
+                          id="tutor-field-hourly-rate"
                           label="Monthly Tutor Fee (৳)"
                           value={profileForm.hourlyRate}
                           placeholder="e.g. 10,000 or 5,000"
@@ -2493,6 +2708,7 @@ export default function TutorDashboard() {
                       <div className="p-5 sm:p-6 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-3xl space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                           <ProfileField
+                            id="tutor-field-phone"
                             label="Mobile Number (Primary)"
                             value={profileForm.phone}
                             onChange={(v) =>
@@ -2550,7 +2766,7 @@ export default function TutorDashboard() {
                           </span>
                         </label>
                       </div>
-                      <div className="space-y-6">
+                      <div id="tutor-field-subjects" className="space-y-6">
                         <div className="flex items-center justify-between px-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                             Authorized Subjects Selection
@@ -2715,7 +2931,7 @@ export default function TutorDashboard() {
                         </div>
                       </div>
 
-                      <div className="space-y-4">
+                      <div id="tutor-field-classes" className="space-y-4">
                         <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-4">
                           Target Classes
                         </label>
@@ -2742,6 +2958,7 @@ export default function TutorDashboard() {
                           Mission Statement / Bio
                         </label>
                         <textarea
+                          id="tutor-field-bio"
                           value={profileForm.bio}
                           onChange={(e) =>
                             setProfileForm({
@@ -2833,7 +3050,7 @@ export default function TutorDashboard() {
                         </div>
                       </div>
 
-                      <div className="space-y-6 pt-8 border-t border-slate-100 dark:border-slate-800">
+                      <div id="tutor-field-availability" className="space-y-6 pt-8 border-t border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-4">
                           <Calendar className="w-5 h-5 text-[#0D5BFF]" />
                           <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
@@ -4119,12 +4336,14 @@ export default function TutorDashboard() {
 
 const ProfileField = memo(
   ({
+    id,
     label,
     value,
     onChange,
     placeholder,
     type = "text",
   }: {
+    id?: string;
     label: string;
     value: string | number;
     onChange: (v: string) => void;
@@ -4137,6 +4356,7 @@ const ProfileField = memo(
           {label}
         </label>
         <input
+          id={id}
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}

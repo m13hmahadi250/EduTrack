@@ -88,7 +88,7 @@ const SAVED_TUITIONS_KEY = 'edutrack_saved_tuitions_v1';
 
 export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMarketplaceHubProps) {
   const navigate = useNavigate();
-  const { currentUser, users, sendNotification, bookSession } = useAppStore();
+  const { currentUser, users, studentProfiles, sendNotification, bookSession } = useAppStore();
 
   const [tuitions, setTuitions] = useState<TuitionCircularRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,18 +129,28 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
   // Student 5-Step Guided Posting Form State (with safe draft persistence)
   const [postStep, setPostStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [selectedChildProfileId, setSelectedChildProfileId] = useState<string>(
+    currentUser?.activeStudentProfileId || studentProfiles[0]?.id || ''
+  );
   const [postForm, setPostForm] = useState(() => {
     try {
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch {}
+    const activeChild =
+      studentProfiles.find((p) => p.id === currentUser?.activeStudentProfileId) ||
+      studentProfiles[0];
     return {
-      subject: currentUser?.subject || 'Mathematics, Physics',
-      studentClass: currentUser?.studentClass || 'Class 9 - 10 (SSC)',
-      curriculum: 'NCTB Bangla Medium',
+      subject:
+        (activeChild?.subjects && activeChild.subjects.join(', ')) ||
+        currentUser?.subject ||
+        (currentUser?.subjects && currentUser.subjects.join(', ')) ||
+        'Mathematics, Physics',
+      studentClass: activeChild?.studentClass || currentUser?.studentClass || 'Class 9 - 10 (SSC)',
+      curriculum: activeChild?.curriculum || currentUser?.curriculum || 'NCTB Bangla Medium',
       tutoringMode: 'Home Tutoring' as 'Home Tutoring' | 'Online Tutoring' | 'Home & Online',
-      district: currentUser?.district || 'Dhaka',
-      area: currentUser?.area || '',
+      district: activeChild?.district || currentUser?.district || 'Dhaka',
+      area: activeChild?.area || currentUser?.area || '',
       daysPerWeek: 3,
       preferredTime: 'Evening (5:00 PM - 8:00 PM)',
       genderPreference: 'Any Verified Tutor',
@@ -395,9 +405,11 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
         postForm.area ? `${postForm.area}, ${postForm.district}` : postForm.district
       }`;
 
+      const selectedChild = studentProfiles.find((p) => p.id === selectedChildProfileId);
       await addDoc(collection(db, 'tuitions'), {
         studentId: currentUser.id,
-        studentName: currentUser.name || 'Guardian',
+        studentName: selectedChild?.studentName || currentUser.studentName || currentUser.name || 'Guardian',
+        ...(selectedChild ? { studentProfileId: selectedChild.id } : {}),
         title: generatedTitle,
         subject: postForm.subject.trim(),
         studentClass: postForm.studentClass.trim(),
@@ -799,6 +811,41 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
           {postStep === 1 && (
             <div className="grid sm:grid-cols-2 gap-5">
+              {currentUser?.accountType === 'guardian' && studentProfiles.length > 0 && (
+                <div className="sm:col-span-2 p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50">
+                  <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-200 mb-2">
+                    Select Student Profile to Pre-fill Details
+                  </label>
+                  <select
+                    value={selectedChildProfileId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedChildProfileId(id);
+                      const child = studentProfiles.find((p) => p.id === id);
+                      if (child) {
+                        setPostForm((prev: any) => ({
+                          ...prev,
+                          studentClass: child.studentClass || prev.studentClass,
+                          curriculum: child.curriculum || prev.curriculum,
+                          subject:
+                            child.subjects && child.subjects.length > 0
+                              ? child.subjects.join(', ')
+                              : prev.subject,
+                          district: child.district || prev.district,
+                          area: child.area || prev.area,
+                        }));
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                  >
+                    {studentProfiles.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.studentName} — {sp.studentClass} ({sp.school})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Required Subject(s) *

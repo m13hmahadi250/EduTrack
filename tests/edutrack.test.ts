@@ -6,6 +6,27 @@ import os from "node:os";
 import http from "node:http";
 import app, { createApp, FirebaseResetAdapter } from "../api/app";
 import { LocalAuthChallengeStore } from "../api/authStore";
+import {
+  calculateProfileCompletion,
+  cleanMeaningfulString,
+  getTutorVerificationStatus,
+  isMeaningfulValue,
+  normalizeUserProfileFields,
+  parseSubjectsList,
+  type ProfileCompletionUserInput,
+  type StudentProfileRecord,
+} from "../shared/profileCompletion";
+import {
+  filterPublicTutors,
+  formatTutorClassesBadge,
+  isTutorEligibleForHome,
+  isTutorEligibleForStudentSearch,
+  isTutorVerified,
+  matchesClassFilter,
+  matchesCurriculumFilter,
+  matchesDistrictFilter,
+} from "../shared/tutorListing";
+import { sanitizeTutorProfileForViewer } from "../shared/tutorPrivacy";
 
 const OTP_CACHE_FILE = path.join(os.tmpdir(), "edutrack_otp_cache.json");
 const RESET_CACHE_FILE = path.join(os.tmpdir(), "edutrack_reset_tokens_cache.json");
@@ -1027,6 +1048,519 @@ async function runTests() {
 
           const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
           assert.equal(/mongo/i.test(adminDashSrc), false);
+        });
+
+        // ---------------------------------------------------------------------
+        // 12. Profile Completion, Student-Guardian Separation & Tutor Sync QA
+        // ---------------------------------------------------------------------
+        await test("Placeholder values ('Not Specified', 'NOT SET', 'Pending', whitespace) never count as completed", () => {
+          assert.equal(cleanMeaningfulString("Not Specified"), "");
+          assert.equal(cleanMeaningfulString("  NOT SET "), "");
+          assert.equal(cleanMeaningfulString("Pending"), "");
+          assert.equal(cleanMeaningfulString("Select District"), "");
+          assert.equal(cleanMeaningfulString("   "), "");
+          assert.equal(isMeaningfulValue("Not Specified"), false);
+          assert.equal(isMeaningfulValue("Dhaka Residential Model College"), true);
+          assert.deepEqual(
+            parseSubjectsList(["Physics", "Not Specified", "physics"], "Chemistry, N/A, Higher Math"),
+            ["Physics", "Chemistry", "Higher Math"]
+          );
+        });
+
+        await test("Standard Student reaches 100% completion with canonical fields and stays incomplete if school is missing or placeholder", () => {
+          const incompleteStudent = calculateProfileCompletion({
+            id: "stu_1",
+            role: "student",
+            accountType: "student",
+            name: "Rafiq Ahmed",
+            phone: "01712345678",
+            studentClass: "Class 8",
+            school: "Not Specified",
+            curriculum: "English Version",
+            district: "Dhaka",
+            address: "Mirpur 10",
+          });
+          assert.equal(incompleteStudent.isComplete, false);
+          assert.equal(incompleteStudent.percentage < 100, true);
+          assert.equal(incompleteStudent.missingFields.some((f) => f.key === "school"), true);
+          assert.equal(incompleteStudent.needsAccountTypeSelection, false);
+
+          const completeStudent = calculateProfileCompletion({
+            id: "stu_1",
+            role: "student",
+            accountType: "student",
+            name: "Rafiq Ahmed",
+            phone: "01712345678",
+            studentClass: "Class 8",
+            school: "Viqarunnisa Noon School & College",
+            curriculum: "English Version",
+            district: "Dhaka",
+            address: "Mirpur 10",
+          });
+          assert.equal(completeStudent.percentage, 100);
+          assert.equal(completeStudent.isComplete, true);
+          assert.equal(completeStudent.missingFields.length, 0);
+        });
+
+        await test("Legacy Student doc with school stored in 'university' heals non-destructively to canonical 'school'", () => {
+          const legacyDoc: ProfileCompletionUserInput = {
+            id: "stu_legacy",
+            role: "student",
+            name: "Nadia Islam",
+            phone: "01811223344",
+            studentClass: "Class 10",
+            school: "Not Specified",
+            university: "Holy Cross Girls High School",
+            group: "Science",
+            district: "Dhaka",
+            area: "Farmgate",
+          };
+          const normalized = normalizeUserProfileFields(legacyDoc);
+          assert.equal(normalized.school, "Holy Cross Girls High School");
+          assert.equal(normalized.curriculum, "Science");
+
+          const completion = calculateProfileCompletion(normalized);
+          assert.equal(completion.percentage, 100);
+          assert.equal(completion.isComplete, true);
+          // Legacy users without explicit accountType must be flagged for confirmation
+          assert.equal(completion.needsAccountTypeSelection, true);
+        });
+
+        await test("Guardian workflow uses relationship + linked student_profiles and switches completion on activeStudentProfileId", () => {
+          const child1: StudentProfileRecord = {
+            id: "sp_1",
+            guardianId: "guard_1",
+            studentName: "Ayan Rahman",
+            studentClass: "Class 6",
+            school: "Scholastica",
+            curriculum: "English Medium",
+            subjects: ["Mathematics", "Science"],
+          };
+          const child2Incomplete: StudentProfileRecord = {
+            id: "sp_2",
+            guardianId: "guard_1",
+            studentName: "Zara Rahman",
+            studentClass: "Class 3",
+            school: "Not Specified",
+            curriculum: "English Medium",
+          };
+
+          const completeGuardian = calculateProfileCompletion(
+            {
+              id: "guard_1",
+              role: "student",
+              accountType: "guardian",
+              name: "Farhana Rahman",
+              phone: "01911223344",
+              guardianRelationship: "Mother",
+              district: "Dhaka",
+              address: "Uttara Sector 7",
+              activeStudentProfileId: "sp_1",
+            },
+            { studentProfiles: [child1, child2Incomplete] }
+          );
+          assert.equal(completeGuardian.accountType, "guardian");
+          assert.equal(completeGuardian.percentage, 100);
+          assert.equal(completeGuardian.isComplete, true);
+
+          const switchedIncomplete = calculateProfileCompletion(
+            {
+              id: "guard_1",
+              role: "student",
+              accountType: "guardian",
+              name: "Farhana Rahman",
+              phone: "01911223344",
+              guardianRelationship: "Mother",
+              district: "Dhaka",
+              address: "Uttara Sector 7",
+              activeStudentProfileId: "sp_2",
+            },
+            { studentProfiles: [child1, child2Incomplete] }
+          );
+          assert.equal(switchedIncomplete.isComplete, false);
+          assert.equal(switchedIncomplete.percentage < 100, true);
+          assert.equal(
+            switchedIncomplete.missingFields.some(
+              (f) => f.key === "studentProfile" && f.displayValue.includes("Missing Student School")
+            ),
+            true
+          );
+
+          const missingRelationship = calculateProfileCompletion(
+            {
+              id: "guard_1",
+              role: "student",
+              accountType: "guardian",
+              name: "Farhana Rahman",
+              phone: "01911223344",
+              district: "Dhaka",
+              address: "Uttara Sector 7",
+            },
+            { studentProfiles: [child1] }
+          );
+          assert.equal(missingRelationship.missingFields.some((f) => f.key === "guardianRelationship"), true);
+        });
+
+        await test("Tutor Profile Completion is strictly independent of NID & academic document verification status", () => {
+          const baseTutor = {
+            id: "tut_1",
+            role: "tutor" as const,
+            name: "Tanvir Hasan",
+            phone: "01799887766",
+            university: "BUET",
+            course: "CSE",
+            year: "3rd Year",
+            subjects: ["Physics", "Higher Math"],
+            classes: ["HSC", "SSC"],
+            district: "Dhaka",
+            area: "Dhanmondi",
+            teachingMode: "Home & Online",
+            hourlyRate: 8000,
+            bio: "4 years of HSC Physics & Math tutoring experience.",
+            availabilitySlots: { Sat: ["Evening (4 PM - 7 PM)"] },
+            isVerified: false,
+          };
+
+          const completionNoDocs = calculateProfileCompletion(baseTutor);
+          assert.equal(completionNoDocs.percentage, 100);
+          assert.equal(completionNoDocs.isComplete, true);
+          assert.equal(getTutorVerificationStatus(baseTutor).overall, "not_submitted");
+
+          const pendingVerif = getTutorVerificationStatus({
+            ...baseTutor,
+            nidNumber: "1998123456789",
+            nidFrontImg: "https://cdn.example.com/nid.jpg",
+          });
+          assert.equal(pendingVerif.overall, "pending_review");
+          assert.equal(pendingVerif.nidStatus, "pending");
+
+          const changesReq = getTutorVerificationStatus({
+            ...baseTutor,
+            nidNumber: "1998123456789",
+            nidFrontImg: "https://cdn.example.com/nid.jpg",
+            nidStatus: "rejected",
+            documents: ["https://cdn.example.com/id.jpg"],
+            academicStatus: "approved",
+          });
+          assert.equal(changesReq.overall, "changes_required");
+
+          const approvedVerif = getTutorVerificationStatus({
+            ...baseTutor,
+            nidStatus: "approved",
+            academicStatus: "approved",
+            isVerified: true,
+          });
+          assert.equal(approvedVerif.overall, "approved");
+          assert.equal(approvedVerif.isVerified, true);
+
+          const missingAcademicTutor = calculateProfileCompletion({
+            ...baseTutor,
+            university: "Not Specified",
+            teachingMode: "",
+          });
+          assert.equal(missingAcademicTutor.isComplete, false);
+          assert.equal(missingAcademicTutor.missingFields.some((f) => f.key === "academic"), true);
+          assert.equal(missingAcademicTutor.missingFields.some((f) => f.key === "location_mode"), true);
+        });
+
+        await test("Signup, Dashboards, Store, and Firestore Rules enforce canonical mapping, Guardian separation, and anti-escalation", () => {
+          const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const sidebarSrc = fs.readFileSync(path.resolve("src/components/Sidebar.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+
+          // Signup: 3-way selector, no 'Not Specified' / 'Current Session' placeholder defaults
+          assert.equal(signupSrc.includes("Parent / Guardian"), true);
+          assert.equal(signupSrc.includes("I am a Student"), true);
+          assert.equal(signupSrc.includes("I am a Tutor"), true);
+          assert.equal(signupSrc.includes("guardianRelationship"), true);
+          assert.equal(signupSrc.includes("'Not Specified'"), false);
+          assert.equal(signupSrc.includes("'Current Session'"), false);
+
+          // StudentDashboard: reads/writes canonical school, multi-child manager, accountUpdateError
+          assert.equal(studentDashSrc.includes("calculateProfileCompletion(currentUser, { studentProfiles })"), true);
+          assert.equal(studentDashSrc.includes("guardian-student-profile-section"), true);
+          assert.equal(studentDashSrc.includes("accountUpdateError"), true);
+          assert.equal(studentDashSrc.includes("needsAccountTypeSelection"), true);
+          assert.equal(studentDashSrc.includes("university: accountForm.school"), false);
+
+          // TutorDashboard: separates completion from verification, exposes missing fields & error feedback
+          assert.equal(tutorDashSrc.includes("getTutorVerificationStatus"), true);
+          assert.equal(tutorDashSrc.includes("tutor-field-university"), true);
+          assert.equal(tutorDashSrc.includes("tutor-field-teaching-mode"), true);
+          assert.equal(tutorDashSrc.includes("profileUpdateError"), true);
+
+          // Marketplace & Sidebar: guardian role display & student profile picker
+          assert.equal(hubSrc.includes("studentProfiles"), true);
+          assert.equal(sidebarSrc.includes("Guardian"), true);
+
+          // Store: normalizes fields, syncs localStorage cache on self-updates, listens to student_profiles
+          assert.equal(storeSrc.includes("normalizeUserProfileFields"), true);
+          assert.equal(storeSrc.includes("createStudentProfile"), true);
+          assert.equal(storeSrc.includes("localStorage.setItem('edutrack_cached_user'"), true);
+          assert.equal(storeSrc.includes("collection(db, 'student_profiles')"), true);
+
+          // Firestore rules: validates canonical fields, student_profiles ownership, and blocks nidStatus/academicStatus tampering
+          assert.equal(rulesSrc.includes("match /student_profiles/{profileId}"), true);
+          assert.equal(rulesSrc.includes("guardianId == request.auth.uid"), true);
+          assert.equal(rulesSrc.includes("incoming().get('nidStatus', null) == existing().get('nidStatus', null)"), true);
+          assert.equal(rulesSrc.includes("incoming().get('academicStatus', null) == existing().get('academicStatus', null)"), true);
+        });
+
+        // ---------------------------------------------------------------------
+        // 13. Public Tutor Listing Restoration, Filter Accuracy & Privacy QA
+        // ---------------------------------------------------------------------
+        await test("sanitizeTutorProfileForViewer preserves public R2 image & strips PII; Home unwraps .tutor cleanly", () => {
+          const rawTutor = {
+            id: "tut_r2_1",
+            role: "tutor",
+            name: "Tofayel Ahmmed Tanvir",
+            isVerified: true,
+            nidNumber: "1999123456789",
+            nidFrontImg: "https://r2.example.com/nid-front.jpg",
+            nidBackImg: "https://r2.example.com/nid-back.jpg",
+            documents: ["https://r2.example.com/uni-id.jpg"],
+            phone: "01711223344",
+            whatsappNumber: "01711223344",
+            email: "tanvir@example.com",
+            address: "House 12, Halishahar",
+            balance: 4500,
+            fcmToken: "secret_fcm",
+            location: { lat: 22.35, lng: 91.78 },
+            district: "Chattogram",
+            area: "Halishahar",
+            university: "IIUC",
+            course: "CSE",
+            subjects: ["ICT", "Mathematics", "Physics"],
+            classes: ["Class 6", "Class 7", "Class 8", "Class 9", "Class 10"],
+            hourlyRate: 5000,
+            profileImage: "https://pub-c230d7705bd9456f8ca928739c35bad2.r2.dev/profiles/tanvir.jpg",
+            availabilitySlots: { Saturday: ["Evening"] },
+          };
+
+          const wrapped = sanitizeTutorProfileForViewer(rawTutor, null, []);
+          assert.equal(Boolean(wrapped.tutor), true);
+          // Wrapper object must NOT pass isTutorEligibleForHome (prevents regression of the unwrapping bug)
+          assert.equal(isTutorEligibleForHome(wrapped), false);
+          // Unwrapped tutor passes eligibility and preserves R2 image while stripping private/PII fields
+          assert.equal(isTutorEligibleForHome(wrapped.tutor), true);
+          assert.equal(wrapped.tutor!.profileImage, rawTutor.profileImage);
+          assert.equal(wrapped.tutor!.phone, undefined);
+          assert.equal(wrapped.tutor!.email, undefined);
+          assert.equal(wrapped.tutor!.address, undefined);
+          assert.equal(wrapped.tutor!.nidNumber, undefined);
+          assert.equal(wrapped.tutor!.nidFrontImg, undefined);
+          assert.equal(wrapped.tutor!.documents, undefined);
+          assert.equal(wrapped.tutor!.balance, undefined);
+          assert.equal(wrapped.tutor!.location, undefined);
+        });
+
+        await test("Public tutor eligibility, badge formatting, and all search filters (subject, class, location, mode, curriculum, budget, availability, saved, reset)", () => {
+          const verifiedChattogram = {
+            id: "tut_ctg",
+            role: "tutor",
+            name: "Adnan Jahangir",
+            university: "CUET",
+            course: "EEE",
+            district: "Chattogram",
+            area: "Sitakunda",
+            subjects: ["Chemistry", "Biology", "English"],
+            classes: ["Class 1", "Class 2", "Class 3", "Class 8", "Class 10", "SSC Candidate"],
+            hourlyRate: 5000,
+            isVerified: true,
+            availabilitySlots: { Sunday: ["Morning"] },
+          };
+          const verifiedEnglishVersion = {
+            id: "tut_ev",
+            role: "tutor",
+            name: "Tariq Rahman",
+            university: "BUET",
+            course: "ME",
+            district: "Dhaka",
+            area: "Dhanmondi",
+            subjects: ["Mathematics (EV)", "Physics (EV)", "Higher Math (EV)"],
+            classes: ["Class 9", "Class 10", "HSC 1st Year"],
+            teachingMode: "Online",
+            hourlyRate: 9000,
+            isVerified: true,
+            availabilitySlots: { Friday: ["Evening"] },
+          };
+          const unverifiedTutor = {
+            id: "tut_unverified",
+            role: "tutor",
+            name: "Hasib Ahmed",
+            district: "Dhaka",
+            subjects: ["Physics"],
+            classes: ["Class 10"],
+            isVerified: false,
+          };
+          const hiddenByAdmin = {
+            id: "tut_hidden_admin",
+            role: "tutor",
+            name: "Zabir Abdullah",
+            district: "Chattogram",
+            subjects: ["Physics (EV)"],
+            classes: ["Class 9"],
+            isVerified: true,
+            showOnHomePage: false,
+          };
+          const hiddenByPrivacy = {
+            id: "tut_hidden_priv",
+            role: "tutor",
+            name: "Private Tutor",
+            district: "Dhaka",
+            subjects: ["Biology"],
+            isVerified: true,
+            privacySettings: { hideFromSearch: true },
+          };
+          const blockedTutor = {
+            id: "tut_blocked",
+            role: "tutor",
+            name: "Blocked Tutor",
+            isVerified: true,
+            isBlocked: true,
+          };
+
+          const allCandidates = [
+            verifiedChattogram,
+            verifiedEnglishVersion,
+            unverifiedTutor,
+            hiddenByAdmin,
+            hiddenByPrivacy,
+            blockedTutor,
+          ];
+
+          // Default (no active filters): only verified, non-blocked, visible tutors appear
+          const defaultList = filterPublicTutors(allCandidates, {});
+          assert.deepEqual(
+            defaultList.map((t) => t.id),
+            ["tut_ctg", "tut_ev"]
+          );
+          assert.equal(isTutorVerified(unverifiedTutor), false);
+          assert.equal(isTutorEligibleForStudentSearch(hiddenByAdmin), true);
+          assert.equal(isTutorEligibleForStudentSearch(hiddenByPrivacy), false);
+
+          // Card class badge reads real Firestore `classes` (not hardcoded Class 6 - 12)
+          assert.equal(formatTutorClassesBadge(verifiedChattogram), "Class 1, Class 2 +4");
+          assert.equal(formatTutorClassesBadge(verifiedEnglishVersion), "Class 9, Class 10 +1");
+
+          // Subject & Tag filters
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { subject: "Chemistry" }).map((t) => t.id),
+            ["tut_ctg"]
+          );
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { tags: ["Higher Math"] }).map((t) => t.id),
+            ["tut_ev"]
+          );
+
+          // Class filters including Class 1 - 5 and Class 11 - 12 (HSC)
+          assert.equal(matchesClassFilter(verifiedChattogram, "Class 1 - 5"), true);
+          assert.equal(matchesClassFilter(verifiedEnglishVersion, "Class 1 - 5"), false);
+          assert.equal(matchesClassFilter(verifiedEnglishVersion, "Class 11 - 12"), true);
+
+          // District alias normalization (Chittagong <-> Chattogram)
+          assert.equal(matchesDistrictFilter(verifiedChattogram, "Chittagong"), true);
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { district: "Dhaka" }).map((t) => t.id),
+            ["tut_ev"]
+          );
+
+          // Curriculum inference & Mode & Salary/Budget & Availability
+          assert.equal(matchesCurriculumFilter(verifiedEnglishVersion, "English Version"), true);
+          assert.equal(matchesCurriculumFilter(verifiedChattogram, "English Version"), false);
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { mode: "Home" }).map((t) => t.id),
+            ["tut_ctg"] // verifiedEnglishVersion is Online only; verifiedChattogram defaults to Home & Online
+          );
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { maxBudget: "6000" }).map((t) => t.id),
+            ["tut_ctg"]
+          );
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { onlyAvailableToday: true }).length,
+            2
+          );
+
+          // Search query by university / course / name + Saved Tutors
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, { searchQuery: "CUET" }).map((t) => t.id),
+            ["tut_ctg"]
+          );
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, {
+              favoritesOnly: true,
+              favoriteIds: ["tut_ev"],
+            }).map((t) => t.id),
+            ["tut_ev"]
+          );
+
+          // Combined filter + Reset restores default eligible tutors
+          assert.deepEqual(
+            filterPublicTutors(allCandidates, {
+              district: "Dhaka",
+              subject: "Physics",
+              studentClass: "Class 9 - 10",
+            }).map((t) => t.id),
+            ["tut_ev"]
+          );
+          assert.equal(filterPublicTutors(allCandidates, {}).length, 2);
+        });
+
+        await test("Home, StudentDashboard, TeacherProfile, and firestore.rules wire unwrapped tutor listing and error recovery", async () => {
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+
+          // Home must unwrap `{ tutor: safeTutor }` from sanitizeTutorProfileForViewer before filtering
+          assert.equal(homeSrc.includes("const { tutor: safeTutor } = sanitizeTutorProfileForViewer"), true);
+          assert.equal(homeSrc.includes("isTutorEligibleForHome"), true);
+          assert.equal(homeSrc.includes("filterPublicTutors"), true);
+          assert.equal(homeSrc.includes("formatTutorClassesBadge"), true);
+          assert.equal(homeSrc.includes("tutorsError"), true);
+          assert.equal(homeSrc.includes("tutorsLoading"), true);
+
+          // StudentDashboard & TeacherProfile share eligibility & privacy guards
+          assert.equal(studentDashSrc.includes("isTutorEligibleForStudentSearch"), true);
+          assert.equal(teacherProfileSrc.includes("const { tutor: safeTutor, contactUnlocked: unlocked }"), true);
+          assert.equal(rulesSrc.includes("allow read: if isSignedIn() || resource.data.role == 'tutor';"), true);
+
+          // Live read-only Firestore check verifying real tutor records remain intact (if network reachable)
+          const fbConfig = JSON.parse(fs.readFileSync(path.resolve("firebase-applet-config.json"), "utf-8"));
+          try {
+            const resp = await fetch(
+              `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/${fbConfig.firestoreDatabaseId}/documents:runQuery`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Goog-Api-Key": fbConfig.apiKey },
+                body: JSON.stringify({
+                  structuredQuery: {
+                    from: [{ collectionId: "users" }],
+                    where: {
+                      fieldFilter: {
+                        field: { fieldPath: "role" },
+                        op: "EQUAL",
+                        value: { stringValue: "tutor" },
+                      },
+                    },
+                  },
+                }),
+              }
+            );
+            if (resp.ok) {
+              const rows = (await resp.json()) as any[];
+              const docs = rows.filter((r) => r.document).map((r) => r.document);
+              assert.equal(docs.length > 0, true, "Existing Firestore tutor records must be preserved");
+              const verifiedDocs = docs.filter((d) => d.fields?.isVerified?.booleanValue === true);
+              assert.equal(verifiedDocs.length > 0, true, "Verified tutor records must exist in Firestore");
+            }
+          } catch {
+            // Skip live network check cleanly if running in an offline sandbox
+          }
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

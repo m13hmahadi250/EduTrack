@@ -54,8 +54,21 @@ import {
   Heart,
   SlidersHorizontal,
   ExternalLink,
+  Plus,
+  Edit3,
 } from 'lucide-react';
 import { useBackHandler, scrollFieldIntoView } from '../../utils/mobileWebView';
+import {
+  calculateProfileCompletion,
+  cleanMeaningfulString,
+  parseSubjectsList,
+  StudentProfileRecord,
+} from '../../../shared/profileCompletion';
+import {
+  isTutorEligibleForStudentSearch,
+  matchesClassFilter,
+  matchesDistrictFilter,
+} from '../../../shared/tutorListing';
 const MapTracker = lazy(() => import('../../components/MapTracker'));
 const ImageUpload = lazy(() => import('../../components/ImageUpload'));
 const FileUpload = lazy(() => import('../../components/FileUpload'));
@@ -211,7 +224,12 @@ export default function StudentDashboard() {
     grantEndPermission,
     endSession,
     updateUser,
-    toggleSavedTutor
+    toggleSavedTutor,
+    studentProfiles,
+    createStudentProfile,
+    updateStudentProfile,
+    deleteStudentProfile,
+    setActiveStudentProfile,
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -224,7 +242,12 @@ export default function StudentDashboard() {
     grantEndPermission: state.grantEndPermission,
     endSession: state.endSession,
     updateUser: state.updateUser,
-    toggleSavedTutor: state.toggleSavedTutor
+    toggleSavedTutor: state.toggleSavedTutor,
+    studentProfiles: state.studentProfiles,
+    createStudentProfile: state.createStudentProfile,
+    updateStudentProfile: state.updateStudentProfile,
+    deleteStudentProfile: state.deleteStudentProfile,
+    setActiveStudentProfile: state.setActiveStudentProfile,
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -570,7 +593,24 @@ export default function StudentDashboard() {
     doc.save(`EduTrack_Payment_Report_${currentUser.name.replace(/\\s+/g, '_')}.pdf`);
   };
 
-  const isProfileIncomplete = (!currentUser?.address || !currentUser?.school || !currentUser?.studentClass) && !currentUser?.hasDismissedProfileNotice;
+  const effectiveAccountType = currentUser?.accountType === 'guardian' ? 'guardian' : 'student';
+
+  const activeChildProfile = useMemo(
+    () =>
+      studentProfiles.find((p) => p.id === currentUser?.activeStudentProfileId) ||
+      studentProfiles[0] ||
+      null,
+    [studentProfiles, currentUser?.activeStudentProfileId]
+  );
+
+  const profileCompletion = useMemo(
+    () => calculateProfileCompletion(currentUser, { studentProfiles }),
+    [currentUser, studentProfiles]
+  );
+
+  const isProfileIncomplete =
+    !profileCompletion.isComplete &&
+    !currentUser?.hasDismissedProfileNotice;
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [showFilters, setShowFilters] = useState(false);
@@ -713,20 +753,56 @@ export default function StudentDashboard() {
   }, [currentUser?.id, updateLocation]);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [accountUpdateError, setAccountUpdateError] = useState('');
+  const [accountUpdateSuccess, setAccountUpdateSuccess] = useState('');
   const [accountForm, setAccountForm] = useState({
     name: currentUser?.name || '',
     phone: currentUser?.phone || '',
-    school: currentUser?.university || '',
-    studentClass: currentUser?.studentClass || '',
+    school: cleanMeaningfulString(currentUser?.school) || cleanMeaningfulString(currentUser?.university),
+    studentClass: cleanMeaningfulString(currentUser?.studentClass),
+    curriculum: cleanMeaningfulString(currentUser?.curriculum) || cleanMeaningfulString(currentUser?.group),
     subjects: currentUser?.subjects || [],
-    address: currentUser?.address || '',
+    area: cleanMeaningfulString(currentUser?.area),
+    address: cleanMeaningfulString(currentUser?.address),
+    guardianRelationship: cleanMeaningfulString(currentUser?.guardianRelationship),
     nidFrontImg: currentUser?.nidFrontImg || '',
     nidBackImg: currentUser?.nidBackImg || '',
     documents: currentUser?.documents || [],
-    gender: currentUser?.gender || '',
-    district: currentUser?.district || '',
-    thana: currentUser?.thana || ''
+    gender: cleanMeaningfulString(currentUser?.gender),
+    district: cleanMeaningfulString(currentUser?.district),
+    thana: cleanMeaningfulString(currentUser?.thana)
   });
+
+  // Guardian Child Student Profile Editor State
+  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+  const [childFormError, setChildFormError] = useState('');
+  const [isSavingChild, setIsSavingChild] = useState(false);
+  const [childForm, setChildForm] = useState({
+    studentName: '',
+    studentClass: '',
+    school: '',
+    curriculum: '',
+    subjectsText: '',
+    gender: '',
+  });
+
+  const navigateToMissingField = (fieldId?: string | null) => {
+    handleTabChange('account');
+    setIsEditingAccount(true);
+    setAccountUpdateError('');
+    if (fieldId) {
+      setTimeout(() => {
+        const el = document.getElementById(fieldId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (typeof (el as HTMLElement).focus === 'function') {
+            (el as HTMLElement).focus({ preventScroll: true });
+          }
+        }
+      }, 220);
+    }
+  };
 
   // Sync form state when currentUser changes or editing is toggled
   useEffect(() => {
@@ -734,16 +810,19 @@ export default function StudentDashboard() {
       setAccountForm({
         name: currentUser.name || '',
         phone: currentUser.phone || '',
-        school: currentUser.university || '',
-        studentClass: currentUser.studentClass || '',
+        school: cleanMeaningfulString(currentUser.school) || cleanMeaningfulString(currentUser.university),
+        studentClass: cleanMeaningfulString(currentUser.studentClass),
+        curriculum: cleanMeaningfulString(currentUser.curriculum) || cleanMeaningfulString(currentUser.group),
         subjects: currentUser.subjects || [],
-        address: currentUser.address || '',
+        area: cleanMeaningfulString(currentUser.area),
+        address: cleanMeaningfulString(currentUser.address),
+        guardianRelationship: cleanMeaningfulString(currentUser.guardianRelationship),
         nidFrontImg: currentUser.nidFrontImg || '',
         nidBackImg: currentUser.nidBackImg || '',
         documents: currentUser.documents || [],
-        gender: currentUser.gender || '',
-        district: currentUser.district || '',
-        thana: currentUser.thana || ''
+        gender: cleanMeaningfulString(currentUser.gender),
+        district: cleanMeaningfulString(currentUser.district),
+        thana: cleanMeaningfulString(currentUser.thana)
       });
     }
   }, [currentUser, isEditingAccount]);
@@ -757,36 +836,44 @@ export default function StudentDashboard() {
     }));
   };
 
-  // Filter only verified tutors matching search and filters
+  // Filter only verified tutors matching search and filters (respecting tutor hideFromSearch privacy)
   const filteredTutors = useMemo(() => {
     const unique = new Map();
     users.filter(user => {
-      if (user.role !== 'tutor' || !user.isVerified) return false;
-      
-      const searchLower = debouncedSearch.toLowerCase();
-      const matchesSearch = user.name.toLowerCase().includes(searchLower) || 
-                            user.university?.toLowerCase().includes(searchLower) ||
-                            user.course?.toLowerCase().includes(searchLower) ||
-                            user.district?.toLowerCase().includes(searchLower) ||
-                            user.thana?.toLowerCase().includes(searchLower) ||
-                            user.area?.toLowerCase().includes(searchLower) ||
-                            user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower));
-      
-      const matchesSubject = filterSubjects.length === 0 || 
-                             filterSubjects.some(fs => user.subjects?.some(s => s.toLowerCase().includes(fs.toLowerCase())));
-      
-      const matchesVersion = !filterVersion || user.subjects?.some(s => {
-        const categorySubjects = SUBJECT_CATEGORIES[filterVersion as keyof typeof SUBJECT_CATEGORIES] || [];
-        return categorySubjects.includes(s);
-      });
+      if (!isTutorEligibleForStudentSearch(user)) return false;
 
-      const matchesClass = !filterClass || user.classes?.some(c => c.toLowerCase().includes(filterClass.toLowerCase()));
-      const matchesArea = !filterArea || 
-                           user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
-                           user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
-                           user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
-                           user.area?.toLowerCase().includes(filterArea.toLowerCase());
-      const matchesDistrict = !filterDistrict || (user.district && user.district.toLowerCase() === filterDistrict.toLowerCase());
+      const userSubjects = parseSubjectsList(user.subjects, user.subject);
+      const searchLower = debouncedSearch.toLowerCase().trim();
+      const matchesSearch =
+        !searchLower ||
+        user.name.toLowerCase().includes(searchLower) ||
+        user.university?.toLowerCase().includes(searchLower) ||
+        user.course?.toLowerCase().includes(searchLower) ||
+        user.district?.toLowerCase().includes(searchLower) ||
+        user.thana?.toLowerCase().includes(searchLower) ||
+        user.area?.toLowerCase().includes(searchLower) ||
+        user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower)) ||
+        userSubjects.some(s => s.toLowerCase().includes(searchLower));
+
+      const matchesSubject =
+        filterSubjects.length === 0 ||
+        filterSubjects.some(fs => userSubjects.some(s => s.toLowerCase().includes(fs.toLowerCase())));
+
+      const matchesVersion =
+        !filterVersion ||
+        userSubjects.some(s => {
+          const categorySubjects = SUBJECT_CATEGORIES[filterVersion as keyof typeof SUBJECT_CATEGORIES] || [];
+          return categorySubjects.includes(s);
+        });
+
+      const matchesClass = !filterClass || matchesClassFilter(user, filterClass);
+      const matchesArea =
+        !filterArea ||
+        user.teachingAreas?.some(a => a.toLowerCase().includes(filterArea.toLowerCase())) ||
+        user.district?.toLowerCase().includes(filterArea.toLowerCase()) ||
+        user.thana?.toLowerCase().includes(filterArea.toLowerCase()) ||
+        user.area?.toLowerCase().includes(filterArea.toLowerCase());
+      const matchesDistrict = !filterDistrict || matchesDistrictFilter(user, filterDistrict);
       const matchesThana = !filterThana || (user.thana && user.thana.toLowerCase() === filterThana.toLowerCase());
       const matchesRating = !filterRating || (user.rating || 0) >= filterRating;
       const matchesGender = !filterGender || (user.gender && user.gender.toLowerCase() === filterGender.toLowerCase());
@@ -965,28 +1052,169 @@ export default function StudentDashboard() {
   const handleAccountUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    setIsUpdating(true);
-    
-    // Preserve existing device GPS location if present
-    const existingLocation = currentUser.location ? currentUser.location : undefined;
+    setAccountUpdateError('');
+    setAccountUpdateSuccess('');
 
-    await useAppStore.getState().updateUser(currentUser.id, {
-      name: accountForm.name,
-      phone: accountForm.phone,
-      university: accountForm.school,
-      studentClass: accountForm.studentClass,
-      subjects: accountForm.subjects,
-      address: accountForm.address,
-      nidFrontImg: accountForm.nidFrontImg,
-      nidBackImg: accountForm.nidBackImg,
-      documents: accountForm.documents,
-      gender: accountForm.gender,
-      district: accountForm.district,
-      thana: accountForm.thana,
-      ...(existingLocation ? { location: existingLocation } : {})
+    const cleanName = cleanMeaningfulString(accountForm.name);
+    const cleanPhone = cleanMeaningfulString(accountForm.phone);
+    const cleanDistrict = cleanMeaningfulString(accountForm.district);
+    const cleanArea = cleanMeaningfulString(accountForm.area);
+    const cleanAddress =
+      cleanMeaningfulString(accountForm.address) ||
+      [cleanArea, cleanMeaningfulString(accountForm.thana), cleanDistrict].filter(Boolean).join(', ');
+    const cleanSchool = cleanMeaningfulString(accountForm.school);
+    const cleanClass = cleanMeaningfulString(accountForm.studentClass);
+    const cleanCurriculum = cleanMeaningfulString(accountForm.curriculum);
+    const cleanRel = cleanMeaningfulString(accountForm.guardianRelationship);
+
+    if (!cleanName) {
+      setAccountUpdateError('Full name is required.');
+      return;
+    }
+    if (!cleanPhone) {
+      setAccountUpdateError('Contact phone number is required.');
+      return;
+    }
+    if (!cleanDistrict || (!cleanAddress && !cleanArea)) {
+      setAccountUpdateError('District and residential/tuition address (or area) are required.');
+      return;
+    }
+    if (effectiveAccountType === 'student') {
+      if (!cleanClass || !cleanSchool || !cleanCurriculum) {
+        setAccountUpdateError('Academic class, School / College, and Curriculum / Group are required for student profiles.');
+        return;
+      }
+    } else if (!cleanRel) {
+      setAccountUpdateError('Please select your relationship to the student.');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const existingLocation = currentUser.location ? currentUser.location : undefined;
+      await updateUser(currentUser.id, {
+        name: cleanName,
+        phone: cleanPhone,
+        accountType: effectiveAccountType,
+        ...(effectiveAccountType === 'guardian'
+          ? { guardianRelationship: cleanRel }
+          : {
+              school: cleanSchool,
+              studentClass: cleanClass,
+              curriculum: cleanCurriculum,
+              group: cleanCurriculum,
+            }),
+        subjects: accountForm.subjects,
+        subject: accountForm.subjects.join(', '),
+        area: cleanArea,
+        address: cleanAddress,
+        nidFrontImg: accountForm.nidFrontImg,
+        nidBackImg: accountForm.nidBackImg,
+        documents: accountForm.documents,
+        gender: cleanMeaningfulString(accountForm.gender),
+        district: cleanDistrict,
+        thana: cleanMeaningfulString(accountForm.thana),
+        ...(existingLocation ? { location: existingLocation } : {}),
+      });
+      setIsEditingAccount(false);
+      setAccountUpdateSuccess('Your profile has been saved and synchronized.');
+      setTimeout(() => setAccountUpdateSuccess(''), 4000);
+    } catch (err: any) {
+      console.error('Failed to update account profile:', err);
+      setAccountUpdateError(
+        err?.message || 'Unable to save profile changes to Firestore. Please try again.'
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const openAddChildModal = () => {
+    setEditingChildId(null);
+    setChildForm({
+      studentName: '',
+      studentClass: '',
+      school: '',
+      curriculum: '',
+      subjectsText: '',
+      gender: '',
     });
-    setIsEditingAccount(false);
-    setIsUpdating(false);
+    setChildFormError('');
+    setIsChildModalOpen(true);
+  };
+
+  const openEditChildModal = (child: StudentProfileRecord) => {
+    setEditingChildId(child.id);
+    setChildForm({
+      studentName: child.studentName || '',
+      studentClass: child.studentClass || '',
+      school: child.school || '',
+      curriculum: child.curriculum || '',
+      subjectsText: Array.isArray(child.subjects) ? child.subjects.join(', ') : '',
+      gender: child.gender || '',
+    });
+    setChildFormError('');
+    setIsChildModalOpen(true);
+  };
+
+  const handleSaveChildProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    setChildFormError('');
+
+    const studentName = cleanMeaningfulString(childForm.studentName);
+    const studentClass = cleanMeaningfulString(childForm.studentClass);
+    const school = cleanMeaningfulString(childForm.school);
+    const curriculum = cleanMeaningfulString(childForm.curriculum);
+    const subjects = childForm.subjectsText
+      .split(',')
+      .map((s) => cleanMeaningfulString(s))
+      .filter(Boolean);
+
+    if (!studentName || !studentClass || !school || !curriculum) {
+      setChildFormError("Student's name, class, school/college, and curriculum are all required.");
+      return;
+    }
+
+    setIsSavingChild(true);
+    try {
+      if (editingChildId) {
+        await updateStudentProfile(editingChildId, {
+          studentName,
+          studentClass,
+          school,
+          curriculum,
+          subjects,
+          gender: cleanMeaningfulString(childForm.gender),
+          district: currentUser.district || '',
+          thana: currentUser.thana || '',
+          area: currentUser.area || '',
+          address: currentUser.address || '',
+        });
+      } else {
+        await createStudentProfile({
+          studentName,
+          studentClass,
+          school,
+          curriculum,
+          subjects,
+          gender: cleanMeaningfulString(childForm.gender),
+          district: currentUser.district || '',
+          thana: currentUser.thana || '',
+          area: currentUser.area || '',
+          address: currentUser.address || '',
+        });
+      }
+      setIsChildModalOpen(false);
+      setAccountUpdateSuccess(
+        editingChildId ? 'Student profile updated.' : 'New student profile added under your Guardian account.'
+      );
+      setTimeout(() => setAccountUpdateSuccess(''), 4000);
+    } catch (err: any) {
+      setChildFormError(err?.message || 'Failed to save student profile.');
+    } finally {
+      setIsSavingChild(false);
+    }
   };
 
   if (!currentUser) return null;
@@ -996,11 +1224,16 @@ export default function StudentDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase leading-[0.8] mb-4">
-            Student Panel
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] dark:text-white uppercase leading-[0.8] mb-4">
+            {effectiveAccountType === 'guardian' ? 'Guardian Panel' : 'Student Panel'}
           </h1>
-          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em]">
+          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] dark:text-slate-300 uppercase tracking-[0.2em]">
             Welcome, <span className="font-black text-[#0D5BFF] italic">{currentUser.name}</span>
+            {effectiveAccountType === 'guardian' && activeChildProfile && (
+              <span className="ml-3 text-emerald-600 dark:text-emerald-400">
+                • Active Student: {activeChildProfile.studentName} ({activeChildProfile.studentClass})
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -1119,115 +1352,166 @@ export default function StudentDashboard() {
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        {isProfileIncomplete && showProfileNotice && (() => {
-          const completedCount = [!!currentUser?.studentClass, !!currentUser?.school, !!currentUser?.address].filter(Boolean).length;
-          const progressPercent = Math.round((completedCount / 3) * 100);
-          return (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mb-12"
+      {/* Legacy Account Type Prompt (Student vs Parent/Guardian) */}
+      {profileCompletion.needsAccountTypeSelection && (
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-xs font-black uppercase tracking-widest text-[#0D5BFF]">
+              Confirm Account Role
+            </p>
+            <h3 className="text-base sm:text-lg font-black text-[#0B132B] dark:text-white">
+              Are you managing EduTrack as a Student or a Parent / Guardian?
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Guardians can add and manage multiple child student profiles under one account.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => updateUser(currentUser.id, { accountType: 'student' })}
+              className="px-5 py-3 rounded-xl bg-[#0D5BFF] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-700 transition-all cursor-pointer"
             >
-              <div className="bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1C2C5E] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden group border border-blue-500/20 shadow-2xl shadow-blue-950/20">
-                {/* Decorative gradients */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-tr from-[#0D5BFF]/30 to-purple-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-2xl" />
-                
-                <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-8 md:gap-10">
-                  <div className="max-w-3xl space-y-6">
-                    {/* Category Header */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="px-3.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-full flex items-center space-x-2">
-                        <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-ping"></span>
-                        <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full absolute"></span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] pl-2">Onboarding Roadmap</span>
-                      </div>
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-300 bg-white/10 px-3 py-1 rounded-full">
-                        Step {completedCount} of 3 Complete
-                      </div>
-                    </div>
+              I am a Student
+            </button>
+            <button
+              type="button"
+              onClick={() => updateUser(currentUser.id, { accountType: 'guardian' })}
+              className="px-5 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider hover:bg-emerald-700 transition-all cursor-pointer"
+            >
+              I am a Parent / Guardian
+            </button>
+          </div>
+        </div>
+      )}
 
-                    {/* Heading & description */}
-                    <div>
-                      <h3 className="text-3xl sm:text-4xl font-black uppercase italic leading-[1.1] mb-3 tracking-tight">
-                        Setup Your Profile <br className="hidden sm:inline" />
-                        & Find Elite Instructors
-                      </h3>
-                      <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest leading-relaxed max-w-xl">
-                        Complete your academic portfolio to unlock smart geolocation routing, expert auto-matching, and instant classroom validation.
-                      </p>
-                    </div>
+      <AnimatePresence mode="wait">
+        {isProfileIncomplete && showProfileNotice && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-12"
+          >
+            <div className="bg-gradient-to-br from-[#0B132B] via-[#111C3A] to-[#1C2C5E] rounded-[3rem] p-8 lg:p-10 text-white relative overflow-hidden group border border-blue-500/20 shadow-2xl shadow-blue-950/20">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-tr from-[#0D5BFF]/30 to-purple-600/20 rounded-full -mr-40 -mt-40 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-2xl" />
 
-                    {/* Checklists */}
-                    <div className="grid sm:grid-cols-3 gap-4 pt-2">
-                      {[
-                        { label: 'Academic Class', checked: !!currentUser?.studentClass, value: currentUser?.studentClass || 'Not Specified' },
-                        { label: 'School / College', checked: !!currentUser?.school, value: currentUser?.school || 'Not Specified' },
-                        { label: 'Delivery Address', checked: !!currentUser?.address, value: currentUser?.address || 'Not Specified' },
-                      ].map((step, idx) => (
-                        <div 
-                          key={idx} 
-                          className={`p-3 rounded-xl border transition-all duration-300 ${
-                            step.checked 
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-950/20' 
-                              : 'bg-white/5 border-white/10 text-slate-300 hover:border-blue-500/30'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[8px] font-black uppercase tracking-wider text-slate-300">{step.label}</span>
-                            <span className={`w-1.5 h-1.5 rounded-full ${step.checked ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
-                          </div>
-                          <p className={`text-[11px] font-black truncate ${step.checked ? 'text-emerald-200' : 'text-slate-200 font-medium'}`}>
-                            {step.value}
-                          </p>
-                        </div>
-                      ))}
+              <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-8 md:gap-10">
+                <div className="max-w-3xl space-y-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="px-3.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-full flex items-center space-x-2">
+                      <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-ping"></span>
+                      <span className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full absolute"></span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0D5BFF] pl-2">
+                        Onboarding Roadmap
+                      </span>
+                    </div>
+                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-300 bg-white/10 px-3 py-1 rounded-full">
+                      {profileCompletion.completedCount} of {profileCompletion.totalCount} Requirements Complete
                     </div>
                   </div>
 
-                  {/* Operational Controls & Progress */}
-                  <div className="flex flex-col sm:flex-row xl:flex-col items-center gap-6 xl:w-72 justify-between flex-shrink-0 self-stretch xl:self-auto bg-white/[0.02] border border-white/5 p-6 rounded-3xl backdrop-blur-md">
-                    <div className="w-full text-center sm:text-left xl:text-center space-y-2">
-                      <div className="flex items-center justify-between xl:justify-center xl:space-x-4 mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#0D5BFF]">Portfolio Progress</span>
-                        <span className="text-sm font-black font-mono text-[#0D5BFF]">{progressPercent}%</span>
-                      </div>
-                      <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-[2px]">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progressPercent}%` }}
-                          transition={{ duration: 1, ease: 'easeOut' }}
-                          className="h-full bg-gradient-to-r from-[#0D5BFF] to-blue-400 rounded-full"
-                        />
-                      </div>
-                    </div>
+                  <div>
+                    <h3 className="text-3xl sm:text-4xl font-black uppercase italic leading-[1.1] mb-3 tracking-tight">
+                      {effectiveAccountType === 'guardian' ? (
+                        <>
+                          Complete Guardian &amp; Student Info <br className="hidden sm:inline" />
+                          &amp; Hire Verified Educators
+                        </>
+                      ) : (
+                        <>
+                          Setup Your Profile <br className="hidden sm:inline" />
+                          &amp; Find Elite Instructors
+                        </>
+                      )}
+                    </h3>
+                    <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest leading-relaxed max-w-xl">
+                      Complete your required profile details to unlock smart tutor matching, accurate geolocation routing, and instant bookings.
+                    </p>
+                  </div>
 
-                    <div className="flex items-center gap-3 w-full">
-                      <button 
-                        onClick={() => handleTabChange('account')}
-                        className="flex-1 py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-center"
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+                    {profileCompletion.requirements.map((req) => (
+                      <button
+                        key={req.key}
+                        type="button"
+                        onClick={() => navigateToMissingField(req.targetFieldId)}
+                        className={`p-3 rounded-xl border text-left transition-all duration-300 cursor-pointer ${
+                          req.completed
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-950/20'
+                            : 'bg-white/5 border-white/10 text-slate-300 hover:border-blue-400/50 hover:bg-white/10'
+                        }`}
                       >
-                        Complete Now
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[8px] font-black uppercase tracking-wider text-slate-300">
+                            {req.label}
+                          </span>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              req.completed
+                                ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50'
+                                : 'bg-rose-500 animate-pulse'
+                            }`}
+                          />
+                        </div>
+                        <p
+                          className={`text-[11px] font-black truncate ${
+                            req.completed ? 'text-emerald-200' : 'text-amber-200 font-semibold'
+                          }`}
+                        >
+                          {req.displayValue}
+                        </p>
                       </button>
-                      <button 
-                        onClick={() => {
-                          setShowProfileNotice(false);
-                          useAppStore.getState().updateUser(currentUser.id, { hasDismissedProfileNotice: true });
-                        }}
-                        className="p-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-2xl transition-all border border-white/5 flex items-center justify-center"
-                        title="Skip onboarding"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row xl:flex-col items-center gap-6 xl:w-72 justify-between flex-shrink-0 self-stretch xl:self-auto bg-white/[0.02] border border-white/5 p-6 rounded-3xl backdrop-blur-md">
+                  <div className="w-full text-center sm:text-left xl:text-center space-y-2">
+                    <div className="flex items-center justify-between xl:justify-center xl:space-x-4 mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#0D5BFF]">
+                        Portfolio Progress
+                      </span>
+                      <span className="text-sm font-black font-mono text-[#0D5BFF]">
+                        {profileCompletion.percentage}%
+                      </span>
                     </div>
+                    <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-[2px]">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${profileCompletion.percentage}%` }}
+                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                        className="h-full bg-gradient-to-r from-[#0D5BFF] to-blue-400 rounded-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full">
+                    <button
+                      type="button"
+                      onClick={() => navigateToMissingField(profileCompletion.firstMissingFieldId)}
+                      className="flex-1 py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-blue-500/20 text-center cursor-pointer"
+                    >
+                      Complete Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileNotice(false);
+                        updateUser(currentUser.id, { hasDismissedProfileNotice: true });
+                      }}
+                      className="p-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-2xl transition-all border border-white/5 flex items-center justify-center cursor-pointer"
+                      title="Skip onboarding"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          );
-        })()}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -1588,7 +1872,7 @@ export default function StudentDashboard() {
                                 }
                               });
                             users
-                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .filter(u => isTutorEligibleForStudentSearch(u))
                               .forEach(tutor => {
                                 const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
                                 if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
@@ -2925,7 +3209,7 @@ export default function StudentDashboard() {
                           {(() => {
                             let totalDetected = 0;
                             users
-                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .filter(u => isTutorEligibleForStudentSearch(u))
                               .forEach(t => {
                                 const coords = getTutorLocation(t.id, t.location, [currentUser.location!.lat, currentUser.location!.lng], t.district, t.thana);
                                 if (coords) {
@@ -2937,7 +3221,7 @@ export default function StudentDashboard() {
                               });
 
                             const totalMatched = users
-                              .filter(u => u.role === 'tutor' && u.isVerified)
+                              .filter(u => isTutorEligibleForStudentSearch(u))
                               .filter(u => {
                                 if (mapSubjectQuery) {
                                   const uSub = u.subjects || [];
@@ -3052,7 +3336,7 @@ export default function StudentDashboard() {
                               return Array.from(uniqueTutors.values());
                             } else {
                               return users
-                                .filter(u => u.role === 'tutor' && u.isVerified)
+                                .filter(u => isTutorEligibleForStudentSearch(u))
                                 .filter(u => {
                                   if (mapSubjectQuery) {
                                     const uSub = u.subjects || [];
@@ -3319,251 +3603,729 @@ export default function StudentDashboard() {
         )}
 
         {activeTab === 'account' && (
-          <motion.div 
+          <motion.div
             key="account"
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm max-w-4xl transition-colors"
+            className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-10 md:p-14 border border-slate-100 dark:border-slate-800 shadow-sm max-w-4xl transition-colors space-y-10"
           >
-             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">
-                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
-                   <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
-                     <ImageUpload 
-                       currentImageUrl={currentUser.profileImage} 
-                       onUpload={(url) => useAppStore.getState().updateUser(currentUser.id, { profileImage: url })}
-                       onDelete={() => useAppStore.getState().updateUser(currentUser.id, { profileImage: "" })}
-                     />
-                   </Suspense>
-                   <div>
-                      <h3 className="text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">Account Sector</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{currentUser.email}</p>
-                   </div>
+            {/* Header + Avatar + Edit Button */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+                <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
+                  <ImageUpload
+                    currentImageUrl={currentUser.profileImage}
+                    onUpload={(url) => updateUser(currentUser.id, { profileImage: url })}
+                    onDelete={() => updateUser(currentUser.id, { profileImage: "" })}
+                  />
+                </Suspense>
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] text-[10px] font-black uppercase tracking-widest mb-2">
+                    {effectiveAccountType === 'guardian' ? 'Parent / Guardian Account' : 'Student Account'}
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                    {effectiveAccountType === 'guardian' ? 'Guardian Account' : 'Student Account'}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{currentUser.email}</p>
+                  <div className="mt-2 flex flex-wrap justify-center sm:justify-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateUser(currentUser.id, {
+                          accountType: effectiveAccountType === 'guardian' ? 'student' : 'guardian',
+                        })
+                      }
+                      className="text-[10px] font-bold text-slate-600 dark:text-slate-300 underline hover:text-[#0D5BFF] cursor-pointer"
+                    >
+                      Switch to {effectiveAccountType === 'guardian' ? 'Individual Student Mode' : 'Parent / Guardian Mode'}
+                    </button>
+                  </div>
                 </div>
-                <button 
+              </div>
+              <div className="flex items-center gap-3 self-center sm:self-start">
+                {isEditingAccount && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingAccount(false);
+                      setAccountUpdateError('');
+                    }}
+                    className="px-5 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={isUpdating}
                   onClick={() => {
                     if (isEditingAccount) {
                       handleAccountUpdate({ preventDefault: () => {} } as React.FormEvent);
                     } else {
+                      setAccountUpdateError('');
                       setIsEditingAccount(true);
                     }
                   }}
-                  className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all"
+                  className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 dark:shadow-none hover:bg-blue-700 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                   {isEditingAccount ? 'Confirm Changes' : 'Update Profile'}
+                  {isUpdating ? 'Saving...' : isEditingAccount ? 'Confirm Changes' : 'Update Profile'}
                 </button>
-             </div>
+              </div>
+            </div>
 
-              {isEditingAccount ? (
-                <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Guardian Name</label>
-                       <input 
-                         value={accountForm.name}
-                         onChange={e => setAccountForm({...accountForm, name: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Logic</label>
-                       <input 
-                         value={accountForm.phone}
-                         onChange={e => setAccountForm({...accountForm, phone: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Gender Selection</label>
-                       <select 
-                         value={accountForm.gender}
-                         onChange={e => setAccountForm({...accountForm, gender: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       >
-                         <option value="">SELECT GENDER</option>
-                         <option value="Male">MALE</option>
-                         <option value="Female">FEMALE</option>
-
-                       </select>
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">District</label>
-                       <select 
-                         value={accountForm.district}
-                         onChange={e => setAccountForm({...accountForm, district: e.target.value, thana: ''})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       >
-                         <option value="">SELECT DISTRICT</option>
-                         {BANGLADESH_DISTRICTS.map(dist => (
-                           <option key={dist} value={dist}>{dist.toUpperCase()}</option>
-                         ))}
-                       </select>
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Thana / Sub-district</label>
-                       <select 
-                         value={accountForm.thana}
-                         disabled={!accountForm.district}
-                         onChange={e => setAccountForm({...accountForm, thana: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
-                       >
-                         <option value="">{accountForm.district ? 'SELECT THANA' : 'SELECT DISTRICT FIRST'}</option>
-                         {accountForm.district && BANGLADESH_THANAS[accountForm.district]?.map(th => (
-                           <option key={th} value={th}>{th.toUpperCase()}</option>
-                         ))}
-                       </select>
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
-                       <input 
-                         value={accountForm.address}
-                         onChange={e => setAccountForm({...accountForm, address: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                         placeholder="Enter full residential address"
-                       />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Student Institution</label>
-                       <input 
-                         value={accountForm.school}
-                         onChange={e => setAccountForm({...accountForm, school: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Class / Level</label>
-                       <select 
-                         value={accountForm.studentClass}
-                         onChange={e => setAccountForm({...accountForm, studentClass: e.target.value})}
-                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800/80 rounded-2xl py-5 px-8 text-xs font-black text-[#0B132B] dark:text-white uppercase italic focus:outline-none focus:border-[#0D5BFF]"
-                       >
-                         <option value="">SELECT CLASS</option>
-                         {AVAILABLE_CLASSES.map(cls => (
-                           <option key={cls} value={cls}>{cls.toUpperCase()}</option>
-                         ))}
-                       </select>
-                    </div>
-                    <div className="md:col-span-2 space-y-6">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Learning Interest (Multiple)</label>
-                       {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
-                         <div key={category} className="space-y-3 pl-4">
-                           <div className="flex items-center gap-2">
-                             <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
-                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
-                           </div>
-                           <div className="flex flex-wrap gap-2">
-                             {subjects.map(sub => (
-                               <button
-                                 key={sub}
-                                 type="button"
-                                 onClick={() => toggleSubject(sub)}
-                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                   accountForm.subjects.includes(sub)
-                                   ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-lg shadow-blue-100'
-                                   : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
-                                 }`}
-                               >
-                                 {sub}
-                               </button>
-                             ))}
-                           </div>
-                         </div>
-                       ))}
-                    </div>
-                    <button 
-                      disabled={isUpdating}
-                      className="md:col-span-2 py-6 bg-[#0B132B] text-white rounded-3xl font-black uppercase italic tracking-widest hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+            {/* Centralized Profile Completion Meter */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Profile Completion
+                  </p>
+                  <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
+                    {profileCompletion.isComplete
+                      ? 'Your profile is 100% complete and synchronized.'
+                      : `${profileCompletion.missingFields.length} required detail${profileCompletion.missingFields.length > 1 ? 's' : ''} remaining`}
+                  </p>
+                </div>
+                <span
+                  className={`text-xl font-black font-mono ${
+                    profileCompletion.isComplete ? 'text-emerald-600' : 'text-[#0D5BFF]'
+                  }`}
+                >
+                  {profileCompletion.percentage}%
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    profileCompletion.isComplete ? 'bg-emerald-500' : 'bg-[#0D5BFF]'
+                  }`}
+                  style={{ width: `${profileCompletion.percentage}%` }}
+                />
+              </div>
+              {!profileCompletion.isComplete && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {profileCompletion.missingFields.map((mf) => (
+                    <button
+                      key={mf.key}
+                      type="button"
+                      onClick={() => navigateToMissingField(mf.targetFieldId)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-bold hover:bg-amber-100 transition-colors cursor-pointer"
                     >
-                       {isUpdating ? (
-                         <>
-                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                           Synchronizing...
-                         </>
-                       ) : 'Confirm Changes'}
+                      Complete {mf.label} →
                     </button>
-                </form>
-              ) : (
-                <div className="space-y-12">
-                  <div className="grid md:grid-cols-2 gap-12">
-                    <div className="space-y-8">
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Identity UID</p>
-                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.name}</p>
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Protocol</p>
-                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.phone || 'NOT SET'}</p>
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Address</p>
-                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.address || 'NOT SET'}</p>
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender</p>
-                          <p className="text-xl font-black text-[#0D5BFF] uppercase italic">{currentUser.gender || 'NOT SET'}</p>
-                       </div>
-                    </div>
-                    <div className="space-y-8 border-l border-slate-50 pl-12">
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Institution</p>
-                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.university || 'NOT SET'}</p>
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Class</p>
-                          <p className="text-xl font-black text-[#0B132B] uppercase italic">{currentUser.studentClass || 'NOT SET'}</p>
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Learning Interest</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                             {(currentUser.subjects || []).map(sub => (
-                               <span key={sub} className="px-3 py-1 bg-slate-50 border border-slate-100 text-[8px] font-black uppercase italic text-slate-400 rounded-full">{sub}</span>
-                             ))}
-                             {(currentUser.subjects || []).length === 0 && <span className="text-xs italic text-slate-300 uppercase">None selected</span>}
-                          </div>
-                       </div>
-                       <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                          <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-2">Member Since</p>
-                          <p className="text-sm font-black text-[#0B132B] uppercase italic">
-                              {currentUser?.createdAt 
-                                ? (isNaN(new Date(currentUser.createdAt).getTime()) 
-                                    ? currentUser.createdAt 
-                                    : new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }))
-                                : 'August 2026'}
-                           </p>
-                       </div>
-                    </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                  <div className="pt-12 border-t border-slate-100">
-                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Payment Logic History</h3>
-                    <div className="grid grid-cols-1 gap-4">
-                      {payments.map(p => (
-                        <div key={p.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">TRX: {p.transactionId}</span>
-                              <span className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${
-                                p.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
-                              }`}>
-                                {p.status}
-                              </span>
-                            </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                              {new Date(p.date).toLocaleString()} • Sent via {p.bKashNumber}
-                            </p>
+            {accountUpdateError && (
+              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs font-bold flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+                <span>{accountUpdateError}</span>
+              </div>
+            )}
+
+            {accountUpdateSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-200 text-xs font-bold flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+                <span>{accountUpdateSuccess}</span>
+              </div>
+            )}
+
+            {isEditingAccount ? (
+              <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    {effectiveAccountType === 'guardian' ? 'Guardian Full Name *' : 'Student Full Name *'}
+                  </label>
+                  <input
+                    id="account-field-name"
+                    value={accountForm.name}
+                    onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    Contact Phone *
+                  </label>
+                  <input
+                    id="account-field-phone"
+                    value={accountForm.phone}
+                    onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    placeholder="01XXXXXXXXX"
+                  />
+                </div>
+
+                {effectiveAccountType === 'guardian' && (
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                      Relationship to Student *
+                    </label>
+                    <select
+                      id="account-field-relationship"
+                      value={accountForm.guardianRelationship}
+                      onChange={(e) => setAccountForm({ ...accountForm, guardianRelationship: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    >
+                      <option value="">Select Relationship</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Father">Father</option>
+                      <option value="Elder Sibling">Elder Sibling</option>
+                      <option value="Uncle / Aunt">Uncle / Aunt</option>
+                      <option value="Legal Guardian">Legal Guardian</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    Gender
+                  </label>
+                  <select
+                    value={accountForm.gender}
+                    onChange={(e) => setAccountForm({ ...accountForm, gender: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    District *
+                  </label>
+                  <select
+                    id="account-field-district"
+                    value={accountForm.district}
+                    onChange={(e) => setAccountForm({ ...accountForm, district: e.target.value, thana: '' })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                  >
+                    <option value="">Select District</option>
+                    {BANGLADESH_DISTRICTS.map((dist) => (
+                      <option key={dist} value={dist}>{dist}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    Thana / Upazila
+                  </label>
+                  <select
+                    value={accountForm.thana}
+                    disabled={!accountForm.district}
+                    onChange={(e) => setAccountForm({ ...accountForm, thana: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
+                  >
+                    <option value="">{accountForm.district ? 'Select Thana' : 'Select District First'}</option>
+                    {accountForm.district && BANGLADESH_THANAS[accountForm.district]?.map((th) => (
+                      <option key={th} value={th}>{th}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    Area / Neighborhood
+                  </label>
+                  <input
+                    id="account-field-area"
+                    value={accountForm.area}
+                    onChange={(e) => setAccountForm({ ...accountForm, area: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    placeholder="e.g. Dhanmondi 15, Mirpur 10"
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                    Delivery / Tuition Address *
+                  </label>
+                  <input
+                    id="account-field-address"
+                    value={accountForm.address}
+                    onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    placeholder="e.g. House 14, Road 8, Dhanmondi, Dhaka"
+                  />
+                </div>
+
+                {effectiveAccountType === 'student' && (
+                  <>
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                        School / College *
+                      </label>
+                      <input
+                        id="account-field-school"
+                        value={accountForm.school}
+                        onChange={(e) => setAccountForm({ ...accountForm, school: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                        placeholder="e.g. Viqarunnisa Noon School & College"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                        Academic Class *
+                      </label>
+                      <select
+                        id="account-field-class"
+                        value={accountForm.studentClass}
+                        onChange={(e) => setAccountForm({ ...accountForm, studentClass: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                      >
+                        <option value="">Select Class</option>
+                        {AVAILABLE_CLASSES.map((cls) => (
+                          <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                        Curriculum / Group *
+                      </label>
+                      <input
+                        id="account-field-curriculum"
+                        value={accountForm.curriculum}
+                        onChange={(e) => setAccountForm({ ...accountForm, curriculum: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                        placeholder="e.g. Bangla Medium (Science), English Version"
+                      />
+                    </div>
+                    <div id="account-field-subjects" className="md:col-span-2 space-y-5">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                        Learning Subjects (Optional)
+                      </label>
+                      {Object.entries(SUBJECT_CATEGORIES).map(([category, subjects]) => (
+                        <div key={category} className="space-y-2.5 pl-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full" />
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{category}</span>
                           </div>
-                          <div className="text-2xl font-black text-[#0B132B] italic">৳{p.amount}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {subjects.map((sub) => (
+                              <button
+                                key={sub}
+                                type="button"
+                                onClick={() => toggleSubject(sub)}
+                                className={`px-3.5 py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
+                                  accountForm.subjects.includes(sub)
+                                    ? 'bg-[#0D5BFF] text-white border-[#0D5BFF] shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                                }`}
+                              >
+                                {sub}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       ))}
-                      {payments.length === 0 && (
-                        <div className="p-12 text-left md:text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
-                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No transaction records found</p>
+                    </div>
+                  </>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="md:col-span-2 py-5 bg-[#0B132B] dark:bg-[#0D5BFF] text-white rounded-3xl font-black uppercase italic tracking-widest hover:bg-[#0D5BFF] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+                >
+                  {isUpdating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Synchronizing...
+                    </>
+                  ) : 'Confirm Changes'}
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-12">
+                <div className="grid md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        {effectiveAccountType === 'guardian' ? 'Guardian Full Name' : 'Student Full Name'}
+                      </p>
+                      <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                        {currentUser.name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Phone</p>
+                      <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                        {cleanMeaningfulString(currentUser.phone) || 'Not Specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        Delivery / Tuition Address
+                      </p>
+                      <p className="text-lg font-black text-[#0B132B] dark:text-white italic">
+                        {[currentUser.address, currentUser.area, currentUser.thana, currentUser.district]
+                          .map((v) => cleanMeaningfulString(v))
+                          .filter(Boolean)
+                          .join(', ') || 'Not Specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender</p>
+                      <p className="text-xl font-black text-[#0D5BFF] uppercase italic">
+                        {cleanMeaningfulString(currentUser.gender) || 'Not Specified'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-6 md:border-l md:border-slate-100 md:dark:border-slate-800 md:pl-10">
+                    {effectiveAccountType === 'guardian' ? (
+                      <>
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            Relationship to Student
+                          </p>
+                          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 uppercase italic">
+                            {cleanMeaningfulString(currentUser.guardianRelationship) || 'Not Specified'}
+                          </p>
                         </div>
-                      )}
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            Active Linked Student
+                          </p>
+                          <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                            {activeChildProfile
+                              ? `${activeChildProfile.studentName} (${activeChildProfile.studentClass})`
+                              : cleanMeaningfulString(currentUser.studentName) || 'No Student Added'}
+                          </p>
+                          {activeChildProfile?.school && (
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                              {activeChildProfile.school} • {activeChildProfile.curriculum || 'Standard Curriculum'}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            School / College
+                          </p>
+                          <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                            {cleanMeaningfulString(currentUser.school) || 'Not Specified'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            Academic Class
+                          </p>
+                          <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                            {cleanMeaningfulString(currentUser.studentClass) || 'Not Specified'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            Curriculum / Group
+                          </p>
+                          <p className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
+                            {cleanMeaningfulString(currentUser.curriculum) || cleanMeaningfulString(currentUser.group) || 'Not Specified'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            Learning Subjects
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {(currentUser.subjects || []).map((sub) => (
+                              <span key={sub} className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 rounded-full">
+                                {sub}
+                              </span>
+                            ))}
+                            {(currentUser.subjects || []).length === 0 && (
+                              <span className="text-xs italic text-slate-400">None selected</span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-widest mb-1">Member Since</p>
+                      <p className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">
+                        {currentUser?.createdAt
+                          ? (isNaN(new Date(currentUser.createdAt).getTime())
+                              ? currentUser.createdAt
+                              : new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }))
+                          : 'August 2026'}
+                      </p>
                     </div>
                   </div>
                 </div>
-              )}
+
+                {/* Guardian Multi-Child Student Profiles Manager */}
+                {effectiveAccountType === 'guardian' && (
+                  <div
+                    id="guardian-student-profile-section"
+                    className="pt-10 border-t border-slate-100 dark:border-slate-800 space-y-6"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                          Managed Student Profiles
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Add and manage academic profiles for your child or ward to prefill tuition posts and match verified tutors.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openAddChildModal}
+                        className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Student Profile</span>
+                      </button>
+                    </div>
+
+                    {studentProfiles.length === 0 ? (
+                      <div className="p-8 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center space-y-3">
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          No linked student profile created yet
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Add at least one student profile (name, class, school/college, and curriculum) to complete your Guardian profile.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openAddChildModal}
+                          className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] text-white text-xs font-bold cursor-pointer"
+                        >
+                          Add First Student
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {studentProfiles.map((sp) => {
+                          const isActive = activeChildProfile?.id === sp.id;
+                          return (
+                            <div
+                              key={sp.id}
+                              className={`p-5 rounded-3xl border transition-all space-y-3 ${
+                                isActive
+                                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 dark:border-emerald-700 shadow-sm'
+                                  : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-base font-black text-[#0B132B] dark:text-white">
+                                      {sp.studentName}
+                                    </h4>
+                                    {isActive && (
+                                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs font-bold text-[#0D5BFF] mt-0.5">
+                                    {sp.studentClass} • {sp.curriculum || 'Standard Curriculum'}
+                                  </p>
+                                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                                    {sp.school}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditChildModal(sp)}
+                                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] cursor-pointer"
+                                    title="Edit student profile"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteStudentProfile(sp.id)}
+                                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-rose-500 hover:bg-rose-50 cursor-pointer"
+                                    title="Remove student profile"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                              {sp.subjects && sp.subjects.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {sp.subjects.map((sub) => (
+                                    <span
+                                      key={sub}
+                                      className="px-2.5 py-0.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300"
+                                    >
+                                      {sub}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {!isActive && (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveStudentProfile(sp.id)}
+                                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
+                                >
+                                  Set as Active Student
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-10 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-6">
+                    Payment History
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {myPayments.map((p) => (
+                      <div key={p.id} className="p-6 bg-slate-50 dark:bg-slate-950/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-xs font-black text-[#0B132B] dark:text-white uppercase italic">
+                              TRX: {p.transactionId}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              p.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                            }`}>
+                              {p.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {new Date(p.date).toLocaleString()} • Sent via {p.bKashNumber}
+                          </p>
+                        </div>
+                        <div className="text-xl font-black text-[#0B132B] dark:text-white italic">৳{p.amount}</div>
+                      </div>
+                    ))}
+                    {myPayments.length === 0 && (
+                      <div className="p-10 text-left md:text-center bg-slate-50/50 dark:bg-slate-950/30 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">
+                          No transaction records found
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Guardian Add / Edit Child Modal */}
+            {isChildModalOpen && (
+              <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="w-full max-w-lg bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-2xl space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-black text-[#0B132B] dark:text-white">
+                      {editingChildId ? 'Edit Student Profile' : 'Add Linked Student Profile'}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setIsChildModalOpen(false)}
+                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {childFormError && (
+                    <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs font-semibold">
+                      {childFormError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveChildProfile} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Student&apos;s Full Name *
+                      </label>
+                      <input
+                        value={childForm.studentName}
+                        onChange={(e) => setChildForm({ ...childForm, studentName: e.target.value })}
+                        placeholder="e.g. Aayan Rahman"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Academic Class *
+                        </label>
+                        <select
+                          value={childForm.studentClass}
+                          onChange={(e) => setChildForm({ ...childForm, studentClass: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                        >
+                          <option value="">Select Class</option>
+                          {AVAILABLE_CLASSES.map((cls) => (
+                            <option key={cls} value={cls}>{cls}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Curriculum / Medium *
+                        </label>
+                        <input
+                          value={childForm.curriculum}
+                          onChange={(e) => setChildForm({ ...childForm, curriculum: e.target.value })}
+                          placeholder="e.g. English Version"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        School / College *
+                      </label>
+                      <input
+                        value={childForm.school}
+                        onChange={(e) => setChildForm({ ...childForm, school: e.target.value })}
+                        placeholder="e.g. Scholastica"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Target Subjects (Comma Separated)
+                      </label>
+                      <input
+                        value={childForm.subjectsText}
+                        onChange={(e) => setChildForm({ ...childForm, subjectsText: e.target.value })}
+                        placeholder="e.g. Mathematics, Science, English"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsChildModalOpen(false)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingChild}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                      >
+                        {isSavingChild ? 'Saving...' : editingChildId ? 'Save Student' : 'Create Student Profile'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 

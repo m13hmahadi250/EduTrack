@@ -204,7 +204,13 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           <div className="truncate">
             <div className="text-xs font-black text-[#0B132B] dark:text-white truncate max-w-[130px] uppercase italic transition-colors leading-normal">{currentUser.name}</div>
             <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest transition-colors leading-none mt-0.5">
-              {currentUser.role === 'tutor' ? 'Teacher' : currentUser.role === 'admin' ? 'Admin' : 'Student'}
+              {currentUser.role === 'tutor'
+                ? 'Teacher'
+                : currentUser.role === 'admin'
+                ? 'Admin'
+                : currentUser.accountType === 'guardian'
+                ? 'Guardian'
+                : 'Student'}
             </div>
           </div>
         </div>

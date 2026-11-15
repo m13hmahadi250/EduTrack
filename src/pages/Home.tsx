@@ -6,6 +6,12 @@ import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
 import { prefetchPage } from '../utils/prefetch';
 import { sanitizeTutorProfileForViewer } from '../../shared/tutorPrivacy';
+import {
+  filterPublicTutors,
+  formatTutorClassesBadge,
+  isTutorEligibleForHome,
+  isTutorVerified,
+} from '../../shared/tutorListing';
 import { 
   ShieldCheck, 
   Users, 
@@ -44,7 +50,9 @@ import {
   Calendar,
   UserPlus,
   Layers,
-  Monitor
+  Monitor,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshData';
@@ -53,11 +61,18 @@ export default function Home() {
   const [realTutors, setRealTutors] = React.useState<any[]>(() => {
     try {
       const cached = localStorage.getItem('edutrack_cached_home_tutors');
-      return cached ? JSON.parse(cached) : [];
+      if (!cached) return [];
+      const parsed = JSON.parse(cached);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((item: any) => (item && item.tutor && !item.role ? item.tutor : item))
+        .filter((t: any) => isTutorEligibleForHome(t));
     } catch {
       return [];
     }
   });
+  const [tutorsLoading, setTutorsLoading] = React.useState<boolean>(() => realTutors.length === 0);
+  const [tutorsError, setTutorsError] = React.useState<string | null>(null);
   const location = useLocation();
 
   React.useEffect(() => {
@@ -82,42 +97,56 @@ export default function Home() {
 
   const { currentUser, updateUser, androidAppLink } = useAppStore();
 
-  React.useEffect(() => {
-    let active = true;
-    const fetchTutors = async () => {
+  const fetchTutors = React.useCallback(async () => {
+    setTutorsLoading(true);
+    setTutorsError(null);
+    try {
+      const { getDocs, collection, query, where } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
+      const querySnapshot = await getDocs(q);
+      const viewerCtx = currentUser ? { id: currentUser.id, role: currentUser.role } : null;
+      const fetched = querySnapshot.docs
+        .map(docSnap => {
+          const raw = { id: docSnap.id, ...(docSnap.data() as any) };
+          const { tutor: safeTutor } = sanitizeTutorProfileForViewer(raw, viewerCtx, []);
+          return safeTutor;
+        })
+        .filter((t): t is Record<string, any> => Boolean(t && isTutorEligibleForHome(t)));
+
+      fetched.sort((a, b) => {
+        const scoreA =
+          (a.profileImage ? 4 : 0) +
+          (Array.isArray(a.subjects) && a.subjects.length > 0 ? 2 : 0) +
+          (Number(a.rating) || 0);
+        const scoreB =
+          (b.profileImage ? 4 : 0) +
+          (Array.isArray(b.subjects) && b.subjects.length > 0 ? 2 : 0) +
+          (Number(b.rating) || 0);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+
+      setRealTutors(fetched);
       try {
-        const { getDocs, collection, query, where } = await import('firebase/firestore');
-        const { db } = await import('../lib/firebase');
-        const q = query(collection(db, 'users'), where('role', '==', 'tutor'));
-        const querySnapshot = await getDocs(q);
-        if (active) {
-          const viewerCtx = currentUser ? { id: currentUser.id, role: currentUser.role } : null;
-          const fetched = querySnapshot.docs
-            .map(doc => {
-              const raw = { id: doc.id, ...(doc.data() as any) };
-              return sanitizeTutorProfileForViewer(raw, viewerCtx, []);
-            })
-            .filter(Boolean)
-            .filter((u: any) =>
-              !u.isBlocked &&
-              u.showOnHomePage !== false &&
-              !u.privacySettings?.hideFromSearch &&
-              Boolean(u.isVerified || u.verified || u.isApproved)
-            );
-          setRealTutors(fetched);
-          try {
-            localStorage.setItem('edutrack_cached_home_tutors', JSON.stringify(fetched));
-          } catch (e) {}
-        }
-      } catch (error) {
-        console.error("Error fetching tutors:", error);
+        localStorage.setItem('edutrack_cached_home_tutors', JSON.stringify(fetched));
+      } catch (e) {}
+    } catch (error: any) {
+      console.error("Error fetching tutors:", error);
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('permission') || error?.code === 'permission-denied') {
+        setTutorsError("Unable to load tutors due to Firestore access permissions. Please refresh or sign in again.");
+      } else {
+        setTutorsError("Unable to load verified tutors right now. Please check your connection and try again.");
       }
-    };
-    fetchTutors();
-    return () => {
-      active = false;
-    };
+    } finally {
+      setTutorsLoading(false);
+    }
   }, [currentUser?.id, currentUser?.role]);
+
+  React.useEffect(() => {
+    fetchTutors();
+  }, [fetchTutors]);
 
   const [searchQuery, setSearchQuery] = React.useState(() => {
     try {
@@ -231,113 +260,49 @@ export default function Home() {
   // Compute live search filter results
   const filteredTutors = React.useMemo(() => {
     const favoriteIds = currentUser?.savedTutors || localFavorites;
-    const queryStr = deferredSearchQuery.toLowerCase().trim();
-
-    return allTutors.filter(t => {
-      // 0. Favorites filter match
-      const matchesFavorites = !showFavoritesOnly || favoriteIds.includes(t.id);
-
-      // 1. Text Search query matching Name, University, Location, or listed Subjects
-      const matchesSearch = 
-        queryStr === '' ||
-        (t.name && t.name.toLowerCase().includes(queryStr)) ||
-        (t.university && t.university.toLowerCase().includes(queryStr)) ||
-        (t.district && t.district.toLowerCase().includes(queryStr)) ||
-        (t.area && t.area.toLowerCase().includes(queryStr)) ||
-        (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(queryStr)));
-
-      // 2. Subject filter match
-      const matchesSubject = 
-        selectedSubject === 'All' ||
-        (t.subjects && t.subjects.some((s: string) => s.toLowerCase().includes(selectedSubject.toLowerCase())));
-
-      // 3. Class filter match
-      const tutorClasses = Array.isArray(t.preferredClasses)
-        ? t.preferredClasses.join(' ').toLowerCase()
-        : String(t.preferredClasses || t.studentClass || t.classes || '').toLowerCase();
-      const matchesClass =
-        selectedClass === 'All' ||
-        !tutorClasses ||
-        tutorClasses.includes(selectedClass.toLowerCase()) ||
-        (selectedClass === 'Class 6 - 8' && (tutorClasses.includes('6') || tutorClasses.includes('7') || tutorClasses.includes('8') || tutorClasses.includes('all'))) ||
-        (selectedClass === 'Class 9 - 10' && (tutorClasses.includes('9') || tutorClasses.includes('10') || tutorClasses.includes('ssc') || tutorClasses.includes('all'))) ||
-        (selectedClass === 'Class 11 - 12' && (tutorClasses.includes('11') || tutorClasses.includes('12') || tutorClasses.includes('hsc') || tutorClasses.includes('all'))) ||
-        (selectedClass === 'English Medium' && (tutorClasses.includes('o level') || tutorClasses.includes('a level') || tutorClasses.includes('english') || tutorClasses.includes('all')));
-
-      // 4. Tag-based filtering match (matches at least one selected tag if tags are active)
-      const matchesTags = 
-        selectedTags.length === 0 ||
-        (t.subjects && t.subjects.some((s: string) => 
-          selectedTags.some(tag => s.toLowerCase().includes(tag.toLowerCase()))
-        ));
-
-      // 5. Geographic District filter match
-      const matchesDistrict = 
-        selectedDistrict === 'All' ||
-        (t.district && t.district.toLowerCase() === selectedDistrict.toLowerCase());
-
-      // 6. Mode filter match (Home / Online)
-      const tutorMode = String(t.teachingMode || t.mode || 'Home & Online').toLowerCase();
-      const matchesMode =
-        selectedMode === 'All' ||
-        tutorMode.includes(selectedMode.toLowerCase()) ||
-        tutorMode.includes('both') ||
-        tutorMode.includes('home & online');
-
-      // 7. Curriculum filter match
-      const tutorCurriculum = String(t.curriculum || t.medium || tutorClasses || '').toLowerCase();
-      const matchesCurriculum =
-        selectedCurriculum === 'All' ||
-        !tutorCurriculum ||
-        tutorCurriculum.includes(selectedCurriculum.toLowerCase()) ||
-        (selectedCurriculum === 'English Medium' && (tutorCurriculum.includes('cambridge') || tutorCurriculum.includes('edexcel') || tutorCurriculum.includes('o level') || tutorCurriculum.includes('a level')));
-
-      // 8. Budget / Salary range match
-      const tutorSalaryNum = Number(String(t.expectedSalary || t.hourlyRate || 0).replace(/[^0-9]/g, ''));
-      const matchesBudget =
-        selectedMaxBudget === 'All' ||
-        !tutorSalaryNum ||
-        tutorSalaryNum <= Number(selectedMaxBudget);
-
-      // 9. Availability filter match
-      const matchesAvailability =
-        !onlyAvailableToday ||
-        Boolean(t.availableSlots?.length || t.availability || t.isVerified);
-
-      // Must be a genuinely verified teacher
-      const isVerified = Boolean(t.isVerified || t.verified || t.isApproved);
-      if (!isVerified) return false;
-
-      return (
-        matchesFavorites &&
-        matchesSearch &&
-        matchesSubject &&
-        matchesClass &&
-        matchesTags &&
-        matchesDistrict &&
-        matchesMode &&
-        matchesCurriculum &&
-        matchesBudget &&
-        matchesAvailability
-      );
+    return filterPublicTutors(allTutors, {
+      searchQuery: deferredSearchQuery,
+      subject: selectedSubject,
+      studentClass: selectedClass,
+      district: selectedDistrict,
+      mode: selectedMode,
+      curriculum: selectedCurriculum,
+      maxBudget: selectedMaxBudget,
+      onlyAvailableToday,
+      tags: selectedTags,
+      favoriteIds,
+      favoritesOnly: showFavoritesOnly,
     });
   }, [allTutors, deferredSearchQuery, selectedSubject, selectedClass, selectedTags, selectedDistrict, selectedMode, selectedCurriculum, selectedMaxBudget, onlyAvailableToday, showFavoritesOnly, currentUser?.savedTutors, localFavorites]);
 
+  const hasActiveFilter =
+    searchQuery.trim() !== '' ||
+    selectedSubject !== 'All' ||
+    selectedClass !== 'All' ||
+    selectedDistrict !== 'All' ||
+    selectedMode !== 'All' ||
+    selectedCurriculum !== 'All' ||
+    selectedMaxBudget !== 'All' ||
+    onlyAvailableToday ||
+    selectedTags.length > 0 ||
+    showFavoritesOnly;
+
+  const resetAllFilters = React.useCallback(() => {
+    setSearchQuery('');
+    setSelectedSubject('All');
+    setSelectedClass('All');
+    setSelectedDistrict('All');
+    setSelectedMode('All');
+    setSelectedCurriculum('All');
+    setSelectedMaxBudget('All');
+    setOnlyAvailableToday(false);
+    setSelectedTags([]);
+    setShowFavoritesOnly(false);
+  }, []);
+
   const displayedTutors = React.useMemo(() => {
-    const hasActiveFilter =
-      searchQuery.trim() !== '' ||
-      selectedSubject !== 'All' ||
-      selectedClass !== 'All' ||
-      selectedDistrict !== 'All' ||
-      selectedMode !== 'All' ||
-      selectedCurriculum !== 'All' ||
-      selectedMaxBudget !== 'All' ||
-      onlyAvailableToday ||
-      selectedTags.length > 0 ||
-      showFavoritesOnly ||
-      showAllTutors;
-    return hasActiveFilter ? filteredTutors : filteredTutors.slice(0, 6);
-  }, [filteredTutors, searchQuery, selectedSubject, selectedClass, selectedDistrict, selectedMode, selectedCurriculum, selectedMaxBudget, onlyAvailableToday, selectedTags, showFavoritesOnly, showAllTutors]);
+    return hasActiveFilter || showAllTutors ? filteredTutors : filteredTutors.slice(0, 6);
+  }, [filteredTutors, hasActiveFilter, showAllTutors]);
 
   const handleSearchTrigger = () => {
     const el = document.getElementById('tutor-results');
@@ -840,18 +805,62 @@ export default function Home() {
                 )}
               </div>
 
-              {displayedTutors.length === 0 ? (
-                <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 sm:p-10 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] flex items-center justify-center mx-auto mb-3">
-                    <Users className="w-6 h-6" />
+              {tutorsError && (
+                <div className="mb-4 rounded-2xl border border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5 text-rose-700 dark:text-rose-300 text-xs sm:text-sm font-medium">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{tutorsError}</span>
                   </div>
-                  <h3 className="text-base font-bold text-[#0B132B] dark:text-white">
-                    No Verified Tutors Match Your Current Filter
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                    Try selecting a different subject, class, or location, or reset the search filters to view available verified educators.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchTutors}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retry</span>
+                  </button>
                 </div>
+              )}
+
+              {tutorsLoading && displayedTutors.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 flex items-center gap-4 animate-pulse"
+                    >
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div className="flex-1 space-y-2.5">
+                        <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800/70" />
+                        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800/70" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : displayedTutors.length === 0 ? (
+                tutorsError ? null : (
+                  <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 sm:p-10 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#0B132B] dark:text-white">
+                      No Verified Tutors Match Your Current Filter
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                      Try selecting a different subject, class, or location, or reset the search filters to view available verified educators.
+                    </p>
+                    {hasActiveFilter && (
+                      <button
+                        type="button"
+                        onClick={resetAllFilters}
+                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Reset Filters
+                      </button>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {displayedTutors.map((t) => {
@@ -2778,10 +2787,8 @@ const TutorPreviewCard = React.memo(({
   const uni = tutor.university || tutor.uni || '';
   const subj = (tutor.subjects && tutor.subjects.length > 0 ? tutor.subjects.join(', ') : tutor.subj) || 'General Subjects';
   const img = tutor.profileImage || tutor.img;
-  const isVerified = Boolean(tutor.isVerified || tutor.verified || tutor.isApproved);
-  const classRange = Array.isArray(tutor.preferredClasses) && tutor.preferredClasses.length > 0
-    ? tutor.preferredClasses.slice(0, 2).join(', ')
-    : tutor.preferredClasses || tutor.studentClass || 'Class 6 - 12';
+  const isVerified = isTutorVerified(tutor);
+  const classRange = formatTutorClassesBadge(tutor);
   const modeLabel = tutor.teachingMode || tutor.mode || 'Home & Online';
 
   return (
