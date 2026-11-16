@@ -10,7 +10,7 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   Info, 
-  Sparkles, 
+  Gift, 
   Trash2, 
   Clock, 
   ExternalLink,
@@ -354,7 +354,6 @@ export default function AdminBroadcastCenter({
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between gap-2 mb-3">
               <span className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
                 Rapid Dispatch Presets
               </span>
               <span className="text-[8px] font-bold text-slate-400 uppercase">Click to Populate</span>
@@ -457,7 +456,7 @@ export default function AdminBroadcastCenter({
                   { id: 'info', label: 'General Info', color: 'blue', icon: Info },
                   { id: 'warning', label: 'Advisory', color: 'amber', icon: AlertTriangle },
                   { id: 'error', label: 'Urgent Alert', color: 'rose', icon: Zap },
-                  { id: 'success', label: 'Offer / Reward', color: 'emerald', icon: Sparkles }
+                  { id: 'success', label: 'Offer / Reward', color: 'emerald', icon: Gift }
                 ].map((sev) => {
                   const isSelected = severity === sev.id;
                   return (
@@ -607,7 +606,7 @@ export default function AdminBroadcastCenter({
                 }`}>
                   {severity === 'warning' ? <AlertTriangle className="w-4 h-4" /> :
                    severity === 'error' ? <Zap className="w-4 h-4" /> :
-                   severity === 'success' ? <Sparkles className="w-4 h-4" /> :
+                   severity === 'success' ? <Gift className="w-4 h-4" /> :
                    <Megaphone className="w-4 h-4" />}
                 </div>
 

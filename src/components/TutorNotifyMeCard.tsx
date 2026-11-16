@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, BellRing, BellOff, CheckCircle2, Clock, Calendar, Sparkles, Volume2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Bell, BellRing, BellOff, CheckCircle2, Clock, Calendar, Volume2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore, User, Session } from '../store';
 import { 

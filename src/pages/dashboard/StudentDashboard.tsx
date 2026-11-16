@@ -20,7 +20,7 @@ import {
   Send, 
   ShieldCheck, 
   CheckCircle,
-  Sparkles,
+  Gift,
   Bell,
   Clock,
   LayoutDashboard,
@@ -1358,7 +1358,7 @@ export default function StudentDashboard() {
              className="w-12 h-12 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl hover:shadow-lg hover:shadow-blue-500/15 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 shrink-0"
              title="Quick Start Tour"
            >
-             <Sparkles className="w-5 h-5 text-white animate-pulse" />
+             <Compass className="w-5 h-5 text-white" />
            </button>
            <button className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all">
               <Bell className="w-5 h-5" />
@@ -1381,7 +1381,7 @@ export default function StudentDashboard() {
             { id: 'transit', label: 'Transit Tracker', icon: MapPin },
             { id: 'messages', label: 'Messages', icon: MessageSquare },
             { id: 'account', label: 'My Account', icon: Award },
-            { id: 'referrals', label: 'Referrals', icon: Sparkles }
+            { id: 'referrals', label: 'Referrals', icon: Gift }
           ].map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;

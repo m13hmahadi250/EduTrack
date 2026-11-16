@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
-import { Gift, Copy, Check, Users, Award, Sparkles, Share2, UserCheck } from 'lucide-react';
+import { Gift, Copy, Check, Users, Award, Share2, UserCheck } from 'lucide-react';
 
 export default function ReferralsTab() {
   const currentUser = useAppStore(state => state.currentUser);
@@ -46,7 +46,6 @@ export default function ReferralsTab() {
 
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 bg-blue-500/15 border border-blue-500/30 text-blue-400 px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-6">
-            <Sparkles className="w-3.5 h-3.5" />
             EduTrack Rewards Hub
           </div>
           

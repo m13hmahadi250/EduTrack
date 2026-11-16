@@ -3,7 +3,7 @@ import { useAppStore, HomeworkAssignment, User } from '../store';
 import { 
   BookOpen, Plus, FileText, Calendar, CheckCircle2, AlertCircle, 
   Trash2, Download, Eye, ExternalLink, Send, ArrowRight, X, 
-  FileCheck, Clock, RefreshCw, Sparkles, Filter, ChevronRight
+  FileCheck, Clock, RefreshCw, Filter, ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import FileUpload from './FileUpload';
@@ -502,7 +502,6 @@ export default function HomeworkDashboard() {
                       className="flex-1 min-w-[110px] min-h-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white py-2.5 px-4 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
                       id={`btn-review-${hw.id}`}
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
                       Review Sub
                     </button>
                   )}
@@ -859,7 +858,6 @@ export default function HomeworkDashboard() {
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                       Review Student Submission

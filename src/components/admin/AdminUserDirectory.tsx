@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
-  Sparkles,
   Pencil,
   Check,
   MoreVertical,
@@ -902,7 +901,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               Sort:
             </span>
             {[
-              { id: 'newest', label: 'Newest', icon: Sparkles },
+              { id: 'newest', label: 'Newest', icon: null },
               { id: 'oldest', label: 'Oldest', icon: Clock },
               { id: 'name', label: 'A–Z', icon: null },
             ].map((s) => {

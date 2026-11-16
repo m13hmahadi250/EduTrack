@@ -6,7 +6,6 @@ import {
   Users, 
   CheckCircle2, 
   AlertCircle, 
-  Sparkles, 
   Filter, 
   Search, 
   Smartphone, 
@@ -484,7 +483,7 @@ export default function AdminBulkEmailer({
         {/* Campaign Presets Bar */}
         <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> One-Click Campaign Presets
+            One-Click Campaign Presets
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
             {CAMPAIGN_PRESETS.map((preset, idx) => (

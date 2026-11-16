@@ -14,7 +14,6 @@ import {
   CheckCircle, 
   Briefcase, 
   GraduationCap, 
-  Sparkles,
   UserCheck,
   PhoneCall,
   Check
@@ -471,7 +470,6 @@ export default function TuitionDetail() {
             <span>Verified Tuition Circular</span>
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>{tuition.district} Division</span>
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-wider">

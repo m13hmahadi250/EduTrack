@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../store';
-import { Send, X, Mail, Sparkles, CheckCircle2, AlertCircle, Info, FileCheck, RefreshCw, Copy, Check } from 'lucide-react';
+import { Send, X, Mail, CheckCircle2, AlertCircle, Info, FileCheck, RefreshCw, Copy, Check } from 'lucide-react';
 import { sendWelcomeMail, sendCustomAdminMail } from '../../services/mailService';
 
 interface AdminSendMailModalProps {
@@ -270,7 +270,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <Sparkles className="w-4 h-4 text-[#0D5BFF]" />
+                  <Mail className="w-4 h-4 text-[#0D5BFF]" />
                   {mailType === 'welcome' && <CheckCircle2 className="w-3.5 h-3.5 text-[#0D5BFF]" />}
                 </div>
                 <div className="mt-2">

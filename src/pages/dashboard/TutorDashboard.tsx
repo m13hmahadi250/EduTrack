@@ -28,7 +28,7 @@ import {
   Calendar,
   Zap,
   ShieldCheck,
-  Sparkles,
+  Gift,
   CreditCard,
   User as UserIcon,
   CheckCircle,
@@ -907,7 +907,7 @@ export default function TutorDashboard() {
               className="w-11 h-11 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
               title="Quick Start Tour"
             >
-              <Sparkles className="w-4 h-4 text-white animate-pulse" />
+              <Compass className="w-4 h-4 text-white" />
             </button>
 
             <button
@@ -950,7 +950,7 @@ export default function TutorDashboard() {
             { id: "transit_mode", label: "Location Track", icon: MapPin },
             { id: "messages", label: "Messages", icon: MessageSquare },
             { id: "pro_profile", label: "Pro Profile", icon: Award },
-            { id: "referrals", label: "Referrals", icon: Sparkles },
+            { id: "referrals", label: "Referrals", icon: Gift },
           ].map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;

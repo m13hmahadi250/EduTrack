@@ -13,7 +13,6 @@ import {
   FileText,
   Activity,
   Zap,
-  Sparkles,
   LayoutDashboard,
   GraduationCap,
   Mail,
@@ -860,7 +859,6 @@ export default function AdminDashboard() {
                       }`}
                       title="Sort by Newest Registration"
                     >
-                      <Sparkles className="w-2.5 h-2.5 shrink-0" />
                       <span>Newest Joined</span>
                     </button>
                     <button
@@ -1431,7 +1429,6 @@ export default function AdminDashboard() {
                       {[1, 2].map((i) => (
                         <div key={i} className="flex items-center space-x-8 flex-shrink-0">
                           <span className="text-[11px] font-black uppercase tracking-[0.25em] flex items-center gap-3">
-                            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                             {promotionalBannerText || "YOUR ANNOUNCEMENT WILL APPEAR HERE..."}
                             <Zap className="w-4 h-4 text-[#0D5BFF] shrink-0" />
                           </span>
@@ -1536,7 +1533,7 @@ export default function AdminDashboard() {
 
               <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm relative overflow-hidden transition-all">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 dark:bg-purple-950/20 rounded-bl-[2.5rem] flex items-center justify-center -mr-2 -mt-2">
-                  <Sparkles className="w-5 h-5 text-purple-500" />
+                  <Activity className="w-5 h-5 text-purple-500" />
                 </div>
                 <div>
                   <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">

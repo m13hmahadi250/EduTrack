@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Sparkles, Zap, Gift } from 'lucide-react';
+import { Zap, Gift } from 'lucide-react';
 import { useAppStore } from '../store';
 
 const Shield = ({ className }: { className?: string }) => (
@@ -29,7 +29,6 @@ const PromotionalBanner = memo(function PromotionalBanner() {
             {items.map((i) => (
               <div key={i} className="flex items-center space-x-8 sm:space-x-12 px-6 sm:px-8 flex-shrink-0">
                 <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] sm:tracking-[0.28em] flex items-center gap-2.5 sm:gap-3">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
                   <span>{adText}</span>
                   <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0D5BFF] shrink-0" />
                 </span>

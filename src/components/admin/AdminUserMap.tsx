@@ -21,7 +21,6 @@ import {
   MessageSquare,
   CheckCircle2,
   Clock,
-  Sparkles,
   BookOpen,
   School,
   Building2,

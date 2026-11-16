@@ -53,7 +53,6 @@ import {
   EyeOff,
   Smartphone,
   Download,
-  Sparkles,
   GraduationCap,
   Building2,
   Calendar,
@@ -1305,7 +1304,6 @@ export default function Home() {
           {/* Header */}
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest mb-4">
-              <Sparkles className="w-3.5 h-3.5" />
               <span>Nationwide Educational Coverage</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">

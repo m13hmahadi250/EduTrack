@@ -11,7 +11,6 @@ import {
   CheckCircle2, 
   Clock, 
   Copy, 
-  Sparkles, 
   Send, 
   ArrowUpRight,
   ShieldCheck,
@@ -189,7 +188,6 @@ export default function AdminReferralOperations({
             onClick={() => setShowBonusModal(true)}
             className="px-6 py-4 bg-gradient-to-r from-purple-600 to-[#0D5BFF] hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-purple-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
           >
-            <Sparkles className="w-4 h-4" />
             <span>Grant Ambassador Bonus</span>
           </button>
         </div>
@@ -472,7 +470,7 @@ export default function AdminReferralOperations({
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5" />
+                    <Gift className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white italic">
@@ -570,10 +568,7 @@ export default function AdminReferralOperations({
                     {isGrantingBonus ? (
                       <span>Crediting Points...</span>
                     ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Credit +{bonusPoints} Points</span>
-                      </>
+                      <span>Credit +{bonusPoints} Points</span>
                     )}
                   </button>
                 </div>

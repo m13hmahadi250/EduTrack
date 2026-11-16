@@ -6,7 +6,6 @@ import {
   MapPin, 
   MessageSquare, 
   ShieldCheck, 
-  Sparkles, 
   X, 
   ChevronRight, 
   ChevronLeft, 
@@ -70,7 +69,7 @@ export default function GuidedTour() {
       title: "Welcome to EduTrack Bangladesh!",
       subtitle: "NID-VERIFIED TUTORING REVOLUTION",
       description: "Welcome to Bangladesh's premium ledger-backed tutoring network. Let us show you around so you can connect, chat, and learn securely in 4 painless steps.",
-      icon: Sparkles,
+      icon: Compass,
       color: "from-blue-500 via-[#0D5BFF] to-indigo-600",
       content: (
         <div className="space-y-4 font-sans text-left">

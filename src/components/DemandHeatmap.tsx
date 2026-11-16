@@ -6,7 +6,6 @@ import {
   HelpCircle, 
   Check, 
   Plus, 
-  Sparkles,
   CalendarDays,
   Flame,
   Info
@@ -368,7 +367,6 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
       <div className="grid md:grid-cols-3 gap-6 bg-slate-50 dark:bg-slate-950/20 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800/50">
         <div className="md:col-span-1 space-y-1.5 flex flex-col justify-center">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-500" />
             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Auto Advice Engine</span>
           </div>
           <h4 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">

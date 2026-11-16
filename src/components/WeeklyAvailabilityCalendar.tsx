@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar as CalendarIcon, Clock, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, CheckCircle2, RotateCcw } from 'lucide-react';
 import { AvailabilitySlot } from '../store';
 
 export const WEEKDAYS = [
@@ -297,7 +297,6 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
                 className="min-h-[40px] px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                 title="Select 5 PM - 8 PM across all 7 days"
               >
-                <Sparkles className="w-3 h-3" />
                 <span>Evening Peak (5–8 PM)</span>
               </button>
               {totalSelectedSlots > 0 && (

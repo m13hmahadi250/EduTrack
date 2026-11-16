@@ -31,7 +31,6 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle,
-  Sparkles,
   Search,
   Plus,
   Send,
@@ -1713,7 +1712,6 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
         <div className="space-y-4">
           {recommendedTuitionsForTutor.length === 0 ? (
             <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
-              <Sparkles className="w-8 h-8 text-[#0D5BFF] mx-auto mb-2" />
               <h3 className="text-base font-bold text-[#0B132B] dark:text-white">
                 Complete Your Subjects &amp; District to Unlock Personalized Matches
               </h3>

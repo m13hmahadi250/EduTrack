@@ -16,7 +16,6 @@ import {
   HardDrive, 
   Radio, 
   ArrowUpRight,
-  Sparkles,
   Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';

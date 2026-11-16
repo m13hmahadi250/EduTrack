@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { HelpCircle, Sparkles, Award } from 'lucide-react';
+import { HelpCircle, Award } from 'lucide-react';
 import { BADGE_DEFINITIONS, BadgeDefinition } from '../utils/badges';
 
 interface BadgeDisplayProps {
@@ -95,7 +95,6 @@ export default function BadgeDisplay({ badgeIds = [], role, interactive = true }
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                         {selectedBadge.title} Achievement
                       </h4>
                       <button 

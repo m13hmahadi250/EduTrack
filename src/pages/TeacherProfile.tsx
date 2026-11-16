@@ -36,7 +36,6 @@ import {
   Send,
   X,
   Check,
-  Sparkles,
   UserCheck,
   MessageCircle,
   AlertCircle,
@@ -741,7 +740,6 @@ export default function TeacherProfile() {
                     onClick={handleOpenBookingModal}
                     className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    <Sparkles className="w-4 h-4" />
                     <span>Request Tutor</span>
                   </button>
                 )}
@@ -1238,7 +1236,6 @@ export default function TeacherProfile() {
                   onClick={handleOpenBookingModal}
                   className="px-5 h-11 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4" />
                   <span>Request Tutor</span>
                 </button>
               )}
