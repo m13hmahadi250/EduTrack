@@ -374,14 +374,14 @@ export default function AdminDashboard() {
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-heading text-[#0B132B] uppercase leading-[0.8] mb-4 text-balance">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase leading-tight mb-2 text-balance">
             Admin Account
           </h1>
-          <p className="text-[10px] sm:text-xs font-bold text-[#0B132B] uppercase tracking-[0.2em] flex items-center gap-2">
+          <p className="text-xs font-bold text-[#0B132B] dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#0D5BFF]" />
             Welcome,{" "}
             <span className="font-black text-[#0D5BFF] italic">
@@ -389,15 +389,15 @@ export default function AdminDashboard() {
             </span>
           </p>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="bg-[#0B132B] text-white px-8 py-4 rounded-[2rem] flex items-center space-x-4 shadow-2xl">
-            <Activity className="w-5 h-5 text-[#0D5BFF]" />
-            <div className="border-l border-white/10 pl-4">
-              <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 text-emerald-400">
+        <div className="flex items-center space-x-3">
+          <div className="bg-[#0B132B] text-white px-5 py-3 rounded-2xl flex items-center space-x-3 shadow-lg">
+            <Activity className="w-4 h-4 text-[#0D5BFF]" />
+            <div className="border-l border-white/10 pl-3">
+              <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1 text-emerald-400">
                 System Active
               </p>
-              <p className="text-[8px] font-black text-slate-300 dark:text-slate-300 uppercase tracking-tighter">
-                Official Command node
+              <p className="text-[11px] font-bold text-slate-300 uppercase tracking-tight">
+                Official Command Node
               </p>
             </div>
           </div>
@@ -405,75 +405,77 @@ export default function AdminDashboard() {
       </div>
 
       {/* Real-time Status Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-sm overflow-hidden relative group transition-all hover:border-[#0D5BFF]">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[4rem] flex items-center justify-center -mr-4 -mt-4 transition-colors group-hover:bg-blue-50">
-            <Users className="w-8 h-8 text-slate-200 group-hover:text-[#0D5BFF]" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-1 bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between min-h-[124px] shadow-sm overflow-hidden relative group transition-colors hover:border-[#0D5BFF]">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 dark:bg-slate-800/40 rounded-bl-3xl flex items-center justify-center -mr-2 -mt-2 transition-colors group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30">
+            <Users className="w-6 h-6 text-slate-300 dark:text-slate-600 group-hover:text-[#0D5BFF]" />
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
               Total Payload
             </p>
-            <h3 className="text-4xl font-black italic text-[#0B132B]">
+            <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white">
               {tutors.length}
             </h3>
           </div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mt-2">
             Registered Tutors
           </p>
         </div>
 
-        <div className="lg:col-span-1 bg-[#0D5BFF] rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-2xl relative overflow-hidden group">
-          <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-white/10 rounded-full blur-3xl opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
-          <Shield className="w-8 h-8 text-white/20 mb-4" />
-          <div>
-            <p className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">
+        <div className="lg:col-span-1 bg-[#0D5BFF] rounded-2xl p-5 flex flex-col justify-between min-h-[124px] shadow-lg relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-white/80 uppercase tracking-wider">
               Awaiting Review
             </p>
-            <h3 className="text-4xl font-black italic text-white">
-              {
-                tutors.filter(
-                  (t) =>
-                    t.nidStatus !== "approved" ||
-                    t.academicStatus !== "approved",
-                ).length
-              }
-            </h3>
+            <Shield className="w-5 h-5 text-white/30" />
           </div>
-          <p className="text-[10px] font-black text-white/80 uppercase tracking-widest italic">
+          <h3 className="text-3xl font-black italic text-white my-1">
+            {
+              tutors.filter(
+                (t) =>
+                  t.nidStatus !== "approved" ||
+                  t.academicStatus !== "approved",
+              ).length
+            }
+          </h3>
+          <p className="text-[11px] font-bold text-white/90 uppercase tracking-wider">
             Verification Queue
           </p>
         </div>
 
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 shadow-sm group hover:border-amber-400">
-          <Zap
-            className={`w-8 h-8 ${pendingPayments.length > 0 ? "text-amber-500 animate-pulse" : "text-slate-200"}`}
-          />
-          <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+        <div className="lg:col-span-1 bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between min-h-[124px] shadow-sm group hover:border-amber-400 transition-colors">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Liquid Stream
             </p>
-            <h3 className="text-4xl font-black italic text-[#0B132B]">
-              {pendingPayments.length}
-            </h3>
+            <Zap
+              className={`w-5 h-5 ${pendingPayments.length > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"}`}
+            />
           </div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">
+          <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white my-1">
+            {pendingPayments.length}
+          </h3>
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
             Pending Clearances
           </p>
         </div>
 
-        <div className="lg:col-span-1 border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-10 flex flex-col justify-between h-48 sm:h-56 text-left md:text-center group hover:bg-slate-50 transition-all">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center ml-0 mr-auto md:mx-auto shadow-lg border border-slate-50 transition-transform group-hover:rotate-12">
-            <Wallet className="w-6 h-6 text-[#0D5BFF]" />
-          </div>
-          <div>
-            <h3 className="text-3xl font-black italic text-[#0B132B]">
-              {pendingWithdrawals.length}
-            </h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">
+        <div className="lg:col-span-1 bg-white dark:bg-[#111A2E] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between min-h-[124px] group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Withdrawal Hooks
             </p>
+            <div className="w-9 h-9 bg-blue-50 dark:bg-blue-950/40 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-900/40">
+              <Wallet className="w-4 h-4 text-[#0D5BFF]" />
+            </div>
           </div>
+          <h3 className="text-3xl font-black italic text-[#0B132B] dark:text-white my-1">
+            {pendingWithdrawals.length}
+          </h3>
+          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Pending Payouts
+          </p>
         </div>
       </div>
 
@@ -733,7 +735,7 @@ export default function AdminDashboard() {
                             {contact.name.charAt(0)}
                           </div>
                           {unreadCount > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                            <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[10px] font-black h-4 min-w-4 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-xs">
                               {unreadCount}
                             </span>
                           )}
@@ -829,7 +831,7 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             {/* Identity Protocol Controls Bar */}
-            <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm space-y-5">
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-[#0B132B] italic flex items-center gap-2">
@@ -1025,7 +1027,7 @@ export default function AdminDashboard() {
                 return (
                 <div
                   key={tutor.id}
-                  className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border border-slate-100 shadow-sm flex flex-col lg:flex-row items-center lg:items-center justify-between gap-6 group transition-all hover:shadow-xl"
+                  className="bg-white dark:bg-[#111A2E] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center lg:items-center justify-between gap-4 group transition-shadow duration-200 hover:shadow-md"
                 >
                   <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left w-full flex-1">
                     {/* Multi-select Checkbox */}
@@ -1180,23 +1182,21 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.99 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="space-y-8"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="space-y-6"
           >
-            <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-[#0D5BFF]/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 mb-8 sm:mb-12">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
-                    <CreditCard className="w-6 h-6 text-[#0D5BFF]" />
+            <div className="bg-[#0B132B] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-white/10 shadow-xl relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                    <CreditCard className="w-5 h-5 text-[#0D5BFF]" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic">
+                  <h3 className="text-lg sm:text-xl font-black text-white uppercase italic">
                     Audit Pending Stream
                   </h3>
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">
+                  <p className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-0.5">
                     Total Volume Pending
                   </p>
                   <p className="text-2xl font-black text-white italic">
@@ -1208,18 +1208,18 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {pendingPayments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="bg-white/5 rounded-[1.8rem] sm:rounded-[2.5rem] p-5 sm:p-8 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 border border-white/5 hover:bg-white/[0.08] transition-all group"
+                    className="bg-white/5 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border border-white/10 hover:bg-white/[0.08] transition-colors group"
                   >
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-8 flex-1 min-w-0">
-                      <div className="flex flex-col gap-2 min-w-0">
-                        <div className="text-[10px] font-black font-mono text-[#0D5BFF] bg-blue-500/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-blue-500/20 truncate w-fit">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-6 flex-1 min-w-0">
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <div className="text-xs font-bold font-mono text-[#60A5FA] bg-blue-500/15 px-3 py-1 rounded-lg border border-blue-500/25 truncate w-fit">
                           TRX: {payment.transactionId}
                         </div>
-                        <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest pl-2 sm:pl-4 truncate">
+                        <div className="text-xs font-semibold text-slate-300 truncate">
                           Sender: {payment.bKashNumber}
                         </div>
                       </div>
@@ -1227,16 +1227,16 @@ export default function AdminDashboard() {
                         ৳{payment.amount}
                       </div>
                     </div>
-                    <div className="flex gap-3 w-full md:w-auto">
+                    <div className="flex gap-2.5 w-full md:w-auto">
                       <button
                         onClick={() => approvePayment(payment.id)}
-                        className="flex-grow md:flex-initial px-4 sm:px-8 py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase italic shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all whitespace-nowrap"
+                        className="flex-grow md:flex-initial min-h-[44px] px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-md active:scale-95 transition-colors transition-transform whitespace-nowrap cursor-pointer"
                       >
                         Authorize
                       </button>
                       <button
                         onClick={() => rejectPayment(payment.id)}
-                        className="flex-grow md:flex-initial px-4 sm:px-8 py-3 bg-rose-500/20 text-rose-500 border border-rose-500/30 rounded-xl text-[10px] font-black uppercase italic hover:bg-rose-500 hover:text-white transition-all whitespace-nowrap"
+                        className="flex-grow md:flex-initial min-h-[44px] px-5 py-2.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-black uppercase hover:bg-rose-500 hover:text-white transition-colors whitespace-nowrap cursor-pointer"
                       >
                         Reject
                       </button>
@@ -1244,9 +1244,9 @@ export default function AdminDashboard() {
                   </div>
                 ))}
                 {pendingPayments.length === 0 && (
-                  <div className="py-20 text-left md:text-center opacity-30">
-                    <Zap className="w-12 h-12 text-white ml-0 mr-auto md:mx-auto mb-6" />
-                    <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">
+                  <div className="py-12 text-center opacity-70">
+                    <Zap className="w-9 h-9 text-white/60 mx-auto mb-3" />
+                    <p className="text-xs font-bold text-white/80 uppercase tracking-widest">
                       All inbound signals cleared
                     </p>
                   </div>
@@ -1262,25 +1262,24 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="space-y-12"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="space-y-6"
           >
-            <div className="bg-[#0B132B] rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 lg:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#0D5BFF]/10 to-transparent"></div>
-              <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-8">
+            <div className="bg-[#0B132B] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-white/10 shadow-xl relative overflow-hidden">
+              <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl sm:text-3xl font-black text-white uppercase italic mb-2 tracking-tighter">
+                  <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic mb-1">
                     Treasury: Outbound Queue
                   </h3>
-                  <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.3em] font-heading">
+                  <p className="text-xs font-bold text-slate-300 uppercase tracking-wider font-heading">
                     Awaiting Expert Fund Clearance
                   </p>
                 </div>
-                <div className="bg-white/5 border border-white/10 px-6 py-5 sm:px-10 sm:py-8 rounded-[1.8rem] sm:rounded-[3rem] text-left sm:text-right group hover:border-[#0D5BFF] transition-all">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 font-heading">
+                <div className="bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-left sm:text-right">
+                  <p className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 font-heading">
                     Total Withdrawal Exposure
                   </p>
-                  <h4 className="text-3xl sm:text-5xl font-black text-white italic">
+                  <h4 className="text-2xl sm:text-3xl font-black text-white italic">
                     ৳
                     {pendingWithdrawals
                       .reduce((acc, curr) => acc + curr.amount, 0)
@@ -1290,13 +1289,13 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-8">
+            <div className="grid lg:grid-cols-2 gap-5">
               {pendingWithdrawals.map((req) => {
                 const tutor = users.find((u) => u.id === req.tutorId);
                 return (
                   <div
                     key={req.id}
-                    className="bg-white rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-8 md:p-12 border border-slate-100 shadow-sm flex flex-col justify-between min-h-0 lg:min-h-[28rem] transition-all hover:shadow-xl group relative"
+                    className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between transition-shadow hover:shadow-md group relative"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -z-0"></div>
                     <div className="relative z-10">
@@ -1384,12 +1383,12 @@ export default function AdminDashboard() {
                 );
               })}
               {pendingWithdrawals.length === 0 && (
-                <div className="lg:col-span-2 py-40 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-8 opacity-30">
-                  <Wallet className="w-16 h-16 text-slate-300 mb-8 ml-0 mr-auto md:mx-auto" />
-                  <h4 className="text-2xl font-black text-[#0B132B] uppercase italic">
+                <div className="lg:col-span-2 py-14 bg-slate-50 dark:bg-[#111A2E] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center p-6">
+                  <Wallet className="w-10 h-10 text-slate-400 mb-3" />
+                  <h4 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
                     Queue Depleted
                   </h4>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                     No pending withdrawal hooks detected in sector
                   </p>
                 </div>
@@ -1404,34 +1403,34 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="space-y-12 max-w-4xl mx-auto"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="space-y-6 max-w-4xl mx-auto"
           >
             {/* Promotional Ticker Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
-              <div className="mb-10">
-                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-2xl flex items-center justify-center mb-6 border border-amber-100 dark:border-amber-900/30">
-                  <Megaphone className="w-6 h-6" />
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+              <div className="mb-6">
+                <div className="w-10 h-10 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-xl flex items-center justify-center mb-4 border border-amber-100 dark:border-amber-900/30">
+                  <Megaphone className="w-5 h-5" />
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
+                <h2 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase tracking-wide italic">
                   Promotional Banner Control
                 </h2>
-                <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">
                   Configure live scrolling ticker announcements broadcasted globally to all users.
                 </p>
               </div>
 
               {/* Live Ticker Mock Preview */}
-              <div className="mb-12">
-                <span className="block text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 tracking-wider mb-3">
+              <div className="mb-6">
+                <span className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider mb-2">
                   Live Broadcast Ticker Preview
                 </span>
-                <div className="bg-[#0B132B] dark:bg-slate-950 text-white py-4 rounded-3xl overflow-hidden whitespace-nowrap border border-white/5 relative shadow-inner">
+                <div className="bg-[#0B132B] dark:bg-slate-950 text-white py-3.5 rounded-2xl overflow-hidden whitespace-nowrap border border-white/5 relative shadow-inner">
                   <div className="flex items-center">
                     <div className="flex items-center space-x-12 px-12 animate-marquee">
                       {[1, 2].map((i) => (
                         <div key={i} className="flex items-center space-x-8 flex-shrink-0">
-                          <span className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
+                          <span className="text-[11px] font-black uppercase tracking-[0.25em] flex items-center gap-3">
                             <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                             {promotionalBannerText || "YOUR ANNOUNCEMENT WILL APPEAR HERE..."}
                             <Zap className="w-4 h-4 text-[#0D5BFF] shrink-0" />
@@ -1451,15 +1450,15 @@ export default function AdminDashboard() {
             </div>
 
             {/* Android App Link Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
-              <div className="mb-10">
-                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 border border-emerald-100 dark:border-emerald-900/30">
-                  <Smartphone className="w-6 h-6" />
+            <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+              <div className="mb-6">
+                <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 rounded-xl flex items-center justify-center mb-4 border border-emerald-100 dark:border-emerald-900/30">
+                  <Smartphone className="w-5 h-5" />
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase tracking-wider italic">
+                <h2 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase tracking-wide italic">
                   Android Application Control
                 </h2>
-                <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">
                   Update and manage the official Android application package (.apk) link.
                 </p>
               </div>
@@ -1789,12 +1788,12 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-10 md:p-16 border border-slate-100 shadow-sm max-w-4xl transition-colors mx-auto"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-4xl transition-colors mx-auto"
           >
-             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6 mb-16">
-                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-center sm:text-left">
-                   <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 animate-pulse" />}>
+             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-5 mb-8">
+                <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+                   <Suspense fallback={<div className="w-28 h-28 rounded-3xl bg-slate-50 animate-pulse" />}>
                      <ImageUpload 
                        currentImageUrl={currentUser.profileImage} 
                        onUpload={(url) => updateUser(currentUser.id, { profileImage: url })}
@@ -1802,35 +1801,35 @@ export default function AdminDashboard() {
                      />
                    </Suspense>
                    <div>
-                      <h3 className="text-3xl font-heading font-black text-[#0B132B] uppercase italic">Admin Credentials</h3>
-                      <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-2">{currentUser.email}</p>
+                      <h3 className="text-2xl sm:text-3xl font-heading font-black text-[#0B132B] dark:text-white uppercase italic">Admin Credentials</h3>
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-1">{currentUser.email}</p>
                    </div>
                 </div>
              </div>
 
-             <div className="space-y-8">
-               <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-4">Full Name</label>
+             <div className="space-y-6">
+               <div className="grid md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider ml-1">Full Name</label>
                      <input 
                        type="text"
                        defaultValue={currentUser.name}
                        id="admin-settings-name"
-                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#0B132B] uppercase tracking-wider focus:outline-none focus:border-[#0D5BFF]"
+                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-[#0B132B] dark:text-white uppercase tracking-wider focus:outline-none focus:border-[#0D5BFF]"
                      />
                   </div>
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest ml-4">Role Authorization</label>
+                  <div className="space-y-1.5">
+                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider ml-1">Role Authorization</label>
                      <input 
                        type="text"
                        value="ADMINISTRATOR"
                        disabled
-                       className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider cursor-not-allowed"
+                       className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider cursor-not-allowed"
                      />
                   </div>
                </div>
 
-               <div className="flex justify-end pt-4">
+               <div className="flex justify-end pt-2">
                  <button 
                    onClick={async () => {
                      const nameInput = document.getElementById("admin-settings-name") as HTMLInputElement;
@@ -1838,7 +1837,7 @@ export default function AdminDashboard() {
                        await updateUser(currentUser.id, { name: nameInput.value.trim() });
                      }
                    }}
-                   className="px-8 py-4 bg-[#0D5BFF] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 cursor-pointer"
+                   className="min-h-[44px] px-6 py-3 bg-[#0D5BFF] text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:bg-blue-700 transition-colors active:scale-95 cursor-pointer"
                  >
                     Confirm Changes
                  </button>
@@ -1860,10 +1859,11 @@ export default function AdminDashboard() {
               className="absolute inset-0 bg-[#0B132B]/80 backdrop-blur-md"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-4xl bg-white rounded-[2rem] md:rounded-[4rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[90vh] lg:h-auto max-h-[85vh] md:max-h-[90vh]"
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-4xl bg-white dark:bg-[#111A2E] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[90vh] lg:h-auto max-h-[85vh] md:max-h-[90vh]"
             >
               <AnimatePresence>
                 {approvedAnim.type && (
@@ -2476,40 +2476,40 @@ export default function AdminDashboard() {
         )}
       </AnimatePresence>
 
-      <div className="bg-slate-50 rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-10 md:p-12 lg:p-16 border border-slate-100">
-        <div className="flex items-center justify-between mb-12">
-          <h3 className="text-3xl font-black text-[#0B132B] uppercase italic">
+      <div className="bg-slate-50 dark:bg-[#0D1526] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
             Global Ledger Audit
           </h3>
-          <button className="flex items-center gap-3 px-8 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-[#0D5BFF] transition-all">
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider hover:border-[#0D5BFF] transition-colors cursor-pointer">
             <ArrowDownCircle className="w-4 h-4 text-[#0D5BFF]" />
             Export XLS
           </button>
         </div>
 
-        <div className="bg-white rounded-[3rem] p-4 border border-slate-100 shadow-sm">
-          <div className="overflow-x-auto custom-scrollbar uppercase">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-slate-50">
-                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+        <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full min-w-[640px]">
+              <thead className="bg-slate-50/70 dark:bg-slate-900/50">
+                <tr className="border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-4 py-3 text-left text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                  <th className="px-4 py-3 text-left text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     Sender ID
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                  <th className="px-4 py-3 text-left text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     Reference Hash
                   </th>
-                  <th className="p-8 text-left text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                  <th className="px-4 py-3 text-left text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     Payload (৳)
                   </th>
-                  <th className="p-8 text-right text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                  <th className="px-4 py-3 text-right text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     Verification
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {allPayments
                   .sort(
                     (a, b) =>
@@ -2518,37 +2518,39 @@ export default function AdminDashboard() {
                   .map((payment) => (
                     <tr
                       key={payment.id}
-                      className="h-20 group hover:bg-slate-50/80 transition-colors"
+                      className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors"
                     >
-                      <td className="px-8 text-[10px] font-black text-slate-700 dark:text-slate-300 tracking-widest">
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {new Date(payment.date).toLocaleString()}
                       </td>
-                      <td className="px-8">
-                        <span className="text-[11px] font-black font-mono text-[#0B132B]">
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-bold font-mono text-[#0B132B] dark:text-slate-100">
                           {payment.bKashNumber}
                         </span>
                       </td>
-                      <td className="px-8 flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300">
-                          <FileText className="w-4 h-4" />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold font-mono text-[#0B132B] dark:text-slate-200">
+                            {payment.transactionId}
+                          </span>
                         </div>
-                        <span className="text-[11px] font-black font-mono text-[#0B132B] opacity-70 group-hover:opacity-100 transition-opacity">
-                          {payment.transactionId}
-                        </span>
                       </td>
-                      <td className="px-8">
-                        <span className="text-lg font-black text-[#0B132B] italic">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-black text-[#0B132B] dark:text-white italic">
                           ৳{payment.amount}
                         </span>
                       </td>
-                      <td className="px-8 text-right">
+                      <td className="px-4 py-3 text-right">
                         <span
-                          className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                          className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
                             payment.status === "approved"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-100 font-bold"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50"
                               : payment.status === "rejected"
-                                ? "bg-rose-50 text-rose-800 border-rose-100 font-bold"
-                                : "bg-amber-50 text-amber-800 border-amber-100 font-bold"
+                                ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50"
+                                : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50"
                           }`}
                         >
                           {payment.status}

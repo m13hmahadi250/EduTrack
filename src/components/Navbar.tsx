@@ -112,10 +112,10 @@ const Navbar = memo(() => {
             <Link
               to="/"
               onClick={(e) => handleSectionNavigation(e, '#top')}
-              className="flex items-center space-x-2.5 group"
+              className="flex items-center space-x-2.5 group rounded-xl py-1 pr-1.5 transition-colors duration-200"
             >
-              <Logo className="w-9 h-9 sm:w-10 sm:h-10 group-hover:scale-105 transition-transform duration-200 shadow-sm shadow-blue-500/15" />
-              <span className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none">
+              <Logo className="w-9 h-9 sm:w-10 sm:h-10 group-hover:shadow-md group-hover:shadow-blue-500/20" />
+              <span className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
                 EduTrack
               </span>
             </Link>
@@ -126,7 +126,7 @@ const Navbar = memo(() => {
             <Link
               to="/"
               onClick={(e) => handleSectionNavigation(e, '#top')}
-              className={`relative py-2 transition-colors duration-200 ${
+              className={`relative py-2 transition-colors duration-150 ${
                 isNavActive('home')
                   ? 'text-[#0D5BFF] font-bold'
                   : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
@@ -141,7 +141,7 @@ const Navbar = memo(() => {
             <Link
               to="/#find-tutors"
               onClick={(e) => handleSectionNavigation(e, '#find-tutors')}
-              className={`relative py-2 transition-colors duration-200 ${
+              className={`relative py-2 transition-colors duration-150 ${
                 isNavActive('find')
                   ? 'text-[#0D5BFF] font-bold'
                   : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
@@ -156,7 +156,7 @@ const Navbar = memo(() => {
             <Link
               to={currentUser?.role === 'tutor' ? '/dashboard' : '/signup?role=tutor'}
               onMouseEnter={() => prefetchPage('Signup')}
-              className={`relative py-2 transition-colors duration-200 ${
+              className={`relative py-2 transition-colors duration-150 ${
                 isNavActive('become')
                   ? 'text-[#0D5BFF] font-bold'
                   : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
@@ -171,7 +171,7 @@ const Navbar = memo(() => {
             <Link
               to="/#how-it-works"
               onClick={(e) => handleSectionNavigation(e, '#how-it-works')}
-              className={`relative py-2 transition-colors duration-200 ${
+              className={`relative py-2 transition-colors duration-150 ${
                 isNavActive('how')
                   ? 'text-[#0D5BFF] font-bold'
                   : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
@@ -186,7 +186,7 @@ const Navbar = memo(() => {
             <Link
               to="/#faq"
               onClick={(e) => handleSectionNavigation(e, '#faq')}
-              className={`relative py-2 transition-colors duration-200 ${
+              className={`relative py-2 transition-colors duration-150 ${
                 isNavActive('help')
                   ? 'text-[#0D5BFF] font-bold'
                   : 'text-slate-700 dark:text-slate-200 hover:text-[#0D5BFF] dark:hover:text-blue-400'
@@ -203,7 +203,7 @@ const Navbar = memo(() => {
           <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={toggleTheme}
-              className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer"
+              className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors duration-150 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer active:scale-95"
               aria-label="Toggle Theme"
               title="Toggle Theme"
             >
@@ -220,7 +220,7 @@ const Navbar = memo(() => {
                   to="/messages"
                   onMouseEnter={() => prefetchPage('Messages')}
                   onFocus={() => prefetchPage('Messages')}
-                  className="relative p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 hidden sm:flex items-center justify-center"
+                  className="relative p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors duration-150 border border-slate-200/60 dark:border-slate-700/60 hidden sm:flex items-center justify-center"
                   title="Messages"
                 >
                   <MessageSquare className="h-4 w-4" />
@@ -246,7 +246,7 @@ const Navbar = memo(() => {
                     if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
                     if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
                   }}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] hover:text-[#0D5BFF] dark:hover:border-blue-400 transition-all shadow-2xs"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] hover:text-[#0D5BFF] dark:hover:border-blue-400 transition-colors transition-transform duration-150 active:scale-[0.98] shadow-2xs"
                 >
                   <LayoutGrid className="w-4 h-4 text-[#0B132B] dark:text-slate-200" />
                   <span>Dashboard</span>
@@ -259,7 +259,7 @@ const Navbar = memo(() => {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="flex items-center gap-2.5 py-1 px-1.5 rounded-full hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    className="flex items-center gap-2.5 py-1 px-1.5 rounded-full hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors duration-150 cursor-pointer"
                     aria-expanded={profileMenuOpen}
                     aria-haspopup="true"
                   >
@@ -273,16 +273,16 @@ const Navbar = memo(() => {
                     <span className="font-semibold text-sm text-[#0B132B] dark:text-white hidden lg:block max-w-[110px] truncate">
                       {getFormattedName(currentUser.name)}
                     </span>
-                    <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 hidden sm:block" />
+                    <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 hidden sm:block transition-transform duration-150 ${profileMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   <AnimatePresence>
                     {profileMenuOpen && (
                       <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.97 }}
-                        transition={{ duration: 0.15 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                         className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50"
                       >
                         <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">

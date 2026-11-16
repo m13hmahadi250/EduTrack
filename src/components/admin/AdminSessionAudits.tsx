@@ -118,11 +118,11 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
   };
 
   return (
-    <div className="space-y-8" id="admin-session-audits-view">
+    <div className="space-y-5" id="admin-session-audits-view">
       {statusBanner && (
         <div
           role="status"
-          className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border text-xs font-bold ${
+          className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border text-xs font-bold ${
             statusBanner.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
               : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
@@ -141,47 +141,47 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
       )}
       
       {/* Filtering Options Grid */}
-      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
         
         {/* Search & Header Row */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               placeholder="Search by subject, student, or tutor..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none transition-colors"
             />
           </div>
-          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             <Filter className="w-3.5 h-3.5 text-[#0D5BFF]" />
-            <span>Interactive Sessions Filtering</span>
+            <span>Session Audit Filters ({filteredSessions.length})</span>
           </div>
         </div>
 
         {/* Segmented Option Switchers */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800/40">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
           {/* Status Filter */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Session Status</span>
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Session Status</span>
             <div className="flex flex-wrap bg-slate-50 dark:bg-slate-900 p-1 rounded-xl gap-1 w-full">
               {[
                 { value: 'all', label: 'All' },
-                { value: 'active', label: 'Active & Sched' },
+                { value: 'active', label: 'Active' },
                 { value: 'completed', label: 'Completed' },
                 { value: 'cancelled', label: 'Cancelled' },
-                { value: 'proposed_by_tutor', label: 'Tutor Offers' },
-                { value: 'requested_by_student', label: 'Student Requests' }
+                { value: 'proposed_by_tutor', label: 'Offers' },
+                { value: 'requested_by_student', label: 'Requests' }
               ].map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setStatusFilter(opt.value as any)}
-                  className={`flex-1 min-w-[90px] py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer text-center ${
+                  className={`flex-1 min-w-[74px] py-1.5 px-2 text-[11px] font-bold rounded-lg transition-colors duration-150 cursor-pointer text-center ${
                     statusFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   {opt.label}
@@ -192,21 +192,21 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
 
           {/* Rating Filter */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Review Rating</span>
-            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Review Rating</span>
+            <div className="flex flex-wrap sm:flex-nowrap bg-slate-50 dark:bg-slate-900 p-1 rounded-xl gap-1 w-full">
               {[
                 { value: 'all', label: 'All Ratings' },
-                { value: 'rated', label: 'Rated Only' },
-                { value: 'poor', label: 'Poor (1-3 ⭐)' },
+                { value: 'rated', label: 'Rated' },
+                { value: 'poor', label: 'Low (1-3★)' },
                 { value: 'unrated', label: 'Unrated' }
               ].map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setRatingFilter(opt.value as any)}
-                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                  className={`flex-1 min-w-[76px] py-1.5 px-2 text-[11px] font-bold rounded-lg transition-colors duration-150 cursor-pointer text-center ${
                     ratingFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   {opt.label}
@@ -218,94 +218,174 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         
-        {/* Sessions Audit Table */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2.5rem] shadow-sm overflow-hidden flex flex-col">
+        {/* Sessions Audit Table & Mobile Cards */}
+        <div className="xl:col-span-2 bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
           
-          <div className="p-6 border-b border-slate-50 dark:border-slate-800/50">
-            <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">
-              Active Platform Tuition Streams ({filteredSessions.length} listed)
+          <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
+            <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#0B132B] dark:text-white">
+              Platform Tuition Streams ({filteredSessions.length})
             </h4>
           </div>
 
-          <div className="overflow-x-auto flex-1">
-            <table className="min-w-full uppercase select-none">
-              <thead>
-                <tr className="border-b border-slate-50 dark:border-slate-800/40">
-                  <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Class/Subject</th>
-                  <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Tutor & Student</th>
-                  <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Datetime Details</th>
-                  <th className="px-6 py-4 text-left text-[9px] font-black tracking-widest text-slate-400">Status</th>
-                  <th className="px-6 py-4 text-right text-[9px] font-black tracking-widest text-slate-400">Quality / Intervene</th>
+          {/* Mobile Card Layout */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+            {filteredSessions.map((sess) => {
+              const student = getUserById(sess.studentId);
+              const tutor = getUserById(sess.tutorId);
+              const canCancel = sess.status === 'active' || sess.status === 'scheduled' || sess.status === 'proposed_by_tutor' || sess.status === 'requested_by_student';
+
+              return (
+                <div key={sess.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center shrink-0">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{sess.subject || 'N/A'}</div>
+                        <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">#{sess.id.substring(0, 8)}</div>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize shrink-0 inline-flex items-center gap-1 ${
+                      sess.status === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' :
+                      sess.status === 'active' || sess.status === 'scheduled' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' :
+                      sess.status === 'cancelled' || sess.status === 'rejected' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300' :
+                      'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+                    }`}>
+                      {sess.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2.5">
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase block">Tutor</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">{tutor?.name || 'Unknown'}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Student</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">{student?.name || 'Unknown'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1.5 min-w-0">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{sess.scheduledTime || 'Unscheduled'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {sess.rating ? (
+                        <div className="flex items-center gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3 h-3 ${i < sess.rating! ? 'text-amber-500 fill-amber-500' : 'text-slate-200 dark:text-slate-700'}`} />
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">Unrated</span>
+                      )}
+                      {canCancel && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingCancelTarget({ sessionId: sess.id, studentId: sess.studentId, tutorId: sess.tutorId, subject: sess.subject })}
+                          disabled={cancellingSessionId === sess.id}
+                          className="min-w-[44px] min-h-[44px] p-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 dark:bg-rose-950/30 dark:border-rose-900/50 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                          title="Force Administrative Cancellation"
+                          aria-label="Force cancel session"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredSessions.length === 0 && (
+              <div className="text-center py-10 text-slate-500 dark:text-slate-400 font-bold text-xs">
+                No matches resolved within session database filters.
+              </div>
+            )}
+          </div>
+
+          {/* Desktop & Tablet Compact Table (Zero Horizontal Overflow) */}
+          <div className="hidden md:block flex-1">
+            <table className="w-full table-fixed select-none">
+              <thead className="bg-slate-50/70 dark:bg-slate-900/40">
+                <tr className="border-b border-slate-100 dark:border-slate-800/60">
+                  <th className="w-[24%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Subject</th>
+                  <th className="w-[26%] px-3 py-3 text-left text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tutor & Student</th>
+                  <th className="w-[20%] px-3 py-3 text-left text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Schedule</th>
+                  <th className="w-[15%] px-3 py-3 text-left text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                  <th className="w-[15%] px-4 py-3 text-right text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">QA / Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                 {filteredSessions.map((sess) => {
                   const student = getUserById(sess.studentId);
                   const tutor = getUserById(sess.tutorId);
 
                   return (
-                    <tr key={sess.id} className="h-20 hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                    <tr key={sess.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/20 transition-colors">
                       
                       {/* Subject */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center">
-                            <Layers className="w-4 h-4" />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center shrink-0">
+                            <Layers className="w-3.5 h-3.5" />
                           </div>
-                          <div>
-                            <span className="text-[11px] font-black text-slate-800 dark:text-white block">{sess.subject || 'N/A'}</span>
-                            <span className="text-[7.5px] font-bold text-slate-400 font-mono tracking-tighter">ID: {sess.id.substring(0, 8)}...</span>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block truncate" title={sess.subject || 'N/A'}>{sess.subject || 'N/A'}</span>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block truncate">#{sess.id.substring(0, 8)}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Participant lookups */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-0.5 text-[10px] font-black tracking-wider">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] font-black text-rose-500 bg-rose-50 px-1 rounded dark:bg-rose-950/40">T</span>
-                            <span className="text-slate-800 dark:text-slate-200">{tutor?.name || 'Unknown Tutor'}</span>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-0.5 text-xs min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-1.5 rounded dark:bg-rose-950/40 dark:text-rose-400 shrink-0">T</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{tutor?.name || 'Unknown Tutor'}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] font-black text-blue-500 bg-blue-50 px-1 rounded dark:bg-blue-950/40">S</span>
-                            <span className="text-slate-600 dark:text-slate-450">{student?.name || 'Unknown Student'}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[11px] font-black text-blue-600 bg-blue-50 px-1.5 rounded dark:bg-blue-950/40 dark:text-blue-400 shrink-0">S</span>
+                            <span className="text-slate-600 dark:text-slate-400 truncate">{student?.name || 'Unknown Student'}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Timestamps */}
-                      <td className="px-6 py-4 text-[9.5px] font-black text-slate-500 dark:text-slate-400 font-mono tracking-tight">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{sess.scheduledTime || 'Unscheduled'}</span>
+                      <td className="px-3 py-3 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{sess.scheduledTime || 'Unscheduled'}</span>
                         </div>
                         {sess.duration && (
-                          <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                            Duration: {sess.duration} Mins
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                            {sess.duration} mins
                           </div>
                         )}
                       </td>
 
                       {/* Status */}
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 w-max ${
-                          sess.status === 'completed' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20' :
-                          sess.status === 'active' || sess.status === 'scheduled' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20' :
-                          sess.status === 'cancelled' || sess.status === 'rejected' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/20' :
-                          'bg-amber-50 text-amber-600 dark:bg-amber-950/20'
+                      <td className="px-3 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize inline-flex items-center gap-1 max-w-full truncate ${
+                          sess.status === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' :
+                          sess.status === 'active' || sess.status === 'scheduled' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' :
+                          sess.status === 'cancelled' || sess.status === 'rejected' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300' :
+                          'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
                         }`}>
-                          {sess.status === 'completed' && <CheckCircle className="w-3 h-3" />}
-                          {(sess.status === 'active' || sess.status === 'scheduled') && <Clock className="w-3 h-3 animate-pulse" />}
-                          {(sess.status === 'cancelled' || sess.status === 'rejected') && <XCircle className="w-3 h-3" />}
-                          {sess.status}
+                          {sess.status === 'completed' && <CheckCircle className="w-3 h-3 shrink-0" />}
+                          {(sess.status === 'active' || sess.status === 'scheduled') && <Clock className="w-3 h-3 shrink-0" />}
+                          {(sess.status === 'cancelled' || sess.status === 'rejected') && <XCircle className="w-3 h-3 shrink-0" />}
+                          <span className="truncate">{sess.status.replace(/_/g, ' ')}</span>
                         </span>
                       </td>
 
                       {/* QA Interventions */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           {sess.rating ? (
                             <div className="flex items-center gap-0.5" title={`${sess.rating} Stars`}>
                               {[...Array(5)].map((_, i) => (
@@ -314,25 +394,25 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
                                   className={`w-3 h-3 ${
                                     i < sess.rating! 
                                       ? 'text-amber-500 fill-amber-500' 
-                                      : 'text-slate-200 dark:text-slate-800'
+                                      : 'text-slate-200 dark:text-slate-700'
                                   }`} 
                                 />
                               ))}
                             </div>
                           ) : (
-                            <span className="text-[8px] font-black text-slate-300 font-mono italic">unrated</span>
+                            <span className="text-[11px] font-medium text-slate-400">Unrated</span>
                           )}
 
-                          {/* Trigger intervention cancel */}
                           {(sess.status === 'active' || sess.status === 'scheduled' || sess.status === 'proposed_by_tutor' || sess.status === 'requested_by_student') ? (
                             <button
                               type="button"
                               onClick={() => setPendingCancelTarget({ sessionId: sess.id, studentId: sess.studentId, tutorId: sess.tutorId, subject: sess.subject })}
                               disabled={cancellingSessionId === sess.id}
-                              className="min-w-[40px] min-h-[40px] p-2 bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center"
+                              className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 dark:bg-rose-950/30 dark:border-rose-900/50 rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
                               title="Force Administrative Cancellation"
+                              aria-label="Force cancel session"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           ) : null}
                         </div>
@@ -344,7 +424,7 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
 
                 {filteredSessions.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
+                    <td colSpan={5} className="text-center py-10 text-slate-500 dark:text-slate-400 font-bold text-xs">
                       No matches resolved within session database filters.
                     </td>
                   </tr>
@@ -356,61 +436,61 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
         </div>
 
         {/* Quality Assurance Student Feedbacks Card */}
-        <div className="lg:col-span-1 bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2.5rem] shadow-sm flex flex-col p-6">
+        <div className="xl:col-span-1 bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm flex flex-col p-4 sm:p-5">
           
-          <div className="mb-4">
-            <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white italic flex items-center gap-2">
+          <div className="mb-3">
+            <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-[#0D5BFF]" />
               Quality Oversight Feed
             </h4>
-            <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-widest mt-0.5">
-              Direct student testimonials and ratings on tuition delivery
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Student testimonials and ratings on tuition delivery
             </p>
           </div>
 
-          <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1.5 custom-scrollbar flex-1">
+          <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1 custom-scrollbar flex-1">
             {studentFeedbacks.map((fback) => {
               const isCritical = fback.rating! <= 3;
 
               return (
                 <div 
                   key={fback.id} 
-                  className={`p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all ${
+                  className={`p-3.5 rounded-xl border text-left flex flex-col gap-1.5 transition-colors ${
                     isCritical 
-                      ? 'bg-rose-50/40 border-rose-100 dark:bg-rose-950/5 dark:border-rose-900/30' 
-                      : 'bg-slate-50/50 border-slate-100 dark:bg-slate-900/30 dark:border-slate-800/40'
+                      ? 'bg-rose-50/50 border-rose-200 dark:bg-rose-950/15 dark:border-rose-900/40' 
+                      : 'bg-slate-50/60 border-slate-200/70 dark:bg-slate-900/40 dark:border-slate-800/60'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-800 dark:text-slate-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                       {fback.subject}
                     </span>
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       {[...Array(5)].map((_, i) => (
                         <Star 
                           key={i} 
-                          className={`w-3 h-3 ${i < fback.rating! ? 'text-amber-500 fill-amber-500' : 'text-slate-200'}`} 
+                          className={`w-3 h-3 ${i < fback.rating! ? 'text-amber-500 fill-amber-500' : 'text-slate-200 dark:text-slate-700'}`} 
                         />
                       ))}
                     </div>
                   </div>
 
-                  <p className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 leading-normal italic">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
                     "{fback.feedback || 'No written testimony provided'}"
                   </p>
 
-                  <div className="mt-2 text-[8px] font-black tracking-widest uppercase text-slate-400 font-mono flex flex-col gap-0.5">
-                    <span className="flex items-center gap-1 text-rose-500">
-                      Expert: {fback.tutor?.name || 'Tutor ID: ' + fback.tutorId.substring(0, 6)}
+                  <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 flex flex-col gap-0.5">
+                    <span className="text-rose-600 dark:text-rose-400">
+                      Tutor: {fback.tutor?.name || 'ID ' + fback.tutorId.substring(0, 6)}
                     </span>
-                    <span className="flex items-center gap-1 text-blue-500">
-                      Auditor Note: Student {fback.student?.name || 'Student ID: ' + fback.studentId.substring(0, 6)}
+                    <span className="text-blue-600 dark:text-blue-400">
+                      Student: {fback.student?.name || 'ID ' + fback.studentId.substring(0, 6)}
                     </span>
                   </div>
 
                   {isCritical && (
-                    <div className="mt-2 flex items-center gap-1 text-rose-600 bg-rose-50 dark:bg-rose-950/20 px-2 py-1 rounded-xl text-[8px] font-black uppercase tracking-wider w-max">
-                      <AlertTriangle className="w-3 h-3 stroke-[2.5]" />
+                    <div className="mt-1 flex items-center gap-1 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 px-2.5 py-1 rounded-lg text-[11px] font-bold w-max">
+                      <AlertTriangle className="w-3.5 h-3.5" />
                       Critical Review Action Recommended
                     </div>
                   )}
@@ -420,8 +500,8 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
             })}
 
             {studentFeedbacks.length === 0 && (
-              <div className="text-center py-12 text-slate-350 dark:text-slate-600 font-black tracking-widest text-[10px]">
-                No students ratings catalogued in system ledger yet.
+              <div className="text-center py-10 text-slate-500 dark:text-slate-400 font-semibold text-xs">
+                No student ratings catalogued in ledger yet.
               </div>
             )}
           </div>

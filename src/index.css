@@ -35,47 +35,33 @@
   }
   --animate-marquee: marquee 70s linear infinite;
 
-  @keyframes logo-light {
-    0%, 100% {
-      transform: translateY(0);
-      color: #0B132B;
+  @keyframes edutrack-logo-enter {
+    from {
+      opacity: 0.85;
+      transform: translateY(3px) scale(0.96);
     }
-    50% {
-      transform: translateY(-4px);
-      color: #0D5BFF;
-    }
-  }
-
-  @keyframes logo-dark {
-    0%, 100% {
-      transform: translateY(0);
-      color: #ffffff;
-    }
-    50% {
-      transform: translateY(-4px);
-      color: #0D5BFF;
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
-
-  @keyframes logo-float {
-    0%, 100% {
-      transform: translateY(0) scale(1) rotate(0deg);
-    }
-    50% {
-      transform: translateY(-3px) scale(1.03) rotate(2deg);
-    }
-  }
-  --animate-logo-float: logo-float 3s ease-in-out infinite;
 }
 
 @layer base {
-  html,
-  body {
+  html {
     overflow-x: clip;
     max-width: 100%;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
+    overflow-x: clip;
+    max-width: 100%;
     @apply bg-[#F8FAFC] text-[#0F172A] font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
   }
@@ -145,13 +131,42 @@ html:not(.dark) [class*="text-[#0B132B]/50"] {
     @apply bg-white/90 backdrop-blur-md border border-slate-200/80;
   }
 
-  .animate-logo-letter {
-    animation: logo-light 1.8s ease-in-out infinite;
-    will-change: transform, color;
+  .edutrack-logo-enter {
+    animation: edutrack-logo-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
   }
 
-  .dark .animate-logo-letter, :where(.dark) .animate-logo-letter {
-    animation: logo-dark 1.8s ease-in-out infinite;
+  .edutrack-logo-cap {
+    transform-origin: 50px 30px;
+    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .edutrack-logo-tassel {
+    transform-origin: 76px 33.5px;
+    transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .group:hover .edutrack-logo-cap,
+  .group:focus-visible .edutrack-logo-cap {
+    transform: translateY(-2.5px) rotate(-2.5deg);
+  }
+
+  .group:hover .edutrack-logo-tassel,
+  .group:focus-visible .edutrack-logo-tassel {
+    transform: rotate(5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

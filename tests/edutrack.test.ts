@@ -2789,6 +2789,117 @@ async function runTests() {
             true
           );
         });
+
+        // ============================================================
+        // SECTION 20: ADMIN USER DIRECTORY OVERFLOW FIX, COMPACT RESPONSIVE DASHBOARDS & SMOOTH ANIMATIONS
+        // ============================================================
+        console.log("\n--- SECTION 20: Admin Directory Overflow Fix, Compact Dashboards & Smooth Animations ---");
+
+        await test("AdminUserDirectory prevents horizontal overflow with a 5-column table-fixed desktop grid, mobile cards, 3-dot dropdown menu, and pagination (15/page)", () => {
+          const directorySrc = fs.readFileSync(path.resolve("src/components/admin/AdminUserDirectory.tsx"), "utf-8");
+
+          // 1. Fixed 5-column desktop/tablet table without horizontal overflow scrollers
+          assert.equal(directorySrc.includes("hidden md:block w-full"), true);
+          assert.equal(directorySrc.includes('className="w-full table-fixed text-left border-collapse"'), true);
+          assert.equal(directorySrc.includes("overflow-x-auto"), false);
+          assert.equal(directorySrc.includes("min-w-[1200px]"), false);
+          assert.equal(directorySrc.includes("min-w-[1000px]"), false);
+
+          // 2. Five explicit columns: User, Role, Account Status, Verification, Actions
+          assert.equal(directorySrc.includes("User\n"), true);
+          assert.equal(directorySrc.includes("Role\n"), true);
+          assert.equal(directorySrc.includes("Account Status\n"), true);
+          assert.equal(directorySrc.includes("Verification\n"), true);
+          assert.equal(directorySrc.includes("Actions\n"), true);
+
+          // 3. Compact actions: View Details + accessible 3-dot MoreVertical dropdown menu
+          assert.equal(directorySrc.includes("View Details"), true);
+          assert.equal(directorySrc.includes("MoreVertical"), true);
+          assert.equal(directorySrc.includes('aria-haspopup="menu"'), true);
+          assert.equal(directorySrc.includes('role="menu"'), true);
+
+          // 4. Mobile card view (< md)
+          assert.equal(directorySrc.includes("md:hidden divide-y"), true);
+
+          // 5. Pagination (15 users per page) + Previous/Next buttons
+          assert.equal(directorySrc.includes("const PAGE_SIZE = 15;"), true);
+          assert.equal(directorySrc.includes("Previous"), true);
+          assert.equal(directorySrc.includes("Next"), true);
+
+          // 6. Super-Admin email guard, formatJoinDate export, and Expected Monthly Salary labeling preserved
+          assert.equal(directorySrc.includes("export const formatJoinDate"), true);
+          assert.equal(directorySrc.includes("edutrackbangladesh@gmail.com"), true);
+          assert.equal(directorySrc.includes("m13hmahadi.personal@gmail.com"), true);
+          assert.equal(directorySrc.includes("/month"), true);
+        });
+
+        await test("AdminSessionAudits renders mobile cards and fixed-width desktop table without overflow", () => {
+          const auditsSrc = fs.readFileSync(path.resolve("src/components/admin/AdminSessionAudits.tsx"), "utf-8");
+
+          assert.equal(auditsSrc.includes("md:hidden divide-y"), true);
+          assert.equal(auditsSrc.includes("hidden md:block flex-1"), true);
+          assert.equal(auditsSrc.includes("w-full table-fixed"), true);
+          assert.equal(auditsSrc.includes("h-20"), false);
+          assert.equal(auditsSrc.includes("animate-pulse"), false);
+        });
+
+        await test("Dashboards, Sidebar, and Home remove oversized radii/padding and infinite bounce/letter-loop animations", () => {
+          const filesToVerify = [
+            "src/pages/dashboard/AdminDashboard.tsx",
+            "src/pages/dashboard/TutorDashboard.tsx",
+            "src/pages/dashboard/StudentDashboard.tsx",
+            "src/components/Sidebar.tsx",
+            "src/components/DashboardLayout.tsx",
+            "src/pages/Home.tsx",
+          ];
+
+          for (const relPath of filesToVerify) {
+            const src = fs.readFileSync(path.resolve(relPath), "utf-8");
+            assert.equal(src.includes("rounded-[4rem]"), false, `${relPath} still has rounded-[4rem]`);
+            assert.equal(src.includes("lg:p-20"), false, `${relPath} still has lg:p-20`);
+            assert.equal(src.includes("xl:p-16"), false, `${relPath} still has xl:p-16`);
+            assert.equal(src.includes("animate-logo-letter"), false, `${relPath} still has animate-logo-letter`);
+            assert.equal(src.includes("animate-logo-float"), false, `${relPath} still has animate-logo-float`);
+          }
+
+          const sidebarSrc = fs.readFileSync(path.resolve("src/components/Sidebar.tsx"), "utf-8");
+          assert.equal(sidebarSrc.includes("lg:w-72"), true);
+          assert.equal(sidebarSrc.includes("lg:w-80"), false);
+
+          const dashboardLayoutSrc = fs.readFileSync(path.resolve("src/components/DashboardLayout.tsx"), "utf-8");
+          assert.equal(dashboardLayoutSrc.includes("overflow-x-clip"), true);
+        });
+
+        await test("EduTrack Logo uses subtle education-themed cap/tassel animation, smooth scroll respects reduced motion, and Chatbot stays untouched", () => {
+          const logoSrc = fs.readFileSync(path.resolve("src/components/Logo.tsx"), "utf-8");
+          const navbarSrc = fs.readFileSync(path.resolve("src/components/Navbar.tsx"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+          const appSrc = fs.readFileSync(path.resolve("src/App.tsx"), "utf-8");
+
+          // Subtle education cap & tassel hover animation + single entry transition
+          assert.equal(logoSrc.includes("edutrack-logo-cap"), true);
+          assert.equal(logoSrc.includes("edutrack-logo-tassel"), true);
+          assert.equal(logoSrc.includes("edutrack-logo-enter"), true);
+          assert.equal(logoSrc.includes("animate-logo-float"), false);
+
+          // Navbar integrates .group around Logo & brand mark cleanly
+          assert.equal(navbarSrc.includes("group"), true);
+          assert.equal(navbarSrc.includes("UserAvatar"), true);
+
+          // Smooth scrolling + complete prefers-reduced-motion accessibility guard
+          assert.equal(indexCss.includes("@media (prefers-reduced-motion: no-preference)"), true);
+          assert.equal(indexCss.includes("scroll-behavior: smooth;"), true);
+          assert.equal(indexCss.includes("@media (prefers-reduced-motion: reduce)"), true);
+          assert.equal(indexCss.includes(".edutrack-logo-cap"), true);
+          assert.equal(indexCss.includes(".edutrack-logo-tassel"), true);
+          assert.equal(indexCss.includes("animate-logo-letter"), false);
+
+          // Passive scroll listener in App.tsx
+          assert.equal(appSrc.includes("{ passive: true }"), true);
+
+          // Ensure Chatbot widget remains intact
+          assert.equal(fs.existsSync(path.resolve("src/components/AIChatWidget.tsx")), true);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

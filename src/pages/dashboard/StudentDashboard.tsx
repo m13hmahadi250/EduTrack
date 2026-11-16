@@ -1695,7 +1695,7 @@ export default function StudentDashboard() {
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 self-end sm:self-center">
                     {activeSession.tutorRequestedEnd && !activeSession.studentPermissionGranted && (
-                      <span className="text-[8px] bg-yellow-400 text-slate-900 px-3 py-1.5 rounded-xl font-black uppercase italic tracking-wider animate-bounce shadow">
+                      <span className="text-[11px] bg-yellow-400 text-slate-900 px-3 py-1 rounded-lg font-black uppercase tracking-wider shadow-xs">
                         Tutor Requested
                       </span>
                     )}
@@ -3232,12 +3232,12 @@ export default function StudentDashboard() {
                         </div>
                     </>
                   ) : (
-                    <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12">
-                       <LayoutDashboard className="w-12 h-12 text-slate-200 mb-6 ml-0 mr-auto md:mx-auto" />
-                       <h3 className="text-xl font-black text-slate-300 uppercase italic">Select Profile</h3>
+                    <div className="h-full min-h-[280px] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl flex flex-col items-start md:items-center justify-center text-left md:text-center p-6 sm:p-8">
+                       <LayoutDashboard className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-4 ml-0 mr-auto md:mx-auto" />
+                       <h3 className="text-lg font-black text-slate-400 dark:text-slate-300 uppercase italic">Select Profile</h3>
                        <p
                          lang="bn"
-                         className="font-bn text-xs text-slate-400 dark:text-slate-500 mt-1.5"
+                         className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1.5"
                        >
                          পছন্দের শিক্ষক নির্বাচন করতে তাঁর প্রোফাইল দেখুন।
                        </p>
@@ -3270,8 +3270,8 @@ export default function StudentDashboard() {
                </p>
              </div>
              <div className="w-full">
-                <section className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors h-fit w-full">
-                   <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-8">Lesson History</h4>
+                <section className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors h-fit w-full">
+                   <h4 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-5">Lesson History</h4>
                    <div className="space-y-4">
                       {mySessions.map(sess => (
                         <div key={sess.id} className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
@@ -3316,10 +3316,10 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.99 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="grid lg:grid-cols-2 gap-12"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="grid lg:grid-cols-2 gap-6"
           >
-             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col transition-colors">
+             <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col transition-colors">
                 <div className="flex items-center justify-between mb-12">
                    <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/20 rounded-2xl flex items-center justify-center">
@@ -3445,7 +3445,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                     )}
-                    <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative animate-fade-in">
+                    <div className="bg-slate-900 rounded-2xl sm:rounded-3xl h-[340px] sm:h-[460px] overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl relative">
                       <AppErrorBoundary level="widget" sectionName="Live Location Radar">
                         <Suspense fallback={<MapLoading />}>
                           <MapTracker 
@@ -3553,9 +3553,9 @@ export default function StudentDashboard() {
                 </div>
              </div>
 
-             <div className="flex flex-col gap-12">
-                <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-4 sm:p-12 border border-slate-100 shadow-sm">
-                   <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">Active Session Feed</h3>
+             <div className="flex flex-col gap-6">
+                <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                   <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-5">Active Session Feed</h3>
                    <div className="space-y-6">
                       {mySessions.filter(s => s.status === 'scheduled' || s.status === 'active').map(sess => {
                         const tutor = users.find(u => u.id === sess.tutorId);
@@ -3718,7 +3718,7 @@ export default function StudentDashboard() {
                                );
                              })()}
                              {unreadCount > 0 && (
-                               <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                               <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[10px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-xs">
                                  {unreadCount}
                                </span>
                              )}
@@ -3746,10 +3746,10 @@ export default function StudentDashboard() {
                    <ChatWindow recipientId={selectedRecipientId} onBack={() => setSelectedRecipientId(null)} />
                  </Suspense>
                ) : (
-                 <div className="h-full border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12 opacity-30">
-                    <Send className="w-12 h-12 mb-6 ml-0 mr-auto md:mx-auto" />
-                    <h3 className="text-xl font-black uppercase italic">Initialize Comms</h3>
-                    <p className="text-[10px] font-black uppercase tracking-widest mt-2">Select a certified contact from the uplink</p>
+                 <div className="h-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl flex flex-col items-start md:items-center justify-center text-left md:text-center p-6 sm:p-8 opacity-75">
+                    <Send className="w-10 h-10 mb-4 ml-0 mr-auto md:mx-auto text-slate-400" />
+                    <h3 className="text-lg font-black uppercase italic text-[#0B132B] dark:text-white">Initialize Comms</h3>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Select a certified contact from the uplink</p>
                  </div>
                )}
             </div>
@@ -3762,7 +3762,7 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
           >
             <AppErrorBoundary level="widget" sectionName="Class Calendar">
               <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
@@ -3778,8 +3778,8 @@ export default function StudentDashboard() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.04, ease: "easeOut" }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-10 md:p-14 border border-slate-100 dark:border-slate-800 shadow-sm max-w-4xl transition-colors space-y-10"
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm max-w-4xl transition-colors space-y-6"
           >
             {/* Header + Avatar + Edit Button */}
             <div className="flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-6">
@@ -4586,8 +4586,8 @@ export default function StudentDashboard() {
                   <MapPinOff className="w-6 h-6 animate-pulse" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic animate-bounce">Location Sync Warning</h4>
-                  <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1">Permission required for transit</p>
+                  <h4 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">Location Sync Warning</h4>
+                  <p className="text-[11px] font-black text-rose-500 uppercase tracking-wider mt-1">Permission required for transit</p>
                 </div>
               </div>
 

@@ -1598,15 +1598,15 @@ export default function TutorDashboard() {
 
               </div>
 
-              <section className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                  <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+              <section className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                  <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                     Tuition Finder Payments History
                   </h3>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
-                  <div className="space-y-4">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                  <div className="space-y-3">
                     {payments
                       .filter((p) => p.tutorId === currentUser.id && p.studentId === "admin")
                       .sort(
@@ -1617,7 +1617,7 @@ export default function TutorDashboard() {
                       .map((p) => (
                         <div
                           key={p.id}
-                          className="p-8 bg-slate-50 rounded-[3rem] border border-slate-100 flex flex-col gap-6 group hover:bg-white hover:shadow-lg transition-all duration-300"
+                          className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/70 dark:border-slate-800 flex flex-col gap-4 group hover:bg-white dark:hover:bg-slate-800/50 hover:shadow-md transition-colors transition-shadow duration-200"
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
@@ -1690,7 +1690,7 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, scale: 0.98 }}
               className="grid lg:grid-cols-2 gap-12"
             >
-              <div className="bg-white rounded-[2rem] sm:rounded-[4rem] p-6 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden flex flex-col">
+              <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col">
                 <div
                   className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-20 ${currentUser.isTrackingOn ? "bg-emerald-500" : "bg-slate-500"}`}
                 ></div>
@@ -1841,24 +1841,24 @@ export default function TutorDashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-12">
-                <div className="bg-slate-50 rounded-[2rem] sm:rounded-[4rem] border-4 border-dashed border-slate-100 flex flex-col items-start md:items-center justify-center p-6 sm:p-12 lg:p-20 text-left md:text-center flex-1">
-                  <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-8 shadow-xl">
+              <div className="flex flex-col gap-6">
+                <div className="bg-slate-50 dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-start md:items-center justify-center p-6 sm:p-8 text-left md:text-center flex-1">
+                  <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center ml-0 mr-auto md:mx-auto mb-5 shadow-md">
                     <Zap
-                      className={`w-10 h-10 ${currentUser.isTrackingOn ? "text-amber-500 animate-pulse" : "text-slate-200"}`}
+                      className={`w-8 h-8 ${currentUser.isTrackingOn ? "text-amber-500" : "text-slate-300 dark:text-slate-600"}`}
                     />
                   </div>
-                  <h4 className="text-2xl font-black text-[#0B132B] uppercase italic mb-4">
+                  <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
                     Signal Integrity
                   </h4>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest max-w-xs leading-loose">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
                     Your signal is encrypted and only visible to students with
                     active, approved bookings within a 2-hour window.
                   </p>
                 </div>
 
-                <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
-                  <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-6">
+                <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                  <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic mb-4">
                     Nearby Active Students
                   </h3>
                   <div className="space-y-4">
@@ -2009,7 +2009,7 @@ export default function TutorDashboard() {
                               {contact.name.charAt(0)}
                             </div>
                             {unreadCount > 0 && (
-                              <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[8px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce shadow-md">
+                              <span className="absolute -top-1.5 -right-1.5 bg-[#E51275] text-white text-[10px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-xs">
                                 {unreadCount}
                               </span>
                             )}
@@ -2047,12 +2047,12 @@ export default function TutorDashboard() {
                     <ChatWindow recipientId={selectedRecipientId} onBack={() => setSelectedRecipientId(null)} />
                   </Suspense>
                 ) : (
-                  <div className="h-full border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-6 sm:p-12 opacity-30">
-                    <Send className="w-12 h-12 mb-6 ml-0 mr-auto md:mx-auto" />
-                    <h3 className="text-xl font-black uppercase italic">
+                  <div className="h-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl flex flex-col items-start md:items-center justify-center text-left md:text-center p-6 sm:p-8 opacity-75">
+                    <Send className="w-10 h-10 mb-4 ml-0 mr-auto md:mx-auto text-slate-400" />
+                    <h3 className="text-lg font-black uppercase italic text-[#0B132B] dark:text-white">
                       Initialize Comms
                     </h3>
-                    <p className="text-[10px] font-black uppercase tracking-widest mt-2">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                       Select a certified contact from the uplink
                     </p>
                   </div>
@@ -2064,13 +2064,14 @@ export default function TutorDashboard() {
           {activeTab === "pro_profile" && (
             <motion.div
               key="profile"
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 12 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12"
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
             >
-              <div className="lg:col-span-1 space-y-8">
-                <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-start md:items-center w-full">
+              <div className="lg:col-span-1 space-y-6">
+                <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col items-start md:items-center w-full">
                   <div className="mb-8">
                     <Suspense fallback={<div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800 animate-pulse" />}>
                       <ImageUpload
@@ -2312,8 +2313,8 @@ export default function TutorDashboard() {
 
               <div className="lg:col-span-2">
                 {isEditingProfile ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
-                    <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-8 sm:mb-12">
+                  <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+                    <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic mb-6">
                       Update Academic Data
                     </h3>
 
@@ -3259,23 +3260,23 @@ export default function TutorDashboard() {
                     </form>
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
-                      <div className="flex items-center gap-4 mb-6 sm:mb-8">
-                        <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
-                        <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                  <div className="space-y-6">
+                    <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800/80 shadow-sm transition-colors">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Briefcase className="w-5 h-5 text-[#0D5BFF]" />
+                        <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
                           Academic Bio
                         </h3>
                       </div>
-                      <p className="text-xs sm:text-sm font-black uppercase italic text-slate-500 dark:text-slate-400 leading-loose tracking-tight border-l-4 border-slate-100 dark:border-slate-800 pl-4 sm:pl-8">
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300 leading-relaxed border-l-4 border-slate-200 dark:border-slate-700 pl-4">
                         {currentUser.bio ||
                           "Profile bio pending system update. Set your professional philosophy to attract premium bookings."}
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-                      <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
-                        <div className="flex items-center gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
                           <GraduationCap className="w-5 h-5 text-emerald-500" />
                           <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">
                             Expertise
@@ -3285,21 +3286,21 @@ export default function TutorDashboard() {
                           {(currentUser.subjects || ["Pending"]).map((s) => (
                             <span
                               key={s}
-                              className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-750 text-[9px] font-black uppercase italic text-slate-400 dark:text-slate-300 rounded-full"
+                              className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-full"
                             >
                               {s}
                             </span>
                           ))}
                         </div>
                       </div>
-                      <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-4 sm:p-8 lg:p-12 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
-                        <div className="flex items-center gap-4 mb-6">
+                      <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
                           <Clock className="w-5 h-5 text-amber-500" />
                           <h3 className="text-sm font-black text-[#0B132B] dark:text-white uppercase italic">
                             Availability
                           </h3>
                         </div>
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-loose">
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
                           {Object.keys(currentUser.availabilitySlots || {})
                             .length > 0
                             ? "Slots Configured"
@@ -3308,10 +3309,10 @@ export default function TutorDashboard() {
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors w-full min-w-0">
-                      <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 flex-wrap">
+                    <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800/80 shadow-sm transition-colors w-full min-w-0">
+                      <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
                         <div className="flex items-center gap-3">
-                          <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
+                          <Calendar className="w-5 h-5 text-[#0D5BFF]" />
                           <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                             Weekly Availability Schedule
                           </h3>
@@ -3392,16 +3393,16 @@ export default function TutorDashboard() {
                     />
                   </Suspense>
                 </div>
-                <div className="space-y-8">
-                  <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <div className="flex items-center gap-4 mb-8">
-                      <Zap className="w-6 h-6 text-amber-500" />
-                      <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                <div className="space-y-6">
+                  <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Zap className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
                         Efficiency Tips
                       </h3>
                     </div>
-                    <div className="space-y-6">
-                      <p className="text-[11px] font-black uppercase italic text-slate-400 leading-loose">
+                    <div className="space-y-4">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed">
                         • Evening slots (6 PM - 10 PM) typically receive 3x more
                         search visibility.
                         <br />
@@ -3413,8 +3414,8 @@ export default function TutorDashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-900 rounded-[4rem] p-10 sm:p-16 border border-slate-100 dark:border-slate-800 shadow-sm mb-12">
-                    <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
+                  <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm mb-8">
+                    <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
                       Earning & Payment History
                     </h3>
                     <p

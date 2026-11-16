@@ -71,31 +71,21 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="w-full lg:w-80 h-auto min-h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-6 lg:p-8 lg:sticky lg:top-0 transition-colors duration-300">
+    <div className="w-full lg:w-72 h-auto min-h-full lg:h-screen bg-white dark:bg-[#111A2E] lg:border-r border-slate-100 dark:border-slate-800/80 flex flex-col p-4 lg:p-5 lg:sticky lg:top-0 transition-colors duration-200">
       {/* Logo */}
       <div 
         onClick={() => navigate('/')}
-        className="hidden lg:flex items-center space-x-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+        className="hidden lg:flex items-center space-x-2.5 mb-6 cursor-pointer group w-fit"
       >
-        <Logo className="w-10 h-10 shadow-lg shadow-blue-200 dark:shadow-none" />
-        <span 
-          className="text-2xl font-black font-heading text-[#0B132B] dark:text-white transition-colors flex select-none"
-        >
-          {"EduTrack".split("").map((char, index) => (
-            <span
-              key={index}
-              className="inline-block origin-bottom animate-logo-letter"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {char}
-            </span>
-          ))}
+        <Logo className="w-9 h-9 shadow-sm shadow-blue-500/15 dark:shadow-none group-hover:shadow-md group-hover:shadow-blue-500/20" />
+        <span className="text-xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
+          EduTrack
         </span>
       </div>
 
       {/* Nav Section */}
-      <div className="mb-6">
-        <nav className="space-y-2">
+      <div className="mb-5">
+        <nav className="space-y-1.5">
           {navItems.map((item: any) => (
             <button
               key={item.id}
@@ -123,16 +113,16 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
                   else if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
                 }
               }}
-              className={`w-full flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors transition-transform duration-150 active:scale-[0.98] group relative cursor-pointer ${
                 isActive(item.path) 
-                ? 'bg-[#0B132B] dark:bg-[#0D5BFF] text-white shadow-xl shadow-slate-200 dark:shadow-none font-bold' 
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:text-[#0B132B] dark:hover:text-white font-semibold'
+                ? 'bg-[#0B132B] dark:bg-[#0D5BFF] text-white shadow-md shadow-slate-200/80 dark:shadow-none font-bold' 
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-[#0B132B] dark:hover:text-white font-semibold'
               }`}
             >
-              <item.icon className={`w-5 h-5 ${isActive(item.path) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B132B] dark:group-hover:text-white transition-colors'}`} />
-              <span className="text-sm font-black uppercase italic tracking-wider flex-1 text-left">{item.label}</span>
+              <item.icon className={`w-4 h-4 shrink-0 ${isActive(item.path) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#0B132B] dark:group-hover:text-white transition-colors duration-150'}`} />
+              <span className="text-[13px] font-extrabold uppercase tracking-wider flex-1 text-left truncate">{item.label}</span>
               {item.badge > 0 && (
-                <span className="bg-[#E51275] text-white text-[8px] font-black px-2 py-1 rounded-full animate-pulse">
+                <span className="bg-[#E51275] text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                   {item.badge}
                 </span>
               )}
@@ -142,49 +132,49 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
       </div>
 
       {/* Theme Mode Toggle Row */}
-      <div className="mb-6 p-1 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-center border border-slate-100/60 dark:border-slate-800 transition-colors duration-300">
+      <div className="mb-4 p-1 bg-slate-50 dark:bg-slate-800/60 rounded-xl flex items-center border border-slate-100/80 dark:border-slate-800 transition-colors duration-200">
         <button
           onClick={() => theme === 'dark' && toggleTheme()}
-          className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center space-x-1.5 py-2 rounded-lg transition-colors duration-150 cursor-pointer ${
             theme === 'light'
-              ? 'bg-white text-[#0B132B] shadow-sm font-black'
+              ? 'bg-white text-[#0B132B] shadow-xs font-black'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 font-semibold'
           }`}
           title="Light Mode"
         >
-          <Sun className="w-4 h-4" />
-          <span className="text-[10px] uppercase tracking-wider font-heading">Light</span>
+          <Sun className="w-3.5 h-3.5" />
+          <span className="text-[11px] uppercase tracking-wider font-heading">Light</span>
         </button>
         <button
           onClick={() => theme === 'light' && toggleTheme()}
-          className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center space-x-1.5 py-2 rounded-lg transition-colors duration-150 cursor-pointer ${
             theme === 'dark'
-              ? 'bg-[#111A2E] text-white shadow-sm font-black'
+              ? 'bg-[#111A2E] text-white shadow-xs font-black'
               : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white font-semibold'
           }`}
           title="Dark Mode"
         >
-          <Moon className="w-4 h-4" />
-          <span className="text-[10px] uppercase tracking-wider font-heading">Dark</span>
+          <Moon className="w-3.5 h-3.5" />
+          <span className="text-[11px] uppercase tracking-wider font-heading">Dark</span>
         </button>
       </div>
 
       {/* Profile Status Card - Only for tutors/admins */}
       {currentUser.role !== 'student' && (
-        <div className={`mb-4 p-3 rounded-xl border transition-all ${
+        <div className={`mb-4 p-3 rounded-xl border transition-colors duration-200 ${
           currentUser.isVerified 
-            ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-100/60 dark:border-emerald-900/20' 
-            : 'bg-rose-50/40 dark:bg-rose-950/10 border-rose-100/60 dark:border-rose-900/20'
+            ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-100/80 dark:border-emerald-900/30' 
+            : 'bg-rose-50/40 dark:bg-rose-950/15 border-rose-100/80 dark:border-rose-900/30'
         }`}>
-          <div className="flex justify-between items-center mb-1">
-            <span className={`text-[8.5px] font-black uppercase tracking-widest ${
+          <div className="flex justify-between items-center mb-0.5">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${
               currentUser.isVerified ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
             }`}>Profile Status</span>
             <Shield className={`w-3.5 h-3.5 ${
-              currentUser.isVerified ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 animate-pulse'
+              currentUser.isVerified ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
             }`} />
           </div>
-          <div className={`text-[10px] font-black uppercase italic ${
+          <div className={`text-xs font-extrabold ${
             currentUser.isVerified ? 'text-emerald-950 dark:text-emerald-200' : 'text-rose-950 dark:text-rose-200'
           }`}>
             {currentUser.isVerified ? 'Verified Account' : 'Verification Required'}

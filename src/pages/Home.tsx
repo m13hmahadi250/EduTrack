@@ -999,7 +999,7 @@ export default function Home() {
               className="lg:w-1/2 relative"
             >
               <div className="absolute inset-0 bg-rose-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-[#0B132B] p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] shadow-2xl border-2 border-white/10 overflow-hidden transform rotate-2">
+              <div className="relative bg-[#0B132B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-white/10 overflow-hidden transform rotate-1">
                  {/* Mock Tracking UI */}
                  <div className="space-y-6">
                     <div className="flex items-center space-x-4 bg-white/5 p-4 rounded-3xl border border-white/10">
@@ -1059,7 +1059,7 @@ export default function Home() {
               className="lg:w-1/2 relative"
             >
               <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-white dark:bg-[#1E293B] p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] shadow-2xl border border-slate-100 dark:border-slate-800/85 transform -rotate-2 transition-colors">
+              <div className="relative bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800/85 transform -rotate-1 transition-colors">
                  <div className="flex items-center space-x-6 mb-8 pb-8 border-b border-slate-100 dark:border-slate-800/60">
                     <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
                        <Users className="w-10 h-10 text-slate-300 dark:text-slate-600" />
@@ -1434,7 +1434,7 @@ export default function Home() {
       {/* Footer CTA */}
       <section className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-[#0B132B] rounded-[3rem] p-12 lg:p-20 text-center relative overflow-hidden">
+          <div className="bg-[#0B132B] rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
              <div className="relative z-10">
                <h2 className="text-[3rem] lg:text-[4.5rem] font-black font-heading text-white leading-none uppercase mb-8">
@@ -1482,18 +1482,10 @@ export default function Home() {
       <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center gap-3 mb-6 select-none cursor-default">
-              <Logo className="w-10 h-10 sm:w-11 sm:h-11 hover:rotate-6 transition-transform duration-300" />
-              <h4 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic flex">
-                {"EduTrack".split("").map((char, index) => (
-                  <span
-                    key={index}
-                    className="inline-block origin-bottom animate-logo-letter"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    {char}
-                  </span>
-                ))}
+            <div className="flex items-center gap-3 mb-5 select-none group w-fit">
+              <Logo className="w-10 h-10 sm:w-11 sm:h-11 group-hover:shadow-md group-hover:shadow-blue-500/20" />
+              <h4 className="text-2xl font-black text-[#0B132B] dark:text-white tracking-tight transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
+                EduTrack
               </h4>
             </div>
             <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm leading-relaxed mb-6 text-sm">

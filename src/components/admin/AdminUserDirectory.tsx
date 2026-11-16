@@ -1,29 +1,20 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, useAppStore } from '../../store';
-import { 
-  Search, 
-  Filter, 
-  ShieldAlert, 
-  ShieldCheck, 
-  UserMinus, 
-  UserCheck, 
-  Award, 
-  BadgeAlert,
+import {
+  Search,
+  Filter,
+  ShieldAlert,
+  ShieldCheck,
+  UserMinus,
+  Award,
   Coins,
-  ArrowRightLeft,
   Mail,
   Send,
   Smartphone,
   X,
-  GraduationCap,
-  BookOpen,
-  MapPin,
   Calendar,
   Clock,
   DollarSign,
-  Briefcase,
-  Activity,
-  FileText,
   Eye,
   EyeOff,
   ChevronLeft,
@@ -31,11 +22,15 @@ import {
   ArrowUpDown,
   Sparkles,
   Pencil,
-  Check
+  Check,
+  MoreVertical,
+  UserCog,
+  RotateCcw,
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
 import { useBackHandler } from '../../utils/mobileWebView';
 import UserAvatar from '../UserAvatar';
+import { getTutorVerificationStatus } from '../../../shared/profileCompletion';
 
 // Helper to format user registration date and time
 export const formatJoinDate = (createdAt?: string) => {
@@ -43,19 +38,19 @@ export const formatJoinDate = (createdAt?: string) => {
   try {
     const d = new Date(createdAt);
     if (isNaN(d.getTime())) return { date: 'Initial Record', time: '', full: 'Initial Record', relative: '' };
-    
+
     const date = d.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
-    }); // e.g. "18 Aug 2026"
-    
+      year: 'numeric',
+    });
+
     const time = d.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
-    }); // e.g. "02:45 PM"
-    
+      hour12: true,
+    });
+
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -74,11 +69,11 @@ export const formatJoinDate = (createdAt?: string) => {
       relative = `${diffDays}d ago`;
     }
 
-    return { 
-      date, 
-      time, 
+    return {
+      date,
+      time,
       full: `${date} at ${time}`,
-      relative
+      relative,
     };
   } catch {
     return { date: 'Initial Record', time: '', full: 'Initial Record', relative: '' };
@@ -92,19 +87,10 @@ interface AdminUserDirectoryProps {
   onMessageUser?: (userId: string) => void;
 }
 
-export default function AdminUserDirectory({ users, updateUser, currentUser, onMessageUser }: AdminUserDirectoryProps) {
-  const deleteUser = useAppStore(state => state.deleteUser);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+const PAGE_SIZE = 15;
 
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = 300;
-      scrollContainerRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
-    }
-  };
+export default function AdminUserDirectory({ users, updateUser, currentUser, onMessageUser }: AdminUserDirectoryProps) {
+  const deleteUser = useAppStore((state) => state.deleteUser);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'tutor' | 'admin'>('all');
@@ -112,86 +98,29 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'other' | 'none'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
-  const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
-  const [balanceInput, setBalanceInput] = useState<string>('');
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [menuOpenUpward, setMenuOpenUpward] = useState(false);
+  const actionMenuContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Inspection Modal & Sub-modals
   const [inspectingUser, setInspectingUser] = useState<User | null>(null);
   const [emailModalUser, setEmailModalUser] = useState<User | null>(null);
 
-  // Rate and Availability editing states for inspecting modal
-  const [editingRate, setEditingRate] = useState<boolean>(false);
-  const [rateInput, setRateInput] = useState<string>('');
-  const [savingRate, setSavingRate] = useState<boolean>(false);
+  // Inline editors inside Inspect modal
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [balanceInput, setBalanceInput] = useState('');
+  const [savingBalance, setSavingBalance] = useState(false);
 
-  const [editingAvailability, setEditingAvailability] = useState<boolean>(false);
-  const [availabilityInput, setAvailabilityInput] = useState<string>('');
-  const [savingAvailability, setSavingAvailability] = useState<boolean>(false);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
 
-  // Sync editing fields when inspecting user changes
-  useEffect(() => {
-    setEditingRate(false);
-    setEditingAvailability(false);
-    if (inspectingUser) {
-      setRateInput((inspectingUser.hourlyRate || 0).toString());
-      setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
-    }
-  }, [inspectingUser?.id]);
-
-  const startEditingRate = () => {
-    if (!inspectingUser) return;
-    setRateInput((inspectingUser.hourlyRate || 0).toString());
-    setEditingRate(true);
-  };
-
-  const handleSaveRate = async () => {
-    if (!inspectingUser) return;
-    const clean = rateInput.replace(/[^0-9]/g, '');
-    const num = clean ? Number(clean) : 0;
-    if (isNaN(num) || num < 0) {
-      showToast('Please enter a valid rate amount', 'error');
-      return;
-    }
-    setSavingRate(true);
-    try {
-      await updateUser(inspectingUser.id, { hourlyRate: num });
-      setInspectingUser(prev => prev ? { ...prev, hourlyRate: num } : null);
-      showToast(`Hourly rate updated to ৳${num.toLocaleString()} / hr`);
-      setEditingRate(false);
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to update tutor rate', 'error');
-    } finally {
-      setSavingRate(false);
-    }
-  };
-
-  const startEditingAvailability = () => {
-    if (!inspectingUser) return;
-    setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
-    setEditingAvailability(true);
-  };
-
-  const handleSaveAvailability = async () => {
-    if (!inspectingUser) return;
-    const clean = availabilityInput.replace(/[^0-9]/g, '');
-    const num = clean ? Number(clean) : 0;
-    if (isNaN(num) || num < 0 || num > 7) {
-      showToast('Availability must be between 0 and 7 days / week', 'error');
-      return;
-    }
-    setSavingAvailability(true);
-    try {
-      await updateUser(inspectingUser.id, { daysPerWeek: num });
-      setInspectingUser(prev => prev ? { ...prev, daysPerWeek: num } : null);
-      showToast(`Teaching availability updated to ${num} Days / Week`);
-      setEditingAvailability(false);
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to update availability', 'error');
-    } finally {
-      setSavingAvailability(false);
-    }
-  };
+  const [editingAvailability, setEditingAvailability] = useState(false);
+  const [availabilityInput, setAvailabilityInput] = useState('');
+  const [savingAvailability, setSavingAvailability] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -210,15 +139,153 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => {
-      setToast(prev => prev?.message === message ? null : prev);
+      setToast((prev) => (prev?.message === message ? null : prev));
     }, 4000);
   };
 
+  // Sync editing fields when inspecting user changes
+  useEffect(() => {
+    setEditingRate(false);
+    setEditingAvailability(false);
+    setEditingBalance(false);
+    if (inspectingUser) {
+      setRateInput((inspectingUser.hourlyRate || 0).toString());
+      setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
+      setBalanceInput((inspectingUser.balance || 0).toString());
+    }
+  }, [inspectingUser?.id]);
+
+  // Keep inspectingUser synced if live Firestore user record updates
+  useEffect(() => {
+    if (!inspectingUser) return;
+    const fresh = users.find((u) => u.id === inspectingUser.id);
+    if (fresh && fresh !== inspectingUser) {
+      setInspectingUser(fresh);
+    }
+  }, [users, inspectingUser]);
+
+  // Close 3-dot dropdown menu on outside click or Escape
+  useEffect(() => {
+    if (!openActionMenuId) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('[data-admin-user-menu-root="true"]')) {
+        setOpenActionMenuId(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenActionMenuId(null);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openActionMenuId]);
+
+  useBackHandler(Boolean(confirmModal?.isOpen), () => setConfirmModal(null), 'admin-directory-confirm');
+  useBackHandler(Boolean(inspectingUser) && !confirmModal?.isOpen, () => setInspectingUser(null), 'admin-directory-inspect');
+  useBackHandler(Boolean(emailModalUser) && !confirmModal?.isOpen, () => setEmailModalUser(null), 'admin-directory-email');
+
+  const isSuperAdminEmail =
+    currentUser?.email === 'edutrackbangladesh@gmail.com' ||
+    currentUser?.email === 'm13hmahadi.personal@gmail.com';
+
+  // Filtering + sorting users
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return users
+      .filter((user) => {
+        const searchStr = `${user.name || ''} ${user.email || ''} ${user.phone || ''} ${user.university || ''}`.toLowerCase();
+        const matchesSearch = !q || searchStr.includes(q);
+        const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+
+        let matchesVerification = true;
+        if (verificationFilter === 'verified') {
+          matchesVerification = !!user.isVerified;
+        } else if (verificationFilter === 'unverified') {
+          matchesVerification = !user.isVerified;
+        } else if (verificationFilter === 'pending') {
+          matchesVerification = user.nidStatus === 'pending' || user.academicStatus === 'pending';
+        }
+
+        let matchesStatus = true;
+        if (statusFilter === 'active') matchesStatus = !user.isBlocked;
+        else if (statusFilter === 'blocked') matchesStatus = !!user.isBlocked;
+
+        let matchesGender = true;
+        if (genderFilter !== 'all') {
+          if (genderFilter === 'none') matchesGender = !user.gender;
+          else matchesGender = user.gender?.toLowerCase() === genderFilter;
+        }
+
+        return matchesSearch && matchesRole && matchesVerification && matchesStatus && matchesGender;
+      })
+      .sort((a, b) => {
+        if (sortOrder === 'newest') {
+          if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+          if (a.createdAt) return -1;
+          if (b.createdAt) return 1;
+          return b.id.localeCompare(a.id);
+        }
+        if (sortOrder === 'oldest') {
+          if (a.createdAt && b.createdAt) {
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          }
+          if (a.createdAt) return -1;
+          if (b.createdAt) return 1;
+          return a.id.localeCompare(b.id);
+        }
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter, sortOrder]);
+
+  // Reset to page 1 when filters/search/sort change
+  useEffect(() => {
+    setCurrentPage(1);
+    setOpenActionMenuId(null);
+  }, [searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIdx = (safePage - 1) * PAGE_SIZE;
+    return filteredUsers.slice(startIdx, startIdx + PAGE_SIZE);
+  }, [filteredUsers, safePage]);
+
+  const pageStartDisplay = filteredUsers.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const pageEndDisplay = Math.min(safePage * PAGE_SIZE, filteredUsers.length);
+
+  const hasActiveFilters =
+    Boolean(searchTerm.trim()) ||
+    roleFilter !== 'all' ||
+    verificationFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    genderFilter !== 'all';
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setRoleFilter('all');
+    setVerificationFilter('all');
+    setStatusFilter('all');
+    setGenderFilter('all');
+    setSortOrder('newest');
+    setCurrentPage(1);
+  };
+
   const triggerConfirm = (
-    title: string, 
-    message: string, 
-    onConfirm: () => void | Promise<void>, 
-    confirmText = "Confirm", 
+    title: string,
+    message: string,
+    onConfirm: () => void | Promise<void>,
+    confirmText = 'Confirm',
     isDanger = false
   ) => {
     setConfirmModal({
@@ -230,102 +297,23 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         await onConfirm();
       },
       confirmText,
-      isDanger
+      isDanger,
     });
   };
 
-  useBackHandler(
-    Boolean(confirmModal?.isOpen),
-    () => setConfirmModal(null),
-    'admin-directory-confirm',
-  );
-  useBackHandler(
-    Boolean(inspectingUser) && !confirmModal?.isOpen,
-    () => setInspectingUser(null),
-    'admin-directory-inspect',
-  );
-  useBackHandler(
-    Boolean(emailModalUser) && !confirmModal?.isOpen,
-    () => setEmailModalUser(null),
-    'admin-directory-email',
-  );
-
-  // Filtering users logic
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      // Search matches name, email, phone, or university
-      const searchStr = `${user.name || ''} ${user.email || ''} ${user.phone || ''} ${user.university || ''}`.toLowerCase();
-      const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
-
-      // Role filter
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-
-      // Verification filter
-      let matchesVerification = true;
-      if (verificationFilter === 'verified') {
-        matchesVerification = !!user.isVerified;
-      } else if (verificationFilter === 'unverified') {
-        matchesVerification = !user.isVerified;
-      } else if (verificationFilter === 'pending') {
-        matchesVerification = user.nidStatus === 'pending' || user.academicStatus === 'pending';
-      }
-
-      // Status filter
-      let matchesStatus = true;
-      if (statusFilter === 'active') {
-        matchesStatus = !user.isBlocked;
-      } else if (statusFilter === 'blocked') {
-        matchesStatus = !!user.isBlocked;
-      }
-
-      // Gender filter
-      let matchesGender = true;
-      if (genderFilter !== 'all') {
-        if (genderFilter === 'none') {
-          matchesGender = !user.gender;
-        } else {
-          matchesGender = user.gender?.toLowerCase() === genderFilter;
-        }
-      }
-
-      return matchesSearch && matchesRole && matchesVerification && matchesStatus && matchesGender;
-    }).sort((a, b) => {
-      if (sortOrder === 'newest') {
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        }
-        if (a.createdAt) return -1;
-        if (b.createdAt) return 1;
-        return b.id.localeCompare(a.id);
-      }
-      if (sortOrder === 'oldest') {
-        if (a.createdAt && b.createdAt) {
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        }
-        if (a.createdAt) return -1;
-        if (b.createdAt) return 1;
-        return a.id.localeCompare(b.id);
-      }
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  }, [users, searchTerm, roleFilter, verificationFilter, statusFilter, genderFilter, sortOrder]);
-
-  // Block or Unblock user
   const handleToggleBlock = (user: User) => {
-    // @ts-ignore
+    setOpenActionMenuId(null);
     const isBlocked = !!user.isBlocked;
     const confirmMsg = `Are you sure you want to ${isBlocked ? 'reactivate/unblock' : 'suspend/block'} user: ${user.name || 'this user'}?`;
-    
+
     triggerConfirm(
-      isBlocked ? 'Activate User' : 'Block User',
+      isBlocked ? 'Activate User' : 'Suspend User',
       confirmMsg,
       async () => {
         setUpdatingUserId(user.id);
         try {
-          await updateUser(user.id, { 
-            // @ts-ignore
-            isBlocked: !isBlocked 
-          });
+          await updateUser(user.id, { isBlocked: !isBlocked });
+          setInspectingUser((prev) => (prev?.id === user.id ? { ...prev, isBlocked: !isBlocked } : prev));
           showToast(`User ${isBlocked ? 'activated' : 'suspended'} successfully.`);
         } catch (err) {
           console.error(err);
@@ -334,20 +322,20 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
           setUpdatingUserId(null);
         }
       },
-      isBlocked ? 'Activate' : 'Block',
+      isBlocked ? 'Activate' : 'Suspend',
       !isBlocked
     );
   };
 
-  // Remove/Delete user profile from system
   const handleRemoveUser = (user: User) => {
+    setOpenActionMenuId(null);
     if (user.id === currentUser.id) {
-      showToast("You cannot remove your own admin account!", "error");
+      showToast('You cannot remove your own admin account!', 'error');
       return;
     }
 
     const confirmMsg = `CRITICAL: Are you sure you want to PERMANENTLY REMOVE/DELETE user "${user.name || 'this user'}" (${user.email})? This action is completely irreversible.`;
-    
+
     triggerConfirm(
       'Permanently Remove User',
       confirmMsg,
@@ -355,7 +343,8 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         setUpdatingUserId(user.id);
         try {
           await deleteUser(user.id);
-          showToast(`User profile deleted successfully.`);
+          if (inspectingUser?.id === user.id) setInspectingUser(null);
+          showToast('User profile deleted successfully.');
         } catch (err) {
           console.error(err);
           showToast('Failed to delete user profile.', 'error');
@@ -368,22 +357,20 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     );
   };
 
-  // Change user role
   const handleChangeRole = (userId: string, newRole: 'student' | 'tutor' | 'admin') => {
+    setOpenActionMenuId(null);
     if (userId === currentUser.id) {
-      showToast("You cannot demote or change your own admin role!", "error");
+      showToast('You cannot demote or change your own admin role!', 'error');
       return;
     }
 
-    // Only edutrackbangladesh@gmail.com or m13hmahadi.personal@gmail.com can set/assign another admin in the directory UI
-    const isSuperAdminEmail = currentUser?.email === 'edutrackbangladesh@gmail.com' || currentUser?.email === 'm13hmahadi.personal@gmail.com';
     if (newRole === 'admin' && !isSuperAdminEmail) {
-      showToast("Permission denied! Only the main administrator is permitted to assign the admin role.", "error");
+      showToast('Permission denied! Only the main administrator is permitted to assign the admin role.', 'error');
       return;
     }
 
     const confirmMsg = `Are you sure you want to modify user role to: ${newRole.toUpperCase()}?`;
-    
+
     triggerConfirm(
       'Change User Role',
       confirmMsg,
@@ -391,6 +378,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         setUpdatingUserId(userId);
         try {
           await updateUser(userId, { role: newRole });
+          setInspectingUser((prev) => (prev?.id === userId ? { ...prev, role: newRole } : prev));
           showToast(`Role updated to ${newRole}.`);
         } catch (err) {
           console.error(err);
@@ -404,28 +392,38 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     );
   };
 
-  // Toggle Verification status manually
   const handleToggleVerification = (user: User) => {
+    setOpenActionMenuId(null);
     const isCurrentlyVerified = !!user.isVerified;
-    const confirmMsg = isCurrentlyVerified 
-      ? `Revoke verified status badge for ${user.name}?` 
+    const confirmMsg = isCurrentlyVerified
+      ? `Revoke verified status badge for ${user.name}?`
       : `Manually grant Verified status badge to ${user.name}?`;
-    
+
     triggerConfirm(
       isCurrentlyVerified ? 'Revoke Verification' : 'Grant Verification',
       confirmMsg,
       async () => {
         setUpdatingUserId(user.id);
         try {
-          await updateUser(user.id, { 
+          await updateUser(user.id, {
             isVerified: !isCurrentlyVerified,
             nidStatus: !isCurrentlyVerified ? 'approved' : 'rejected',
-            academicStatus: !isCurrentlyVerified ? 'approved' : 'rejected' 
+            academicStatus: !isCurrentlyVerified ? 'approved' : 'rejected',
           });
-          showToast(`Verification badge status updated.`);
+          setInspectingUser((prev) =>
+            prev?.id === user.id
+              ? {
+                  ...prev,
+                  isVerified: !isCurrentlyVerified,
+                  nidStatus: !isCurrentlyVerified ? 'approved' : 'rejected',
+                  academicStatus: !isCurrentlyVerified ? 'approved' : 'rejected',
+                }
+              : prev
+          );
+          showToast('Verification badge status updated.');
         } catch (err) {
           console.error(err);
-          showToast('Failed to update verification badge Status.', 'error');
+          showToast('Failed to update verification badge status.', 'error');
         } finally {
           setUpdatingUserId(null);
         }
@@ -435,23 +433,24 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     );
   };
 
-  // Toggle show on home page manually
   const handleToggleHomeVisibility = (user: User) => {
+    setOpenActionMenuId(null);
     const isCurrentlyVisible = user.showOnHomePage !== false;
     const confirmMsg = isCurrentlyVisible
       ? `Hide tutor profile ${user.name} from the landing home page?`
       : `Feature and show tutor profile ${user.name} on the landing home page?`;
-    
+
     triggerConfirm(
       isCurrentlyVisible ? 'Hide from Landing Page' : 'Show on Landing Page',
       confirmMsg,
       async () => {
         setUpdatingUserId(user.id);
         try {
-          await updateUser(user.id, { 
-            showOnHomePage: !isCurrentlyVisible
-          });
-          showToast(`Landing page visibility updated.`);
+          await updateUser(user.id, { showOnHomePage: !isCurrentlyVisible });
+          setInspectingUser((prev) =>
+            prev?.id === user.id ? { ...prev, showOnHomePage: !isCurrentlyVisible } : prev
+          );
+          showToast('Landing page visibility updated.');
         } catch (err) {
           console.error(err);
           showToast('Failed to update visibility.', 'error');
@@ -464,77 +463,330 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
     );
   };
 
-  // Adjust Wallet Balance
   const handleSaveBalance = async (userId: string) => {
     const numericAmount = parseFloat(balanceInput);
     if (isNaN(numericAmount) || numericAmount < 0) {
-      showToast("Please enter a valid positive numeric amount.", "error");
+      showToast('Please enter a valid positive numeric amount.', 'error');
       return;
     }
 
-    setUpdatingUserId(userId);
+    setSavingBalance(true);
     try {
       await updateUser(userId, { balance: numericAmount });
-      showToast(`Successfully set wallet balance to ৳${numericAmount}`);
-      setEditingBalanceId(null);
+      setInspectingUser((prev) => (prev?.id === userId ? { ...prev, balance: numericAmount } : prev));
+      showToast(`Wallet balance updated to ৳${numericAmount.toLocaleString()}`);
+      setEditingBalance(false);
     } catch (err) {
       console.error(err);
       showToast('Failed to update wallet balance.', 'error');
     } finally {
-      setUpdatingUserId(null);
+      setSavingBalance(false);
     }
   };
 
-  const startEditingBalance = (user: User) => {
-    setEditingBalanceId(user.id);
-    setBalanceInput((user.balance || 0).toString());
+  const handleSaveRate = async () => {
+    if (!inspectingUser) return;
+    const clean = rateInput.replace(/[^0-9]/g, '');
+    const num = clean ? Number(clean) : 0;
+    if (isNaN(num) || num < 0) {
+      showToast('Please enter a valid monthly salary amount.', 'error');
+      return;
+    }
+    setSavingRate(true);
+    try {
+      await updateUser(inspectingUser.id, { hourlyRate: num });
+      setInspectingUser((prev) => (prev ? { ...prev, hourlyRate: num } : null));
+      showToast(`Expected monthly salary updated to ৳${num.toLocaleString()}/month`);
+      setEditingRate(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update tutor salary.', 'error');
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
+  const handleSaveAvailability = async () => {
+    if (!inspectingUser) return;
+    const clean = availabilityInput.replace(/[^0-9]/g, '');
+    const num = clean ? Number(clean) : 0;
+    if (isNaN(num) || num < 0 || num > 7) {
+      showToast('Availability must be between 0 and 7 days / week.', 'error');
+      return;
+    }
+    setSavingAvailability(true);
+    try {
+      await updateUser(inspectingUser.id, { daysPerWeek: num });
+      setInspectingUser((prev) => (prev ? { ...prev, daysPerWeek: num } : null));
+      showToast(`Teaching availability updated to ${num} Days / Week`);
+      setEditingAvailability(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update availability.', 'error');
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  const handleToggleMenu = (userId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (openActionMenuId === userId) {
+      setOpenActionMenuId(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setMenuOpenUpward(spaceBelow < 290);
+    setOpenActionMenuId(userId);
+  };
+
+  const getVerificationSummary = (user: User) => {
+    if (user.role !== 'tutor') {
+      return {
+        label: user.role === 'admin' ? 'Admin Access' : 'Standard User',
+        tone: 'neutral' as const,
+      };
+    }
+    const status = getTutorVerificationStatus(user);
+    if (status.overall === 'approved') {
+      return { label: 'Verified', tone: 'verified' as const };
+    }
+    if (status.overall === 'pending_review') {
+      return { label: 'Pending Review', tone: 'pending' as const };
+    }
+    if (status.overall === 'rejected' || status.overall === 'changes_required') {
+      return { label: 'Needs Attention', tone: 'rejected' as const };
+    }
+    return { label: 'Unverified', tone: 'neutral' as const };
+  };
+
+  const renderActionsDropdown = (user: User) => {
+    const isBlocked = !!user.isBlocked;
+    const isUserTutor = user.role === 'tutor';
+    const isSelf = user.id === currentUser.id;
+    const nextRoles = (['student', 'tutor', 'admin'] as const).filter(
+      (r) => r !== user.role && (r !== 'admin' || isSuperAdminEmail)
+    );
+
+    return (
+      <div
+        ref={actionMenuContainerRef}
+        role="menu"
+        aria-label={`Actions for ${user.name || 'user'}`}
+        className={`absolute right-0 w-56 rounded-2xl bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-700/80 shadow-xl py-1.5 z-40 normal-case text-left transition-all duration-150 ${
+          menuOpenUpward ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
+        }`}
+      >
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpenActionMenuId(null);
+            setInspectingUser(user);
+          }}
+          className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+        >
+          <Eye className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+          <span>View Full Details</span>
+        </button>
+
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpenActionMenuId(null);
+            setEmailModalUser(user);
+          }}
+          className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+        >
+          <Send className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span>Send Email</span>
+        </button>
+
+        {!isSelf && onMessageUser && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpenActionMenuId(null);
+              onMessageUser(user.id);
+            }}
+            className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+          >
+            <Mail className="w-4 h-4 text-[#0D5BFF] shrink-0" />
+            <span>Direct Message</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpenActionMenuId(null);
+            setInspectingUser(user);
+            setEditingBalance(true);
+          }}
+          className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+        >
+          <Coins className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>Adjust Wallet (৳{(user.balance || 0).toLocaleString()})</span>
+        </button>
+
+        {isUserTutor && (
+          <>
+            <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => handleToggleVerification(user)}
+              disabled={updatingUserId === user.id}
+              className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+            >
+              <Award className={`w-4 h-4 shrink-0 ${user.isVerified ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <span>{user.isVerified ? 'Revoke Verification' : 'Grant Verified Badge'}</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => handleToggleHomeVisibility(user)}
+              disabled={updatingUserId === user.id}
+              className="w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+            >
+              {user.showOnHomePage !== false ? (
+                <>
+                  <EyeOff className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Hide from Homepage</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span>Show on Homepage</span>
+                </>
+              )}
+            </button>
+          </>
+        )}
+
+        {!isSelf && nextRoles.length > 0 && (
+          <>
+            <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+            <div className="px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Change Role
+            </div>
+            {nextRoles.map((roleOpt) => (
+              <button
+                key={roleOpt}
+                type="button"
+                role="menuitem"
+                onClick={() => handleChangeRole(user.id, roleOpt)}
+                disabled={updatingUserId === user.id}
+                className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 flex items-center gap-2.5 cursor-pointer"
+              >
+                <UserCog className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Set as {roleOpt.charAt(0).toUpperCase() + roleOpt.slice(1)}</span>
+              </button>
+            ))}
+          </>
+        )}
+
+        {!isSelf && (
+          <>
+            <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => handleToggleBlock(user)}
+              disabled={updatingUserId === user.id}
+              className={`w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2.5 cursor-pointer ${
+                isBlocked
+                  ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+              }`}
+            >
+              {isBlocked ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <ShieldAlert className="w-4 h-4 shrink-0" />}
+              <span>{isBlocked ? 'Activate Account' : 'Suspend Account'}</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => handleRemoveUser(user)}
+              disabled={updatingUserId === user.id}
+              className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 cursor-pointer"
+            >
+              <UserMinus className="w-4 h-4 shrink-0" />
+              <span>Permanently Delete</span>
+            </button>
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6" id="admin-user-directory-view">
-      
-      {/* Filtering Options Panel */}
-      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] p-6 shadow-sm space-y-6">
-        
-        {/* Search Input Row */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+    <div className="space-y-4 w-full min-w-0" id="admin-user-directory-view">
+      {/* Compact Search & Filter Bar */}
+      <div className="bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name, email, credentials..."
+              placeholder="Search name, email, phone, or university..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border-0 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none"
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-[#0D5BFF] placeholder-slate-400 outline-none transition-shadow"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          
-          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
-            <Filter className="w-3.5 h-3.5 text-[#0D5BFF]" />
-            <span>Interactive Filtering Desk</span>
+
+          <div className="flex items-center justify-between md:justify-end gap-2 flex-wrap">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Filters</span>
+              </button>
+            )}
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200/60 dark:border-slate-800 tabular-nums">
+              <Filter className="w-3.5 h-3.5 text-[#0D5BFF]" />
+              <span>{filteredUsers.length} matched</span>
+            </div>
           </div>
         </div>
 
-        {/* Filters Select Segmented Tabs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/40">
-          
-          {/* Role Filter Category */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Role Scope</span>
-            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+        {/* Compact Segmented Filter Controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/70">
+          {/* Role */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
+              Role
+            </span>
+            <div className="flex bg-slate-100/80 dark:bg-slate-900 p-1 rounded-xl w-full gap-1">
               {[
-                { value: 'all', label: 'ALL' },
-                { value: 'student', label: 'STD' },
-                { value: 'tutor', label: 'TUT' },
-                { value: 'admin', label: 'ADM' }
-              ].map(opt => (
+                { value: 'all', label: 'All' },
+                { value: 'student', label: 'Student' },
+                { value: 'tutor', label: 'Tutor' },
+                { value: 'admin', label: 'Admin' },
+              ].map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => setRoleFilter(opt.value as any)}
-                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                  className={`flex-1 py-1.5 px-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                     roleFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {opt.label}
@@ -543,23 +795,26 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             </div>
           </div>
 
-          {/* Verification Badge Filter Category */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Verification Status</span>
-            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+          {/* Verification */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
+              Verification
+            </span>
+            <div className="flex bg-slate-100/80 dark:bg-slate-900 p-1 rounded-xl w-full gap-1">
               {[
-                { value: 'all', label: 'ALL' },
-                { value: 'verified', label: 'VER' },
-                { value: 'unverified', label: 'NO BG' },
-                { value: 'pending', label: 'PEND' }
-              ].map(opt => (
+                { value: 'all', label: 'All' },
+                { value: 'verified', label: 'Verified' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'unverified', label: 'Unverified' },
+              ].map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => setVerificationFilter(opt.value as any)}
-                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                  className={`flex-1 py-1.5 px-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer truncate ${
                     verificationFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {opt.label}
@@ -568,22 +823,25 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             </div>
           </div>
 
-          {/* Status Filter Category (Blocked vs Active) */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Security Ledger</span>
-            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full">
+          {/* Account Status */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
+              Account Status
+            </span>
+            <div className="flex bg-slate-100/80 dark:bg-slate-900 p-1 rounded-xl w-full gap-1">
               {[
-                { value: 'all', label: 'ALL' },
-                { value: 'active', label: 'ACT' },
-                { value: 'blocked', label: 'BLK' }
-              ].map(opt => (
+                { value: 'all', label: 'All' },
+                { value: 'active', label: 'Active' },
+                { value: 'blocked', label: 'Suspended' },
+              ].map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => setStatusFilter(opt.value as any)}
-                  className={`flex-1 py-1.5 text-[8.5px] font-black rounded-lg transition-all uppercase cursor-pointer ${
+                  className={`flex-1 py-1.5 px-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                     statusFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {opt.label}
@@ -592,24 +850,26 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
             </div>
           </div>
 
-          {/* Gender Filter Category */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[8px] font-black tracking-widest text-slate-400 uppercase">Gender Profiles</span>
-            <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl w-full overflow-x-auto no-scrollbar">
+          {/* Gender */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
+              Gender
+            </span>
+            <div className="flex bg-slate-100/80 dark:bg-slate-900 p-1 rounded-xl w-full gap-1">
               {[
-                { value: 'all', label: 'ALL' },
-                { value: 'male', label: 'MALE' },
-                { value: 'female', label: 'FEM' },
-                { value: 'other', label: 'OTH' },
-                { value: 'none', label: 'N/A' }
-              ].map(opt => (
+                { value: 'all', label: 'All' },
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' },
+                { value: 'none', label: 'N/A' },
+              ].map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => setGenderFilter(opt.value as any)}
-                  className={`flex-1 py-1.5 px-0.5 text-[8px] font-black rounded-lg transition-all uppercase cursor-pointer min-w-max ${
+                  className={`flex-1 py-1.5 px-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                     genderFilter === opt.value
                       ? 'bg-white dark:bg-slate-800 text-[#0D5BFF] shadow-xs'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {opt.label}
@@ -617,632 +877,401 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               ))}
             </div>
           </div>
-
         </div>
-
       </div>
 
-      {/* Directory Table Grid */}
-      <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2.5rem] shadow-sm overflow-hidden">
-        
-        <div className="p-6 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Directory Listing Card */}
+      <div className="bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs">
+        {/* Header & Sort Bar */}
+        <div className="px-4 py-3.5 sm:px-5 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h4 className="text-sm font-black uppercase tracking-widest text-[#0B132B] dark:text-white italic">
-              User Directory ({filteredUsers.length} records matched)
+            <h4 className="text-sm sm:text-base font-extrabold text-[#0B132B] dark:text-white flex items-center gap-2">
+              <span>User Directory</span>
+              <span className="text-xs font-bold text-[#0D5BFF] bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg tabular-nums">
+                {filteredUsers.length}
+              </span>
             </h4>
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
-              Live registration ledger with exact join date & time
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+              Showing {pageStartDisplay}–{pageEndDisplay} of {filteredUsers.length} accounts • Click View Details for wallet, documents & full ledger
             </p>
           </div>
-          
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Sort Order Selector Group */}
-            <div className="flex items-center bg-slate-100/90 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-inner">
-              <div className="flex items-center gap-1.5 px-2.5 text-slate-400 dark:text-slate-500">
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                <span className="text-[8px] font-black uppercase tracking-wider hidden md:inline">Sort:</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setSortOrder('newest')}
-                  className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                    sortOrder === 'newest'
-                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-                  }`}
-                  title="Sort by Newest Registration"
-                >
-                  <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                  <span>Newest Joined</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortOrder('oldest')}
-                  className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                    sortOrder === 'oldest'
-                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-                  }`}
-                  title="Sort by Oldest Registration"
-                >
-                  <Clock className="w-2.5 h-2.5 shrink-0" />
-                  <span>Oldest</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortOrder('name')}
-                  className={`px-2.5 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                    sortOrder === 'name'
-                      ? 'bg-[#0D5BFF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-                  }`}
-                  title="Sort alphabetically by Name"
-                >
-                  <span>Name (A-Z)</span>
-                </button>
-              </div>
-            </div>
 
-            {/* Scroll Navigation Controls */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleScroll('left')}
-                className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
-                title="Scroll Left"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleScroll('right')}
-                className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
-                title="Scroll Right"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 gap-1">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#0D5BFF]" />
+              Sort:
+            </span>
+            {[
+              { id: 'newest', label: 'Newest', icon: Sparkles },
+              { id: 'oldest', label: 'Oldest', icon: Clock },
+              { id: 'name', label: 'A–Z', icon: null },
+            ].map((s) => {
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSortOrder(s.id as any)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    sortOrder === s.id
+                      ? 'bg-[#0D5BFF] text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {Icon && <Icon className="w-3 h-3 shrink-0" />}
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Mobile Card View (< md) */}
+        {/* Mobile Card View (< md) — Zero Horizontal Scroll */}
         <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/70">
-          {filteredUsers.map((user) => {
+          {paginatedUsers.map((user) => {
             const isBlocked = !!user.isBlocked;
-            const isUserTutor = user.role === 'tutor';
-            const joinInfo = formatJoinDate(user.createdAt);
+            const verificationSummary = getVerificationSummary(user);
+            const isMenuOpen = openActionMenuId === user.id;
 
             return (
               <div
                 key={`mobile-${user.id}`}
-                className={`p-4 space-y-3 ${isBlocked ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''}`}
+                className={`p-4 space-y-3 ${isBlocked ? 'bg-rose-50/40 dark:bg-rose-950/10' : ''}`}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2.5">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     <UserAvatar
                       src={user.profileImage}
                       name={user.name}
-                      className="w-11 h-11 rounded-2xl border border-blue-100 dark:border-blue-900/40"
+                      className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0"
                       fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
-                      textClassName="text-sm font-black"
+                      textClassName="text-xs font-black"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-black text-slate-900 dark:text-white break-words leading-snug">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white break-words leading-snug">
                           {user.name || 'No Name'}
                         </span>
                         {user.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
-                        <span className={`px-1.5 py-0.5 text-[9px] font-black rounded uppercase ${
-                          isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
-                        }`}>
-                          {isBlocked ? 'Blocked' : 'Active'}
-                        </span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{user.email}</p>
-                      {user.phone && <p className="text-xs text-slate-500 dark:text-slate-400">{user.phone}</p>}
+                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">{user.email}</p>
+                      {user.phone && <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{user.phone}</p>}
                     </div>
                   </div>
-                  <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase shrink-0 ${
-                    user.role === 'admin'
-                      ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'
-                      : user.role === 'tutor'
-                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400'
-                        : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 text-[11px] font-bold rounded-lg uppercase shrink-0 ${
+                      user.role === 'admin'
+                        ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'
+                        : user.role === 'tutor'
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                        : 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                    }`}
+                  >
                     {user.role}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Joined</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">{joinInfo.date}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Wallet</span>
-                    <span className="font-black text-slate-900 dark:text-white">৳{(user.balance || 0).toLocaleString()}</span>
-                  </div>
-                  {isUserTutor && (
-                    <>
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">NID / ACA</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {user.nidStatus || 'N/A'} / {user.academicStatus || 'N/A'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Rate</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                          ৳{user.hourlyRate || 0} • {user.daysPerWeek || 0}d/wk
-                        </span>
-                      </div>
-                    </>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                      isBlocked
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    }`}
+                  >
+                    {isBlocked ? 'Suspended' : 'Active'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                      verificationSummary.tone === 'verified'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                        : verificationSummary.tone === 'pending'
+                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                        : verificationSummary.tone === 'rejected'
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {verificationSummary.label}
+                  </span>
+                  {user.role === 'tutor' && (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      {user.showOnHomePage !== false ? 'On Home' : 'Hidden'}
+                    </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="flex items-center justify-between gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setInspectingUser(user)}
-                    className="min-h-[44px] px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-black uppercase flex items-center gap-1.5"
+                    className="flex-1 min-h-[44px] px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <Search className="w-4 h-4" />
-                    Inspect
+                    <Eye className="w-4 h-4 text-[#0D5BFF]" />
+                    <span>View Details</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmailModalUser(user)}
-                    className="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center"
-                    title="Send Email"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                  {user.id !== currentUser.id && onMessageUser && (
+
+                  <div className="relative" data-admin-user-menu-root="true">
                     <button
                       type="button"
-                      onClick={() => onMessageUser(user.id)}
-                      className="min-w-[44px] min-h-[44px] px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 flex items-center justify-center"
-                      title="Direct Message"
+                      onClick={(e) => handleToggleMenu(user.id, e)}
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
+                      aria-label={`Actions for ${user.name || 'user'}`}
+                      className="min-w-[44px] min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
                     >
-                      <Mail className="w-4 h-4" />
+                      <MoreVertical className="w-4 h-4" />
                     </button>
-                  )}
-                  {isUserTutor && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleVerification(user)}
-                      disabled={updatingUserId === user.id}
-                      className={`min-w-[44px] min-h-[44px] px-3 rounded-xl flex items-center justify-center ${
-                        user.isVerified
-                          ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
-                          : 'bg-[#0D5BFF]/10 text-[#0D5BFF]'
-                      }`}
-                      title={user.isVerified ? 'Revoke Verification' : 'Verify Tutor'}
-                    >
-                      <Award className="w-4 h-4" />
-                    </button>
-                  )}
-                  {user.id !== currentUser.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleBlock(user)}
-                      disabled={updatingUserId === user.id}
-                      className={`min-w-[44px] min-h-[44px] px-3 rounded-xl flex items-center justify-center ${
-                        isBlocked
-                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
-                          : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30'
-                      }`}
-                      title={isBlocked ? 'Reactivate User' : 'Suspend User'}
-                    >
-                      {isBlocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
-                    </button>
-                  )}
-                  {user.id !== currentUser.id && (
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleChangeRole(user.id, e.target.value as any)}
-                      disabled={updatingUserId === user.id}
-                      className="ml-auto min-h-[44px] px-3 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-black uppercase border border-slate-200 dark:border-slate-700"
-                    >
-                      <option value="student">Student</option>
-                      <option value="tutor">Tutor</option>
-                      {(currentUser?.email === 'edutrackbangladesh@gmail.com' || currentUser?.email === 'm13hmahadi.personal@gmail.com' || user.role === 'admin') && (
-                        <option value="admin">Admin</option>
-                      )}
-                    </select>
-                  )}
+                    {isMenuOpen && renderActionsDropdown(user)}
+                  </div>
                 </div>
               </div>
             );
           })}
 
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12 text-slate-500 dark:text-slate-400 font-bold text-xs px-4">
-              No corresponding user profiles found in database constraints.
+          {paginatedUsers.length === 0 && (
+            <div className="text-center py-12 text-slate-500 dark:text-slate-400 font-semibold text-xs px-4">
+              No matching users found. Try clearing or adjusting your search filters.
             </div>
           )}
         </div>
 
-        {/* Desktop Table View (>= md) */}
-        <div ref={scrollContainerRef} className="hidden md:block overflow-x-auto">
-          <table className="min-w-full uppercase select-none">
+        {/* Desktop & Tablet Compact Table View (>= md) — Zero Horizontal Scroll */}
+        <div className="hidden md:block w-full">
+          <table className="w-full table-fixed text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-50 dark:border-slate-800/40">
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">User Identity</th>
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Joined Date & Time</th>
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Security Scope/Role</th>
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Gender</th>
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Verification Ledger</th>
-                <th className="px-3 py-2.5 text-left text-[8px] font-black tracking-widest text-slate-400">Wallet balance</th>
-                <th className="px-3 py-2.5 text-right text-[8px] font-black tracking-widest text-slate-400">Protocol Actions</th>
+              <tr className="border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/40">
+                <th className="w-[34%] px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  User
+                </th>
+                <th className="w-[12%] px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Role
+                </th>
+                <th className="w-[15%] px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Account Status
+                </th>
+                <th className="w-[18%] px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Verification
+                </th>
+                <th className="w-[21%] px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
-              {filteredUsers.map((user) => {
-                // @ts-ignore
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {paginatedUsers.map((user) => {
                 const isBlocked = !!user.isBlocked;
                 const isUserTutor = user.role === 'tutor';
                 const joinInfo = formatJoinDate(user.createdAt);
+                const verificationSummary = getVerificationSummary(user);
+                const isMenuOpen = openActionMenuId === user.id;
 
                 return (
-                  <tr 
-                    key={user.id} 
-                    className={`group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
-                      isBlocked ? 'bg-rose-50/20 dark:bg-rose-950/5' : ''
+                  <tr
+                    key={user.id}
+                    className={`group hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors duration-150 ${
+                      isBlocked ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
                     }`}
                   >
-                    
-                    {/* User Identity Info */}
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
+                    {/* User Identity */}
+                    <td className="px-4 py-2.5 align-middle">
+                      <div className="flex items-center gap-3 min-w-0">
                         <UserAvatar
                           src={user.profileImage}
                           name={user.name}
-                          className="w-8 h-8 rounded-xl border border-blue-50 dark:border-blue-900/40"
+                          className="w-9 h-9 rounded-xl border border-slate-200/80 dark:border-slate-700 shrink-0"
                           fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
-                          textClassName="text-[10px] font-black"
-                        >
-                          {isBlocked && (
-                            <div className="absolute inset-0 bg-rose-500/80 flex items-center justify-center text-white text-[7px] font-black italic">
-                              BLOCKED
-                            </div>
-                          )}
-                        </UserAvatar>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1 flex-wrap">
-                            <span className="break-words">{user.name || 'No Name'}</span>
+                          textClassName="text-xs font-black"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[13px] font-bold text-slate-900 dark:text-white break-words leading-snug">
+                              {user.name || 'No Name'}
+                            </span>
                             {user.isVerified && (
-                              <span title="Verified Badge User" className="shrink-0 flex items-center"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/15" /></span>
-                            )}
-                            {isBlocked ? (
-                              <span className="bg-rose-600 text-white text-[7px] font-black px-1 py-0.5 rounded tracking-wider uppercase">
-                                Blocked
-                              </span>
-                            ) : (
-                              <span className="bg-emerald-600 text-white text-[7px] font-black px-1 py-0.5 rounded tracking-wider uppercase">
-                                Active
+                              <span title="Verified User" className="shrink-0">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                               </span>
                             )}
                           </div>
-                          <div className="text-[8.5px] font-black text-slate-400 dark:text-slate-500 font-mono tracking-tighter mt-0.5 flex flex-col gap-0.5">
-                            <span className="flex items-center gap-1 truncate max-w-[150px]"><Mail className="w-2.5 h-2.5 shrink-0" /> {user.email}</span>
-                            {user.phone && <span className="flex items-center gap-1"><Smartphone className="w-2.5 h-2.5 shrink-0" /> {user.phone}</span>}
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {user.email}
+                            {user.phone ? ` · ${user.phone}` : ''}
                           </div>
                         </div>
                       </div>
                     </td>
 
-                    {/* Joined Date & Time */}
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col gap-0.5 min-w-[110px]">
-                        <div className="flex items-center gap-1 text-[8.5px] font-black text-slate-800 dark:text-slate-200">
-                          <Calendar className="w-2.5 h-2.5 text-[#0D5BFF] shrink-0" />
-                          <span className="font-mono">{joinInfo.date}</span>
-                        </div>
-                        {joinInfo.time ? (
-                          <div className="flex items-center gap-1 text-[7.5px] font-bold text-slate-400 dark:text-slate-500 font-mono">
-                            <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                            <span>{joinInfo.time}</span>
-                            {joinInfo.relative && (
-                              <span className="bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] text-[6.5px] font-black px-1 rounded">
-                                {joinInfo.relative}
-                              </span>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
+                    {/* Role */}
+                    <td className="px-3 py-2.5 align-middle">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wide ${
+                          user.role === 'admin'
+                            ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'
+                            : isUserTutor
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                        }`}
+                      >
+                        {user.role}
+                      </span>
                     </td>
 
-                    {/* Role / Context Scope */}
-                    <td className="px-3 py-2">
+                    {/* Account Status */}
+                    <td className="px-3 py-2.5 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <span className={`px-1.5 py-0.5 text-[7px] font-black rounded w-max tracking-widest ${
-                          user.role === 'admin' 
-                            ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-100/20' 
-                            : user.role === 'tutor'
-                              ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-100/20'
-                              : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-100/20'
-                        }`}>
-                          {user.role}
+                        <span
+                          className={`inline-flex items-center w-fit px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                            isBlocked
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          }`}
+                        >
+                          {isBlocked ? 'Suspended' : 'Active'}
                         </span>
-                        
-                        {isUserTutor && user.university && (
-                          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 break-words leading-snug" title={user.university}>
-                            🎓 {user.university}
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
+                          {joinInfo.date}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Verification Status */}
+                    <td className="px-3 py-2.5 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <span
+                          className={`inline-flex items-center w-fit px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                            verificationSummary.tone === 'verified'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : verificationSummary.tone === 'pending'
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                              : verificationSummary.tone === 'rejected'
+                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                        >
+                          {verificationSummary.label}
+                        </span>
+                        {isUserTutor && (
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {user.showOnHomePage !== false ? 'Homepage: Visible' : 'Homepage: Hidden'}
                           </span>
                         )}
+                      </div>
+                    </td>
 
-                        {isUserTutor && (
+                    {/* Compact Actions: View Details + 3-Dot Menu */}
+                    <td className="px-4 py-2.5 align-middle text-right">
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setInspectingUser(user)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#0D5BFF] hover:text-white dark:hover:bg-[#0D5BFF] text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors duration-150 cursor-pointer whitespace-nowrap"
+                        >
+                          <Eye className="w-3.5 h-3.5 shrink-0" />
+                          <span>View Details</span>
+                        </button>
+
+                        <div className="relative" data-admin-user-menu-root="true">
                           <button
                             type="button"
-                            onClick={() => {
-                              setInspectingUser(user);
-                              setRateInput((user.hourlyRate || 0).toString());
-                              setAvailabilityInput((user.daysPerWeek || 3).toString());
-                              setEditingRate(true);
-                            }}
-                            className="text-[7px] font-black text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1 hover:underline cursor-pointer text-left"
-                            title="Tutor Rate & Availability. Click to inspect and edit."
+                            onClick={(e) => handleToggleMenu(user.id, e)}
+                            aria-haspopup="menu"
+                            aria-expanded={isMenuOpen}
+                            aria-label={`More actions for ${user.name || 'user'}`}
+                            title="More administrative actions"
+                            className={`p-1.5 rounded-lg border transition-colors duration-150 cursor-pointer ${
+                              isMenuOpen
+                                ? 'bg-[#0D5BFF] text-white border-[#0D5BFF]'
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
                           >
-                            <span>৳{user.hourlyRate || 0}/hr</span>
-                            <span>•</span>
-                            <span>{user.daysPerWeek || 0}d/wk</span>
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                        )}
+                          {isMenuOpen && renderActionsDropdown(user)}
+                        </div>
                       </div>
                     </td>
-
-                    {/* Gender Selection & Management */}
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col gap-1">
-                        <select
-                          value={user.gender || ''}
-                          onChange={(e) => {
-                            const newGender = e.target.value;
-                            setUpdatingUserId(user.id);
-                            updateUser(user.id, { gender: newGender })
-                              .then(() => showToast(`Gender changed to ${newGender || "Not Specified"}`))
-                              .catch(() => showToast("Failed to update gender", "error"))
-                              .finally(() => setUpdatingUserId(null));
-                          }}
-                          disabled={updatingUserId === user.id}
-                          className="px-1.5 py-1 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-[8px] font-black uppercase border border-slate-100 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
-                        >
-                          <option value="">SPECIFY</option>
-                          <option value="Male">MALE</option>
-                          <option value="Female">FEMALE</option>
-                        </select>
-                      </div>
-                    </td>
-
-                    {/* Verification Indicators */}
-                    <td className="px-3 py-2">
-                      {isUserTutor ? (
-                        <div className="flex flex-col gap-0.5 text-[7px] font-black tracking-widest">
-                          <div className="flex items-center gap-1">
-                            <span className="text-slate-400">NID:</span>
-                            <span className={
-                              user.nidStatus === 'approved' ? 'text-emerald-500' :
-                              user.nidStatus === 'rejected' ? 'text-rose-500' : 'text-amber-500'
-                            }>{user.nidStatus || 'N/A'}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-slate-400">ACA:</span>
-                            <span className={
-                              user.academicStatus === 'approved' ? 'text-emerald-500' :
-                              user.academicStatus === 'rejected' ? 'text-rose-500' : 'text-amber-500'
-                            }>{user.academicStatus || 'N/A'}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-[8px] font-black text-slate-300 font-mono italic">student</span>
-                      )}
-                    </td>
-
-                    {/* Credit Wallet Balance adjusting */}
-                    <td className="px-3 py-2">
-                      {editingBalanceId === user.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            value={balanceInput}
-                            onChange={(e) => setBalanceInput(e.target.value)}
-                            className="w-16 px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-[9px] font-black rounded border border-slate-200 dark:border-slate-800 outline-none"
-                            placeholder="৳0"
-                          />
-                          <button
-                            onClick={() => handleSaveBalance(user.id)}
-                            className="bg-emerald-500 text-white px-1.5 py-0.5 rounded hover:bg-emerald-600 transition-colors text-[7.5px] font-black uppercase cursor-pointer"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingBalanceId(null)}
-                            className="bg-rose-500 text-white px-1.5 py-0.5 rounded hover:bg-rose-600 transition-colors text-[7.5px] font-black uppercase cursor-pointer"
-                          >
-                            Can
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-black text-slate-800 dark:text-white italic">
-                            ৳{(user.balance || 0).toLocaleString()}
-                          </span>
-                          <button
-                            onClick={() => startEditingBalance(user)}
-                            className="text-slate-400 hover:text-[#0D5BFF] p-1 transition-colors rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                            title="Adjust wallet balance"
-                          >
-                            <Coins className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Admin Action Menu */}
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                        
-                        {/* Inspect Profile */}
-                        <button
-                          onClick={() => setInspectingUser(user)}
-                          className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-slate-100 dark:bg-slate-900/40 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800 hover:scale-105 active:scale-95"
-                          title="Inspect All User Details"
-                        >
-                          <Search className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Send Email (Verification Reminder / Welcome / Custom) */}
-                        <button
-                          onClick={() => setEmailModalUser(user)}
-                          className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 hover:bg-indigo-600 hover:text-white border border-indigo-100/20 hover:scale-105 active:scale-95"
-                          title="Send Email (Verification Reminder / Welcome / Custom)"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Send Message */}
-                        {user.id !== currentUser.id && onMessageUser ? (
-                          <button
-                            onClick={() => onMessageUser(user.id)}
-                            className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-blue-50 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-blue-100/20 hover:scale-105 active:scale-95"
-                            title="Direct Message User"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                          </button>
-                        ) : null}
-
-                        {/* Suspension Toggle */}
-                        {user.id !== currentUser.id ? (
-                          <button
-                            onClick={() => handleToggleBlock(user)}
-                            disabled={updatingUserId === user.id}
-                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
-                              isBlocked 
-                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 hover:bg-emerald-500 hover:text-white' 
-                                : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 hover:bg-rose-500 hover:text-white'
-                            }`}
-                            title={isBlocked ? "Reactivate User" : "Suspend User"}
-                          >
-                            {isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-                          </button>
-                        ) : null}
-
-                        {/* Permanent Account Removal */}
-                        {user.id !== currentUser.id ? (
-                          <button
-                            onClick={() => handleRemoveUser(user)}
-                            disabled={updatingUserId === user.id}
-                            className="p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer bg-slate-100 dark:bg-slate-900 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-800 hover:scale-105 active:scale-95"
-                            title="Permanently Delete User"
-                          >
-                            <UserMinus className="w-3.5 h-3.5" />
-                          </button>
-                        ) : null}
-
-                        {/* Custom status verify manually (for Tutors) */}
-                        {isUserTutor && (
-                          <button
-                            onClick={() => handleToggleVerification(user)}
-                            disabled={updatingUserId === user.id}
-                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
-                              user.isVerified 
-                                ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 hover:bg-amber-500 hover:text-white' 
-                                : 'bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white'
-                            }`}
-                            title={user.isVerified ? "Revoke Verification" : "Grant Verified Badge"}
-                          >
-                            <Award className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-
-                        {/* Toggle Home Page Visibility (for Tutors) */}
-                        {isUserTutor && (
-                          <button
-                            onClick={() => handleToggleHomeVisibility(user)}
-                            disabled={updatingUserId === user.id}
-                            className={`p-1.5 rounded-lg transition-all flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 ${
-                              user.showOnHomePage !== false 
-                                ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 hover:bg-indigo-500 hover:text-white' 
-                                : 'bg-slate-100 text-slate-500 dark:bg-slate-900/40 hover:bg-slate-500 hover:text-white dark:text-slate-400'
-                            }`}
-                            title={user.showOnHomePage !== false ? "Hide from landing Home Directory" : "Publish & Feature on Home"}
-                          >
-                            {user.showOnHomePage !== false ? (
-                              <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                            ) : (
-                              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                            )}
-                          </button>
-                        )}
-
-                        {/* Quick Role Shift */}
-                        {user.id !== currentUser.id && (
-                          <div className="relative group/role flex items-center">
-                            <select
-                              value={user.role}
-                              onChange={(e) => handleChangeRole(user.id, e.target.value as any)}
-                              disabled={updatingUserId === user.id}
-                              className="px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-[7.5px] font-black uppercase border border-slate-200 dark:border-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#0D5BFF]"
-                            >
-                              <option value="student">Student</option>
-                              <option value="tutor">Tutor</option>
-                              {(currentUser?.email === 'edutrackbangladesh@gmail.com' || currentUser?.email === 'm13hmahadi.personal@gmail.com' || user.role === 'admin') && (
-                                <option value="admin">Admin</option>
-                              )}
-                            </select>
-                          </div>
-                        )}
-
-                      </div>
-                    </td>
-                    
                   </tr>
                 );
               })}
 
-              {filteredUsers.length === 0 && (
+              {paginatedUsers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400 font-black tracking-widest text-[10px]">
-                    No corresponding user profiles found in database constraints.
+                  <td colSpan={5} className="text-center py-12 text-slate-500 dark:text-slate-400 font-semibold text-xs">
+                    No matching users found. Try clearing or adjusting your search filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        
+
+        {/* Pagination Controls */}
+        {filteredUsers.length > PAGE_SIZE && (
+          <div className="px-4 py-3 sm:px-5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/20">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tabular-nums">
+              Page {safePage} of {totalPages} • Showing {pageStartDisplay}–{pageEndDisplay} of {filteredUsers.length} users
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      
-      {/* Custom Confirmation Modal */}
+
+      {/* Confirmation Modal */}
       {confirmModal && confirmModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-[2rem] shadow-2xl p-6 max-w-sm w-full space-y-6 transform scale-100 transition-transform duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          onClick={() => setConfirmModal(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-5 animate-fade-in"
+          >
             <div className="space-y-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white italic flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 {confirmModal.isDanger ? (
-                  <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
+                  <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
                 ) : (
-                  <ShieldCheck className="w-5 h-5 text-[#0D5BFF]" />
+                  <ShieldCheck className="w-5 h-5 text-[#0D5BFF] shrink-0" />
                 )}
-                {confirmModal.title}
+                <span>{confirmModal.title}</span>
               </h3>
-              <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 {confirmModal.message}
               </p>
             </div>
-            <div className="flex items-center gap-3 justify-end pt-2">
+            <div className="flex items-center gap-2.5 justify-end pt-1">
               <button
+                type="button"
                 onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="min-h-[40px] px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={confirmModal.onConfirm}
-                className={`px-4 py-2 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
-                  confirmModal.isDanger 
-                     ? 'bg-rose-600 hover:bg-rose-700' 
-                     : 'bg-[#0D5BFF] hover:bg-blue-600'
+                className={`min-h-[40px] px-4 py-2 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                  confirmModal.isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0D5BFF] hover:bg-blue-700'
                 }`}
               >
                 {confirmModal.confirmText || 'Confirm'}
@@ -1252,478 +1281,583 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         </div>
       )}
 
-      {/* Complete User Information Inspection Panel */}
+      {/* User Details & Moderation Modal */}
       {inspectingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10 bg-slate-955/80 dark:bg-slate-950/90 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-2xl p-6 md:p-10 max-w-4xl w-full my-auto space-y-8 relative overflow-hidden font-sans">
-            
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto"
+          onClick={() => setInspectingUser(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-7 max-w-4xl w-full my-auto space-y-6 relative overflow-hidden font-sans"
+          >
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800/60">
-              <div className="flex items-start gap-4 min-w-0">
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-start gap-3.5 min-w-0">
                 <UserAvatar
                   src={inspectingUser.profileImage}
                   name={inspectingUser.name}
-                  className="w-12 h-12 rounded-2xl border border-blue-50 dark:border-blue-900/30"
-                  fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF] dark:text-[#5a91ff]"
-                  textClassName="text-lg font-black"
+                  className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 shrink-0"
+                  fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
+                  textClassName="text-base font-black"
                 />
                 <div className="min-w-0">
-                  <h3 className="text-base font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-2 break-words leading-snug">
-                    {inspectingUser.name || 'Anonymous User'}
-                    {inspectingUser.isVerified && (
-                      <ShieldCheck className="w-4 h-4 text-emerald-500 fill-emerald-500/15" />
-                    )}
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex flex-wrap items-center gap-2 break-words leading-snug">
+                    <span>{inspectingUser.name || 'Anonymous User'}</span>
+                    {inspectingUser.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase ${
+                        inspectingUser.isBlocked
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      }`}
+                    >
+                      {inspectingUser.isBlocked ? 'Suspended' : 'Active'}
+                    </span>
                   </h3>
-                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                    <p className="text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase">
-                      ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()} LEDGER NODE
-                    </p>
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 font-mono flex items-center gap-1">
-                      <Clock className="w-2.5 h-2.5 text-[#0D5BFF]" />
+                  <div className="flex items-center gap-2.5 flex-wrap mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-[#0D5BFF] font-semibold">
+                      ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-mono">
+                      <Clock className="w-3.5 h-3.5 text-[#0D5BFF]" />
                       Joined: {formatJoinDate(inspectingUser.createdAt).full}
                     </span>
                   </div>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setInspectingUser(null)}
-                className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all cursor-pointer"
+                aria-label="Close details"
+                className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Main Information Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-y-auto max-h-[55vh] pr-2 custom-scrollbar">
-              
-              {/* Profile card & balance */}
-              <div className="md:col-span-1 space-y-6">
-                
-                {/* Visual Overview */}
-                <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Wallet Balance</span>
-                  <div className="flex items-baseline gap-1 text-slate-800 dark:text-white">
-                    <span className="text-xl font-bold">৳</span>
-                    <span className="text-3xl font-black italic">{(inspectingUser.balance || 0).toLocaleString()}</span>
+            {/* Scrollable Body */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto max-h-[62vh] pr-1 custom-scrollbar">
+              {/* Left Column: Wallet, Status, Role, Moderation */}
+              <div className="md:col-span-1 space-y-4">
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Wallet Balance
+                    </span>
+                    {!editingBalance && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBalanceInput((inspectingUser.balance || 0).toString());
+                          setEditingBalance(true);
+                        }}
+                        className="text-xs font-bold text-[#0D5BFF] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                    )}
                   </div>
-                  
-                  {/* Quick Verification Flags */}
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
-                      <span className="text-slate-400">Account status</span>
-                      <span className={inspectingUser.isBlocked ? "text-rose-550" : "text-emerald-500"}>
-                        {inspectingUser.isBlocked ? "Blocked / Suspended" : "Active / Verified"}
-                      </span>
-                    </div>
 
-                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
-                      <span className="text-slate-400">Identity check</span>
-                      <span className={inspectingUser.nidStatus === 'approved' ? "text-emerald-500" : "text-amber-500"}>
+                  {editingBalance ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        value={balanceInput}
+                        onChange={(e) => setBalanceInput(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-[#0D5BFF] rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none"
+                        placeholder="0"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveBalance(inspectingUser.id)}
+                          disabled={savingBalance}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          {savingBalance ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingBalance(false)}
+                          className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-1 text-slate-900 dark:text-white tabular-nums">
+                      <span className="text-lg font-bold">৳</span>
+                      <span className="text-2xl font-black">{(inspectingUser.balance || 0).toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">NID Check</span>
+                      <span
+                        className={`font-bold uppercase ${
+                          inspectingUser.nidStatus === 'approved'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : inspectingUser.nidStatus === 'rejected'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
                         {inspectingUser.nidStatus || 'N/A'}
                       </span>
                     </div>
-
-                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
-                      <span className="text-slate-400">Academic check</span>
-                      <span className={inspectingUser.academicStatus === 'approved' ? "text-emerald-500" : "text-amber-500"}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Academic Check</span>
+                      <span
+                        className={`font-bold uppercase ${
+                          inspectingUser.academicStatus === 'approved'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : inspectingUser.academicStatus === 'rejected'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
                         {inspectingUser.academicStatus || 'N/A'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Micro Actions Panel inside inspect */}
-                <div className="space-y-3">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block px-1">Moderation Controls</span>
-                  
-                  {/* Status Toggle */}
+                {/* Role & Gender quick selectors */}
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      Account Role
+                    </label>
+                    <select
+                      value={inspectingUser.role}
+                      disabled={inspectingUser.id === currentUser.id || updatingUserId === inspectingUser.id}
+                      onChange={(e) => handleChangeRole(inspectingUser.id, e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer disabled:opacity-60"
+                    >
+                      <option value="student">Student</option>
+                      <option value="tutor">Tutor</option>
+                      {(isSuperAdminEmail || inspectingUser.role === 'admin') && (
+                        <option value="admin">Admin</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      Gender Profile
+                    </label>
+                    <select
+                      value={inspectingUser.gender || ''}
+                      disabled={updatingUserId === inspectingUser.id}
+                      onChange={(e) => {
+                        const newGender = e.target.value;
+                        setUpdatingUserId(inspectingUser.id);
+                        updateUser(inspectingUser.id, { gender: newGender })
+                          .then(() => {
+                            setInspectingUser((prev) => (prev ? { ...prev, gender: newGender } : null));
+                            showToast(`Gender changed to ${newGender || 'Not Specified'}`);
+                          })
+                          .catch(() => showToast('Failed to update gender', 'error'))
+                          .finally(() => setUpdatingUserId(null));
+                      }}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
+                    >
+                      <option value="">Not Specified</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Moderation Actions */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block px-1">
+                    Moderation Controls
+                  </span>
+
                   {inspectingUser.id !== currentUser.id && (
                     <button
-                      onClick={() => {
-                        handleToggleBlock(inspectingUser);
-                        setInspectingUser(prev => prev ? { ...prev, isBlocked: !prev.isBlocked } : null);
-                      }}
-                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-[#0D5BFF]"
+                      type="button"
+                      onClick={() => handleToggleBlock(inspectingUser)}
+                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
                     >
-                      <span>Toggle block state</span>
-                      <span className="font-mono text-slate-400">{inspectingUser.isBlocked ? "UNBLOCK" : "BLOCK"}</span>
+                      <span>{inspectingUser.isBlocked ? 'Activate Account' : 'Suspend Account'}</span>
+                      <span className={inspectingUser.isBlocked ? 'text-emerald-600' : 'text-rose-600'}>
+                        {inspectingUser.isBlocked ? 'UNBLOCK' : 'SUSPEND'}
+                      </span>
                     </button>
                   )}
 
-                  {/* Manual verification status toggle */}
                   {inspectingUser.role === 'tutor' && (
-                    <button
-                      onClick={() => {
-                        handleToggleVerification(inspectingUser);
-                        setInspectingUser(prev => prev ? { ...prev, isVerified: !prev.isVerified, nidStatus: !prev.isVerified ? 'approved' : 'rejected', academicStatus: !prev.isVerified ? 'approved' : 'rejected' } : null);
-                      }}
-                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-[#0D5BFF]"
-                    >
-                      <span>Verification Badge</span>
-                      <span className="font-mono text-slate-400">{inspectingUser.isVerified ? "REVOKE" : "GRANT VERIFIED"}</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVerification(inspectingUser)}
+                        className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
+                      >
+                        <span>Verification Badge</span>
+                        <span className="text-[#0D5BFF]">{inspectingUser.isVerified ? 'REVOKE' : 'GRANT'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleHomeVisibility(inspectingUser)}
+                        className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 cursor-pointer transition-colors"
+                      >
+                        <span>Homepage Display</span>
+                        <span className="text-indigo-600 dark:text-indigo-400">
+                          {inspectingUser.showOnHomePage !== false ? 'VISIBLE' : 'HIDDEN'}
+                        </span>
+                      </button>
+                    </>
                   )}
 
-                  {/* Home page directory display toggle */}
-                  {inspectingUser.role === 'tutor' && (
-                    <button
-                      onClick={() => {
-                        handleToggleHomeVisibility(inspectingUser);
-                        setInspectingUser(prev => prev ? { ...prev, showOnHomePage: prev.showOnHomePage === false } : null);
-                      }}
-                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-100 dark:border-slate-800 hover:border-indigo-500 hover:text-indigo-600"
-                    >
-                      <span>Show On Homepage</span>
-                      <span className="font-mono text-indigo-500">{inspectingUser.showOnHomePage !== false ? "VISIBLE" : "HIDDEN"}</span>
-                    </button>
-                  )}
-
-                  {/* Send Email / Verification Reminder */}
-                  <button
-                    onClick={() => {
-                      setEmailModalUser(inspectingUser);
-                      setInspectingUser(null);
-                    }}
-                    className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 hover:bg-indigo-600 hover:text-white border border-indigo-100/20"
-                  >
-                    <span>Send Reminder / Email</span>
-                    <Send className="w-3 h-3" />
-                  </button>
-
-                  {/* Send Direct Messages */}
                   {inspectingUser.id !== currentUser.id && onMessageUser && (
                     <button
+                      type="button"
                       onClick={() => {
                         onMessageUser(inspectingUser.id);
                         setInspectingUser(null);
                       }}
-                      className="w-full text-left py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between bg-[#0D5BFF]/10 text-[#0D5BFF] dark:bg-blue-950/20 hover:bg-[#0D5BFF] hover:text-white border border-[#0D5BFF]/20"
+                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] hover:bg-[#0D5BFF] hover:text-white border border-blue-200/70 dark:border-blue-900/50 cursor-pointer transition-colors"
                     >
-                      <span>Open chat Inbox</span>
-                      <Mail className="w-3 h-3" />
+                      <span>Open Direct Chat</span>
+                      <Mail className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {inspectingUser.id !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveUser(inspectingUser)}
+                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-200/70 dark:border-rose-900/40 cursor-pointer transition-colors"
+                    >
+                      <span>Permanently Delete User</span>
+                      <UserMinus className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
-
               </div>
 
-              {/* Core Details Panel */}
-              <div className="md:col-span-2 space-y-6">
-                
-                {/* Contact & Identity Nodes (Unmasked) */}
+              {/* Right 2 Columns: Full User Metadata */}
+              <div className="md:col-span-2 space-y-5">
+                {/* Contact & Registration */}
                 <div>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
-                    Contact & Authentication Credentials (UNMASKED)
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Contact & Account Credentials
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Direct Phone Contact</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1 font-mono tracking-wider">{inspectingUser.phone || 'NOT CONFIGURED'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Phone Number</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono">
+                        {inspectingUser.phone || 'Not configured'}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Verified E-Mail Node</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1 break-all font-mono">{inspectingUser.email || 'N/A'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Email Address</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-all font-mono">
+                        {inspectingUser.email || 'N/A'}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Biological Gender</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.gender || 'NOT CONFIGURED'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Date of Birth</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                        {inspectingUser.birthDate || 'Not configured'}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Date of Birth</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.birthDate || 'NOT CONFIGURED'}</p>
-                    </div>
-                    <div className="sm:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-                      <div>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Account Registration Date & Time</span>
-                        <p className="text-xs font-black text-[#0D5BFF] mt-1 font-mono flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {formatJoinDate(inspectingUser.createdAt).full}
-                        </p>
-                      </div>
-                      {formatJoinDate(inspectingUser.createdAt).relative && (
-                        <span className="bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] text-[8px] font-black px-2 py-1 rounded-lg">
-                          {formatJoinDate(inspectingUser.createdAt).relative}
-                        </span>
-                      )}
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Joined Date</span>
+                      <p className="text-xs font-bold text-[#0D5BFF] mt-0.5 font-mono flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formatJoinDate(inspectingUser.createdAt).full}</span>
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Geography Area Nodes */}
+                {/* Geography */}
                 <div>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Zone & Geographic Parameters</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Location Details
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">District</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.district || 'NOT SPECIFIED'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">District</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                        {inspectingUser.district || 'Not specified'}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Area / Area Code</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.area || 'NOT SPECIFIED'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Area</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                        {inspectingUser.area || 'Not specified'}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Thana</span>
-                      <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.thana || 'NOT SPECIFIED'}</p>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Thana</span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                        {inspectingUser.thana || 'Not specified'}
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Role Specific Academic parameters */}
+                {/* Role-Specific Section */}
                 {inspectingUser.role === 'tutor' ? (
-                  <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Expert / Academic Qualifications</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                        Tutor Profile & Compensation
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
                         <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">University</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.university || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Department / Course</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.course || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Academic Class Tenure</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">
-                            {inspectingUser.year ? `${inspectingUser.year} Year` : ''} {inspectingUser.semester ? `• Semester ${inspectingUser.semester}` : ''} {!inspectingUser.year && !inspectingUser.semester ? 'Full Program Completed / Standard' : ''}
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">University</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                            {inspectingUser.university || 'N/A'}
                           </p>
                         </div>
                         <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">National Identity NID (Unmasked)</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1 font-mono tracking-widest">{inspectingUser.nidNumber || 'NOT SUBMITTED'}</p>
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Department / Subject</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                            {inspectingUser.course || 'N/A'}
+                          </p>
                         </div>
-                        <div className="bg-slate-50/80 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 transition-all hover:border-blue-400/50 hover:shadow-xs group/rate-card">
+                        <div>
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Academic Tenure</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                            {inspectingUser.year ? `${inspectingUser.year} Year` : ''}
+                            {inspectingUser.semester ? ` • Semester ${inspectingUser.semester}` : ''}
+                            {!inspectingUser.year && !inspectingUser.semester ? 'Standard / Graduated' : ''}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">National ID (NID)</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono">
+                            {inspectingUser.nidNumber || 'Not submitted'}
+                          </p>
+                        </div>
+
+                        {/* Expected Monthly Salary Editor */}
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                           <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                              <DollarSign className="w-2.5 h-2.5 text-[#0D5BFF]" />
-                              Hourly Rate Quote
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                              <DollarSign className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                              Expected Monthly Salary
                             </span>
-                            {!editingRate ? (
+                            {!editingRate && (
                               <button
                                 type="button"
-                                onClick={startEditingRate}
-                                className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 hover:bg-[#0D5BFF] hover:text-white text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                                onClick={() => {
+                                  setRateInput((inspectingUser.hourlyRate || 0).toString());
+                                  setEditingRate(true);
+                                }}
+                                className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer"
                               >
-                                <Pencil className="w-2 h-2" />
-                                Edit Rate
+                                Edit
                               </button>
-                            ) : null}
+                            )}
                           </div>
-                          <p 
-                            onClick={startEditingRate}
-                            className={`text-xs font-black text-slate-800 dark:text-white mt-1 flex items-center justify-between cursor-pointer hover:text-[#0D5BFF] transition-colors ${
-                              editingRate ? 'hidden' : ''
-                            }`}
-                            title="Click to edit tutor hourly rate"
-                          >
-                            <span className="font-mono text-sm">৳{(inspectingUser.hourlyRate || 0).toLocaleString()} <span className="text-[9px] font-bold text-slate-400 uppercase">/ Hour</span></span>
-                            <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 group-hover/rate-card:text-[#0D5BFF] flex items-center gap-1 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                              <Pencil className="w-2 h-2" /> Edit
-                            </span>
-                          </p>
-                          {editingRate && (
-                            <div className="mt-1.5 space-y-2">
+                          {!editingRate ? (
+                            <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                              ৳{(inspectingUser.hourlyRate || 0).toLocaleString()}{' '}
+                              <span className="text-xs font-semibold text-slate-500">/ month</span>
+                            </p>
+                          ) : (
+                            <div className="space-y-2 mt-1">
                               <div className="flex items-center gap-1.5">
-                                <div className="relative flex-1">
-                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">৳</span>
-                                  <input
-                                    type="text"
-                                    value={rateInput}
-                                    onChange={(e) => setRateInput(e.target.value.replace(/[^0-9]/g, ''))}
-                                    placeholder="1000"
-                                    className="w-full pl-6 pr-2 py-1 bg-white dark:bg-slate-900 border border-blue-500 rounded-xl text-xs font-black text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-[#0D5BFF]"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveRate();
-                                      if (e.key === 'Escape') setEditingRate(false);
-                                    }}
-                                  />
-                                </div>
+                                <input
+                                  type="text"
+                                  value={rateInput}
+                                  onChange={(e) => setRateInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                  className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
+                                  autoFocus
+                                />
                                 <button
                                   type="button"
                                   onClick={handleSaveRate}
                                   disabled={savingRate}
-                                  className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                                  className="p-1.5 bg-emerald-600 text-white rounded-lg cursor-pointer"
                                 >
-                                  {savingRate ? <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-2.5 h-2.5" />}
-                                  Save
+                                  <Check className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setEditingRate(false)}
-                                  disabled={savingRate}
-                                  className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                  className="p-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
                                 >
-                                  <X className="w-2.5 h-2.5" />
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
-                              </div>
-                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                <span className="text-[7.5px] font-bold uppercase text-slate-400">Presets:</span>
-                                {[500, 800, 1000, 1500, 2000, 5000].map(val => (
-                                  <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => setRateInput(val.toString())}
-                                    className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-[7px] font-black text-slate-700 dark:text-slate-300 hover:text-[#0D5BFF] transition-colors cursor-pointer"
-                                  >
-                                    ৳{val}
-                                  </button>
-                                ))}
                               </div>
                             </div>
                           )}
                         </div>
-                        <div className="bg-slate-50/80 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 transition-all hover:border-blue-400/50 hover:shadow-xs group/avail-card">
+
+                        {/* Days per week editor */}
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                           <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                              <Calendar className="w-2.5 h-2.5 text-[#0D5BFF]" />
-                              Teaching Availability frequency
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-[#0D5BFF]" />
+                              Days / Week
                             </span>
-                            {!editingAvailability ? (
+                            {!editingAvailability && (
                               <button
                                 type="button"
-                                onClick={startEditingAvailability}
-                                className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-400 hover:bg-[#0D5BFF] hover:text-white text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                                onClick={() => {
+                                  setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
+                                  setEditingAvailability(true);
+                                }}
+                                className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer"
                               >
-                                <Pencil className="w-2 h-2" />
-                                Edit Availability
+                                Edit
                               </button>
-                            ) : null}
+                            )}
                           </div>
-                          <p 
-                            onClick={startEditingAvailability}
-                            className={`text-xs font-black text-slate-800 dark:text-white mt-1 flex items-center justify-between cursor-pointer hover:text-[#0D5BFF] transition-colors ${
-                              editingAvailability ? 'hidden' : ''
-                            }`}
-                            title="Click to edit teaching availability"
-                          >
-                            <span className="font-mono text-sm">{inspectingUser.daysPerWeek || 0} <span className="text-[9px] font-bold text-slate-400 uppercase">Days / Week</span></span>
-                            <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 group-hover/avail-card:text-[#0D5BFF] flex items-center gap-1 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                              <Pencil className="w-2 h-2" /> Edit
-                            </span>
-                          </p>
-                          {editingAvailability && (
-                            <div className="mt-1.5 space-y-2">
-                              <div className="flex items-center gap-1.5">
-                                <select
-                                  value={availabilityInput}
-                                  onChange={(e) => setAvailabilityInput(e.target.value)}
-                                  className="flex-1 px-2.5 py-1 bg-white dark:bg-slate-900 border border-blue-500 rounded-xl text-xs font-black text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-[#0D5BFF] cursor-pointer"
-                                  autoFocus
-                                >
-                                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
-                                    <option key={num} value={num}>{num} Days / Week</option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  onClick={handleSaveAvailability}
-                                  disabled={savingAvailability}
-                                  className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
-                                >
-                                  {savingAvailability ? <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-2.5 h-2.5" />}
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingAvailability(false)}
-                                  disabled={savingAvailability}
-                                  className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
-                                >
-                                  <X className="w-2.5 h-2.5" />
-                                </button>
-                              </div>
-                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                <span className="text-[7.5px] font-bold uppercase text-slate-400">Quick:</span>
-                                {[1, 2, 3, 4, 5, 6, 7].map(val => (
-                                  <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => setAvailabilityInput(val.toString())}
-                                    className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase transition-colors cursor-pointer ${
-                                      availabilityInput === val.toString()
-                                        ? 'bg-[#0D5BFF] text-white'
-                                        : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#0D5BFF]'
-                                    }`}
-                                  >
-                                    {val}d
-                                  </button>
+                          {!editingAvailability ? (
+                            <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                              {inspectingUser.daysPerWeek || 0}{' '}
+                              <span className="text-xs font-semibold text-slate-500">Days / Week</span>
+                            </p>
+                          ) : (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <select
+                                value={availabilityInput}
+                                onChange={(e) => setAvailabilityInput(e.target.value)}
+                                className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
+                              >
+                                {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                                  <option key={num} value={num}>
+                                    {num} Days / Week
+                                  </option>
                                 ))}
-                              </div>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={handleSaveAvailability}
+                                disabled={savingAvailability}
+                                className="p-1.5 bg-emerald-600 text-white rounded-lg cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingAvailability(false)}
+                                className="p-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Bio / Bio block */}
                     {inspectingUser.bio && (
                       <div>
-                        <p className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest mb-1.5 ml-1">Expert Profile Bio</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-350 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl italic leading-relaxed">
+                        <p className="text-[11px] font-bold text-[#0D5BFF] uppercase tracking-wider mb-1.5">Tutor Bio</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800 p-3.5 rounded-xl leading-relaxed">
                           "{inspectingUser.bio}"
                         </p>
                       </div>
                     )}
 
-                    {/* Subjects and Classes list */}
                     {(inspectingUser.subjects?.length || inspectingUser.classes?.length) ? (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-2">Service-Level Subjects</span>
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                            Subjects
+                          </span>
                           <div className="flex flex-wrap gap-1.5">
-                            {inspectingUser.subjects?.map((subj, sidx) => (
-                              <span key={sidx} className="bg-blue-50 dark:bg-blue-900/30 text-[#0D5BFF] dark:text-blue-300 px-2.5 py-1 text-[8px] font-black rounded-lg uppercase tracking-wider">{subj}</span>
+                            {inspectingUser.subjects?.map((subj, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-blue-50 dark:bg-blue-900/30 text-[#0D5BFF] dark:text-blue-300 px-2.5 py-1 text-xs font-semibold rounded-lg"
+                              >
+                                {subj}
+                              </span>
                             ))}
                           </div>
                         </div>
                         <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-2">Service-Level Classes</span>
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                            Classes
+                          </span>
                           <div className="flex flex-wrap gap-1.5">
-                            {inspectingUser.classes?.map((cls, cidx) => (
-                              <span key={cidx} className="bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 px-2.5 py-1 text-[8px] font-black rounded-lg uppercase tracking-wider">{cls}</span>
+                            {inspectingUser.classes?.map((cls, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2.5 py-1 text-xs font-semibold rounded-lg"
+                              >
+                                {cls}
+                              </span>
                             ))}
                           </div>
                         </div>
                       </div>
                     ) : null}
 
-                    {/* Verification Documents display */}
-                    {(inspectingUser.nidFrontImg || inspectingUser.nidBackImg || (inspectingUser.documents && inspectingUser.documents.length > 0)) && (
-                      <div className="space-y-4">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest block border-b border-slate-100 dark:border-slate-800 pb-1.5">Verification Images & Certificates (Secure Ledger Links)</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          
-                          {/* NID Images */}
+                    {(inspectingUser.nidFrontImg ||
+                      inspectingUser.nidBackImg ||
+                      (inspectingUser.documents && inspectingUser.documents.length > 0)) && (
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1">
+                          Verification Documents
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {inspectingUser.nidFrontImg && (
-                            <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">NID Front Image</span>
+                            <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
+                              <span className="text-[11px] font-bold text-slate-500 block">NID Front</span>
                               <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                <img src={inspectingUser.nidFrontImg} alt="NID Front" className="w-full h-full object-cover cursor-zoom-in" onClick={() => window.open(inspectingUser.nidFrontImg, '_blank')} />
+                                <img
+                                  src={inspectingUser.nidFrontImg}
+                                  alt="NID Front"
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover cursor-zoom-in"
+                                  onClick={() => window.open(inspectingUser.nidFrontImg, '_blank')}
+                                />
                               </div>
                             </div>
                           )}
-
                           {inspectingUser.nidBackImg && (
-                            <div className="border border-slate-100 dark:border-slate-800 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">NID Back Image</span>
+                            <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
+                              <span className="text-[11px] font-bold text-slate-500 block">NID Back</span>
                               <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                <img src={inspectingUser.nidBackImg} alt="NID Back" className="w-full h-full object-cover cursor-zoom-in" onClick={() => window.open(inspectingUser.nidBackImg, '_blank')} />
+                                <img
+                                  src={inspectingUser.nidBackImg}
+                                  alt="NID Back"
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover cursor-zoom-in"
+                                  onClick={() => window.open(inspectingUser.nidBackImg, '_blank')}
+                                />
                               </div>
                             </div>
                           )}
-                          
-                          {/* Academic Documents */}
                           {inspectingUser.documents && inspectingUser.documents.length > 0 && (
-                            <div className="sm:col-span-2 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 space-y-2">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Academic Certificates & Transcripts</span>
+                            <div className="sm:col-span-2 border border-slate-200 dark:border-slate-800 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-2">
+                              <span className="text-[11px] font-bold text-slate-500 block">
+                                University / College ID & Certificates
+                              </span>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {inspectingUser.documents.map((docUrl, dIdx) => (
-                                  <div key={dIdx} className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-pointer hover:border-[#0D5BFF] transition-all" onClick={() => window.open(docUrl, '_blank')}>
-                                    <img src={docUrl} alt={`Certificate ${dIdx + 1}`} className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <span className="text-[8px] font-black text-white uppercase tracking-wider">Open Raw</span>
-                                    </div>
+                                  <div
+                                    key={dIdx}
+                                    className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-pointer hover:border-[#0D5BFF] transition-colors"
+                                    onClick={() => window.open(docUrl, '_blank')}
+                                  >
+                                    <img
+                                      src={docUrl}
+                                      alt={`Document ${dIdx + 1}`}
+                                      loading="lazy"
+                                      decoding="async"
+                                      className="w-full h-full object-cover"
+                                    />
                                   </div>
                                 ))}
                               </div>
@@ -1732,68 +1866,68 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                         </div>
                       </div>
                     )}
-
                   </div>
                 ) : (
-                  // Student Specific fields
-                  <div className="space-y-6 animate-fade-in">
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Student / Institution Settings</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80">
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans">School / College</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.school || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Class Grade Level</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.studentClass || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Department / Group</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.group || 'GENERAL'}</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans font-sans">Desired Subject Track</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1">{inspectingUser.subject || 'All General Support'}</p>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-slate-400 font-sans">Full Home / Location Address</span>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-1 truncate" title={inspectingUser.address}>{inspectingUser.address || 'NOT CONFIGURED'}</p>
-                        </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      Student / Guardian Details
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">School / College</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.school || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Class Grade</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.studentClass || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Group</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.group || 'General'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Desired Subject</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.subject || 'All Subjects'}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Address</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                          {inspectingUser.address || 'Not configured'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
 
-            {/* Footer Closing Button */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/60 font-sans">
+            {/* Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
+                type="button"
                 onClick={() => {
                   const target = inspectingUser;
                   setInspectingUser(null);
                   setEmailModalUser(target);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-[#0D5BFF] to-[#0040C9] text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:shadow-md cursor-pointer flex items-center gap-2"
+                className="min-h-[40px] px-4 py-2 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-2"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Send Welcome / Custom Email</span>
+                <span>Send Email</span>
               </button>
               <button
+                type="button"
                 onClick={() => setInspectingUser(null)}
-                className="px-6 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                className="min-h-[40px] px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                Close Audit Inspection
+                Close
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* Brevo Email Admin Modal */}
+      {/* Email Modal */}
       {emailModalUser && (
         <AdminSendMailModal
           user={emailModalUser}
@@ -1802,14 +1936,13 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         />
       )}
 
-      {/* Custom Toast Alert */}
+      {/* Toast Alert */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl shadow-xl flex items-center gap-3 border uppercase tracking-wider text-[9px] font-black bg-white dark:bg-[#111A2E] border-slate-100 dark:border-slate-800/80">
-          <div className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
-          <span className="text-slate-700 dark:text-slate-200">{toast.message}</span>
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 border text-xs font-bold bg-white dark:bg-[#111A2E] border-slate-200 dark:border-slate-800">
+          <div className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span className="text-slate-800 dark:text-slate-200">{toast.message}</span>
         </div>
       )}
-
     </div>
   );
 }
