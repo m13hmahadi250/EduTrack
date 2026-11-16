@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Lock, AlertCircle, ShieldCheck, Check, ArrowRight, Loader2, Clock, RotateCcw } from 'lucide-react';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
 
 interface OtpVerificationModalProps {
   isOpen: boolean;
@@ -128,7 +129,7 @@ export default function OtpVerificationModal({
   // If external error arrives, trigger shake, display error, and refocus slot 0
   useEffect(() => {
     if (errorMsg) {
-      setLocalError(errorMsg);
+      setLocalError(formatUserFriendlyError(errorMsg, 'otp'));
       setDigits(Array(otpLength).fill(''));
       setIsShaking(true);
       const shakeTimer = setTimeout(() => setIsShaking(false), 600);
@@ -264,7 +265,10 @@ export default function OtpVerificationModal({
       await onVerify(codeStr);
       setIsVerified(true);
     } catch (err: any) {
-      const errorMessage = err.message || 'Incorrect verification code. Please check your inbox and try again.';
+      const errorMessage = formatUserFriendlyError(
+        err?.message || 'The verification code you entered is incorrect. Please check and try again.',
+        'otp'
+      );
       setLocalError(errorMessage);
       setDigits(Array(otpLength).fill(''));
       setIsShaking(true);

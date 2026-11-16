@@ -141,12 +141,18 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   const [selectedChildProfileId, setSelectedChildProfileId] = useState<string>(
     currentUser?.activeStudentProfileId || studentProfiles[0]?.id || ''
   );
-  const [postForm, setPostForm] = useState(() => {
+  const hasDirtyDraftRef = React.useRef<boolean>((() => {
     try {
-      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {}
+      return Boolean(localStorage.getItem(DRAFT_STORAGE_KEY));
+    } catch {
+      return false;
+    }
+  })());
+
+  const buildProfileDefaults = React.useCallback((overrideChildId?: string) => {
+    const targetId = overrideChildId ?? selectedChildProfileId ?? currentUser?.activeStudentProfileId;
     const activeChild =
+      studentProfiles.find((p) => p.id === targetId) ||
       studentProfiles.find((p) => p.id === currentUser?.activeStudentProfileId) ||
       studentProfiles[0];
     return {
@@ -166,6 +172,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       salary: 6000,
       requirements: '',
     };
+  }, [currentUser, studentProfiles, selectedChildProfileId]);
+
+  const [postForm, setPostForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return buildProfileDefaults();
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -183,9 +197,34 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   } | null>(null);
   const [trialDateTime, setTrialDateTime] = useState('');
 
-  // Save draft automatically on student form changes
+  // Auto-populate wizard fields when Firestore user / studentProfiles hydrate asynchronously
   useEffect(() => {
-    if (mode === 'student') {
+    if (mode !== 'student') return;
+    if (!selectedChildProfileId && (currentUser?.activeStudentProfileId || studentProfiles[0]?.id)) {
+      setSelectedChildProfileId(currentUser?.activeStudentProfileId || studentProfiles[0]?.id || '');
+    }
+    if (!hasDirtyDraftRef.current && currentUser) {
+      setPostForm((prev: any) => ({
+        ...prev,
+        ...buildProfileDefaults(),
+        tutoringMode: prev.tutoringMode || 'Home Tutoring',
+        daysPerWeek: prev.daysPerWeek || 3,
+        preferredTime: prev.preferredTime || 'Evening (5:00 PM - 8:00 PM)',
+        genderPreference: prev.genderPreference || 'Any Verified Tutor',
+        salary: prev.salary || 6000,
+        requirements: prev.requirements || '',
+      }));
+    }
+  }, [mode, currentUser, studentProfiles, selectedChildProfileId, buildProfileDefaults]);
+
+  const updatePostForm = (updater: any) => {
+    hasDirtyDraftRef.current = true;
+    setPostForm(updater);
+  };
+
+  // Persist draft only when user explicitly edits the wizard
+  useEffect(() => {
+    if (mode === 'student' && hasDirtyDraftRef.current) {
       try {
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(postForm));
       } catch {}
@@ -377,7 +416,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     return users
       .filter((u) => u.role === 'tutor' && u.isVerified && !u.isBlocked)
       .map((tutor) => {
-        const reasons: string[] = ['NID Verified Educator'];
+        const reasons: string[] = ['Verified Educator'];
         if (
           targetSubject &&
           tutor.subjects?.some(
@@ -444,6 +483,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       });
 
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      hasDirtyDraftRef.current = false;
       setPostStep(1);
       setActiveSubTab('my_posts');
       setFeedbackBanner({
@@ -851,6 +891,27 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
           {postStep === 1 && (
             <div className="grid sm:grid-cols-2 gap-5">
+              <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
+                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                  আপনার প্রোফাইলের তথ্য থেকে বিষয়, শ্রেণি ও এলাকা স্বয়ংক্রিয়ভাবে পূরণ করা হয়েছে—প্রয়োজন হলে পরিবর্তন করুন।
+                </p>
+                {currentUser && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasDirtyDraftRef.current = false;
+                      try {
+                        localStorage.removeItem(DRAFT_STORAGE_KEY);
+                      } catch {}
+                      setPostForm(buildProfileDefaults());
+                    }}
+                    className="self-start sm:self-auto px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800/70 bg-blue-50/70 dark:bg-blue-950/40 text-xs font-bold text-[#0D5BFF] dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0 cursor-pointer"
+                  >
+                    Fill from Profile
+                  </button>
+                )}
+              </div>
+
               {currentUser?.accountType === 'guardian' && studentProfiles.length > 0 && (
                 <div className="sm:col-span-2 p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50">
                   <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-200 mb-2">
@@ -863,7 +924,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                       setSelectedChildProfileId(id);
                       const child = studentProfiles.find((p) => p.id === id);
                       if (child) {
-                        setPostForm((prev: any) => ({
+                        updatePostForm((prev: any) => ({
                           ...prev,
                           studentClass: child.studentClass || prev.studentClass,
                           curriculum: child.curriculum || prev.curriculum,
@@ -893,7 +954,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <input
                   type="text"
                   value={postForm.subject}
-                  onChange={(e) => setPostForm({ ...postForm, subject: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, subject: e.target.value })}
                   placeholder="e.g., Higher Mathematics, Physics, Chemistry"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 />
@@ -905,9 +966,21 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </label>
                 <select
                   value={postForm.studentClass}
-                  onChange={(e) => setPostForm({ ...postForm, studentClass: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, studentClass: e.target.value })}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 >
+                  {postForm.studentClass &&
+                    ![
+                      'Class 1 - 5',
+                      'Class 6 - 8',
+                      'Class 9 - 10 (SSC)',
+                      'Class 11 - 12 (HSC)',
+                      'Cambridge / Edexcel O Level',
+                      'Cambridge / Edexcel A Level',
+                      'University Admission',
+                    ].includes(postForm.studentClass) && (
+                      <option value={postForm.studentClass}>{postForm.studentClass} (From Profile)</option>
+                    )}
                   <option value="Class 1 - 5">Class 1 - 5 (Primary)</option>
                   <option value="Class 6 - 8">Class 6 - 8 (Junior)</option>
                   <option value="Class 9 - 10 (SSC)">Class 9 - 10 (SSC Candidate)</option>
@@ -932,7 +1005,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                     <button
                       key={curr}
                       type="button"
-                      onClick={() => setPostForm({ ...postForm, curriculum: curr })}
+                      onClick={() => updatePostForm({ ...postForm, curriculum: curr })}
                       className={`p-3 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer ${
                         postForm.curriculum === curr
                           ? 'border-[#0D5BFF] bg-blue-50/60 dark:bg-blue-950/50 text-[#0D5BFF] dark:text-blue-300'
@@ -943,12 +1016,28 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                     </button>
                   ))}
                 </div>
+                {postForm.curriculum &&
+                  ![
+                    'NCTB Bangla Medium',
+                    'NCTB English Version',
+                    'English Medium (CIE / Edexcel)',
+                    'Alim / Madrasah Curriculum',
+                  ].includes(postForm.curriculum) && (
+                    <p className="mt-2 text-xs font-semibold text-[#0D5BFF] dark:text-blue-400">
+                      Current profile curriculum: {postForm.curriculum} (or pick a standard category above)
+                    </p>
+                  )}
               </div>
             </div>
           )}
 
           {postStep === 2 && (
             <div className="grid sm:grid-cols-3 gap-5">
+              <div className="sm:col-span-3">
+                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                  বাসায় গিয়ে পড়ানো বা অনলাইন—কোন পদ্ধতিতে শিক্ষক প্রয়োজন ও আপনার এলাকা নির্বাচন করুন।
+                </p>
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Tutoring Mode *
@@ -956,7 +1045,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <select
                   value={postForm.tutoringMode}
                   onChange={(e) =>
-                    setPostForm({ ...postForm, tutoringMode: e.target.value as any })
+                    updatePostForm({ ...postForm, tutoringMode: e.target.value as any })
                   }
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 >
@@ -972,7 +1061,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </label>
                 <select
                   value={postForm.district}
-                  onChange={(e) => setPostForm({ ...postForm, district: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, district: e.target.value })}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 >
                   {BANGLADESH_DISTRICTS.map((d) => (
@@ -990,7 +1079,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <input
                   type="text"
                   value={postForm.area}
-                  onChange={(e) => setPostForm({ ...postForm, area: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, area: e.target.value })}
                   placeholder="e.g., Dhanmondi Road 15, Mirpur-10, Panchlaish"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 />
@@ -1000,6 +1089,11 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
           {postStep === 3 && (
             <div className="grid sm:grid-cols-3 gap-5">
+              <div className="sm:col-span-3">
+                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                  সপ্তাহে কয়দিন পড়াতে হবে, সুবিধাজনক সময় ও শিক্ষকের ধরন ঠিক করুন।
+                </p>
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Days Per Week *
@@ -1007,7 +1101,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <select
                   value={postForm.daysPerWeek}
                   onChange={(e) =>
-                    setPostForm({ ...postForm, daysPerWeek: Number(e.target.value) })
+                    updatePostForm({ ...postForm, daysPerWeek: Number(e.target.value) })
                   }
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 >
@@ -1026,7 +1120,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <input
                   type="text"
                   value={postForm.preferredTime}
-                  onChange={(e) => setPostForm({ ...postForm, preferredTime: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, preferredTime: e.target.value })}
                   placeholder="e.g., Evening 5:00 PM - 8:00 PM"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 />
@@ -1038,7 +1132,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </label>
                 <select
                   value={postForm.genderPreference}
-                  onChange={(e) => setPostForm({ ...postForm, genderPreference: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, genderPreference: e.target.value })}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 >
                   <option value="Any Verified Tutor">Any Verified Tutor</option>
@@ -1054,6 +1148,9 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
           {postStep === 4 && (
             <div className="space-y-5">
+              <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                মাসিক সম্ভাব্য সম্মানী (BDT ৳) ও শিক্ষার্থীর বিশেষ চাহিদা বা লক্ষ্য উল্লেখ করুন।
+              </p>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Monthly Tuition Budget / Honorarium (BDT ৳) *
@@ -1064,7 +1161,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                   max={50000}
                   step={500}
                   value={postForm.salary}
-                  onChange={(e) => setPostForm({ ...postForm, salary: Number(e.target.value) })}
+                  onChange={(e) => updatePostForm({ ...postForm, salary: Number(e.target.value) })}
                   className="w-full sm:w-72 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF] tabular-nums"
                 />
               </div>
@@ -1076,7 +1173,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <textarea
                   rows={3}
                   value={postForm.requirements}
-                  onChange={(e) => setPostForm({ ...postForm, requirements: e.target.value })}
+                  onChange={(e) => updatePostForm({ ...postForm, requirements: e.target.value })}
                   placeholder="Describe the student's school/college, exam targets, or any specific expectations..."
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                 />
@@ -1086,9 +1183,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
           {postStep === 5 && (
             <div className="bg-slate-50 dark:bg-[#0B132B] rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-              <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white">
-                Review Your Tuition Circular
-              </h3>
+              <div>
+                <h3 className="text-base font-extrabold text-[#0B132B] dark:text-white">
+                  Review Your Tuition Circular
+                </h3>
+                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65] mt-0.5">
+                  সব তথ্য যাচাই করে প্রকাশ করুন — যাচাইকৃত শিক্ষকরা সরাসরি আবেদন করতে পারবেন।
+                </p>
+              </div>
               <div className="grid sm:grid-cols-2 gap-3 text-xs sm:text-sm">
                 <div>
                   <span className="text-slate-500">Subject &amp; Class:</span>{' '}
@@ -1135,7 +1237,9 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <span>Previous Step</span>
               </button>
             ) : (
-              <span className="text-xs text-slate-400">Draft saved automatically</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Auto-filled from profile · Draft saved on edit
+              </span>
             )}
 
             {postStep < 5 ? (

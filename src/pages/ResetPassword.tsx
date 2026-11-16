@@ -5,6 +5,7 @@ import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldChe
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import SEOHead from '../components/SEOHead';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
 import { scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function ResetPassword() {
@@ -170,7 +171,7 @@ export default function ResetPassword() {
         try {
           await confirmPasswordReset(auth, oobCode, newPassword);
         } catch (fbResetErr: any) {
-          console.error('[Firebase confirmPasswordReset error]:', fbResetErr);
+          console.error('[Password Reset Confirmation Error]:', fbResetErr);
           const fbCode = fbResetErr?.code || '';
           if (fbCode === 'auth/expired-action-code') {
             throw new Error('This password reset link has expired. Please request a new link.');
@@ -179,9 +180,9 @@ export default function ResetPassword() {
           } else if (fbCode === 'auth/weak-password') {
             throw new Error('Password is too weak. Please use at least 8 characters with numbers and letters.');
           } else if (fbCode === 'auth/user-disabled') {
-            throw new Error('This account has been disabled. Please contact EduTrack support.');
+            throw new Error('This account has been deactivated. Please contact support for assistance.');
           } else {
-            throw new Error(fbResetErr?.message || 'Could not update your password. Please request a new reset link.');
+            throw new Error(formatUserFriendlyError(fbResetErr, 'reset'));
           }
         }
 
@@ -207,11 +208,11 @@ export default function ResetPassword() {
         setResetSuccess(true);
         setRedirectCountdown(3);
       } else {
-        setFormError(data.error || 'Failed to update password. Please try again.');
+        setFormError(formatUserFriendlyError(data.error || data, 'reset'));
       }
     } catch (err: any) {
       console.error('[Reset Password Error]:', err);
-      setFormError(err.message || 'An unexpected error occurred. Please try again.');
+      setFormError(formatUserFriendlyError(err, 'reset'));
     } finally {
       setSubmitting(false);
     }

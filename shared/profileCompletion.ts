@@ -257,9 +257,13 @@ export function normalizeUserProfileFields<T extends ProfileCompletionUserInput>
     const cleanClasses = Array.isArray(user.classes)
       ? user.classes.map((c) => cleanMeaningfulString(c)).filter(Boolean)
       : [];
-    const cleanAreas = Array.isArray(user.teachingAreas)
+    const parsedAreas = Array.isArray(user.teachingAreas)
       ? user.teachingAreas.map((a) => cleanMeaningfulString(a)).filter(Boolean)
       : [];
+    const fallbackAreas = [normalizedArea, normalizedThana]
+      .filter(Boolean)
+      .filter((item, idx, arr) => arr.findIndex((x) => x.toLowerCase() === item.toLowerCase()) === idx);
+    const cleanAreas = parsedAreas.length > 0 ? parsedAreas : fallbackAreas;
 
     return {
       ...user,

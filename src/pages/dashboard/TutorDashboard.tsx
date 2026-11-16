@@ -17,6 +17,7 @@ import {
   WeeklyAvailabilityCalendar,
   WeeklyScheduleOverview,
 } from '../../components/WeeklyAvailabilityCalendar';
+import { formatUserFriendlyError } from '../../lib/errorMonitoring';
 import {
   Bell,
   MapPin,
@@ -522,6 +523,7 @@ export default function TutorDashboard() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [profileUpdateError, setProfileUpdateError] = useState("");
+  const [customSubjectInput, setCustomSubjectInput] = useState("");
   const [sameWhatsappAsPhone, setSameWhatsappAsPhone] = useState<boolean>(() => {
     if (!currentUser?.whatsappNumber || !currentUser?.phone) return true;
     return currentUser.whatsappNumber.replace(/\D/g, '') === currentUser.phone.replace(/\D/g, '');
@@ -690,7 +692,7 @@ export default function TutorDashboard() {
       }, 5000);
     } catch (err: any) {
       console.error(err);
-      setTutorPaymentError(err.message || "Failed to submit transaction verification.");
+      setTutorPaymentError(formatUserFriendlyError(err, "payment"));
     } finally {
       setIsSubmittingTutorPayment(false);
     }
@@ -819,9 +821,7 @@ export default function TutorDashboard() {
       setIsEditingProfile(false);
     } catch (error: any) {
       console.error("Failed to update profile", error);
-      setProfileUpdateError(
-        error?.message || "Could not synchronize tutor profile changes to Firestore. Please try again."
-      );
+      setProfileUpdateError(formatUserFriendlyError(error, "dashboard"));
     } finally {
       setIsUpdating(false);
     }
@@ -850,9 +850,7 @@ export default function TutorDashboard() {
       setWithdrawAmount("");
       setBkashNumber("");
     } catch (error: any) {
-      setWithdrawalError(
-        error.message || "Withdrawal failed. Please try again.",
-      );
+      setWithdrawalError(formatUserFriendlyError(error, "payment"));
     }
   };
 
@@ -1484,11 +1482,14 @@ export default function TutorDashboard() {
                         <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center ml-0 mr-auto md:mx-auto mb-6">
                           <Calendar className="w-10 h-10 text-slate-200" />
                         </div>
-                        <h4 className="text-xl font-black text-[#0B132B] uppercase italic mb-2">
+                        <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
                           No sessions scheduled yet
                         </h4>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                           Wait for booking requests from parents
+                        </p>
+                        <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-[1.65]">
+                          নতুন টিউশন বা বুকিং রিকোয়েস্ট এলে আপনার সেশন তালিকা এখানে দেখাবে।
                         </p>
                       </div>
                     )}
@@ -1517,9 +1518,14 @@ export default function TutorDashboard() {
             >
               <div className="space-y-8">
                 <div className="bg-[#E51275]/5 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-[#E51275]/10 shadow-sm">
-                  <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8 flex items-center gap-3">
-                    <CreditCard className="w-5 h-5 text-[#E51275]" /> Tuition Finder Payment
-                  </h3>
+                  <div className="mb-8 space-y-1.5">
+                    <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-[#E51275]" /> Tuition Finder Payment
+                    </h3>
+                    <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                      অফিসিয়াল বিকাশ নম্বরে পেমেন্ট পাঠিয়ে TrxID জমা দিলে আপনার প্রোফাইল ফিচার সক্রিয় হবে।
+                    </p>
+                  </div>
 
                   {tutorPaymentSuccess ? (
                     <motion.div
@@ -1704,11 +1710,14 @@ export default function TutorDashboard() {
                       />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">
+                      <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
                         Transit Protocol
                       </h3>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                         Geographical Visibility
+                      </p>
+                      <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-[1.65]">
+                        ক্লাসে যাওয়ার সময় লোকেশন ট্র্যাকিং চালু রাখলে অভিভাবক নিশ্চিন্ত থাকতে পারেন।
                       </p>
                     </div>
                   </div>
@@ -2055,6 +2064,9 @@ export default function TutorDashboard() {
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                       Select a certified contact from the uplink
                     </p>
+                    <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1 leading-[1.65]">
+                      শিক্ষার্থী বা অভিভাবকের সাথে সরাসরি কথা বলতে বাম দিক থেকে নাম নির্বাচন করুন।
+                    </p>
                   </div>
                 )}
               </div>
@@ -2248,7 +2260,7 @@ export default function TutorDashboard() {
                           }`}
                         />
                         <span className="text-[9px] font-black uppercase tracking-widest text-[#0B132B] dark:text-white">
-                          Academic Certs
+                          Univ. / College ID
                         </span>
                       </div>
                       <span
@@ -2931,14 +2943,79 @@ export default function TutorDashboard() {
                       </div>
                       <div id="tutor-field-subjects" className="space-y-6">
                         <div className="flex items-center justify-between px-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            Authorized Subjects Selection
-                          </label>
+                          <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                              Authorized Subjects Selection
+                            </label>
+                            <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-[1.65]">
+                              নিবন্ধনের সময় দেওয়া বিষয়গুলো এখানে সংরক্ষিত আছে—প্রয়োজনে নতুন বিষয় যোগ বা বাদ দিন।
+                            </p>
+                          </div>
                           {profileForm.subjects.length > 0 && (
-                            <span className="text-[8px] font-black text-[#0D5BFF] uppercase tracking-widest">
-                              {profileForm.subjects.length} Selected Focus Areas
+                            <span className="text-[10px] font-black text-[#0D5BFF] uppercase tracking-widest shrink-0">
+                              {profileForm.subjects.length} Selected
                             </span>
                           )}
+                        </div>
+
+                        {/* Currently Selected Subjects Removable Chips (includes Signup / Custom Subjects) */}
+                        <div className="mx-4 p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            {profileForm.subjects.length > 0 ? (
+                              profileForm.subjects.map((subj) => (
+                                <span
+                                  key={subj}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs font-bold text-[#0D5BFF] dark:text-blue-300"
+                                >
+                                  <span>{subj}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSubject(subj)}
+                                    aria-label={`Remove ${subj}`}
+                                    className="p-0.5 rounded-full hover:bg-blue-200/60 dark:hover:bg-blue-800/60 cursor-pointer"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                No subjects added yet. Pick from below or add a custom subject.
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={customSubjectInput}
+                              onChange={(e) => setCustomSubjectInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const clean = customSubjectInput.trim();
+                                  if (clean && !profileForm.subjects.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+                                    setProfileForm((prev) => ({ ...prev, subjects: [...prev.subjects, clean] }));
+                                  }
+                                  setCustomSubjectInput('');
+                                }
+                              }}
+                              placeholder="Add another subject (e.g. Statistics, Spoken English)..."
+                              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const clean = customSubjectInput.trim();
+                                if (clean && !profileForm.subjects.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+                                  setProfileForm((prev) => ({ ...prev, subjects: [...prev.subjects, clean] }));
+                                }
+                                setCustomSubjectInput('');
+                              }}
+                              className="px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold shrink-0 cursor-pointer"
+                            >
+                              Add
+                            </button>
+                          </div>
                         </div>
 
                         {/* Curricular Version Tabs Selection */}
@@ -3221,13 +3298,13 @@ export default function TutorDashboard() {
                           </h3>
                         </div>
                         <div className="space-y-1.5">
-                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-loose">
+                          <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest leading-relaxed">
                             Select your active session windows. These slots will
                             be visible to parents for instant booking.
                           </p>
                           <p
                             lang="bn"
-                            className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                            className="font-bn text-xs sm:text-[13px] font-medium text-slate-700 dark:text-slate-200 leading-[1.7]"
                           >
                             আপনি সপ্তাহের কোন দিন ও সময়ে টিউশন করাতে পারবেন তা নির্বাচন করুন।
                           </p>
@@ -3317,7 +3394,7 @@ export default function TutorDashboard() {
                             Weekly Availability Schedule
                           </h3>
                         </div>
-                        <span className="text-[11px] font-bold text-slate-400">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
                           All 7 Days (Sun – Sat)
                         </span>
                       </div>
@@ -3359,19 +3436,19 @@ export default function TutorDashboard() {
             >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 bg-blue-50 rounded-[2.5rem] flex items-center justify-center border-4 border-white shadow-xl">
+                  <div className="w-20 h-20 bg-blue-50 dark:bg-blue-950/40 rounded-[2.5rem] flex items-center justify-center border-4 border-white dark:border-slate-800 shadow-xl">
                     <Calendar className="w-10 h-10 text-[#0D5BFF]" />
                   </div>
                   <div>
-                    <h2 className="text-4xl font-black text-[#0B132B] dark:text-white uppercase italic leading-none">
+                    <h2 className="text-4xl font-black text-[#0F172A] dark:text-white uppercase italic leading-none">
                       Schedule Manager
                     </h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">
+                    <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-[0.25em] mt-2">
                       Optimize your academic performance windows
                     </p>
                     <p
                       lang="bn"
-                      className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1"
+                      className="font-bn text-xs sm:text-[13px] font-medium text-slate-700 dark:text-slate-200 mt-1 leading-[1.7]"
                     >
                       সপ্তাহের কোন দিন ও সময়ে আপনি পড়াতে পারবেন তা নির্ধারণ করুন।
                     </p>
@@ -3428,39 +3505,39 @@ export default function TutorDashboard() {
                       {tutorPayments.map((p) => (
                         <div
                           key={p.id}
-                          className="p-6 sm:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          className="p-6 sm:p-8 bg-slate-50 dark:bg-slate-900/60 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                         >
                           <div>
                             <div className="flex items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-[#0B132B] uppercase italic">
+                              <span className="text-[10px] font-black text-[#0F172A] dark:text-white uppercase italic">
                                 TRX: {p.transactionId}
                               </span>
                               <span
-                                className={`px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${
+                                className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${
                                   p.status === "approved"
-                                    ? "bg-emerald-50 text-emerald-600"
+                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
                                     : p.status === "rejected"
-                                      ? "bg-rose-50 text-rose-600"
-                                      : "bg-amber-50 text-amber-600"
+                                      ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
+                                      : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                                 }`}
                               >
                                 {p.status}
                               </span>
                             </div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                               {new Date(p.date).toLocaleString()} • From{" "}
                               {users.find((u) => u.id === p.studentId)?.name ||
                                 "Student"}
                             </p>
                           </div>
-                          <div className="text-2xl font-black text-emerald-600 italic">
+                          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 italic">
                             +৳{p.amount}
                           </div>
                         </div>
                       ))}
                       {tutorPayments.length === 0 && (
-                        <div className="p-12 text-left md:text-center bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
-                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
+                        <div className="p-12 text-left md:text-center bg-slate-50 dark:bg-slate-900/40 rounded-[3rem] border border-dashed border-slate-300 dark:border-slate-700">
+                          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest italic">
                             No earning records synchronized
                           </p>
                         </div>

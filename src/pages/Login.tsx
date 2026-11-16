@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SEOHead from '../components/SEOHead';
+import {
+  formatUserFriendlyError,
+  isNetworkConnectivityError,
+  isInvalidCredentialError,
+} from '../lib/errorMonitoring';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function Login() {
@@ -125,52 +130,43 @@ export default function Login() {
         }
       } catch (err: any) {
         console.error('Login error:', err);
-        let msg =
-          'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। একাউন্ট না থাকলে নতুন একাউন্ট খুলুন। (Wrong email or password. Please try again.)';
         const errStr = String(err).toLowerCase();
         const errCode = (err?.code || '').toLowerCase();
 
-        if (
+        // 1. Network connectivity errors: Never open the password reset / create account popup
+        if (isNetworkConnectivityError(err)) {
+          setShowInvalidCredPopup(false);
+          setError('Connection problem. Please check your internet connection and try again.');
+        } else if (
           errCode === 'auth/user-disabled' ||
           errStr.includes('user-disabled') ||
           errStr.includes('user_disabled')
         ) {
-          msg =
-            'আপনার একাউন্টটি সাময়িকভাবে স্থগিত রয়েছে। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন। (Your account is temporarily restricted.)';
+          setShowInvalidCredPopup(false);
+          setError(
+            'This account has been deactivated. Please contact support for assistance.'
+          );
+        } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
+          setShowInvalidCredPopup(false);
+          setError('Please enter a valid email address.');
+        } else if (errCode === 'auth/too-many-requests' || errStr.includes('too-many-requests')) {
+          setShowInvalidCredPopup(false);
+          setError(
+            'Too many attempts. Please wait a few minutes before trying again.'
+          );
         } else if (
-          errCode === 'auth/user-not-found' ||
-          errStr.includes('user-not-found') ||
+          isInvalidCredentialError(err) ||
           errStr.includes('account not found') ||
           errStr.includes('unregistered') ||
           errStr.includes('create an account first')
         ) {
-          msg =
-            'এই ইমেইল দিয়ে কোনো রেজিস্টার্ড একাউন্ট পাওয়া যায়নি। অনুগ্রহ করে একাউন্ট তৈরি করুন। (No registered account found. Please create an account first.)';
-          setShowInvalidCredPopup(true);
-        } else if (
-          errCode === 'auth/wrong-password' ||
-          errStr.includes('wrong-password') ||
-          errStr.includes('incorrect-password') ||
-          errCode === 'auth/invalid-credential' ||
-          errStr.includes('invalid-credential') ||
-          errStr.includes('invalid_credential')
-        ) {
-          msg =
-            'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে। পাসওয়ার্ড ভুলে গেলে "Forgot password?" ব্যবহার করুন অথবা Google দিয়ে সাইন-আপ করে থাকলে "Sign In with Google" চাপুন। (Incorrect email or password. Use "Forgot password?" or "Sign In with Google".)';
-          setShowInvalidCredPopup(true);
-        } else if (errCode === 'auth/invalid-email' || errStr.includes('invalid-email')) {
-          msg = 'ইমেইল এড্রেসটি সঠিকভাবে প্রদান করুন। (Please enter a valid email address.)';
-        } else if (errCode === 'auth/too-many-requests' || errStr.includes('too-many-requests')) {
-          msg =
-            'অনেকবার ভুল চেষ্টার কারণে একাউন্টটি সাময়িকভাবে লক হয়েছে। কিছুক্ষণ পর চেষ্টা করুন। (Too many failed login attempts. Please try again later.)';
-        } else if (err.message && !err.message.includes('{')) {
-          msg = err.message;
+          setError('Unable to sign in. Please check your email and password.');
           setShowInvalidCredPopup(true);
         } else {
-          setShowInvalidCredPopup(true);
+          setShowInvalidCredPopup(false);
+          setError(formatUserFriendlyError(err, 'login'));
         }
 
-        setError(msg);
         setPageSuccessMessage('');
         setLoginSuccess(false);
       } finally {
@@ -215,13 +211,14 @@ export default function Login() {
         setResetCountdown(3);
       } else {
         setResetError(
-          data.error || 'Failed to send password reset email. Please try again later.'
+          formatUserFriendlyError(
+            data.error || 'Unable to send password reset email right now. Please try again later.',
+            'reset'
+          )
         );
       }
     } catch (err: any) {
-      setResetError(
-        err.message || 'Failed to send password reset email. Please try again later.'
-      );
+      setResetError(formatUserFriendlyError(err, 'reset'));
     } finally {
       setResetLoading(false);
     }
@@ -260,11 +257,11 @@ export default function Login() {
                 <ShieldAlert className="w-8 h-8 text-rose-500 animate-pulse" />
               </div>
               <h3 className="text-base font-black text-slate-900 dark:text-white mb-2">
-                Authentication Failed
+                Unable to Sign In
               </h3>
               <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-relaxed mb-6">
                 {error ||
-                  'Incorrect email or password. If you forgot your password, you can reset it below.'}
+                  'Unable to sign in. Please check your email and password.'}
               </p>
               <div className="flex flex-col gap-2.5">
                 <button
@@ -662,41 +659,43 @@ export default function Login() {
                     const finalDest = consumePostLoginDestination(targetDest);
                     navigate(finalDest);
                   } catch (err: any) {
-                    console.error('Google Auth error:', err);
-                    let msg = err.message || 'Google Auth failed';
+                    console.error('Google Sign-In error:', err);
                     const errStr = String(err).toLowerCase();
                     const errCode = (err?.code || '').toLowerCase();
-                    if (
+                    if (isNetworkConnectivityError(err)) {
+                      setShowInvalidCredPopup(false);
+                      setError('Connection problem. Please check your internet connection and try again.');
+                    } else if (
                       errCode === 'auth/popup-closed-by-user' ||
                       errStr.includes('popup-closed-by-user') ||
                       errStr.includes('popup closed by user')
                     ) {
-                      msg = 'Google sign-in popup was closed before completing.';
+                      setShowInvalidCredPopup(false);
+                      setError('Sign-in window was closed before completing. Please try again.');
                     } else if (
                       errCode === 'auth/user-disabled' ||
                       errStr.includes('user-disabled') ||
                       errStr.includes('user_disabled')
                     ) {
-                      msg = 'Your account is temporarily restricted. Please contact support.';
+                      setShowInvalidCredPopup(false);
+                      setError('This account has been deactivated. Please contact support for assistance.');
                     } else if (
                       errStr.includes('no registered account') ||
                       errStr.includes('account not found') ||
                       errStr.includes('unregistered') ||
                       errStr.includes('create an account first')
                     ) {
-                      msg =
-                        'No registered account found for this Google email. Please create an account first.';
+                      setError(
+                        'No registered account found for this email. Please create an account first.'
+                      );
                       setShowInvalidCredPopup(true);
-                    } else if (
-                      err.code === 'auth/invalid-credential' ||
-                      (typeof err === 'string' && err.includes('invalid-credential'))
-                    ) {
-                      msg = 'Google Auth error. Unregistered users must create an account first.';
+                    } else if (isInvalidCredentialError(err)) {
+                      setError('Unable to sign in. Please check your email and password.');
                       setShowInvalidCredPopup(true);
                     } else {
-                      setShowInvalidCredPopup(true);
+                      setShowInvalidCredPopup(false);
+                      setError(formatUserFriendlyError(err, 'login'));
                     }
-                    setError(msg);
                     setPageSuccessMessage('');
                     setLoginSuccess(false);
                   } finally {

@@ -73,7 +73,18 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match('/index.html').then((cachedResponse) => {
-            return cachedResponse || caches.match('/');
+            if (cachedResponse) return cachedResponse;
+            return caches.match('/').then(
+              (rootCached) =>
+                rootCached ||
+                new Response(
+                  '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EduTrack Bangladesh — Offline</title></head><body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F8FAFC;color:#0F172A;padding:24px;text-align:center"><div><h1 style="font-size:20px;margin-bottom:8px">Connection problem</h1><p style="font-size:14px;color:#475569;margin-bottom:16px">Please check your internet connection and try again.</p><button onclick="location.reload()" style="background:#0D5BFF;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-weight:700;cursor:pointer">Try Again</button></div></body></html>',
+                  {
+                    status: 503,
+                    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                  }
+                )
+            );
           });
         })
     );

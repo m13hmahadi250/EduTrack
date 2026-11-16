@@ -2900,6 +2900,158 @@ async function runTests() {
           // Ensure Chatbot widget remains intact
           assert.equal(fs.existsSync(path.resolve("src/components/AIChatWidget.tsx")), true);
         });
+
+        // =========================================================================
+        // 21. User-Friendly Error Handling, Backend Privacy & Light/Dark Readability
+        // =========================================================================
+        await test("Centralized formatUserFriendlyError translates technical & network errors and strips internal technology names", async () => {
+          const {
+            formatUserFriendlyError,
+            isNetworkConnectivityError,
+            isInvalidCredentialError,
+          } = await import("../src/lib/errorMonitoring.ts");
+
+          // 1. Network errors always return exact user-friendly connection message
+          assert.equal(isNetworkConnectivityError({ code: "auth/network-request-failed" }), true);
+          assert.equal(isNetworkConnectivityError(new TypeError("Failed to fetch")), true);
+          assert.equal(
+            formatUserFriendlyError({ code: "auth/network-request-failed", message: "Firebase: Error (auth/network-request-failed)." }, "login"),
+            "Connection problem. Please check your internet connection and try again."
+          );
+          assert.equal(
+            formatUserFriendlyError(new Error("TypeError: Failed to fetch"), "booking"),
+            "Connection problem. Please check your internet connection and try again."
+          );
+
+          // 2. Invalid credentials always return exact sign-in message
+          assert.equal(isInvalidCredentialError({ code: "auth/invalid-credential" }), true);
+          assert.equal(isInvalidCredentialError({ code: "auth/wrong-password" }), true);
+          assert.equal(
+            formatUserFriendlyError({ code: "auth/invalid-credential", message: "Firebase: Error (auth/invalid-credential)." }, "login"),
+            "Unable to sign in. Please check your email and password."
+          );
+
+          // 3. Raw Firebase / Firestore / Cloudflare R2 / Brevo / JSON strings never leak to users
+          const leakedInputs = [
+            new Error('{"error":"FirebaseError: Missing or insufficient permissions.","operationType":"get","path":"users/123"}'),
+            new Error("Upload failed with status 500. Please check Cloudflare R2 configurations."),
+            new Error("Brevo API responded with 401 Unauthorized"),
+            new Error("Firestore error (permission-denied): Missing permissions"),
+          ];
+          for (const rawErr of leakedInputs) {
+            const safeMsg = formatUserFriendlyError(rawErr);
+            assert.equal(/firebase|firestore|cloudflare|r2|brevo|gemini|groq|auth\/|permission-denied|\{/i.test(safeMsg), false, `Leaked technical details in: ${safeMsg}`);
+            assert.equal(safeMsg.length > 10, true);
+          }
+        });
+
+        await test("Login does not trigger invalid-credential reset/signup popup on network errors and WeeklyAvailabilityCalendar supports Light & Dark mode contrast", () => {
+          const loginSrc = fs.readFileSync(path.resolve("src/pages/Login.tsx"), "utf-8");
+          const calendarSrc = fs.readFileSync(path.resolve("src/components/WeeklyAvailabilityCalendar.tsx"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+
+          // Login network vs credential separation
+          assert.equal(loginSrc.includes("isNetworkConnectivityError"), true);
+          assert.equal(loginSrc.includes("Connection problem. Please check your internet connection and try again."), true);
+          assert.equal(loginSrc.includes("Unable to sign in. Please check your email and password."), true);
+          assert.equal(loginSrc.includes("setShowInvalidCredPopup(false)"), true);
+
+          // WeeklyAvailabilityCalendar supports both { slots, onChange } and { availability, onToggleSlot } with crisp Light/Dark mode contrast
+          assert.equal(calendarSrc.includes("bg-white dark:bg-[#111A2E]"), true);
+          assert.equal(calendarSrc.includes("text-[#0F172A] dark:text-white"), true);
+          assert.equal(calendarSrc.includes("slots?: { [key: string]: string[] }"), true);
+          assert.equal(calendarSrc.includes("onChange?: (slots: { [key: string]: string[] }) => Promise<void> | void"), true);
+
+          // Global Light & Dark readability overrides in index.css
+          assert.equal(indexCss.includes("html:not(.dark) .text-slate-400"), true);
+          assert.equal(indexCss.includes(".dark .text-slate-400"), true);
+        });
+
+        // =========================================================================
+        // 22. Smart Profile Auto-Fill, Bilingual Bangla UX & Homepage Refinements
+        // =========================================================================
+        console.log("\n--- SECTION 22: Smart Profile Auto-Fill, Bilingual Bangla UX & Homepage Refinements ---");
+
+        await test("normalizeUserProfileFields auto-seeds tutor teachingAreas and cleans placeholders", async () => {
+          const { normalizeUserProfileFields } = await import("../shared/profileCompletion.ts");
+
+          const tutorNorm: any = normalizeUserProfileFields({
+            id: "t-seed",
+            role: "tutor",
+            name: "Rafiqul Islam",
+            email: "rafiq@example.com",
+            area: "Dhanmondi 15",
+            thana: "Dhanmondi",
+            subjects: [],
+            subject: "Mathematics, Physics, Mathematics",
+          });
+          assert.deepEqual(tutorNorm.teachingAreas, ["Dhanmondi 15", "Dhanmondi"]);
+          assert.deepEqual(tutorNorm.subjects, ["Mathematics", "Physics"]);
+
+          const studentNorm: any = normalizeUserProfileFields({
+            id: "s-seed",
+            role: "student",
+            accountType: "guardian",
+            name: "Nusrat Jahan",
+            email: "nusrat@example.com",
+            school: "Not Specified",
+            group: "English Version",
+            guardianRelationship: "Mother",
+            studentName: "Aayan",
+          });
+          assert.equal(studentNorm.school, "");
+          assert.equal(studentNorm.curriculum, "English Version");
+          assert.equal(studentNorm.guardianRelationship, "Mother");
+          assert.equal(studentNorm.studentName, "Aayan");
+        });
+
+        await test("Signup & Store synchronize Student/Guardian/Tutor fields on OTP and Google Sign-Up", () => {
+          const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+
+          assert.equal(signupSrc.includes("export function buildSignupProfilePayload"), true);
+          assert.equal(signupSrc.includes("handleVerifyAndCompleteSignup"), true);
+          assert.equal(signupSrc.includes("buildSignupProfilePayload({"), true);
+          assert.equal(storeSrc.includes("ensureGuardianInitialStudentProfile"), true);
+          assert.equal(storeSrc.includes("activeStudentProfileId"), true);
+          assert.equal(storeSrc.includes("student_profiles"), true);
+        });
+
+        await test("TuitionMarketplaceHub hydrates from Firestore without eager draft overwrite and preserves custom classes", () => {
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+
+          assert.equal(hubSrc.includes("hasDirtyDraftRef"), true);
+          assert.equal(hubSrc.includes("buildProfileDefaults"), true);
+          assert.equal(hubSrc.includes("Fill from Profile"), true);
+          assert.equal(hubSrc.includes("updatePostForm"), true);
+          assert.equal(hubSrc.includes("Verified Educator"), true);
+          assert.equal(hubSrc.includes("NID Verified Educator"), false);
+        });
+
+        await test("TutorDashboard, StudentDashboard, Home, and index.css implement natural Bangla typography & One-Document consistency", () => {
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+
+          // Bangla CSS protects glyph shaping inside uppercase containers
+          assert.equal(indexCss.includes("text-transform: none !important;"), true);
+
+          // TutorDashboard removable subject chips + One-Document label
+          assert.equal(tutorDashSrc.includes("customSubjectInput"), true);
+          assert.equal(tutorDashSrc.includes("Univ. / College ID"), true);
+
+          // StudentDashboard friendlier missing labels & One-Document clarity
+          assert.equal(studentDashSrc.includes("Not provided yet"), true);
+          assert.equal(studentDashSrc.includes("একটি অভিভাবক অ্যাকাউন্ট থেকেই একাধিক সন্তানের"), true);
+
+          // Home below Hero: Guardian Trust box corrected, One-Document Rule aligned, no border-l-4 or rotated showcase cards
+          assert.equal(homeSrc.includes("যাচাইকৃত শিক্ষক ও নিরাপদ যোগাযোগের মাধ্যমে নিশ্চিত মানসম্মত শিক্ষা।"), true);
+          assert.equal(homeSrc.includes("Verified via NID or Univ. / College ID"), true);
+          assert.equal(homeSrc.includes("border-l-4"), false);
+          assert.equal(homeSrc.includes("transform rotate-1"), false);
+          assert.equal(homeSrc.includes("transform -rotate-1"), false);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

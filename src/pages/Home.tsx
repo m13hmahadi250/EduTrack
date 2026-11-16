@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
-const AIChatWidget = React.lazy(() => import('../components/AIChatWidget'));
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+import { AppErrorBoundary } from '../components/AppErrorBoundary';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
+const AIChatWidget = lazyWithRetry(() => import('../components/AIChatWidget'), 'AIChatWidget');
 import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
@@ -137,12 +140,7 @@ export default function Home() {
       } catch (e) {}
     } catch (error: any) {
       console.error("Error fetching tutors:", error);
-      const msg = String(error?.message || '').toLowerCase();
-      if (msg.includes('permission') || error?.code === 'permission-denied') {
-        setTutorsError("Unable to load tutors due to Firestore access permissions. Please refresh or sign in again.");
-      } else {
-        setTutorsError("Unable to load verified tutors right now. Please check your connection and try again.");
-      }
+      setTutorsError(formatUserFriendlyError(error, 'search'));
     } finally {
       setTutorsLoading(false);
     }
@@ -924,13 +922,13 @@ export default function Home() {
                 </div>
 
                 <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-5">
-                  All tutors are verified through NID and academic certificates, with real-time location tracking and secure booking to ensure a safe and trustworthy learning experience.
+                  Every tutor is verified with at least one valid identity document (National ID or University/College ID), backed by real-time location tracking and secure booking.
                 </p>
 
                 <div className="space-y-2.5 pt-4 border-t border-blue-200/60 dark:border-blue-900/50">
                   <div className="flex items-center gap-2.5 text-xs font-semibold text-[#0B132B] dark:text-slate-200">
                     <CheckCircle className="w-4 h-4 text-[#0D5BFF] shrink-0" />
-                    <span>Manual NID &amp; University ID Audit</span>
+                    <span>Verified via NID or Univ. / College ID</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-xs font-semibold text-[#0B132B] dark:text-slate-200">
                     <CheckCircle className="w-4 h-4 text-[#0D5BFF] shrink-0" />
@@ -944,9 +942,9 @@ export default function Home() {
 
                 <p
                   lang="bn"
-                  className="font-bn text-xs font-semibold text-[#0D5BFF] dark:text-blue-400 pt-3.5 mt-4 border-t border-blue-200/60 dark:border-blue-900/50"
+                  className="font-bn text-xs font-semibold text-[#0D5BFF] dark:text-blue-400 pt-3.5 mt-4 border-t border-blue-200/60 dark:border-blue-900/50 leading-[1.65]"
                 >
-                  নিজের দক্ষতা অনুযায়ী টিউশনের সুযোগ খুঁজুন।
+                  যাচাইকৃত শিক্ষক ও নিরাপদ যোগাযোগের মাধ্যমে নিশ্চিত মানসম্মত শিক্ষা।
                 </p>
               </div>
             </div>
@@ -955,64 +953,64 @@ export default function Home() {
       </section>
 
       {/* Detailed Features - Horizontal Alternating */}
-      <section className="py-32 bg-white dark:bg-[#111A2E]/40 overflow-hidden transition-colors duration-300">
+      <section className="py-16 sm:py-24 bg-white dark:bg-[#111A2E]/40 overflow-hidden transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Row 1 - GPS */}
-          <div className="flex flex-col lg:flex-row items-center gap-16 mb-32">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16 mb-16 sm:mb-24">
             <motion.div 
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               className="lg:w-1/2"
             >
-              <div className="inline-block p-4 bg-rose-50 dark:bg-rose-950/20 rounded-2xl mb-8">
-                <MapPin className="w-10 h-10 text-rose-500" />
+              <div className="inline-block p-3.5 bg-rose-50 dark:bg-rose-950/30 rounded-2xl mb-6 border border-rose-100 dark:border-rose-900/40">
+                <MapPin className="w-8 h-8 text-rose-500" />
               </div>
-              <h2 className="text-4xl lg:text-6xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-8 leading-[0.9] italic">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-5 leading-[1.02] italic">
                 Real-Time <span className="text-rose-500">Security</span> <br /> In Your Pocket
               </h2>
-              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
                 Never wonder where the tutor is. Our platform integrates real-time GPS tracking, allowing parents to monitor arrival, session duration, and departure directly from the dashboard.
               </p>
               <p
                 lang="bn"
-                className="font-bn text-sm font-medium text-slate-600 dark:text-slate-300 mb-8 max-w-lg"
+                className="font-bn text-sm font-medium text-slate-700 dark:text-slate-300 mb-7 max-w-lg leading-[1.7]"
               >
                 শিক্ষকের আগমন ও ক্লাসের সময় সরাসরি ড্যাশবোর্ড থেকে ট্র্যাক করুন।
               </p>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="border-l-4 border-rose-500 pl-4">
-                  <div className="text-2xl font-black text-[#0B132B] dark:text-white">Live Map</div>
-                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Active during transit</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80">
+                  <div className="text-xl font-black text-[#0B132B] dark:text-white">Live Map</div>
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-0.5">Active during transit</p>
                 </div>
-                <div className="border-l-4 border-emerald-500 pl-4">
-                  <div className="text-2xl font-black text-[#0B132B] dark:text-white">Geo-Fencing</div>
-                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Auto session logs</p>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80">
+                  <div className="text-xl font-black text-[#0B132B] dark:text-white">Geo-Fencing</div>
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-0.5">Auto session logs</p>
                 </div>
               </div>
             </motion.div>
             
             <motion.div 
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="lg:w-1/2 relative"
+              className="lg:w-1/2 w-full relative"
             >
-              <div className="absolute inset-0 bg-rose-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-[#0B132B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-white/10 overflow-hidden transform rotate-1">
-                 {/* Mock Tracking UI */}
-                 <div className="space-y-6">
-                    <div className="flex items-center space-x-4 bg-white/5 p-4 rounded-3xl border border-white/10">
-                       <div className="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center">
+              <div className="absolute inset-0 bg-rose-500/10 blur-[100px] rounded-full"></div>
+              <div className="relative bg-[#0B132B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-slate-800 overflow-hidden">
+                 <div className="space-y-5">
+                    <div className="flex items-center space-x-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                       <div className="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center shrink-0">
                           <MapPin className="w-6 h-6 text-white" />
                        </div>
                        <div>
                           <div className="text-white font-black uppercase text-xs tracking-widest">Tutor Location</div>
-                          <div className="text-slate-400 text-[10px] font-bold">2 mins away from your home</div>
+                          <div className="text-slate-300 text-xs font-semibold mt-0.5">Active route &amp; arrival updates shared securely</div>
                        </div>
                     </div>
-                    <div className="h-48 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center italic text-slate-600 font-black uppercase text-[10px] tracking-[0.3em]">
-                       Live Map View
+                    <div className="h-44 bg-white/5 rounded-2xl border border-white/10 flex flex-col items-center justify-center gap-1.5 text-slate-300 font-semibold text-xs">
+                       <span className="uppercase tracking-[0.2em] text-slate-400 text-[10px] font-black">Live Map View</span>
+                       <span lang="bn" className="font-bn text-xs text-slate-400">শুধুমাত্র নির্ধারিত অভিভাবকের সাথে শেয়ার করা হয়</span>
                     </div>
                  </div>
               </div>
@@ -1020,32 +1018,32 @@ export default function Home() {
           </div>
 
           {/* Row 2 - Verification */}
-          <div className="flex flex-col lg:flex-row-reverse items-center gap-16">
+          <div className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-16">
             <motion.div 
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               className="lg:w-1/2"
             >
-              <div className="inline-block p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl mb-8">
-                <ShieldCheck className="w-10 h-10 text-emerald-500" />
+              <div className="inline-block p-3.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl mb-6 border border-emerald-100 dark:border-emerald-900/40">
+                <ShieldCheck className="w-8 h-8 text-emerald-500" />
               </div>
-              <h2 className="text-4xl lg:text-6xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-8 leading-[0.9] italic">
-                NID Verified <span className="text-emerald-500">Elite</span> <br /> Educators
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-5 leading-[1.02] italic">
+                Verified &amp; <span className="text-emerald-500">Trusted</span> <br /> Educators
               </h2>
-              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
-                We don't just take anyone. Every tutor undergoes a rigorous verification process including National ID or University/College ID check and an academic history audit.
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
+                Every tutor undergoes manual identity review using any ONE valid document — either their National ID (NID) or University/College Student ID — before joining the directory.
               </p>
               <p
                 lang="bn"
-                className="font-bn text-sm font-medium text-slate-600 dark:text-slate-300 mb-8 max-w-lg"
+                className="font-bn text-sm font-medium text-slate-700 dark:text-slate-300 mb-7 max-w-lg leading-[1.7]"
               >
                 জাতীয় পরিচয়পত্র (NID) অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড যাচাইকৃত নির্ভরযোগ্য শিক্ষক।
               </p>
-              <div className="space-y-4">
-                {["100% Manual ID Verification", "Academic Certificate Audit", "University ID Confirmation"].map(t => (
-                  <div key={t} className="flex items-center space-x-3 text-[#0B132B] dark:text-slate-200 font-bold uppercase text-xs tracking-wider">
-                     <CheckCircle className="w-5 h-5 text-emerald-500" />
+              <div className="space-y-3">
+                {["National ID or University ID Audit", "One-Document Quick Verification", "Educator Credentials Checked"].map(t => (
+                  <div key={t} className="flex items-center space-x-3 text-[#0B132B] dark:text-slate-200 font-bold text-xs sm:text-sm tracking-wide">
+                     <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
                      <span>{t}</span>
                   </div>
                 ))}
@@ -1053,30 +1051,30 @@ export default function Home() {
             </motion.div>
 
             <motion.div 
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="lg:w-1/2 relative"
+              className="lg:w-1/2 w-full relative"
             >
-              <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800/85 transform -rotate-1 transition-colors">
-                 <div className="flex items-center space-x-6 mb-8 pb-8 border-b border-slate-100 dark:border-slate-800/60">
-                    <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
-                       <Users className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+              <div className="absolute inset-0 bg-emerald-500/10 blur-[100px] rounded-full"></div>
+              <div className="relative bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 transition-colors">
+                 <div className="flex items-center space-x-5 mb-6 pb-6 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60 rounded-2xl flex items-center justify-center shrink-0">
+                       <ShieldCheck className="w-8 h-8 text-emerald-500" />
                     </div>
                     <div>
-                       <div className="h-6 w-32 bg-slate-100 dark:bg-slate-800 rounded-full mb-2"></div>
-                       <div className="h-4 w-24 bg-slate-50 dark:bg-slate-800/50 rounded-full"></div>
+                       <p className="text-sm font-extrabold text-[#0B132B] dark:text-white">Identity Verification Complete</p>
+                       <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-0.5">যাচাইকৃত পরিচয়পত্র ও প্রোফাইল</p>
                     </div>
                  </div>
-                 <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/40">
-                       <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">NID Status</span>
-                       <span className="text-[10px] font-black text-white bg-emerald-500 px-3 py-1 rounded-full uppercase tracking-widest">Verified</span>
+                 <div className="space-y-3.5">
+                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/25 p-4 rounded-2xl border border-emerald-200/70 dark:border-emerald-900/40">
+                       <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Identity Document (NID / Univ. ID)</span>
+                       <span className="text-[11px] font-black text-white bg-emerald-600 px-3 py-1 rounded-lg uppercase tracking-wider">Verified</span>
                     </div>
-                    <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-950/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40">
-                       <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Academic Record</span>
-                       <span className="text-[10px] font-black text-white bg-[#0D5BFF] px-3 py-1 rounded-full uppercase tracking-widest">Approved</span>
+                    <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-950/25 p-4 rounded-2xl border border-blue-200/70 dark:border-blue-900/40">
+                       <span className="text-xs font-bold text-blue-800 dark:text-blue-300">Tutor Profile Review</span>
+                       <span className="text-[11px] font-black text-white bg-[#0D5BFF] px-3 py-1 rounded-lg uppercase tracking-wider">Approved</span>
                     </div>
                  </div>
               </div>
@@ -1086,51 +1084,54 @@ export default function Home() {
       </section>
 
       {/* Trust & Safety Section - Visible Grid Style */}
-      <section id="safety" className="py-24 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+      <section id="safety" className="py-16 sm:py-20 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Safety First</h2>
-            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+          <div className="text-center mb-12">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Safety First</h2>
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
               Security You Can <span className="text-[#0D5BFF]">Trust</span>
             </h3>
             <p
               lang="bn"
-              className="font-bn text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-3 max-w-xl mx-auto leading-[1.65]"
+              className="font-bn text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-3 max-w-2xl mx-auto leading-[1.7]"
             >
-              সকল শিক্ষকের জাতীয় পরিচয়পত্র (NID) ও একাডেমিক সনদ যাচাইকৃত এবং নিরাপদ হোম টিউশনের জন্য রয়েছে লাইভ জিপিএস ট্র্যাকিং।
+              জাতীয় পরিচয়পত্র (NID) অথবা বিশ্ববিদ্যালয়/কলেজ আইডি কার্ড যাচাইকৃত শিক্ষক এবং নিরাপদ হোম টিউশনের জন্য লাইভ জিপিএস ট্র্যাকিং।
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-12">
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
             <TrustCard 
-              icon={<Shield className="w-10 h-10" />}
+              icon={<Shield className="w-8 h-8" />}
               title="Identity Verification"
-              description="Every tutor must upload their National ID and Student ID card. Our team manually verifies each document before they can join."
+              description="Every tutor submits any ONE valid document — either a National ID (NID) or University/College Student ID — reviewed manually by our team."
+              bnDesc="এনআইডি অথবা বিশ্ববিদ্যালয়/কলেজ আইডি কার্ড যাচাই করে শিক্ষকদের প্রোফাইল অনুমোদন করা হয়।"
             />
             <TrustCard 
-              icon={<MapPin className="w-10 h-10" />}
+              icon={<MapPin className="w-8 h-8" />}
               title="Live GPS Tracking"
-              description="Parents can track the tutor's live location via their dashboard to ensure safety and confirm punctuality."
+              description="Parents can track the tutor's live location during active transit via their dashboard to ensure safety and punctuality."
+              bnDesc="অভিভাবকেরা ড্যাশবোর্ড থেকে সেশনের সময় শিক্ষকের লাইভ অবস্থান দেখতে পারেন।"
             />
             <TrustCard 
-              icon={<Award className="w-10 h-10" />}
-              title="Verified Certification"
-              description="Academic records and university IDs are double-checked. Only top-tier students from reputable institutions are accepted."
+              icon={<Award className="w-8 h-8" />}
+              title="Verified Qualifications"
+              description="Institutional backgrounds, teaching subjects, and guardian ratings remain clear and transparent on every educator profile."
+              bnDesc="শিক্ষকের শিক্ষাপ্রতিষ্ঠান, বিষয়ভিত্তিক দক্ষতা ও অভিভাবকদের রিভিউ প্রোফাইলে স্পষ্টভাবে থাকে।"
             />
           </div>
         </div>
       </section>
 
       {/* How it Works - Dual Journey Step Layout */}
-      <section id="how-it-works" className="py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300 scroll-mt-20">
+      <section id="how-it-works" className="py-16 sm:py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-14 gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
             <div className="max-w-xl">
-              <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">The Process</h2>
-              <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.9]">
+              <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">The Process</h2>
+              <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic leading-[0.95]">
                 How EduTrack <span className="text-[#0D5BFF]">Works</span>
               </h3>
-              <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-3">
+              <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm mt-3">
                 A transparent, step-by-step workflow built for both Guardians and Verified Tutors across Bangladesh.
               </p>
               <p
@@ -1185,25 +1186,29 @@ export default function Home() {
                 <Step 
                   number="01" 
                   title="Search or Post" 
-                  desc="Filter NID-verified tutors by subject, class, or district, or post a custom tuition circular in seconds." 
+                  desc="Filter verified tutors by subject, class, or district, or post a custom tuition circular in seconds."
+                  bnDesc="বিষয়, শ্রেণি ও এলাকা অনুযায়ী শিক্ষক খুঁজুন অথবা টিউশন পোস্ট দিন।"
                   index={0}
                 />
                 <Step 
                   number="02" 
                   title="Review & Connect" 
-                  desc="Compare university credentials, experience, and reviews, then message or schedule a demo class." 
+                  desc="Compare university credentials, experience, and reviews, then message or schedule a demo class."
+                  bnDesc="প্রোফাইল যাচাই করে সরাসরি মেসেজ বা ডেমো ক্লাসের সময় ঠিক করুন।"
                   index={1}
                 />
                 <Step 
                   number="03" 
                   title="Track Attendance" 
-                  desc="Monitor live GPS transit during active sessions and approve digital class logs and homework." 
+                  desc="Monitor live GPS transit during active sessions and approve digital class logs and homework."
+                  bnDesc="ক্লাসের হাজিরা, লাইভ ট্রানজিট ও হোমওয়ার্ক ড্যাশবোর্ডেই দেখুন।"
                   index={2}
                 />
                 <Step 
                   number="04" 
                   title="Secure Billing" 
-                  desc="Settle monthly or session tuition fees transparently with verified digital receipts." 
+                  desc="Settle monthly or session tuition fees transparently with verified digital receipts."
+                  bnDesc="মাসিক টিউশন ফি ও ডিজিটাল রসিদ স্বচ্ছভাবে সংরক্ষণ করুন।"
                   index={3}
                 />
               </>
@@ -1212,25 +1217,29 @@ export default function Home() {
                 <Step 
                   number="01" 
                   title="Register & Verify" 
-                  desc="Create your educator profile and submit your National ID and University ID for manual verification." 
+                  desc="Create your educator profile and submit any ONE valid ID — National ID (NID) or University/College ID — for manual verification."
+                  bnDesc="প্রোফাইল তৈরি করে এনআইডি বা বিশ্ববিদ্যালয়/কলেজ আইডি জমা দিন।"
                   index={0}
                 />
                 <Step 
                   number="02" 
                   title="Apply to Tuitions" 
-                  desc="Browse live guardian tuition circulars in your preferred areas or receive direct booking requests." 
+                  desc="Browse live guardian tuition circulars in your preferred areas or receive direct booking requests."
+                  bnDesc="নিজের দক্ষতা অনুযায়ী টিউশনের সুযোগ খুঁজুন।"
                   index={1}
                 />
                 <Step 
                   number="03" 
                   title="Teach & Log" 
-                  desc="Conduct home or online classes, share GPS check-ins, and log daily topics and homework." 
+                  desc="Conduct home or online classes, share GPS check-ins, and log daily topics and homework."
+                  bnDesc="প্রতিদিনের ক্লাসের বিষয় ও হোমওয়ার্ক সহজেই লগ করুন।"
                   index={2}
                 />
                 <Step 
                   number="04" 
                   title="Earn & Grow" 
-                  desc="Receive verified tuition payments, build 5-star guardian reviews, and grow your tutoring career." 
+                  desc="Receive verified tuition payments, build 5-star guardian reviews, and grow your tutoring career."
+                  bnDesc="ভালো রিভিউ অর্জন করে নিয়মিত টিউশন ক্যারিয়ার গড়ে তুলুন।"
                   index={3}
                 />
               </>
@@ -1240,16 +1249,16 @@ export default function Home() {
       </section>
 
       {/* Verified Real-User Reviews Section */}
-      <section className="py-28 bg-[#F8F9FA] dark:bg-[#111A2E]/20 transition-colors duration-300 relative overflow-hidden">
+      <section className="py-16 sm:py-24 bg-[#F8F9FA] dark:bg-[#111A2E]/20 transition-colors duration-300 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Success Stories</h2>
-            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
-              Trusted By <span className="text-[#0D5BFF]">Guardians & Tutors</span>
+          <div className="text-center mb-12">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Success Stories</h2>
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+              Trusted By <span className="text-[#0D5BFF]">Guardians &amp; Tutors</span>
             </h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-lg mx-auto">
-              See how EduTrack is revolutionizing home tutoring with top safety measures and academic discipline.
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-3 max-w-lg mx-auto">
+              See how EduTrack brings discipline, verified safety, and transparency to home tutoring.
             </p>
             <p
               lang="bn"
@@ -1264,14 +1273,14 @@ export default function Home() {
       </section>
 
       {/* Interactive Frequently Asked Questions (FAQ) Section */}
-      <section id="faq" className="py-28 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300 scroll-mt-20">
+      <section id="faq" className="py-16 sm:py-24 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-4">Common Concerns</h2>
-            <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
+          <div className="text-center mb-12">
+            <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Common Concerns</h2>
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
               Frequently Asked <span className="text-[#0D5BFF]">Questions</span>
             </h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-3">
               Quick, honest answers regarding verification, safety, matchings, and billing structures.
             </p>
             <p
@@ -1289,7 +1298,7 @@ export default function Home() {
       </section>
 
       {/* SEO Directory & Academic Curriculums across Bangladesh */}
-      <section className="py-24 bg-slate-50/70 dark:bg-[#111A2E]/50 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300" id="curriculums">
+      <section className="py-16 sm:py-24 bg-slate-50/70 dark:bg-[#111A2E]/50 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300" id="curriculums">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Header */}
@@ -1393,8 +1402,11 @@ export default function Home() {
                   <MapPin className="w-5 h-5 text-[#0D5BFF]" />
                   <span>Explore Verified Tutors by District</span>
                 </h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1">
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider mt-1">
                   Click any district to filter teachers in real-time
+                </p>
+                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  আপনার জেলা নির্বাচন করে কাছাকাছি থাকা যাচাইকৃত শিক্ষক খুঁজুন।
                 </p>
               </div>
               <button
@@ -1432,26 +1444,26 @@ export default function Home() {
       </section>
 
       {/* Footer CTA */}
-      <section className="py-24 bg-white dark:bg-[#0B132B] transition-colors duration-300">
+      <section className="py-16 sm:py-20 bg-white dark:bg-[#0B132B] transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-[#0B132B] rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
              <div className="relative z-10">
-               <h2 className="text-[3rem] lg:text-[4.5rem] font-black font-heading text-white leading-none uppercase mb-8">
+               <h2 className="text-[2.5rem] sm:text-[3rem] lg:text-[4.25rem] font-black font-heading text-white leading-none uppercase mb-6">
                  Ready to <span className="text-[#0D5BFF]">Start?</span>
                </h2>
-               <p className="text-slate-400 text-lg mb-3 max-w-xl mx-auto">
+               <p className="text-slate-300 text-base sm:text-lg mb-3 max-w-xl mx-auto">
                  Join thousands of parents who have already upgraded their child's education with EduTrack.
                </p>
                <p
                  lang="bn"
-                 className="font-bn text-sm sm:text-base font-medium text-blue-300 mb-10 max-w-xl mx-auto"
+                 className="font-bn text-sm sm:text-base font-medium text-blue-300 mb-9 max-w-xl mx-auto leading-[1.7]"
                >
                  আপনার সন্তানের জন্য উপযুক্ত শিক্ষক খুঁজুন সহজেই।
                </p>
                <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
                  <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
-                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center block cursor-pointer">
+                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-10 py-4 bg-[#0D5BFF] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-blue-700 transition-all text-center block cursor-pointer">
                      Get Started Now
                    </Link>
                  </motion.div>
@@ -1461,14 +1473,14 @@ export default function Home() {
                      target="_blank" 
                      rel="noopener noreferrer" 
                      onClick={() => logDownloadAttempt('footer_cta')}
-                     className="w-full sm:w-auto px-12 py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 cursor-pointer"
+                     className="w-full sm:w-auto px-10 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-sm uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 cursor-pointer"
                    >
                      <Smartphone className="w-4.5 h-4.5" />
                      Download APK
                    </a>
                  </motion.div>
                  <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
-                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-50 hover:bg-slate-200 transition-all text-center block cursor-pointer">
+                   <Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="w-full sm:w-auto px-10 py-4 bg-white dark:bg-slate-100 text-[#0B132B] font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-slate-200 transition-all text-center block cursor-pointer">
                      Learn More
                    </Link>
                  </motion.div>
@@ -1479,23 +1491,26 @@ export default function Home() {
       </section>
 
       {/* Footer Section */}
-      <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-16 px-4 md:px-0 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
+      <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-14 px-4 md:px-0 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-10 mb-14">
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center gap-3 mb-5 select-none group w-fit">
+            <div className="flex items-center gap-3 mb-4 select-none group w-fit">
               <Logo className="w-10 h-10 sm:w-11 sm:h-11 group-hover:shadow-md group-hover:shadow-blue-500/20" />
               <h4 className="text-2xl font-black text-[#0B132B] dark:text-white tracking-tight transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
                 EduTrack
               </h4>
             </div>
-            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm leading-relaxed mb-6 text-sm">
+            <p className="text-slate-600 dark:text-slate-300 font-medium max-w-sm leading-relaxed mb-2 text-sm">
               The premier platform for secure, verified home tutoring in Bangladesh. Built with safety, trust, and academic excellence at its core.
+            </p>
+            <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-400 max-w-sm leading-[1.65] mb-6">
+              নিরাপদ ও যাচাইকৃত হোম ও অনলাইন টিউশনের বিশ্বস্ত প্ল্যাটফর্ম।
             </p>
             <div className="flex gap-3.5">
               <motion.div 
                 whileHover={{ scale: 1.08, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
+                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
                 title="Trending Tutors"
               >
                 <TrendingUp className="w-5 h-5" />
@@ -1503,7 +1518,7 @@ export default function Home() {
               <motion.div 
                 whileHover={{ scale: 1.08, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
+                className="w-11 h-11 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-[#0D5BFF] hover:border-[#0D5BFF] hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
                 title="Community Directory"
               >
                 <Users className="w-5 h-5" />
@@ -1512,24 +1527,27 @@ export default function Home() {
           </div>
           
           <div>
-            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Quick Links</h5>
-            <ul className="space-y-4">
-              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
-              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
-              <li><Link to="/login" onMouseEnter={() => prefetchPage('Login')} onFocus={() => prefetchPage('Login')} className="text-slate-500 dark:text-slate-400 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-5">Quick Links</h5>
+            <ul className="space-y-3.5">
+              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Find a Tutor</Link></li>
+              <li><Link to="/signup" onMouseEnter={() => prefetchPage('Signup')} onFocus={() => prefetchPage('Signup')} className="text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Join as Tutor</Link></li>
+              <li><Link to="/login" onMouseEnter={() => prefetchPage('Login')} onFocus={() => prefetchPage('Login')} className="text-slate-600 dark:text-slate-300 hover:text-[#0D5BFF] transition-all text-sm font-bold uppercase">Login</Link></li>
             </ul>
           </div>
 
           <div>
-            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Contact</h5>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase mb-2">Chattogram, Bangladesh</p>
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-5">Contact</h5>
+            <p className="text-slate-600 dark:text-slate-300 text-sm font-bold uppercase mb-2">Chattogram, Bangladesh</p>
             <p className="text-[#0D5BFF] text-sm font-bold uppercase">m13hmahadi@gmail.com</p>
           </div>
 
           <div>
-            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-6">Android App</h5>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold leading-relaxed mb-4">
+            <h5 className="text-[10px] font-black text-[#0B132B] dark:text-white uppercase tracking-[0.2em] mb-5">Android App</h5>
+            <p className="text-slate-600 dark:text-slate-300 text-xs font-semibold leading-relaxed mb-2">
               Download our official mobile app for real-time tracking, alerts, and more.
+            </p>
+            <p lang="bn" className="font-bn text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+              লাইভ লোকেশন ট্র্যাকিং ও ক্লাস আপডেটের জন্য অ্যান্ড্রয়েড অ্যাপ ডাউনলোড করুন।
             </p>
             <a 
               href={androidAppLink} 
@@ -1569,9 +1587,11 @@ export default function Home() {
           </motion.div>
         </div>
       </footer>
-      <React.Suspense fallback={null}>
-        <AIChatWidget />
-      </React.Suspense>
+      <AppErrorBoundary level="widget" sectionName="AI Assistant">
+        <React.Suspense fallback={null}>
+          <AIChatWidget />
+        </React.Suspense>
+      </AppErrorBoundary>
 
       {/* One-time Android App Download Popup */}
       <AnimatePresence>
@@ -2789,16 +2809,21 @@ const FAQAccordionList = () => {
   );
 };
 
-const TrustCard = React.memo(({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => {
+const TrustCard = React.memo(({ icon, title, description, bnDesc }: { icon: React.ReactNode, title: string, description: string, bnDesc?: string }) => {
   return (
-    <div className="group p-8 rounded-3xl bg-[#F8F9FA] dark:bg-[#1E293B]/40 hover:bg-white dark:hover:bg-[#1E293B] border border-transparent hover:border-slate-100 dark:hover:border-slate-800 hover:shadow-2xl transition-all duration-500">
-      <div className="mb-6 p-4 bg-white dark:bg-[#1E293B] shadow-sm border border-slate-50 dark:border-slate-800/80 inline-block rounded-2xl text-[#0D5BFF] transform group-hover:scale-110 transition-transform">
+    <div className="group p-6 sm:p-7 rounded-3xl bg-[#F8F9FA] dark:bg-[#1E293B]/40 hover:bg-white dark:hover:bg-[#1E293B] border border-slate-200/70 dark:border-slate-800/80 hover:border-blue-200 dark:hover:border-slate-700 hover:shadow-lg transition-all duration-300">
+      <div className="mb-5 p-3.5 bg-white dark:bg-[#1E293B] shadow-2xs border border-slate-200/70 dark:border-slate-800 inline-block rounded-2xl text-[#0D5BFF] transform group-hover:scale-105 transition-transform">
         {icon}
       </div>
-      <h4 className="text-2xl font-black font-heading text-[#0B132B] dark:text-white mb-4 uppercase tracking-tight italic">{title}</h4>
-      <p className="text-slate-500 dark:text-slate-300 leading-relaxed font-medium">
+      <h4 className="text-xl font-black font-heading text-[#0B132B] dark:text-white mb-3 uppercase tracking-tight italic">{title}</h4>
+      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
         {description}
       </p>
+      {bnDesc && (
+        <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-400 mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 leading-[1.65]">
+          {bnDesc}
+        </p>
+      )}
     </div>
   );
 });
@@ -2812,34 +2837,39 @@ const StatBlock = React.memo(({ value, label }: { value: string, label: string }
   );
 });
 
-const Step = React.memo(({ number, title, desc, index }: { number: string, title: string, desc: string, index: number }) => {
+const Step = React.memo(({ number, title, desc, bnDesc, index }: { number: string, title: string, desc: string, bnDesc?: string, index: number }) => {
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true, margin: "-40px" }}
       transition={{ 
         type: "spring", 
-        stiffness: 70, 
-        damping: 15,
-        delay: index * 0.15 
+        stiffness: 80, 
+        damping: 16,
+        delay: index * 0.1 
       }}
       className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left group cursor-default"
     >
-      <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+      <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5 flex items-center justify-center">
         {/* Animated glowing backplate */}
         <div className="absolute inset-0 bg-[#0D5BFF]/10 dark:bg-[#0D5BFF]/20 rounded-2xl scale-75 opacity-0 group-hover:scale-110 group-hover:opacity-100 blur-xl transition-all duration-300 z-0" />
         
         {/* Step Indicator container */}
-        <div className="relative z-10 w-20 h-20 bg-white dark:bg-[#1E293B] rounded-2xl flex items-center justify-center border-2 border-slate-100 dark:border-slate-800 shadow-sm group-hover:border-[#0D5BFF] group-hover:shadow-2xl group-hover:shadow-[#0D5BFF]/10 group-hover:-translate-y-1 transition-all duration-300">
-          <span className="text-2xl font-black font-heading text-[#0B132B] dark:text-white italic group-hover:text-[#0D5BFF] transition-colors">{number}</span>
+        <div className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 bg-white dark:bg-[#1E293B] rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs group-hover:border-[#0D5BFF] group-hover:shadow-lg group-hover:shadow-[#0D5BFF]/10 group-hover:-translate-y-1 transition-all duration-300">
+          <span className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white italic group-hover:text-[#0D5BFF] transition-colors">{number}</span>
         </div>
       </div>
       
-      <h4 className="text-xl font-black text-[#0B132B] dark:text-white mb-2 uppercase italic group-hover:text-[#0D5BFF] transition-colors duration-300">{title}</h4>
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+      <h4 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white mb-2 uppercase italic group-hover:text-[#0D5BFF] transition-colors duration-300">{title}</h4>
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
         {desc}
       </p>
+      {bnDesc && (
+        <p lang="bn" className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-[1.65]">
+          {bnDesc}
+        </p>
+      )}
     </motion.div>
   );
 });

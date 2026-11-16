@@ -12,6 +12,7 @@ import {
   getWeekdayFromDateString,
   normalizeAvailabilitySlots,
 } from '../../../shared/availabilityUtils';
+import { formatUserFriendlyError } from '../../lib/errorMonitoring';
 import { 
   Search, 
   MapPin, 
@@ -1129,7 +1130,10 @@ export default function StudentDashboard() {
       useAppStore.getState().sendNotification(
         currentUser.id,
         'Booking Request Notice',
-        error?.message || 'Your request could not be completed. Please verify your selected slot or active booking status.',
+        formatUserFriendlyError(
+          error?.message || 'Your request could not be completed. Please verify your selected slot or active booking status.',
+          'booking'
+        ),
         'error'
       );
     } finally {
@@ -1209,9 +1213,7 @@ export default function StudentDashboard() {
       setTimeout(() => setAccountUpdateSuccess(''), 4000);
     } catch (err: any) {
       console.error('Failed to update account profile:', err);
-      setAccountUpdateError(
-        err?.message || 'Unable to save profile changes to Firestore. Please try again.'
-      );
+      setAccountUpdateError(formatUserFriendlyError(err, 'dashboard'));
     } finally {
       setIsUpdating(false);
     }
@@ -1299,7 +1301,7 @@ export default function StudentDashboard() {
       );
       setTimeout(() => setAccountUpdateSuccess(''), 4000);
     } catch (err: any) {
-      setChildFormError(err?.message || 'Failed to save student profile.');
+      setChildFormError(formatUserFriendlyError(err, 'dashboard'));
     } finally {
       setIsSavingChild(false);
     }
@@ -1516,6 +1518,12 @@ export default function StudentDashboard() {
                     </h3>
                     <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest leading-relaxed max-w-xl">
                       Complete your required profile details to unlock smart tutor matching, accurate geolocation routing, and instant bookings.
+                    </p>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs text-blue-100/90 mt-2 leading-relaxed max-w-xl"
+                    >
+                      আপনার অ্যাকাউন্ট ও শিক্ষাসংক্রান্ত তথ্য সম্পূর্ণ করলে সঠিক শিক্ষক খুঁজে পাওয়া সহজ হবে।
                     </p>
                   </div>
 
@@ -2700,25 +2708,30 @@ export default function StudentDashboard() {
                           </div>
 
                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 mb-6">
-                            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-2.5 col-span-2 md:col-span-1">
-                               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Verification</p>
-                               <div className="space-y-2">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-2 col-span-2 md:col-span-1">
+                               <div className="flex items-center justify-between gap-2">
+                                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Verification</p>
+                                 <span className={`text-[11px] font-bold ${isTutorVerified(selectedTutor) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                   {isTutorVerified(selectedTutor) ? 'Identity Verified' : 'Under Review'}
+                                 </span>
+                               </div>
+                               <div className="space-y-1.5">
                                   <div className="flex items-center justify-between gap-2">
                                      <div className="flex items-center gap-1.5">
                                         <ShieldCheck className={`w-3.5 h-3.5 ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                                        <span className="text-xs font-semibold text-[#0B132B] dark:text-slate-200">NID</span>
+                                        <span className="text-xs font-semibold text-[#0B132B] dark:text-slate-200">National ID (NID)</span>
                                      </div>
-                                     <span className={`text-xs font-semibold ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                        {selectedTutor.nidStatus === 'approved' ? 'Verified' : 'Pending'}
+                                     <span className={`text-xs font-semibold ${selectedTutor.nidStatus === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : selectedTutor.academicStatus === 'approved' ? 'text-slate-500 dark:text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                        {selectedTutor.nidStatus === 'approved' ? 'Verified' : selectedTutor.academicStatus === 'approved' ? 'Optional' : 'Pending'}
                                      </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
                                      <div className="flex items-center gap-1.5">
                                         <ShieldCheck className={`w-3.5 h-3.5 ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                                        <span className="text-xs font-semibold text-[#0B132B] dark:text-slate-200">Academic</span>
+                                        <span className="text-xs font-semibold text-[#0B132B] dark:text-slate-200">Univ. / College ID</span>
                                      </div>
-                                     <span className={`text-xs font-semibold ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                        {selectedTutor.academicStatus === 'approved' ? 'Verified' : 'Pending'}
+                                     <span className={`text-xs font-semibold ${selectedTutor.academicStatus === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : selectedTutor.nidStatus === 'approved' ? 'text-slate-500 dark:text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                        {selectedTutor.academicStatus === 'approved' ? 'Verified' : selectedTutor.nidStatus === 'approved' ? 'Optional' : 'Pending'}
                                      </span>
                                   </div>
                                </div>
@@ -2908,15 +2921,18 @@ export default function StudentDashboard() {
                           </motion.div>
                         ) : (
                           <form onSubmit={handleBookingSubmit} className="space-y-8">
-                            {/* Visual Date Selection */}
-                             <div className="space-y-4">
-                               <div className="flex items-center justify-between px-1 sm:px-2">
-                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">1. Select Date</label>
-                                 <div className="flex items-center gap-1.5 bg-[#0D5BFF]/10 px-2.5 py-1 rounded-lg">
-                                    <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-pulse" />
-                                    <span className="text-[11px] font-semibold text-[#0D5BFF] dark:text-blue-400">30-Day Window</span>
-                                 </div>
-                               </div>
+                              {/* Visual Date Selection */}
+                              <div className="space-y-4">
+                                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 px-1 sm:px-2">
+                                  টিউশন বুকিং অনুরোধ পাঠাতে সুবিধাজনক তারিখ, সময় ও বিষয় নির্বাচন করুন।
+                                </p>
+                                <div className="flex items-center justify-between px-1 sm:px-2">
+                                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">1. Select Date</label>
+                                  <div className="flex items-center gap-1.5 bg-[#0D5BFF]/10 px-2.5 py-1 rounded-lg">
+                                     <div className="w-1.5 h-1.5 bg-[#0D5BFF] rounded-full animate-pulse" />
+                                     <span className="text-[11px] font-semibold text-[#0D5BFF] dark:text-blue-400">30-Day Window</span>
+                                  </div>
+                                </div>
                                <div className="relative group">
                                  <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                                    <button 
@@ -3326,9 +3342,12 @@ export default function StudentDashboard() {
                          <MapPin className="w-7 h-7 text-[#0D5BFF]" />
                       </div>
                       <div>
-                         <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">Transit Intelligence</h3>
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Real-time Proximity Radar</p>
-                      </div>
+                          <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">Transit Intelligence</h3>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Real-time Proximity Radar</p>
+                          <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1">
+                            লাইভ ম্যাপে শিক্ষকের অবস্থান ও আগমনের সম্ভাব্য সময় দেখুন।
+                          </p>
+                       </div>
                    </div>
                    <button 
                      onClick={refreshLocationManual}
@@ -3612,6 +3631,9 @@ export default function StudentDashboard() {
                         <div className="py-20 text-left md:text-center">
                            <Calendar className="w-12 h-12 text-slate-100 ml-0 mr-auto md:mx-auto mb-4" />
                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No active sessions requiring transit oversight</p>
+                           <p lang="bn" className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                             সক্রিয় টিউশন সেশন শুরু হলে এখানে শিক্ষকের লাইভ লোকেশন দেখা যাবে।
+                           </p>
                         </div>
                       )}
                    </div>
@@ -3750,6 +3772,9 @@ export default function StudentDashboard() {
                     <Send className="w-10 h-10 mb-4 ml-0 mr-auto md:mx-auto text-slate-400" />
                     <h3 className="text-lg font-black uppercase italic text-[#0B132B] dark:text-white">Initialize Comms</h3>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Select a certified contact from the uplink</p>
+                    <p lang="bn" className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                      কথা বলতে বাম পাশের তালিকা থেকে একজন শিক্ষক বা সাপোর্ট নির্বাচন করুন।
+                    </p>
                  </div>
                )}
             </div>
@@ -4135,7 +4160,7 @@ export default function StudentDashboard() {
                     <div>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Contact Phone</p>
                       <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                        {cleanMeaningfulString(currentUser.phone) || 'Not Specified'}
+                        {cleanMeaningfulString(currentUser.phone) || 'Not provided yet'}
                       </p>
                     </div>
                     <div>
@@ -4146,13 +4171,13 @@ export default function StudentDashboard() {
                         {[currentUser.address, currentUser.area, currentUser.thana, currentUser.district]
                           .map((v) => cleanMeaningfulString(v))
                           .filter(Boolean)
-                          .join(', ') || 'Not Specified'}
+                          .join(', ') || 'Not provided yet'}
                       </p>
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender</p>
                       <p className="text-xl font-black text-[#0D5BFF] uppercase italic">
-                        {cleanMeaningfulString(currentUser.gender) || 'Not Specified'}
+                        {cleanMeaningfulString(currentUser.gender) || 'Not provided yet'}
                       </p>
                     </div>
                   </div>
@@ -4164,7 +4189,7 @@ export default function StudentDashboard() {
                             Relationship to Student
                           </p>
                           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 uppercase italic">
-                            {cleanMeaningfulString(currentUser.guardianRelationship) || 'Not Specified'}
+                            {cleanMeaningfulString(currentUser.guardianRelationship) || 'Not provided yet'}
                           </p>
                         </div>
                         <div>
@@ -4190,7 +4215,7 @@ export default function StudentDashboard() {
                             School / College
                           </p>
                           <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                            {cleanMeaningfulString(currentUser.school) || 'Not Specified'}
+                            {cleanMeaningfulString(currentUser.school) || 'Not provided yet'}
                           </p>
                         </div>
                         <div>
@@ -4198,7 +4223,7 @@ export default function StudentDashboard() {
                             Academic Class
                           </p>
                           <p className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                            {cleanMeaningfulString(currentUser.studentClass) || 'Not Specified'}
+                            {cleanMeaningfulString(currentUser.studentClass) || 'Not provided yet'}
                           </p>
                         </div>
                         <div>
@@ -4206,7 +4231,7 @@ export default function StudentDashboard() {
                             Curriculum / Group
                           </p>
                           <p className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
-                            {cleanMeaningfulString(currentUser.curriculum) || cleanMeaningfulString(currentUser.group) || 'Not Specified'}
+                            {cleanMeaningfulString(currentUser.curriculum) || cleanMeaningfulString(currentUser.group) || 'Not provided yet'}
                           </p>
                         </div>
                         <div>
@@ -4252,6 +4277,12 @@ export default function StudentDashboard() {
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                           Add and manage academic profiles for your child or ward to prefill tuition posts and match verified tutors.
+                        </p>
+                        <p
+                          lang="bn"
+                          className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1"
+                        >
+                          একটি অভিভাবক অ্যাকাউন্ট থেকেই একাধিক সন্তানের আলাদা প্রোফাইল ও টিউশন পরিচালনা করতে পারবেন।
                         </p>
                       </div>
                       <button

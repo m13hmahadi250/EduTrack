@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore, consumePostLoginDestination } from '../store';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
 import {
   X,
   AlertCircle,
@@ -64,6 +65,76 @@ export function inferDivisionFromDistrict(district: string): string {
     }
   }
   return 'Dhaka';
+}
+
+export function buildSignupProfilePayload(options: {
+  formData: Record<string, any>;
+  role: 'student' | 'tutor';
+  accountType: AccountType;
+  sameAsMobile: boolean;
+  emailOverride?: string;
+}) {
+  const { formData, role, accountType, sameAsMobile, emailOverride } = options;
+  const normalizedPhone = normalizeBdPhone(formData.phone || '');
+  const finalWhatsapp =
+    sameAsMobile || !formData.whatsappNumber?.trim()
+      ? normalizedPhone
+      : normalizeBdPhone(formData.whatsappNumber || '');
+  const cleanDistrict = cleanMeaningfulString(formData.district);
+  const cleanThana = cleanMeaningfulString(formData.thana);
+  const cleanArea = cleanMeaningfulString(formData.area);
+  const inferredDivision = formData.division || inferDivisionFromDistrict(cleanDistrict) || 'Dhaka';
+  const fallbackAddress =
+    cleanMeaningfulString(formData.address) ||
+    [cleanArea, cleanThana, cleanDistrict].filter(Boolean).join(', ');
+  const cleanCurriculum = cleanMeaningfulString(formData.curriculum || formData.group);
+  const cleanSchool = cleanMeaningfulString(formData.school);
+  const parsedSubjects = parseSubjectsList(formData.subjects, formData.subject);
+  const seededTeachingAreas = [cleanArea, cleanThana]
+    .filter(Boolean)
+    .filter((item, idx, arr) => arr.findIndex((x) => x.toLowerCase() === item.toLowerCase()) === idx);
+  const numericRate = formData.hourlyRate
+    ? Number(String(formData.hourlyRate).replace(/\D/g, ''))
+    : 0;
+
+  const payload: Record<string, any> = {
+    ...formData,
+    name: cleanMeaningfulString(formData.name) || (formData.name || '').trim(),
+    ...(emailOverride !== undefined ? { email: emailOverride } : {}),
+    phone: normalizedPhone,
+    whatsappNumber: finalWhatsapp,
+    division: inferredDivision,
+    address: fallbackAddress,
+    area: cleanArea,
+    district: cleanDistrict,
+    thana: cleanThana,
+    curriculum: cleanCurriculum,
+    group: cleanCurriculum,
+    subjects: parsedSubjects,
+    subject: parsedSubjects.join(', '),
+    semester: cleanMeaningfulString(formData.semester),
+    role,
+    ...(role === 'student'
+      ? {
+          school: cleanSchool,
+          accountType,
+          ...(accountType === 'guardian'
+            ? {
+                guardianRelationship: cleanMeaningfulString(formData.guardianRelationship),
+                studentName: cleanMeaningfulString(formData.studentName),
+              }
+            : {}),
+        }
+      : {
+          school: undefined,
+          teachingMode: cleanMeaningfulString(formData.teachingMode) || 'Home & Online',
+          teachingAreas: seededTeachingAreas,
+          ...(numericRate > 0 ? { hourlyRate: numericRate } : {}),
+        }),
+  };
+
+  delete payload.password;
+  return payload;
 }
 
 const SIGNUP_DRAFT_KEY = 'edutrack_signup_draft';
@@ -586,10 +657,7 @@ export default function Signup() {
       setLoading(false);
     } catch (err: any) {
       console.error('OTP trigger error:', err);
-      let msg = err.message || 'Failed to send verification email. Please check your address.';
-      if (msg.includes('auth/email-already-in-use')) {
-        msg = 'This email is already registered. Please sign in instead.';
-      }
+      const msg = formatUserFriendlyError(err, 'signup');
       setError(msg);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -662,7 +730,7 @@ export default function Signup() {
         isOpen: true,
       });
     } catch (err: any) {
-      setOtpError(err.message || 'Failed to resend verification code.');
+      setOtpError(formatUserFriendlyError(err, 'otp'));
     } finally {
       setOtpLoading(false);
     }
@@ -718,58 +786,15 @@ export default function Signup() {
         };
       }
 
-      const normalizedPhone = normalizeBdPhone(formData.phone);
-      const finalWhatsapp =
-        sameAsMobile || !formData.whatsappNumber?.trim()
-          ? normalizedPhone
-          : normalizeBdPhone(formData.whatsappNumber);
-      const inferredDivision =
-        formData.division || inferDivisionFromDistrict(formData.district) || 'Dhaka';
-      const fallbackAddress =
-        cleanMeaningfulString(formData.address) ||
-        [formData.area, formData.thana, formData.district].map((v) => cleanMeaningfulString(v)).filter(Boolean).join(', ');
-      const cleanCurriculum = cleanMeaningfulString(formData.curriculum || formData.group);
-      const cleanSchool = cleanMeaningfulString(formData.school);
-      const parsedSubjects = parseSubjectsList(formData.subjects, formData.subject);
-
       // Preserve exact user-entered password (never .trim())
       const password = formData.password;
-      const payload: any = {
-        ...formData,
-        name: cleanMeaningfulString(formData.name) || formData.name.trim(),
-        email: trimmedEmail,
-        phone: normalizedPhone,
-        whatsappNumber: finalWhatsapp,
-        division: inferredDivision,
-        address: fallbackAddress,
-        area: cleanMeaningfulString(formData.area),
-        district: cleanMeaningfulString(formData.district),
-        thana: cleanMeaningfulString(formData.thana),
-        school: role === 'student' ? cleanSchool : undefined,
-        curriculum: cleanCurriculum,
-        group: cleanCurriculum,
-        subjects: parsedSubjects,
-        subject: parsedSubjects.join(', '),
-        semester: cleanMeaningfulString(formData.semester),
+      const payload = buildSignupProfilePayload({
+        formData,
         role,
-        ...(role === 'student'
-          ? {
-              accountType,
-              ...(accountType === 'guardian'
-                ? {
-                    guardianRelationship: cleanMeaningfulString(formData.guardianRelationship),
-                    studentName: cleanMeaningfulString(formData.studentName),
-                  }
-                : {}),
-            }
-          : {
-              teachingMode: cleanMeaningfulString(formData.teachingMode) || 'Home & Online',
-              ...(formData.hourlyRate && Number(String(formData.hourlyRate).replace(/\D/g, '')) > 0
-                ? { hourlyRate: Number(String(formData.hourlyRate).replace(/\D/g, '')) }
-                : {}),
-            }),
-      };
-      delete payload.password;
+        accountType,
+        sameAsMobile,
+        emailOverride: trimmedEmail,
+      });
 
       await signup(payload, password, referralCodeInput);
       try {
@@ -780,22 +805,8 @@ export default function Signup() {
       }
       setSignupSuccess(true);
     } catch (err: any) {
-      console.error('OTP verification / Firebase signup error:', err);
-      let msg = err.message || 'Verification or signup failed. Please try again.';
-
-      const errStr = String(err);
-      if (
-        msg.includes('auth/email-already-in-use') ||
-        errStr.includes('auth/email-already-in-use')
-      ) {
-        msg = 'This email is already registered in Firebase. Please sign in instead.';
-      } else if (
-        msg.includes('auth/weak-password') ||
-        errStr.includes('auth/weak-password')
-      ) {
-        msg = 'Password is too short. Please go back and pick at least 8 characters.';
-      }
-
+      console.error('OTP verification / signup error:', err);
+      const msg = formatUserFriendlyError(err, 'signup');
       setOtpError(msg);
       throw new Error(msg);
     } finally {
@@ -903,6 +914,9 @@ export default function Signup() {
               </h1>
               <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1">
                 Choose your role below and complete 3 quick steps to get started.
+              </p>
+              <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1 leading-[1.65]">
+                আপনার ভূমিকা নির্বাচন করে ৩টি সহজ ধাপে অ্যাকাউন্ট তৈরি করুন — এই তথ্যগুলো আপনার প্রোফাইলে স্বয়ংক্রিয়ভাবে যুক্ত হবে।
               </p>
             </div>
 
@@ -1113,14 +1127,19 @@ export default function Signup() {
                   transition={{ duration: 0.2 }}
                   className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5"
                 >
-                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-3">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <User className="w-4 h-4 text-[#0D5BFF]" />
-                      <span>Step 1 of 3: Essential Account Details</span>
-                    </h2>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                      * Required fields
-                    </span>
+                  <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <User className="w-4 h-4 text-[#0D5BFF]" />
+                        <span>Step 1 of 3: Essential Account Details</span>
+                      </h2>
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        * Required fields
+                      </span>
+                    </div>
+                    <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                      সঠিক নাম, সচল মোবাইল নম্বর ও ইমেইল দিন; ইমেইলে ৬ সংখ্যার ভেরিফিকেশন কোড পাঠানো হবে।
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -1531,7 +1550,7 @@ export default function Signup() {
                   className="space-y-5"
                 >
                   <div className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5">
-                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-3">
+                    <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
                       <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         {role === 'student' ? (
                           <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
@@ -1547,6 +1566,13 @@ export default function Signup() {
                             : 'Student Class, School & Subject Details'}
                         </span>
                       </h2>
+                      <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]">
+                        {role === 'tutor'
+                          ? 'আপনার বিশ্ববিদ্যালয়, পড়ানোর বিষয় ও প্রত্যাশিত সম্মানী দিন—এগুলো প্রোফাইলে স্বয়ংক্রিয়ভাবে সেভ হবে।'
+                          : accountType === 'guardian'
+                          ? 'এখানে শিক্ষার্থীর নাম ও শ্রেণি দিলে অভিভাবক ড্যাশবোর্ডে স্বয়ংক্রিয়ভাবে প্রোফাইল তৈরি হয়ে যাবে।'
+                          : 'আপনার শ্রেণি, প্রতিষ্ঠান ও প্রয়োজনীয় বিষয়গুলো দিন যাতে সঠিক শিক্ষক খুঁজে পাওয়া যায়।'}
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -1806,11 +1832,12 @@ export default function Signup() {
                 setError('');
                 setLoading(true);
                 try {
-                  const data = {
-                    ...formData,
-                    ...(role === 'student' ? { accountType } : {}),
-                  };
-                  delete data.password;
+                  const data = buildSignupProfilePayload({
+                    formData,
+                    role,
+                    accountType,
+                    sameAsMobile,
+                  });
                   await useAppStore.getState().loginWithGoogle(role, data, '/dashboard');
                   setSignupSuccess(true);
                   await new Promise((resolve) => setTimeout(resolve, 800));

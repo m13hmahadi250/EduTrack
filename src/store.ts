@@ -38,6 +38,7 @@ import {
   TutorPrivacySettings,
 } from '../shared/tutorPrivacy';
 import { clearAuthorizedPhotoCache } from './lib/authorizedMedia';
+import { formatUserFriendlyError } from './lib/errorMonitoring';
 import { normalizeAvailabilitySlots } from '../shared/availabilityUtils';
 import {
   AccountType,
@@ -398,7 +399,203 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   if (operationType === OperationType.LIST || (operationType === OperationType.GET && path?.startsWith('users/'))) {
     return;
   }
-  throw new Error(JSON.stringify(errInfo));
+  throw new Error(formatUserFriendlyError(error));
+}
+
+function normalizeDateString(val: unknown, fallback = ''): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return new Date(val).toISOString();
+  }
+  if (typeof val === 'object') {
+    const obj = val as Record<string, any>;
+    if (typeof obj.toDate === 'function') {
+      try {
+        const d = obj.toDate();
+        if (d instanceof Date && !Number.isNaN(d.getTime())) return d.toISOString();
+      } catch {}
+    }
+    if (typeof obj.seconds === 'number' && Number.isFinite(obj.seconds)) {
+      return new Date(obj.seconds * 1000).toISOString();
+    }
+  }
+  return fallback;
+}
+
+function normalizeSessionRecord(raw: any): Session {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      tutorId: '',
+      studentId: '',
+      subject: 'General Session',
+      status: 'scheduled',
+      scheduledTime: '',
+      duration: 60,
+    };
+  }
+  const validStatuses: Session['status'][] = [
+    'scheduled',
+    'active',
+    'completed',
+    'cancelled',
+    'proposed_by_tutor',
+    'requested_by_student',
+    'rejected',
+  ];
+  const rawStatus = typeof raw.status === 'string' ? raw.status : 'scheduled';
+  const safeStatus: Session['status'] = validStatuses.includes(rawStatus as Session['status'])
+    ? (rawStatus as Session['status'])
+    : 'scheduled';
+
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    tutorId: typeof raw.tutorId === 'string' ? raw.tutorId : '',
+    studentId: typeof raw.studentId === 'string' ? raw.studentId : '',
+    subject: typeof raw.subject === 'string' && raw.subject.trim() ? raw.subject : 'General Session',
+    status: safeStatus,
+    scheduledTime: normalizeDateString(raw.scheduledTime || raw.date, ''),
+    startTime: raw.startTime ? normalizeDateString(raw.startTime) : undefined,
+    endTime: raw.endTime ? normalizeDateString(raw.endTime) : undefined,
+    duration: Number.isFinite(Number(raw.duration)) ? Number(raw.duration) : undefined,
+  } as Session;
+}
+
+function normalizePaymentRecord(raw: any): Payment {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      studentId: '',
+      tutorId: '',
+      bKashNumber: '',
+      amount: 0,
+      transactionId: '',
+      status: 'pending',
+      date: new Date().toISOString(),
+    };
+  }
+  const safeStatus: Payment['status'] =
+    raw.status === 'approved' || raw.status === 'rejected' ? raw.status : 'pending';
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    studentId: typeof raw.studentId === 'string' ? raw.studentId : '',
+    tutorId: typeof raw.tutorId === 'string' ? raw.tutorId : '',
+    bKashNumber: typeof raw.bKashNumber === 'string' ? raw.bKashNumber : '',
+    amount: Number.isFinite(Number(raw.amount)) ? Number(raw.amount) : 0,
+    transactionId: typeof raw.transactionId === 'string' ? raw.transactionId : '',
+    status: safeStatus,
+    date: normalizeDateString(raw.date, new Date().toISOString()),
+  } as Payment;
+}
+
+function normalizeMessageRecord(raw: any): Message {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      senderId: '',
+      receiverId: '',
+      participants: [],
+      content: '',
+      timestamp: new Date().toISOString(),
+      isRead: false,
+    };
+  }
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    senderId: typeof raw.senderId === 'string' ? raw.senderId : '',
+    receiverId: typeof raw.receiverId === 'string' ? raw.receiverId : '',
+    participants: Array.isArray(raw.participants) ? raw.participants : [],
+    content: typeof raw.content === 'string' ? raw.content : String(raw.content ?? raw.text ?? ''),
+    timestamp: normalizeDateString(raw.timestamp, new Date().toISOString()),
+    isRead: Boolean(raw.isRead),
+  } as Message;
+}
+
+function normalizeNotificationRecord(raw: any): Notification {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      userId: '',
+      title: 'Notification',
+      message: '',
+      type: 'info',
+      isRead: false,
+      timestamp: new Date().toISOString(),
+    };
+  }
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    userId: typeof raw.userId === 'string' ? raw.userId : '',
+    title: typeof raw.title === 'string' ? raw.title : 'Notification',
+    message: typeof raw.message === 'string' ? raw.message : String(raw.message ?? ''),
+    type: raw.type === 'success' || raw.type === 'warning' || raw.type === 'error' ? raw.type : 'info',
+    isRead: Boolean(raw.isRead),
+    timestamp: normalizeDateString(raw.timestamp, new Date().toISOString()),
+  } as Notification;
+}
+
+function normalizeClassLogRecord(raw: any): ClassLog {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      studentId: '',
+      tutorId: '',
+      date: '',
+      status: 'pending',
+      subject: 'General',
+      loggedAt: new Date().toISOString(),
+    };
+  }
+  const safeStatus: ClassLog['status'] =
+    raw.status === 'verified' || raw.status === 'disputed' ? raw.status : 'pending';
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    studentId: typeof raw.studentId === 'string' ? raw.studentId : '',
+    tutorId: typeof raw.tutorId === 'string' ? raw.tutorId : '',
+    date: normalizeDateString(raw.date, ''),
+    status: safeStatus,
+    subject: typeof raw.subject === 'string' && raw.subject.trim() ? raw.subject : 'General',
+    loggedAt: normalizeDateString(raw.loggedAt || raw.createdAt, new Date().toISOString()),
+    reviewedAt: raw.reviewedAt ? normalizeDateString(raw.reviewedAt) : undefined,
+  } as ClassLog;
+}
+
+function normalizeHomeworkRecord(raw: any): HomeworkAssignment {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: '',
+      tutorId: '',
+      studentId: '',
+      subject: 'General',
+      title: 'Homework',
+      text: '',
+      dueDate: '',
+      status: 'assigned',
+      createdAt: new Date().toISOString(),
+    };
+  }
+  const safeStatus: HomeworkAssignment['status'] =
+    raw.status === 'submitted' || raw.status === 'completed' || raw.status === 'revision'
+      ? raw.status
+      : 'assigned';
+  return {
+    ...raw,
+    id: typeof raw.id === 'string' ? raw.id : String(raw.id || ''),
+    tutorId: typeof raw.tutorId === 'string' ? raw.tutorId : '',
+    studentId: typeof raw.studentId === 'string' ? raw.studentId : '',
+    subject: typeof raw.subject === 'string' && raw.subject.trim() ? raw.subject : 'General',
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : 'Homework',
+    text: typeof raw.text === 'string' ? raw.text : String(raw.description ?? raw.text ?? ''),
+    dueDate: normalizeDateString(raw.dueDate, ''),
+    status: safeStatus,
+    createdAt: normalizeDateString(raw.createdAt, new Date().toISOString()),
+  } as HomeworkAssignment;
 }
 
 function cleanUndefined<T>(obj: T): T {
@@ -436,6 +633,62 @@ function clearEphemeralAuthStorage() {
     localStorage.removeItem('google_auth_requested_role');
     localStorage.removeItem('google_auth_additional_user_data');
   } catch {}
+}
+
+async function ensureGuardianInitialStudentProfile(
+  uid: string,
+  userData: User
+): Promise<{ userData: User; studentProfiles: StudentProfileRecord[] }> {
+  if (
+    userData.role !== 'student' ||
+    userData.accountType !== 'guardian' ||
+    userData.activeStudentProfileId ||
+    !(
+      cleanMeaningfulString(userData.studentName) ||
+      cleanMeaningfulString(userData.studentClass) ||
+      cleanMeaningfulString(userData.school)
+    )
+  ) {
+    return { userData, studentProfiles: [] };
+  }
+
+  const spId = `sp_${uid}_${Date.now()}`;
+  const nowIso = new Date().toISOString();
+  const spRecord: StudentProfileRecord = cleanUndefined({
+    id: spId,
+    guardianId: uid,
+    studentName: cleanMeaningfulString(userData.studentName) || 'Student',
+    studentClass: cleanMeaningfulString(userData.studentClass) || '',
+    school: cleanMeaningfulString(userData.school) || '',
+    curriculum: cleanMeaningfulString(userData.curriculum || userData.group) || '',
+    subjects: Array.isArray(userData.subjects) ? userData.subjects : [],
+    district: cleanMeaningfulString(userData.district) || '',
+    thana: cleanMeaningfulString(userData.thana) || '',
+    area: cleanMeaningfulString(userData.area) || '',
+    address: cleanMeaningfulString(userData.address) || '',
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  try {
+    await setDoc(doc(db, 'student_profiles', spId), spRecord);
+    const updatedCompletion = calculateProfileCompletion(userData, {
+      studentProfiles: [spRecord],
+    });
+    const nextUser: User = {
+      ...userData,
+      activeStudentProfileId: spId,
+      profileCompletionPercentage: updatedCompletion.percentage,
+    };
+    await updateDoc(doc(db, 'users', uid), {
+      activeStudentProfileId: spId,
+      profileCompletionPercentage: updatedCompletion.percentage,
+    });
+    return { userData: nextUser, studentProfiles: [spRecord] };
+  } catch (spErr) {
+    console.warn('Non-blocking: could not initialize guardian student profile:', spErr);
+    return { userData, studentProfiles: [] };
+  }
 }
 
 export const useAppStore = create<AppState>((set, get) => {
@@ -566,7 +819,7 @@ export const useAppStore = create<AppState>((set, get) => {
           const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
           const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
-          const newUser: User = {
+          const rawGoogleRedirectUser: User = {
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'EduTrack User')),
@@ -585,14 +838,34 @@ export const useAppStore = create<AppState>((set, get) => {
             ...additionalUserData
           };
 
-          const cleanedUser = cleanUndefined(newUser);
+          const normalizedRedirectUser = normalizeUserProfileFields(rawGoogleRedirectUser);
+          normalizedRedirectUser.profileCompletionPercentage = calculateProfileCompletion(normalizedRedirectUser).percentage;
+          let cleanedUser = cleanUndefined(normalizedRedirectUser);
           try {
             await setDoc(doc(db, 'users', firebaseUser.uid), cleanedUser);
           } catch (createErr) {
             console.warn("Could not save initial user doc in onAuthStateChanged:", createErr);
           }
 
-          set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
+          const guardianInit = await ensureGuardianInitialStudentProfile(firebaseUser.uid, cleanedUser);
+          cleanedUser = guardianInit.userData;
+
+          set({
+            currentUser: cleanedUser,
+            users: [],
+            payments: [],
+            sessions: [],
+            withdrawals: [],
+            messages: [],
+            notifications: [],
+            classLogs: [],
+            homeworkAssignments: [],
+            referrals: [],
+            studentProfiles: guardianInit.studentProfiles,
+            typingStatus: {},
+            isLoading: false,
+            isInitialized: true,
+          });
 
           if (cleanedUser.email && requestedRoleStr) {
             sendWelcomeMail({
@@ -613,20 +886,6 @@ export const useAppStore = create<AppState>((set, get) => {
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
           } catch (e) {}
-          // Reset any stale collections from a previous user before attaching new user's listeners
-          set({
-            users: [],
-            payments: [],
-            sessions: [],
-            withdrawals: [],
-            messages: [],
-            notifications: [],
-            classLogs: [],
-            homeworkAssignments: [],
-            referrals: [],
-            studentProfiles: [],
-            typingStatus: {},
-          });
           setupListeners(firebaseUser.uid, cleanedUser.role, set, get);
         }
       } catch (error) {
@@ -905,7 +1164,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
         let userData: User;
         if (userDoc.exists()) {
-          userData = userDoc.data() as User;
+          userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
           const lowerEmail = trimmedEmail.toLowerCase();
           if (lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') {
             if (userData.role !== 'admin' || !userData.isVerified) {
@@ -932,7 +1191,7 @@ export const useAppStore = create<AppState>((set, get) => {
           const finalRole: Role = isMainAdmin ? 'admin' : 'student';
           const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
           
-          userData = {
+          userData = normalizeUserProfileFields({
             id: firebaseUser.uid,
             email: lowerEmail,
             name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : lowerEmail.split('@')[0]),
@@ -948,7 +1207,7 @@ export const useAppStore = create<AppState>((set, get) => {
             referralCode,
             referralPoints: 0,
             serviceDiscounts: 0,
-          };
+          });
 
           try {
             await setDoc(doc(db, 'users', firebaseUser.uid), cleanUndefined(userData));
@@ -1043,6 +1302,7 @@ export const useAppStore = create<AppState>((set, get) => {
           const userDoc = await getDoc(userDocRef);
 
           let userData: User;
+          let googleStudentProfiles: StudentProfileRecord[] = [];
           if (userDoc.exists()) {
             userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
             const lowercaseEmail = firebaseUser.email?.toLowerCase();
@@ -1097,44 +1357,9 @@ export const useAppStore = create<AppState>((set, get) => {
             await setDoc(userDocRef, cleanedUser);
             userData = cleanedUser;
 
-            if (
-              userData.role === 'student' &&
-              userData.accountType === 'guardian' &&
-              (cleanMeaningfulString(userData.studentName) || cleanMeaningfulString(userData.studentClass))
-            ) {
-              const spId = `sp_${firebaseUser.uid}_${Date.now()}`;
-              const nowIso = new Date().toISOString();
-              const spRecord: StudentProfileRecord = cleanUndefined({
-                id: spId,
-                guardianId: firebaseUser.uid,
-                studentName: cleanMeaningfulString(userData.studentName) || 'Student',
-                studentClass: cleanMeaningfulString(userData.studentClass) || '',
-                school: cleanMeaningfulString(userData.school) || '',
-                curriculum: cleanMeaningfulString(userData.curriculum || userData.group) || '',
-                subjects: userData.subjects || [],
-                district: userData.district || '',
-                thana: userData.thana || '',
-                area: userData.area || '',
-                address: userData.address || '',
-                createdAt: nowIso,
-                updatedAt: nowIso,
-              });
-              try {
-                await setDoc(doc(db, 'student_profiles', spId), spRecord);
-                const updatedCompletion = calculateProfileCompletion(userData, { studentProfiles: [spRecord] });
-                userData = {
-                  ...userData,
-                  activeStudentProfileId: spId,
-                  profileCompletionPercentage: updatedCompletion.percentage,
-                };
-                await updateDoc(userDocRef, {
-                  activeStudentProfileId: spId,
-                  profileCompletionPercentage: updatedCompletion.percentage,
-                });
-              } catch (spErr) {
-                console.warn('Non-blocking: could not initialize Google guardian student profile:', spErr);
-              }
-            }
+            const guardianInit = await ensureGuardianInitialStudentProfile(firebaseUser.uid, userData);
+            userData = guardianInit.userData;
+            googleStudentProfiles = guardianInit.studentProfiles;
 
             if (userData.email) {
               sendWelcomeMail({
@@ -1166,7 +1391,7 @@ export const useAppStore = create<AppState>((set, get) => {
             classLogs: [],
             homeworkAssignments: [],
             referrals: [],
-            studentProfiles: [],
+            studentProfiles: googleStudentProfiles,
             typingStatus: {},
             isLoading: false,
             isInitialized: true,
@@ -1564,6 +1789,37 @@ export const useAppStore = create<AppState>((set, get) => {
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedCurrent));
           } catch {}
+
+          // Keep guardian child records' location in sync when guardian updates their primary home location
+          if (
+            updatedCurrent.role === 'student' &&
+            updatedCurrent.accountType === 'guardian' &&
+            (payloadToWrite.district !== undefined ||
+              payloadToWrite.thana !== undefined ||
+              payloadToWrite.area !== undefined ||
+              payloadToWrite.address !== undefined)
+          ) {
+            const locationSync: Partial<StudentProfileRecord> = cleanUndefined({
+              ...(payloadToWrite.district !== undefined ? { district: updatedCurrent.district } : {}),
+              ...(payloadToWrite.thana !== undefined ? { thana: updatedCurrent.thana } : {}),
+              ...(payloadToWrite.area !== undefined ? { area: updatedCurrent.area } : {}),
+              ...(payloadToWrite.address !== undefined ? { address: updatedCurrent.address } : {}),
+              updatedAt: new Date().toISOString(),
+            });
+            const linkedProfiles = get().studentProfiles.filter((sp) => sp.guardianId === id);
+            if (linkedProfiles.length > 0 && Object.keys(locationSync).length > 0) {
+              set({
+                studentProfiles: get().studentProfiles.map((sp) =>
+                  sp.guardianId === id ? { ...sp, ...locationSync } : sp
+                ),
+              });
+              Promise.all(
+                linkedProfiles.map((sp) =>
+                  updateDoc(doc(db, 'student_profiles', sp.id), locationSync as any).catch(() => {})
+                )
+              ).catch(() => {});
+            }
+          }
         }
         const usersList = get().users;
         if (usersList.some(u => u.id === id)) {
@@ -1850,7 +2106,7 @@ export const useAppStore = create<AppState>((set, get) => {
           users: usersList.map(u => u.id === id ? { ...u, ...updatesPayload } : u)
         });
       } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+        console.warn('Non-blocking location update failed:', error);
       }
     },
 
@@ -2517,7 +2773,7 @@ export const useAppStore = create<AppState>((set, get) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `notifications/${id}`);
+        console.warn('Non-blocking notification write failed:', error);
       }
     },
 
@@ -2658,25 +2914,30 @@ function loadOfflineData(uid: string, role: Role, set: any) {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed) {
-        const cachedSessions: Session[] = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+        const cachedSessions: Session[] = Array.isArray(parsed.sessions)
+          ? parsed.sessions.filter(Boolean).map(normalizeSessionRecord)
+          : [];
         const cachedUsers: User[] = Array.isArray(parsed.users)
-          ? parsed.users.map((u: User) =>
-              role !== 'admin' && u.role === 'tutor' && u.id !== uid
-                ? (sanitizeTutorProfileForViewer(u, { id: uid, role }, cachedSessions).tutor as User)
-                : u
-            )
+          ? parsed.users
+              .filter(Boolean)
+              .map((rawU: User) => {
+                const u = normalizeUserProfileFields(rawU);
+                return role !== 'admin' && u.role === 'tutor' && u.id !== uid
+                  ? (sanitizeTutorProfileForViewer(u, { id: uid, role }, cachedSessions).tutor as User)
+                  : u;
+              })
           : [];
         set({
           sessions: cachedSessions,
-          classLogs: parsed.classLogs || [],
-          messages: parsed.messages || [],
+          classLogs: Array.isArray(parsed.classLogs) ? parsed.classLogs.filter(Boolean).map(normalizeClassLogRecord) : [],
+          messages: Array.isArray(parsed.messages) ? parsed.messages.filter(Boolean).map(normalizeMessageRecord) : [],
           users: cachedUsers,
-          homeworkAssignments: parsed.homeworkAssignments || [],
-          payments: parsed.payments || [],
-          notifications: parsed.notifications || [],
-          withdrawals: parsed.withdrawals || [],
-          referrals: parsed.referrals || [],
-          studentProfiles: parsed.studentProfiles || []
+          homeworkAssignments: Array.isArray(parsed.homeworkAssignments) ? parsed.homeworkAssignments.filter(Boolean).map(normalizeHomeworkRecord) : [],
+          payments: Array.isArray(parsed.payments) ? parsed.payments.filter(Boolean).map(normalizePaymentRecord) : [],
+          notifications: Array.isArray(parsed.notifications) ? parsed.notifications.filter(Boolean).map(normalizeNotificationRecord) : [],
+          withdrawals: Array.isArray(parsed.withdrawals) ? parsed.withdrawals.filter(Boolean) : [],
+          referrals: Array.isArray(parsed.referrals) ? parsed.referrals.filter(Boolean) : [],
+          studentProfiles: Array.isArray(parsed.studentProfiles) ? parsed.studentProfiles.filter(Boolean) : []
         });
       }
     }
@@ -2700,7 +2961,8 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     const currentSessions: Session[] = get().sessions || [];
     let users = rawUsersList.map((raw) => {
       const privateMedia = privateMediaByUserId.get(raw.id);
-      const hydrated = privateMedia ? ({ ...raw, ...privateMedia } as User) : raw;
+      const merged = privateMedia ? ({ ...raw, ...privateMedia } as User) : raw;
+      const hydrated = normalizeUserProfileFields(merged);
 
       if (hydrated.role === 'admin') {
         return {
@@ -2941,7 +3203,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   }
   
   const unsubPayments = onSnapshot(paymentsQuery, (snapshot) => {
-    const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+    const payments = snapshot.docs.map(doc => normalizePaymentRecord({ id: doc.id, ...doc.data() }));
     set({ payments });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'payments');
@@ -2956,7 +3218,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     sessionsQuery = query(collection(db, 'sessions'), where('tutorId', '==', uid));
   }
   const unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
-    const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
+    const sessions = snapshot.docs.map(doc => normalizeSessionRecord({ id: doc.id, ...doc.data() }));
     const nextConfirmedTutorIds = new Set(
       sessions
         .filter((s) => s.studentId === uid && CONFIRMED_PHOTO_STATUSES.has(s.status))
@@ -2982,7 +3244,24 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       withdrawalsQuery = query(collection(db, 'withdrawals'), where('tutorId', '==', uid));
     }
     const unsubWithdrawals = onSnapshot(withdrawalsQuery, (snapshot) => {
-      const withdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Withdrawal));
+      const withdrawals = snapshot.docs.map(doc => {
+        const raw = doc.data() || {};
+        const rawMethod = typeof raw.paymentMethod === 'string' ? raw.paymentMethod.toLowerCase() : typeof raw.method === 'string' ? raw.method.toLowerCase() : 'bkash';
+        const safeMethod: Withdrawal['paymentMethod'] =
+          rawMethod === 'nagad' || rawMethod === 'bank' ? rawMethod : 'bkash';
+        const safeStatus: Withdrawal['status'] =
+          raw.status === 'approved' || raw.status === 'rejected' ? raw.status : 'pending';
+        return {
+          ...raw,
+          id: doc.id,
+          tutorId: typeof raw.tutorId === 'string' ? raw.tutorId : '',
+          amount: Number.isFinite(Number(raw.amount)) ? Number(raw.amount) : 0,
+          bKashNumber: typeof raw.bKashNumber === 'string' ? raw.bKashNumber : String(raw.accountDetails || ''),
+          paymentMethod: safeMethod,
+          status: safeStatus,
+          timestamp: normalizeDateString(raw.timestamp || raw.date, new Date().toISOString()),
+        } as Withdrawal;
+      });
       set({ withdrawals });
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'withdrawals');
@@ -2994,7 +3273,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   const messagesQuery = query(collection(db, 'messages'), where('participants', 'array-contains', uid));
   
   const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
-    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    const messages = snapshot.docs.map(doc => normalizeMessageRecord({ id: doc.id, ...doc.data() }));
     set({ messages });
     persistOfflineData(uid, get());
   }, (error) => {
@@ -3005,7 +3284,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   // Listen to notifications
   const notificationsQuery = query(collection(db, 'notifications'), where('userId', '==', uid));
   const unsubNotifs = onSnapshot(notificationsQuery, (snapshot) => {
-    const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+    const notifications = snapshot.docs.map(doc => normalizeNotificationRecord({ id: doc.id, ...doc.data() }));
     set({ notifications });
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'notifications');
@@ -3022,7 +3301,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     classLogsQuery = query(collection(db, 'class_logs'));
   }
   const unsubClassLogs = onSnapshot(classLogsQuery, (snapshot) => {
-    const classLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClassLog));
+    const classLogs = snapshot.docs.map(doc => normalizeClassLogRecord({ id: doc.id, ...doc.data() }));
     set({ classLogs });
     persistOfflineData(uid, get());
   }, (error) => {
@@ -3040,7 +3319,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
     homeworkQuery = query(collection(db, 'homework_assignments'));
   }
   const unsubHomework = onSnapshot(homeworkQuery, (snapshot) => {
-    const homeworkAssignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HomeworkAssignment));
+    const homeworkAssignments = snapshot.docs.map(doc => normalizeHomeworkRecord({ id: doc.id, ...doc.data() }));
     set({ homeworkAssignments });
     persistOfflineData(uid, get());
   }, (error) => {

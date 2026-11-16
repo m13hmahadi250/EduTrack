@@ -480,7 +480,9 @@ app.post("/api/storage/upload", upload.single("image"), async (req, res) => {
     });
   } catch (error: any) {
     console.error("[Storage] Upload & compression error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: "Unable to upload your file right now. Please check the file and try again.",
+    });
   }
 });
 
@@ -536,7 +538,9 @@ app.post("/api/storage/presign", async (req, res) => {
     res.json({ uploadUrl, publicUrl, key });
   } catch (error: any) {
     console.error("[Storage] Presign error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: "Unable to prepare file upload right now. Please try again shortly.",
+    });
   }
 });
 
@@ -632,7 +636,9 @@ app.post("/api/ai/chat", async (req, res) => {
     res.json({ reply: replyText });
   } catch (error: any) {
     console.error("[AI Chat API Error]:", error);
-    res.status(500).json({ error: error.message || "Failed to generate AI response" });
+    res.status(500).json({
+      error: "Our virtual assistant is temporarily unavailable. Please try again in a moment.",
+    });
   }
 });
 
@@ -735,7 +741,9 @@ app.post("/api/save-fcm-token", (req, res) => {
     res.json({ success: true, message: "FCM Token registered on backend successfully" });
   } catch (error: any) {
     console.error("[FCM API Error]:", error);
-    res.status(500).json({ error: error.message || "Failed to register FCM token on backend" });
+    res.status(500).json({
+      error: "Unable to update notification settings right now. Please try again later.",
+    });
   }
 });
 

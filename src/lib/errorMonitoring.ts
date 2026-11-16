@@ -251,3 +251,272 @@ export async function reportProductionError(
 export function clearErrorDeduplicationCache(): void {
   recentErrorFingerprints.clear();
 }
+
+export type ErrorUiContext =
+  | 'login'
+  | 'signup'
+  | 'otp'
+  | 'reset'
+  | 'booking'
+  | 'payment'
+  | 'upload'
+  | 'search'
+  | 'dashboard'
+  | 'general';
+
+function extractErrorCodeAndMessage(error: unknown): { code: string; message: string } {
+  if (!error) return { code: '', message: '' };
+  if (typeof error === 'string') {
+    const trimmed = error.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return {
+          code: String(parsed?.code || parsed?.errorCode || '').toLowerCase(),
+          message: String(parsed?.error || parsed?.message || ''),
+        };
+      } catch {
+        // Ignore JSON parse failure
+      }
+    }
+    return { code: '', message: trimmed };
+  }
+  if (typeof error === 'object') {
+    const errObj = error as Record<string, unknown>;
+    const rawMsg =
+      typeof errObj.message === 'string'
+        ? errObj.message
+        : typeof errObj.error === 'string'
+        ? errObj.error
+        : '';
+    const rawCode =
+      typeof errObj.code === 'string'
+        ? errObj.code
+        : typeof errObj.errorCode === 'string'
+        ? errObj.errorCode
+        : '';
+    if (rawMsg.trim().startsWith('{') && rawMsg.trim().endsWith('}')) {
+      try {
+        const parsed = JSON.parse(rawMsg.trim());
+        return {
+          code: String(rawCode || parsed?.code || parsed?.errorCode || '').toLowerCase(),
+          message: String(parsed?.error || parsed?.message || ''),
+        };
+      } catch {
+        // Ignore JSON parse failure
+      }
+    }
+    return {
+      code: rawCode.toLowerCase(),
+      message: rawMsg,
+    };
+  }
+  return { code: '', message: String(error) };
+}
+
+/**
+ * Detects whether an error was caused by a network connectivity failure, timeout, or offline state.
+ */
+export function isNetworkConnectivityError(error: unknown): boolean {
+  const { code, message } = extractErrorCodeAndMessage(error);
+  const combined = `${code} ${message}`.toLowerCase();
+
+  return (
+    code === 'auth/network-request-failed' ||
+    code === 'unavailable' ||
+    code === 'firestore/unavailable' ||
+    combined.includes('auth/network-request-failed') ||
+    combined.includes('network-request-failed') ||
+    combined.includes('network request failed') ||
+    combined.includes('failed to fetch') ||
+    combined.includes('fetch failed') ||
+    combined.includes('networkerror') ||
+    combined.includes('network error') ||
+    combined.includes('load failed') ||
+    combined.includes('client is offline') ||
+    combined.includes('internet connection') ||
+    combined.includes('connection problem') ||
+    combined.includes('econnrefused') ||
+    combined.includes('etimedout') ||
+    combined.includes('enotfound') ||
+    combined.includes('err_internet_disconnected') ||
+    combined.includes('err_network')
+  );
+}
+
+/**
+ * Detects whether an authentication error specifically represents invalid login credentials.
+ */
+export function isInvalidCredentialError(error: unknown): boolean {
+  if (isNetworkConnectivityError(error)) return false;
+  const { code, message } = extractErrorCodeAndMessage(error);
+  const combined = `${code} ${message}`.toLowerCase();
+
+  return (
+    code === 'auth/invalid-credential' ||
+    code === 'auth/wrong-password' ||
+    code === 'auth/user-not-found' ||
+    code === 'auth/invalid-login-credentials' ||
+    combined.includes('auth/invalid-credential') ||
+    combined.includes('auth/wrong-password') ||
+    combined.includes('auth/user-not-found') ||
+    combined.includes('invalid-login-credentials') ||
+    combined.includes('invalid email or password') ||
+    combined.includes('unable to sign in. please check your email and password')
+  );
+}
+
+/**
+ * Centralized user-friendly error message translator.
+ * Never exposes Firebase error codes, stack traces, JSON payloads, or internal service names.
+ */
+export function formatUserFriendlyError(error: unknown, context: ErrorUiContext = 'general'): string {
+  // 1. Always check network connectivity first
+  if (isNetworkConnectivityError(error)) {
+    return 'Connection problem. Please check your internet connection and try again.';
+  }
+
+  // 2. Check invalid login credentials
+  if (isInvalidCredentialError(error)) {
+    return 'Unable to sign in. Please check your email and password.';
+  }
+
+  const { code, message } = extractErrorCodeAndMessage(error);
+  const combined = `${code} ${message}`.toLowerCase();
+
+  // 3. Authentication & Account Errors
+  if (code === 'auth/invalid-email' || combined.includes('auth/invalid-email')) {
+    return 'Please enter a valid email address.';
+  }
+  if (
+    code === 'auth/email-already-in-use' ||
+    code === 'email_exists' ||
+    combined.includes('auth/email-already-in-use') ||
+    combined.includes('already registered') ||
+    combined.includes('already exists')
+  ) {
+    return 'An account with this email already exists. Please sign in instead.';
+  }
+  if (code === 'auth/weak-password' || combined.includes('auth/weak-password')) {
+    return 'Please choose a stronger password with at least 6 characters.';
+  }
+  if (
+    code === 'auth/too-many-requests' ||
+    code === 'rate_limited' ||
+    code === 'cooldown' ||
+    combined.includes('auth/too-many-requests') ||
+    combined.includes('too many failed') ||
+    combined.includes('too many attempts')
+  ) {
+    return 'Too many attempts. Please wait a few minutes before trying again.';
+  }
+  if (code === 'auth/user-disabled' || combined.includes('auth/user-disabled')) {
+    return 'This account has been deactivated. Please contact support for assistance.';
+  }
+  if (
+    code === 'auth/popup-closed-by-user' ||
+    code === 'auth/cancelled-popup-request' ||
+    combined.includes('popup-closed-by-user')
+  ) {
+    return 'Sign-in window was closed before completing. Please try again.';
+  }
+  if (code === 'auth/popup-blocked' || combined.includes('popup-blocked')) {
+    return 'Sign-in popup was blocked by your browser. Please allow popups for this site and try again.';
+  }
+  if (code === 'auth/requires-recent-login' || combined.includes('requires-recent-login')) {
+    return 'For your security, please sign in again before making this change.';
+  }
+
+  // 4. OTP & Password Reset Errors
+  if (code === 'expired_otp' || combined.includes('code has expired') || combined.includes('expired otp')) {
+    return 'This verification code has expired. Please request a new code.';
+  }
+  if (code === 'invalid_otp' || combined.includes('incorrect verification code') || combined.includes('invalid otp')) {
+    return 'The verification code you entered is incorrect. Please check and try again.';
+  }
+  if (code === 'not_found' && context === 'otp') {
+    return 'No active verification code was found. Please request a new code.';
+  }
+  if (
+    code === 'expired_token' ||
+    code === 'invalid_token' ||
+    code === 'used_token' ||
+    combined.includes('reset link has expired') ||
+    combined.includes('invalid or expired reset')
+  ) {
+    return 'This password reset link is invalid or has expired. Please request a new link.';
+  }
+
+  // 5. Permission & Database Errors
+  if (
+    code === 'permission-denied' ||
+    code === 'firestore/permission-denied' ||
+    combined.includes('missing or insufficient permissions') ||
+    combined.includes('permission-denied') ||
+    combined.includes('unauthorized')
+  ) {
+    return 'You do not have permission to perform this action. Please make sure you are signed in to the right account.';
+  }
+  if (
+    code === 'resource-exhausted' ||
+    code === 'quota-exceeded' ||
+    combined.includes('quota-exceeded') ||
+    combined.includes('resource-exhausted')
+  ) {
+    return 'The service is temporarily busy. Please wait a moment and try again.';
+  }
+
+  // 6. Upload & Storage Errors
+  if (
+    context === 'upload' ||
+    combined.includes('r2_bucket') ||
+    combined.includes('cloudflare') ||
+    combined.includes('presigned') ||
+    combined.includes('storage upload') ||
+    combined.includes('s3client')
+  ) {
+    if (
+      combined.includes('5mb') ||
+      combined.includes('10mb') ||
+      combined.includes('file size') ||
+      combined.includes('too large')
+    ) {
+      return 'The selected file is too large. Please upload a smaller file.';
+    }
+    if (combined.includes('file type') || combined.includes('format') || combined.includes('allowed')) {
+      return 'Unsupported file format. Please upload a JPG, PNG, WebP, or PDF file.';
+    }
+    return 'Unable to upload your file right now. Please check the file and try again.';
+  }
+
+  // 7. Sanitize any clean human-readable message that doesn't contain technical leaks
+  const hasTechnicalLeak =
+    /firebase|firestore|cloudflare|\br2\b|brevo|gemini|groq|s3client|auth\/|firestore\/|storage\/|r2_bucket|api_key|stack|typeerror|referenceerror|syntaxerror|\{"|\[object/i.test(
+      message
+    );
+
+  if (message && !hasTechnicalLeak && message.length < 220) {
+    return message;
+  }
+
+  // 8. Context-specific fallback messages
+  switch (context) {
+    case 'login':
+      return 'Unable to sign in right now. Please check your details and try again.';
+    case 'signup':
+      return 'Unable to create your account right now. Please check your information and try again.';
+    case 'otp':
+      return 'Unable to verify your code right now. Please try again or request a new code.';
+    case 'reset':
+      return 'Unable to reset your password right now. Please request a new reset link and try again.';
+    case 'booking':
+      return 'Unable to complete your booking request right now. Please try again in a moment.';
+    case 'payment':
+      return 'Unable to process your payment update right now. Please try again shortly.';
+    case 'search':
+      return 'Unable to load search results right now. Please refresh and try again.';
+    default:
+      return 'Something went wrong while completing your request. Please try again.';
+  }
+}
+

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, AlertCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
 import ImageCropModal from './ImageCropModal';
 
 interface ImageUploadProps {
@@ -21,7 +22,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
   const initiateCrop = (file: File) => {
     const isImageFile = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
     if (!isImageFile) {
-      setError('Please provide an image file (JPG, PNG, WEBP)');
+      setError('Please select a valid image file (JPG, PNG, or WEBP).');
       return;
     }
 
@@ -30,7 +31,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
       setCropImageSrc(reader.result as string);
     };
     reader.onerror = () => {
-      setError('Failed to read selected image file.');
+      setError('Unable to read the selected image. Please choose another photo.');
     };
     reader.readAsDataURL(file);
   };
@@ -38,12 +39,12 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
   const handleUpload = async (file: File) => {
     const isImageFile = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
     if (!isImageFile) {
-      setError('Please provide an image file (JPG, PNG, WEBP)');
+      setError('Please select a valid image file (JPG, PNG, or WEBP).');
       return;
     }
 
     if (!auth.currentUser) {
-      setError('You must be logged in to upload files');
+      setError('Your session has expired. Please sign in again to continue.');
       return;
     }
 
@@ -78,29 +79,29 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
               setIsUploading(false);
               setProgress(0);
             } else {
-              setError('Server did not return a valid public URL');
+              setError('Unable to upload your photo right now. Please try again.');
               setIsUploading(false);
             }
           } catch (e) {
-            setError('Failed to parse upload response');
+            setError('Unable to upload your photo right now. Please try again.');
             setIsUploading(false);
           }
         } else {
           console.error("Upload server compression error:", xhr.status, xhr.responseText);
-          setError(`Upload failed with status ${xhr.status}. Please check Cloudflare R2 configurations.`);
+          setError('Unable to upload your photo right now. Please check the file and try again.');
           setIsUploading(false);
         }
       };
 
       xhr.onerror = () => {
         console.error("Upload network error during image post");
-        setError('Upload failure due to network error.');
+        setError('Connection problem. Please check your internet connection and try again.');
         setIsUploading(false);
       };
 
       xhr.send(formData);
     } catch (err: any) {
-      setError(err.message || 'Upload failed. Please try again.');
+      setError(formatUserFriendlyError(err, 'upload'));
       setIsUploading(false);
     }
   };

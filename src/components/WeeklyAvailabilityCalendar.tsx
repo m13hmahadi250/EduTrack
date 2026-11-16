@@ -1,275 +1,377 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Calendar,
-  Clock,
-  CheckCircle2,
-  Sparkles,
-  Trash2,
-  AlertCircle,
-  LayoutGrid,
-  Columns,
-  Check,
-} from 'lucide-react';
-import {
-  DAYS_OF_WEEK,
-  SHORT_DAYS,
-  SHORT_DAYS_UPPER,
-  BANGLA_DAYS,
-  AVAILABILITY_HOURS,
-  DayOfWeek,
-  normalizeAvailabilitySlots,
-  countTotalWeeklySlots,
-  countActiveDays,
-  formatHourLabel,
-} from '../../shared/availabilityUtils';
+import { Calendar as CalendarIcon, Clock, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react';
+import { AvailabilitySlot } from '../store';
 
-export interface WeeklyAvailabilityCalendarProps {
-  slots: Record<string, string[]> | null | undefined;
-  onChange: (newSlots: Record<string, string[]>) => Promise<void> | void;
+export const WEEKDAYS = [
+  { key: 'Sun', short: 'SUN', full: 'Sunday', bn: 'রবি' },
+  { key: 'Mon', short: 'MON', full: 'Monday', bn: 'সোম' },
+  { key: 'Tue', short: 'TUE', full: 'Tuesday', bn: 'মঙ্গল' },
+  { key: 'Wed', short: 'WED', full: 'Wednesday', bn: 'বুধ' },
+  { key: 'Thu', short: 'THU', full: 'Thursday', bn: 'বৃহঃ' },
+  { key: 'Fri', short: 'FRI', full: 'Friday', bn: 'শুক্র' },
+  { key: 'Sat', short: 'SAT', full: 'Saturday', bn: 'শনি' },
+] as const;
+
+export const TEACHING_HOURS = [
+  { hour: '08:00', label: '8 AM', period: 'morning' },
+  { hour: '09:00', label: '9 AM', period: 'morning' },
+  { hour: '10:00', label: '10 AM', period: 'morning' },
+  { hour: '11:00', label: '11 AM', period: 'morning' },
+  { hour: '12:00', label: '12 PM', period: 'afternoon' },
+  { hour: '13:00', label: '1 PM', period: 'afternoon' },
+  { hour: '14:00', label: '2 PM', period: 'afternoon' },
+  { hour: '15:00', label: '3 PM', period: 'afternoon' },
+  { hour: '16:00', label: '4 PM', period: 'afternoon' },
+  { hour: '17:00', label: '5 PM', period: 'evening' },
+  { hour: '18:00', label: '6 PM', period: 'evening' },
+  { hour: '19:00', label: '7 PM', period: 'evening' },
+  { hour: '20:00', label: '8 PM', period: 'evening' },
+  { hour: '21:00', label: '9 PM', period: 'evening' },
+  { hour: '22:00', label: '10 PM', period: 'evening' },
+] as const;
+
+export function normalizeSlotKey(dayKey: string, hour: string): string {
+  return `${dayKey}-${hour}`;
+}
+
+export function formatHourRange(hour24: string): string {
+  const [hStr] = String(hour24 || '08:00').split(':');
+  const h = parseInt(hStr, 10) || 8;
+  const formatH = (val: number) => {
+    const period = val >= 12 ? 'PM' : 'AM';
+    const h12 = val % 12 === 0 ? 12 : val % 12;
+    return `${h12}:00 ${period}`;
+  };
+  return `${formatH(h)} – ${formatH(h + 1)}`;
+}
+
+function normalizeHourString(rawHour: string): string {
+  const trimmed = String(rawHour || '').trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return trimmed;
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+}
+
+interface WeeklyAvailabilityCalendarProps {
+  availability?: AvailabilitySlot[];
+  onToggleSlot?: (slot: string) => void;
+  onBatchUpdate?: (slotsToAdd: string[], slotsToRemove: string[]) => void;
+  slots?: { [key: string]: string[] };
+  onChange?: (slots: { [key: string]: string[] }) => Promise<void> | void;
   readOnly?: boolean;
   compact?: boolean;
-  title?: string;
-  subtitle?: string;
-  banglaSubtitle?: string;
 }
 
 export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProps> = ({
+  availability = [],
+  onToggleSlot,
+  onBatchUpdate,
   slots,
   onChange,
   readOnly = false,
   compact = false,
-  title = 'Weekly Availability Schedule',
-  subtitle = 'Select your available teaching hours for each day of the week (Sunday – Saturday).',
-  banglaSubtitle = 'সপ্তাহের কোন দিন ও সময়ে আপনি পড়াতে পারবেন তা নির্বাচন করুন (রবিবার – শনিবার)।',
 }) => {
-  const normalizedSlots = useMemo(() => normalizeAvailabilitySlots(slots), [slots]);
-  const totalSlots = useMemo(() => countTotalWeeklySlots(normalizedSlots), [normalizedSlots]);
-  const activeDaysCount = useMemo(() => countActiveDays(normalizedSlots), [normalizedSlots]);
+  const [selectedMobileDay, setSelectedMobileDay] = useState<string>('Sun');
+  const [lastSavedFeedback, setLastSavedFeedback] = useState<string | null>(null);
 
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Sunday');
-  const [mobileViewMode, setMobileViewMode] = useState<'day_editor' | 'full_matrix'>('day_editor');
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const canEdit = !readOnly && Boolean(onToggleSlot || onChange);
 
-  const commitSlots = async (updated: Record<string, string[]>) => {
-    if (readOnly) return;
-    const clean = normalizeAvailabilitySlots(updated);
-    setSaveState('saving');
-    setErrorMessage(null);
-    try {
-      await onChange(clean);
-      setSaveState('saved');
-      setTimeout(() => {
-        setSaveState((prev) => (prev === 'saved' ? 'idle' : prev));
-      }, 2200);
-    } catch (err: any) {
-      setSaveState('error');
-      setErrorMessage(err?.message || 'Could not save availability schedule. Please try again.');
+  const safeAvailability = useMemo(
+    () => (Array.isArray(availability) ? availability.filter(Boolean) : []),
+    [availability]
+  );
+
+  // Normalize existing availability slots from either `slots` map or `availability` array
+  const activeSlotSet = useMemo(() => {
+    const set = new Set<string>();
+
+    if (slots && typeof slots === 'object') {
+      Object.entries(slots).forEach(([rawDay, dayHours]) => {
+        if (!Array.isArray(dayHours)) return;
+        const matchedDay = WEEKDAYS.find(
+          (d) =>
+            d.full.toLowerCase() === rawDay.trim().toLowerCase() ||
+            d.key.toLowerCase() === rawDay.trim().toLowerCase() ||
+            d.short.toLowerCase() === rawDay.trim().toLowerCase()
+        );
+        if (!matchedDay) return;
+        dayHours.forEach((hr) => {
+          if (typeof hr !== 'string') return;
+          const normHr = normalizeHourString(hr);
+          set.add(`${matchedDay.key}-${normHr}`);
+        });
+      });
     }
-  };
 
-  const toggleSlot = (day: DayOfWeek, hour: string) => {
-    if (readOnly) return;
-    const currentDaySlots = normalizedSlots[day] || [];
-    const exists = currentDaySlots.includes(hour);
-    const updatedDaySlots = exists
-      ? currentDaySlots.filter((h) => h !== hour)
-      : [...currentDaySlots, hour].sort((a, b) => a.localeCompare(b));
+    safeAvailability.forEach((slotObj) => {
+      if (!slotObj) return;
+      const legacySlot = (slotObj as AvailabilitySlot & { slot?: string }).slot;
+      if (typeof legacySlot === 'string' && legacySlot.trim()) {
+        const raw = legacySlot.trim();
+        set.add(raw);
+        WEEKDAYS.forEach((d) => {
+          if (raw.toLowerCase().startsWith(d.full.toLowerCase() + '-')) {
+            const timePart = normalizeHourString(raw.slice(d.full.length + 1));
+            set.add(`${d.key}-${timePart}`);
+          } else if (raw.toLowerCase().startsWith(d.key.toLowerCase() + '-')) {
+            const timePart = normalizeHourString(raw.slice(d.key.length + 1));
+            set.add(`${d.key}-${timePart}`);
+          }
+        });
+        return;
+      }
+      if (typeof slotObj.day === 'string' && typeof slotObj.startTime === 'string') {
+        const matchedDay = WEEKDAYS.find(
+          (d) =>
+            d.full.toLowerCase() === slotObj.day.trim().toLowerCase() ||
+            d.key.toLowerCase() === slotObj.day.trim().toLowerCase() ||
+            d.short.toLowerCase() === slotObj.day.trim().toLowerCase()
+        );
+        if (matchedDay) {
+          set.add(`${matchedDay.key}-${normalizeHourString(slotObj.startTime)}`);
+        }
+      }
+    });
+    return set;
+  }, [safeAvailability, slots]);
 
-    const nextSlots: Record<string, string[]> = {
-      ...normalizedSlots,
-      [day]: updatedDaySlots,
-    };
-    if (updatedDaySlots.length === 0) {
-      delete nextSlots[day];
-    }
-    void commitSlots(nextSlots);
-  };
-
-  const applyDayPreset = (day: DayOfWeek, presetHours: string[]) => {
-    if (readOnly) return;
-    const currentDaySlots = normalizedSlots[day] || [];
-    const merged = Array.from(new Set([...currentDaySlots, ...presetHours])).sort((a, b) =>
-      a.localeCompare(b)
-    );
-    const nextSlots: Record<string, string[]> = {
-      ...normalizedSlots,
-      [day]: merged,
-    };
-    void commitSlots(nextSlots);
-  };
-
-  const clearDay = (day: DayOfWeek) => {
-    if (readOnly) return;
-    const nextSlots: Record<string, string[]> = { ...normalizedSlots };
-    delete nextSlots[day];
-    void commitSlots(nextSlots);
-  };
-
-  const clearAllDays = () => {
-    if (readOnly) return;
-    void commitSlots({});
-  };
-
-  const applyEveningPeakAllDays = () => {
-    if (readOnly) return;
-    const eveningHours = ['17:00', '18:00', '19:00', '20:00'];
-    const nextSlots: Record<string, string[]> = { ...normalizedSlots };
-    for (const day of DAYS_OF_WEEK) {
-      const existing = nextSlots[day] || [];
-      nextSlots[day] = Array.from(new Set([...existing, ...eveningHours])).sort((a, b) =>
-        a.localeCompare(b)
+  const buildSlotsRecordFromSet = (slotSet: Set<string>): { [key: string]: string[] } => {
+    const nextRecord: { [key: string]: string[] } = {};
+    WEEKDAYS.forEach((d) => {
+      const hoursForDay = TEACHING_HOURS.map((t) => t.hour).filter((hr) =>
+        slotSet.has(`${d.key}-${hr}`)
       );
-    }
-    void commitSlots(nextSlots);
+      if (hoursForDay.length > 0) {
+        nextRecord[d.full] = hoursForDay;
+      }
+    });
+    return nextRecord;
   };
 
-  const selectedDaySlots = normalizedSlots[selectedDay] || [];
+  const dayCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    WEEKDAYS.forEach((d) => {
+      counts[d.key] = TEACHING_HOURS.filter((t) => activeSlotSet.has(`${d.key}-${t.hour}`)).length;
+    });
+    return counts;
+  }, [activeSlotSet]);
+
+  const totalSelectedSlots = useMemo(
+    () => Object.values(dayCounts).reduce((sum, c) => sum + c, 0),
+    [dayCounts]
+  );
+
+  const activeDaysCount = useMemo(
+    () => Object.values(dayCounts).filter((c) => c > 0).length,
+    [dayCounts]
+  );
+
+  const triggerSaveFeedback = (msg: string) => {
+    setLastSavedFeedback(msg);
+    window.setTimeout(() => {
+      setLastSavedFeedback((prev) => (prev === msg ? null : prev));
+    }, 2400);
+  };
+
+  const handleSlotClick = (dayKey: string, hour: string) => {
+    if (!canEdit) return;
+    const slotId = `${dayKey}-${hour}`;
+    const wasSelected = activeSlotSet.has(slotId);
+
+    if (onChange) {
+      const nextSet = new Set(activeSlotSet);
+      if (wasSelected) {
+        nextSet.delete(slotId);
+      } else {
+        nextSet.add(slotId);
+      }
+      onChange(buildSlotsRecordFromSet(nextSet));
+    }
+
+    if (onToggleSlot) {
+      onToggleSlot(slotId);
+    }
+
+    triggerSaveFeedback(wasSelected ? `Removed ${dayKey} ${hour}` : `Saved ${dayKey} ${hour}`);
+  };
+
+  const handlePresetApply = (presetHours: string[], label: string) => {
+    if (!canEdit) return;
+    const toToggle: string[] = [];
+    const nextSet = new Set(activeSlotSet);
+
+    WEEKDAYS.forEach((d) => {
+      presetHours.forEach((h) => {
+        const id = `${d.key}-${h}`;
+        nextSet.add(id);
+        if (!activeSlotSet.has(id)) {
+          toToggle.push(id);
+        }
+      });
+    });
+
+    if (onChange) {
+      onChange(buildSlotsRecordFromSet(nextSet));
+    }
+    if (onBatchUpdate) {
+      onBatchUpdate(toToggle, []);
+    } else if (onToggleSlot) {
+      toToggle.forEach((id) => onToggleSlot(id));
+    }
+    triggerSaveFeedback(`Applied ${label}`);
+  };
+
+  const handleClearAll = () => {
+    if (!canEdit) return;
+    const toRemove: string[] = [];
+    WEEKDAYS.forEach((d) => {
+      TEACHING_HOURS.forEach((t) => {
+        const id = `${d.key}-${t.hour}`;
+        if (activeSlotSet.has(id)) {
+          toRemove.push(id);
+        }
+      });
+    });
+
+    if (onChange) {
+      onChange({});
+    }
+    if (onBatchUpdate) {
+      onBatchUpdate([], toRemove);
+    } else if (onToggleSlot) {
+      toRemove.forEach((id) => onToggleSlot(id));
+    }
+    triggerSaveFeedback('Cleared weekly schedule');
+  };
 
   return (
     <div
+      className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:p-6 shadow-xs transition-colors"
       data-testid="weekly-availability-calendar"
-      className="w-full min-w-0 bg-slate-900/50 border border-white/10 rounded-2xl p-3 sm:p-5 space-y-4 overflow-hidden"
     >
-      {/* Top Header & Summary Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
-        <div className="min-w-0">
+      {/* Top Header & Summary */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3.5 border-b border-slate-200 dark:border-slate-800">
+        <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
-            <h4 className="text-sm sm:text-base font-bold text-white tracking-tight">{title}</h4>
-            <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[11px] font-bold text-indigo-300">
-              {activeDaysCount}/7 Days • {totalSlots} {totalSlots === 1 ? 'Slot' : 'Slots'}
+            <CalendarIcon className="w-4 h-4 text-[#0D5BFF] dark:text-indigo-400 shrink-0" />
+            <h3 className="text-sm sm:text-base font-bold text-[#0F172A] dark:text-white tracking-tight">
+              Weekly Availability Schedule
+            </h3>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+              {activeDaysCount}/7 Days • {totalSelectedSlots} {totalSelectedSlots === 1 ? 'Slot' : 'Slots'}
             </span>
-            {saveState === 'saving' && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300">
-                <Clock className="w-3 h-3 animate-spin" /> Saving...
-              </span>
-            )}
-            {saveState === 'saved' && (
-              <span
-                data-testid="availability-save-confirmation"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Saved
-              </span>
-            )}
           </div>
-          {!compact && (
-            <>
-              <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
-              {banglaSubtitle && (
-                <p lang="bn" className="font-bn text-xs text-slate-400/90 mt-0.5">
-                  {banglaSubtitle}
-                </p>
-              )}
-            </>
-          )}
+          <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-1">
+            {readOnly
+              ? 'All 7 days of the week (Sunday – Saturday) are shown below in Bangladesh Standard Time.'
+              : 'Select your available teaching hours for each day of the week (Sunday – Saturday).'}
+          </p>
+          <p
+            className="font-bn text-xs sm:text-[13px] font-medium text-slate-700 dark:text-slate-200 mt-0.5 leading-[1.7]"
+            lang="bn"
+          >
+            {readOnly
+              ? 'সপ্তাহের ৭ দিনের (রবিবার – শনিবার) টিউশন সময়সূচি নিচে দেওয়া হলো।'
+              : 'সপ্তাহের কোন দিন ও সময়ে আপনি পড়াতে পারবেন তা নির্বাচন করুন (রবিবার – শনিবার)।'}
+          </p>
         </div>
 
-        {!readOnly && (
-          <div className="flex items-center flex-wrap gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={applyEveningPeakAllDays}
-              className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-[11px] font-bold text-indigo-300 transition-colors flex items-center gap-1.5"
-              title="Add 5:00 PM – 8:00 PM across all 7 days"
+        <div className="flex items-center gap-2 flex-wrap">
+          {lastSavedFeedback && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold"
+              data-testid="availability-save-confirmation"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Evening Peak (5–8 PM)</span>
-            </button>
-            {totalSlots > 0 && (
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{lastSavedFeedback}</span>
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={clearAllDays}
-                className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-[11px] font-bold text-rose-300 transition-colors flex items-center gap-1"
+                onClick={() =>
+                  handlePresetApply(['17:00', '18:00', '19:00', '20:00'], 'Evening Peak (5–8 PM)')
+                }
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                title="Select 5 PM - 8 PM across all 7 days"
               >
-                <Trash2 className="w-3 h-3" />
-                <span>Reset All</span>
+                <Sparkles className="w-3 h-3" />
+                <span>Evening Peak (5–8 PM)</span>
               </button>
-            )}
-          </div>
-        )}
+              {totalSelectedSlots > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="Clear all selected slots"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset All</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {errorMessage && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-xs text-rose-300">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
-
-      {/* ALWAYS-VISIBLE 7-WEEKDAY OVERVIEW BAR (SUN | MON | TUE | WED | THU | FRI | SAT) */}
-      {/* Fits 100% width with grid-cols-7 and zero horizontal scrolling on all viewports (320px - Desktop) */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      {/* Always-Visible 7-Day Header Bar (No Horizontal Scroll Ever Required) */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
             7-Day Weekly Overview (Sun – Sat)
           </span>
-          {/* Mobile mode switcher so compact screens can use either Day Editor or 7-Day Matrix */}
-          <div className="flex md:hidden items-center gap-1 bg-slate-950/80 p-0.5 rounded-lg border border-white/10">
-            <button
-              type="button"
-              onClick={() => setMobileViewMode('day_editor')}
-              className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all ${
-                mobileViewMode === 'day_editor'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-3 h-3" />
-              <span>Day Editor</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileViewMode('full_matrix')}
-              className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all ${
-                mobileViewMode === 'full_matrix'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Columns className="w-3 h-3" />
-              <span>7-Day Grid</span>
-            </button>
-          </div>
+          <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium sm:hidden">
+            Tap any day to filter or use the 7-day grid below
+          </span>
         </div>
 
         <div
-          data-testid="seven-weekday-header-grid"
-          className="grid grid-cols-7 gap-1 sm:gap-1.5 w-full min-w-0"
+          className="grid grid-cols-7 gap-1 sm:gap-2 w-full"
+          data-testid="seven-day-header-grid"
         >
-          {DAYS_OF_WEEK.map((day) => {
-            const count = normalizedSlots[day]?.length || 0;
-            const isSelected = selectedDay === day;
+          {WEEKDAYS.map((day) => {
+            const count = dayCounts[day.key] || 0;
+            const isSelectedDay = selectedMobileDay === day.key;
             const hasSlots = count > 0;
+
             return (
               <button
-                key={day}
+                key={day.key}
                 type="button"
-                onClick={() => setSelectedDay(day)}
-                data-testid={`weekday-pill-${SHORT_DAYS_UPPER[day]}`}
-                className={`min-w-0 w-full py-2 px-0.5 sm:px-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${
-                  isSelected
-                    ? 'bg-indigo-600/25 border-indigo-500 text-white shadow-sm ring-1 ring-indigo-500/50'
+                onClick={() => setSelectedMobileDay(day.key)}
+                data-testid={`weekday-pill-${day.key}`}
+                className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all min-w-0 cursor-pointer ${
+                  isSelectedDay
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/30'
                     : hasSlots
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/15'
-                    : 'bg-slate-950/60 border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-100/70 dark:hover:bg-emerald-500/20'
+                    : 'bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-[#0F172A] dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80'
                 }`}
               >
-                <span className="text-[10px] sm:text-xs font-extrabold tracking-tight leading-none truncate w-full">
-                  {SHORT_DAYS_UPPER[day]}
+                <span className="text-[10px] sm:text-xs font-extrabold tracking-tight leading-tight truncate w-full">
+                  {day.short}
                 </span>
                 <span
+                  className={`font-bn text-[10px] sm:text-[11px] font-medium leading-tight mt-0.5 truncate w-full ${
+                    isSelectedDay
+                      ? 'text-indigo-100'
+                      : hasSlots
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-slate-600 dark:text-slate-300'
+                  }`}
                   lang="bn"
-                  className="font-bn text-[9px] sm:text-[10px] text-slate-400 leading-tight truncate w-full"
                 >
-                  {BANGLA_DAYS[day]}
+                  {day.bn}
                 </span>
                 <span
-                  className={`mt-0.5 px-1 sm:px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-bold leading-tight ${
-                    hasSlots
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-white/5 text-slate-500'
+                  className={`mt-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold leading-none ${
+                    isSelectedDay
+                      ? 'bg-white/20 text-white'
+                      : count > 0
+                      ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30'
+                      : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   {count > 0 ? `${count}h` : 'Off'}
@@ -280,102 +382,92 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
         </div>
       </div>
 
-      {/* MOBILE / COMPACT DAY-SPECIFIC TIME-SLOT EDITOR (Default on < md screens) */}
-      <div
-        data-testid="mobile-day-slot-editor"
-        className={`${
-          mobileViewMode === 'day_editor' ? 'block md:hidden' : 'hidden'
-        } bg-slate-950/60 border border-white/10 rounded-xl p-3 space-y-3`}
-      >
-        <div className="flex items-center justify-between gap-2 flex-wrap border-b border-white/10 pb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm font-bold text-white">{selectedDay}</span>
-            <span lang="bn" className="font-bn text-xs text-indigo-300">
-              ({BANGLA_DAYS[selectedDay]})
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-white/5 text-[11px] font-semibold text-slate-300">
-              {selectedDaySlots.length} {selectedDaySlots.length === 1 ? 'slot' : 'slots'}
-            </span>
-          </div>
-
-          {!readOnly && (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  applyDayPreset(selectedDay, ['16:00', '17:00', '18:00', '19:00', '20:00'])
-                }
-                className="px-2 py-1 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-[10px] font-bold text-indigo-300"
-              >
-                + 4–8 PM
-              </button>
-              {selectedDaySlots.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => clearDay(selectedDay)}
-                  className="px-2 py-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-[10px] font-bold text-rose-300"
-                >
-                  Clear {SHORT_DAYS[selectedDay]}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-          {AVAILABILITY_HOURS.map((hour) => {
-            const isSelected = selectedDaySlots.includes(hour);
+      {/* Mobile Focused Day Editor (Shown on small screens for effortless thumb tapping) */}
+      {canEdit && (
+        <div
+          className="sm:hidden mb-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800"
+          data-testid="mobile-day-slot-editor"
+        >
+          {(() => {
+            const currentDayObj = WEEKDAYS.find((d) => d.key === selectedMobileDay) || WEEKDAYS[0];
+            const currentCount = dayCounts[currentDayObj.key] || 0;
             return (
-              <button
-                key={`${selectedDay}-${hour}`}
-                type="button"
-                disabled={readOnly}
-                onClick={() => toggleSlot(selectedDay, hour)}
-                className={`min-h-[44px] px-2 py-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-between gap-1 ${
-                  isSelected
-                    ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm shadow-indigo-500/20'
-                    : 'bg-slate-900/80 border-white/10 text-slate-300 hover:border-white/25 hover:bg-slate-900'
-                } ${readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'}`}
-              >
-                <span className="truncate">{formatHourLabel(hour, true)}</span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
-              </button>
+              <>
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#0F172A] dark:text-white">
+                      {currentDayObj.full} ({currentDayObj.short})
+                    </span>
+                    <span
+                      className="font-bn text-xs font-medium text-slate-700 dark:text-slate-300"
+                      lang="bn"
+                    >
+                      • {currentDayObj.bn}বার
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+                    {currentCount} {currentCount === 1 ? 'hour' : 'hours'} selected
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {TEACHING_HOURS.map((t) => {
+                    const slotId = `${currentDayObj.key}-${t.hour}`;
+                    const isSelected = activeSlotSet.has(slotId);
+                    return (
+                      <button
+                        key={slotId}
+                        type="button"
+                        onClick={() => handleSlotClick(currentDayObj.key, t.hour)}
+                        className={`py-2 px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-[#0F172A] dark:text-slate-200 hover:border-indigo-400'
+                        }`}
+                      >
+                        <span>{t.label}</span>
+                        {isSelected && <CheckCircle2 className="w-3 h-3 text-white shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             );
-          })}
+          })()}
         </div>
-      </div>
+      )}
 
-      {/* FULL 7-COLUMN RESPONSIVE WEEKLY SCHEDULE GRID (Always visible on md+, or when toggled on mobile) */}
-      {/* Uses CSS Grid with minmax(0, 1fr) for all 7 days — ZERO horizontal scroll! */}
+      {/* Full 7-Column Weekly Matrix — Fits 100% Width Without Horizontal Scroll */}
       <div
+        className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 overflow-hidden"
         data-testid="seven-column-weekly-matrix"
-        className={`${
-          mobileViewMode === 'full_matrix' ? 'block' : 'hidden md:block'
-        } w-full min-w-0 border border-white/10 rounded-xl overflow-hidden bg-slate-950/60`}
       >
-        {/* 7-Column Matrix Header */}
-        <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] border-b border-white/10 bg-slate-900/90">
-          <div className="p-1.5 sm:p-2.5 flex items-center justify-center border-r border-white/10 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {/* Matrix Header Row: Time + 7 Days */}
+        <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+          <div className="py-2.5 px-1 flex items-center justify-center border-r border-slate-200 dark:border-slate-800 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
             Time
           </div>
-          {DAYS_OF_WEEK.map((day) => {
-            const count = normalizedSlots[day]?.length || 0;
-            const isSelected = selectedDay === day;
+          {WEEKDAYS.map((day) => {
+            const count = dayCounts[day.key] || 0;
+            const isHighlighted = selectedMobileDay === day.key;
             return (
               <div
-                key={`header-${day}`}
-                onClick={() => setSelectedDay(day)}
-                className={`min-w-0 p-1 sm:p-2 text-center border-r last:border-r-0 border-white/10 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-indigo-500/15' : 'hover:bg-white/[0.03]'
+                key={day.key}
+                data-testid={`matrix-col-header-${day.key}`}
+                className={`py-2 px-0.5 text-center border-r last:border-r-0 border-slate-200 dark:border-slate-800 min-w-0 transition-colors ${
+                  isHighlighted ? 'bg-indigo-50/90 dark:bg-indigo-500/15' : ''
                 }`}
               >
-                <div className="text-[10px] sm:text-xs font-extrabold text-white tracking-tight truncate">
-                  {SHORT_DAYS_UPPER[day]}
+                <div className="text-[10px] sm:text-xs font-extrabold text-[#0F172A] dark:text-white tracking-tight truncate">
+                  {day.short}
                 </div>
-                <div className="hidden lg:block text-[10px] text-slate-400 truncate">{day}</div>
+                <div className="hidden md:block text-[10px] font-medium text-slate-600 dark:text-slate-300 truncate">
+                  {day.full}
+                </div>
                 <div
-                  className={`mt-0.5 inline-block px-1 py-0.2 rounded text-[9px] font-bold ${
-                    count > 0 ? 'text-emerald-400 bg-emerald-500/15' : 'text-slate-500'
+                  className={`text-[9px] font-bold mt-0.5 ${
+                    count > 0
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
                   {count} {count === 1 ? 'hr' : 'hrs'}
@@ -385,51 +477,60 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
           })}
         </div>
 
-        {/* Time Slot Rows (08:00 – 22:00) */}
-        <div className="divide-y divide-white/[0.06]">
-          {AVAILABILITY_HOURS.map((hour) => (
+        {/* Matrix Body Rows */}
+        <div
+          className={`divide-y divide-slate-200 dark:divide-slate-800/80 ${
+            compact ? 'max-h-[380px] overflow-y-auto' : ''
+          }`}
+        >
+          {TEACHING_HOURS.map((timeObj) => (
             <div
-              key={`row-${hour}`}
-              className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] items-stretch"
+              key={timeObj.hour}
+              className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] items-stretch"
             >
-              {/* Time Label Column */}
-              <div className="px-1 py-1.5 sm:px-2 sm:py-2 border-r border-white/10 bg-slate-900/50 flex items-center justify-center text-[9px] sm:text-[11px] font-semibold text-slate-400 whitespace-nowrap">
-                {formatHourLabel(hour, true)}
+              {/* Time Label Cell */}
+              <div className="py-1.5 sm:py-2 px-1 flex items-center justify-center border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 text-[9px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                {timeObj.label}
               </div>
 
-              {/* 7 Weekday Cells */}
-              {DAYS_OF_WEEK.map((day) => {
-                const isSelected = Boolean(normalizedSlots[day]?.includes(hour));
+              {/* 7 Day Cells for this Hour */}
+              {WEEKDAYS.map((day) => {
+                const slotId = `${day.key}-${timeObj.hour}`;
+                const isSelected = activeSlotSet.has(slotId);
+
                 return (
                   <button
-                    key={`${day}-${hour}`}
+                    key={slotId}
                     type="button"
-                    disabled={readOnly}
-                    aria-label={`${day} ${formatHourLabel(hour)}`}
-                    aria-pressed={isSelected}
-                    onClick={() => {
-                      setSelectedDay(day);
-                      toggleSlot(day, hour);
-                    }}
-                    className={`min-w-0 h-8 sm:h-9 border-r last:border-r-0 border-white/[0.06] p-0.5 sm:p-1 transition-all flex items-center justify-center ${
-                      readOnly ? 'cursor-default' : 'cursor-pointer'
+                    disabled={!canEdit}
+                    onClick={() => handleSlotClick(day.key, timeObj.hour)}
+                    data-testid={`slot-cell-${slotId}`}
+                    aria-label={`${day.full} ${timeObj.label} ${
+                      isSelected ? 'Available' : 'Unavailable'
+                    }`}
+                    className={`min-h-[28px] sm:min-h-[34px] p-0.5 sm:p-1 border-r last:border-r-0 border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center transition-all min-w-0 ${
+                      !canEdit ? 'cursor-default' : 'cursor-pointer'
                     } ${
                       isSelected
-                        ? 'bg-indigo-600/20 hover:bg-indigo-600/30'
-                        : 'hover:bg-white/[0.04]'
+                        ? 'bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30'
+                        : 'bg-white dark:bg-slate-950/40 hover:bg-slate-50 dark:hover:bg-slate-900/80'
                     }`}
                   >
                     <div
-                      className={`w-full h-full rounded-md transition-all flex items-center justify-center ${
+                      className={`w-full h-full min-h-[20px] sm:min-h-[24px] rounded-md flex items-center justify-center transition-all ${
                         isSelected
-                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 border border-indigo-400/60'
-                          : 'bg-transparent'
+                          ? 'bg-indigo-600 text-white shadow-xs border border-indigo-600 dark:border-indigo-400/50'
+                          : 'border border-transparent group-hover:border-slate-300'
                       }`}
                     >
-                      {isSelected && (
-                        <span className="text-[9px] sm:text-[10px] font-bold tracking-tight truncate px-0.5">
-                          <span className="hidden sm:inline">Available</span>
-                          <Check className="w-3 h-3 sm:hidden" />
+                      {isSelected ? (
+                        <span className="text-[9px] sm:text-[10px] font-extrabold tracking-tight flex items-center gap-0.5">
+                          <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                          <span className="hidden lg:inline">Open</span>
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-slate-400 dark:text-slate-600 select-none">
+                          ·
                         </span>
                       )}
                     </div>
@@ -441,150 +542,239 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
         </div>
       </div>
 
-      {/* Legend & Quick Day Actions Footer */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
-        <div className="flex items-center flex-wrap gap-3">
+      {/* Footer Legend */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-indigo-600 border border-indigo-400 inline-block" />
-            <span>Available Slot</span>
+            <span className="w-3 h-3 rounded-sm bg-indigo-600 inline-block shadow-xs" />
+            <span>Available for Tuition</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-slate-900 border border-white/15 inline-block" />
-            <span>Unavailable</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/40 inline-block" />
-            <span>Active Day</span>
+            <span className="w-3 h-3 rounded-sm bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 inline-block" />
+            <span>Unavailable / Off</span>
           </div>
         </div>
-        <div className="text-[11px] text-slate-400">
-          Timezone: <span className="text-slate-300 font-semibold">Bangladesh Standard Time (GMT+6)</span>
+        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+          <Clock className="w-3.5 h-3.5 text-[#0D5BFF] dark:text-indigo-400" />
+          <span>Timezone: Asia/Dhaka (BST, UTC+6)</span>
         </div>
       </div>
     </div>
   );
 };
 
-export interface WeeklyScheduleOverviewProps {
-  slots: Record<string, string[]> | null | undefined;
-  bookedSessions?: Array<{
-    id: string;
-    subject?: string;
-    scheduledTime: string;
-    status?: string;
-  }>;
-  onManageClick?: () => void;
-}
-
 /**
- * Responsive 7-Column Weekly Schedule Overview (Sun–Sat) without horizontal scrolling.
- * Used in TutorDashboard Visual Schedule and TeacherProfile availability summary.
+ * Compact 7-day read-only overview card for Student / Public Tutor Profile & Booking Modals.
+ * Always displays all 7 days (SUN - SAT) without horizontal scrolling.
  */
-export const WeeklyScheduleOverview: React.FC<WeeklyScheduleOverviewProps> = ({
+export const WeeklyScheduleOverview: React.FC<{
+  availability?: AvailabilitySlot[];
+  slots?: { [key: string]: string[] };
+  bookedSessions?: any[];
+  onManageClick?: () => void;
+  selectedSlots?: string[];
+  onSelectSlot?: (slotId: string) => void;
+  interactive?: boolean;
+}> = ({
+  availability = [],
   slots,
-  bookedSessions = [],
+  bookedSessions,
   onManageClick,
+  selectedSlots = [],
+  onSelectSlot,
+  interactive = false,
 }) => {
-  const normalizedSlots = useMemo(() => normalizeAvailabilitySlots(slots), [slots]);
+  const [focusedDay, setFocusedDay] = useState<string>('Sun');
+
+  const safeAvailability = useMemo(
+    () => (Array.isArray(availability) ? availability.filter(Boolean) : []),
+    [availability]
+  );
+
+  const slotsByDay = useMemo(() => {
+    const grouped: Record<string, string[]> = {};
+    WEEKDAYS.forEach((d) => {
+      grouped[d.key] = [];
+    });
+
+    if (slots && typeof slots === 'object') {
+      Object.entries(slots).forEach(([rawDay, dayHours]) => {
+        if (!Array.isArray(dayHours)) return;
+        const matchedDay = WEEKDAYS.find(
+          (d) =>
+            d.full.toLowerCase() === rawDay.trim().toLowerCase() ||
+            d.key.toLowerCase() === rawDay.trim().toLowerCase() ||
+            d.short.toLowerCase() === rawDay.trim().toLowerCase()
+        );
+        if (!matchedDay) return;
+        dayHours.forEach((hr) => {
+          if (typeof hr !== 'string') return;
+          const normalized = `${matchedDay.key}-${normalizeHourString(hr)}`;
+          if (!grouped[matchedDay.key].includes(normalized)) {
+            grouped[matchedDay.key].push(normalized);
+          }
+        });
+      });
+    }
+
+    safeAvailability.forEach((slotObj) => {
+      if (!slotObj) return;
+      const legacySlot = (slotObj as AvailabilitySlot & { slot?: string }).slot;
+      if (typeof legacySlot === 'string' && legacySlot.trim()) {
+        const raw = legacySlot.trim();
+        WEEKDAYS.forEach((d) => {
+          if (raw.toLowerCase().startsWith(d.full.toLowerCase() + '-')) {
+            const timePart = normalizeHourString(raw.slice(d.full.length + 1));
+            const normalized = `${d.key}-${timePart}`;
+            if (!grouped[d.key].includes(normalized)) grouped[d.key].push(normalized);
+          } else if (raw.toLowerCase().startsWith(d.key.toLowerCase() + '-')) {
+            const timePart = normalizeHourString(raw.slice(d.key.length + 1));
+            const normalized = `${d.key}-${timePart}`;
+            if (!grouped[d.key].includes(normalized)) grouped[d.key].push(normalized);
+          }
+        });
+        return;
+      }
+      if (typeof slotObj.day === 'string' && typeof slotObj.startTime === 'string') {
+        const matchedDay = WEEKDAYS.find(
+          (d) =>
+            d.full.toLowerCase() === slotObj.day.trim().toLowerCase() ||
+            d.key.toLowerCase() === slotObj.day.trim().toLowerCase() ||
+            d.short.toLowerCase() === slotObj.day.trim().toLowerCase()
+        );
+        if (matchedDay) {
+          const normalized = `${matchedDay.key}-${normalizeHourString(slotObj.startTime)}`;
+          if (!grouped[matchedDay.key].includes(normalized)) {
+            grouped[matchedDay.key].push(normalized);
+          }
+        }
+      }
+    });
+
+    WEEKDAYS.forEach((d) => {
+      grouped[d.key].sort();
+    });
+
+    return grouped;
+  }, [safeAvailability, slots]);
 
   return (
-    <div data-testid="weekly-schedule-overview" className="w-full min-w-0 space-y-3">
-      <div className="grid grid-cols-7 gap-1 sm:gap-2 w-full min-w-0">
-        {DAYS_OF_WEEK.map((day) => {
-          const daySlots = normalizedSlots[day] || [];
-          const dayBookings = bookedSessions.filter((b) => {
-            if (!b?.scheduledTime) return false;
-            const d = new Date(b.scheduledTime);
-            if (Number.isNaN(d.getTime())) return false;
-            const weekday = new Intl.DateTimeFormat('en-US', {
-              timeZone: 'Asia/Dhaka',
-              weekday: 'long',
-            }).format(d);
-            return weekday.toLowerCase() === day.toLowerCase();
-          });
+    <div className="space-y-4" data-testid="weekly-schedule-overview">
+      {/* All 7 Days Header Bar — Always visible without horizontal scroll */}
+      <div className="grid grid-cols-7 gap-1 sm:gap-2 w-full">
+        {WEEKDAYS.map((day) => {
+          const daySlots = slotsByDay[day.key] || [];
+          const hasOpenings = daySlots.length > 0;
+          const isFocused = focusedDay === day.key;
 
           return (
-            <div
-              key={day}
-              className="min-w-0 flex flex-col bg-slate-950/60 border border-white/10 rounded-xl p-1.5 sm:p-2.5"
+            <button
+              key={day.key}
+              type="button"
+              onClick={() => setFocusedDay(day.key)}
+              className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border transition-all min-w-0 cursor-pointer ${
+                isFocused
+                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                  : hasOpenings
+                  ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-100/70 dark:hover:bg-emerald-500/20'
+                  : 'bg-slate-50 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+              }`}
             >
-              <div className="text-center pb-1.5 mb-1.5 border-b border-white/10">
-                <div className="text-[10px] sm:text-xs font-extrabold text-white tracking-tight truncate">
-                  {SHORT_DAYS_UPPER[day]}
-                </div>
-                <div
-                  lang="bn"
-                  className="font-bn text-[9px] sm:text-[10px] text-slate-400 truncate"
-                >
-                  {BANGLA_DAYS[day]}
-                </div>
-                <div
-                  className={`mt-1 inline-block px-1 sm:px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                    daySlots.length > 0
-                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                      : 'bg-white/5 text-slate-500'
-                  }`}
-                >
-                  {daySlots.length} {daySlots.length === 1 ? 'slot' : 'slots'}
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-1 max-h-48 overflow-y-auto pr-0.5">
-                {daySlots.length === 0 && dayBookings.length === 0 ? (
-                  <div className="py-4 text-center text-[9px] sm:text-[10px] text-slate-600 font-medium">
-                    Off
-                  </div>
-                ) : (
-                  <>
-                    {dayBookings.map((booking) => {
-                      const timeLabel = new Intl.DateTimeFormat('en-US', {
-                        timeZone: 'Asia/Dhaka',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      }).format(new Date(booking.scheduledTime));
-                      return (
-                        <div
-                          key={booking.id}
-                          className="p-1 sm:p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[9px] sm:text-[10px] leading-tight truncate"
-                          title={`${booking.subject || 'Session'} at ${timeLabel}`}
-                        >
-                          <div className="font-bold truncate">{timeLabel}</div>
-                          <div className="truncate opacity-80">{booking.subject || 'Booked'}</div>
-                        </div>
-                      );
-                    })}
-                    {daySlots.slice(0, 6).map((slot) => (
-                      <div
-                        key={`${day}-${slot}`}
-                        className="px-1 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-[9px] sm:text-[10px] font-semibold text-center truncate"
-                      >
-                        {formatHourLabel(slot, true)}
-                      </div>
-                    ))}
-                    {daySlots.length > 6 && (
-                      <div className="text-center text-[9px] font-bold text-indigo-400 pt-0.5">
-                        +{daySlots.length - 6} more
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+              <span className="text-[10px] sm:text-xs font-extrabold tracking-tight truncate w-full text-center">
+                {day.short}
+              </span>
+              <span
+                className={`font-bn text-[10px] font-medium truncate w-full text-center ${
+                  isFocused
+                    ? 'text-indigo-100'
+                    : hasOpenings
+                    ? 'text-emerald-700 dark:text-emerald-300'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+                lang="bn"
+              >
+                {day.bn}
+              </span>
+              <span
+                className={`mt-1 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isFocused
+                    ? 'bg-white/20 text-white'
+                    : hasOpenings
+                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                {hasOpenings ? `${daySlots.length} open` : 'Closed'}
+              </span>
+            </button>
           );
         })}
       </div>
 
-      {onManageClick && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onManageClick}
-            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
-          >
-            Edit Weekly Availability Slots →
-          </button>
-        </div>
-      )}
+      {/* 7-Day Column Summary Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+        {WEEKDAYS.map((day) => {
+          const daySlots = slotsByDay[day.key] || [];
+          const isFocused = focusedDay === day.key;
+
+          return (
+            <div
+              key={day.key}
+              className={`rounded-xl border p-2.5 transition-all ${
+                isFocused
+                  ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-500/40'
+                  : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              <div className="flex sm:flex-col items-center justify-between sm:justify-center border-b border-slate-200 dark:border-slate-800 pb-1.5 mb-2 text-center">
+                <span className="text-xs font-extrabold text-[#0F172A] dark:text-white">
+                  {day.short}
+                </span>
+                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                  {day.full}
+                </span>
+              </div>
+
+              {daySlots.length > 0 ? (
+                <div className="flex flex-wrap sm:flex-col gap-1">
+                  {daySlots.map((slotId) => {
+                    const timePart = slotId.split('-')[1] || '';
+                    const hourObj = TEACHING_HOURS.find((h) => h.hour === timePart);
+                    const displayLabel = hourObj ? hourObj.label : timePart;
+                    const isPicked = selectedSlots.includes(slotId);
+
+                    return interactive && onSelectSlot ? (
+                      <button
+                        key={slotId}
+                        type="button"
+                        onClick={() => onSelectSlot(slotId)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border text-center transition-all cursor-pointer ${
+                          isPicked
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                            : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-[#0F172A] dark:text-slate-200 hover:border-indigo-500'
+                        }`}
+                      >
+                        {displayLabel}
+                      </button>
+                    ) : (
+                      <span
+                        key={slotId}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-center"
+                      >
+                        {displayLabel}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-3 text-center text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                  No slots
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

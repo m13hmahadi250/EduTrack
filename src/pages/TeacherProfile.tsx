@@ -5,6 +5,7 @@ import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
+import { formatUserFriendlyError } from '../lib/errorMonitoring';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 import {
   canUnlockTutorContact,
@@ -372,7 +373,7 @@ export default function TeacherProfile() {
       setBookingSuccessMsg('Your tuition request has been sent to the tutor.');
       setTimeout(() => setBookingSuccessMsg(''), 5000);
     } catch (err: any) {
-      setBookingError(err?.message || 'Unable to submit booking request. Please try again.');
+      setBookingError(formatUserFriendlyError(err, 'booking'));
     } finally {
       setIsSubmittingBooking(false);
     }

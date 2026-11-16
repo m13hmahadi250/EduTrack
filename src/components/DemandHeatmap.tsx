@@ -131,8 +131,8 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
     const finalScore = Math.min(100, data.baselineScore + (data.count * 12));
     
     // Choose styling color palette
-    let bgColor = 'bg-slate-50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800';
-    let textColor = 'text-slate-400';
+    let bgColor = 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800';
+    let textColor = 'text-slate-600 dark:text-slate-300';
     let label = 'Low Demand';
     let pulse = false;
 
@@ -150,8 +150,8 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
       textColor = 'text-[#0D5BFF] dark:text-blue-300';
       label = 'Moderate';
     } else if (finalScore >= 20) {
-      bgColor = 'bg-blue-50/50 dark:bg-blue-950/10 border-blue-105/20 text-slate-500 dark:text-slate-400';
-      textColor = 'text-slate-400';
+      bgColor = 'bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/40 text-slate-700 dark:text-slate-300';
+      textColor = 'text-slate-700 dark:text-slate-300';
       label = 'Typical';
     }
 
@@ -195,45 +195,45 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
   }, [slots, demandMatrix]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800/80 p-4 sm:p-8 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6 w-full min-w-0">
+    <div className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-4 sm:p-8 shadow-sm space-y-6 w-full min-w-0">
       {/* Header section with explanatory tags */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-rose-500">Live Optimization Radar</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">Live Optimization Radar</span>
           </div>
-          <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic flex items-center gap-2">
+          <h3 className="text-xl font-black text-[#0F172A] dark:text-white uppercase italic flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#0D5BFF]" />
             Student Booking Demand Heatmap
           </h3>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-relaxed">
+          <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest leading-relaxed">
             Derived from historic database bookings & systemic student activity peaks (GMT+6).
           </p>
         </div>
         
         {/* Colors Legend */}
-        <div className="flex flex-wrap items-center gap-3 bg-slate-50/50 dark:bg-slate-950/20 p-3 rounded-2xl border border-slate-100/60 dark:border-slate-800/50">
-          <span className="text-[8px] font-bold uppercase text-slate-400 mr-1">Legend:</span>
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[8px] font-bold uppercase text-slate-700 dark:text-slate-300 mr-1">Legend:</span>
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Low</span>
+            <div className="w-2.5 h-2.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700" />
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Low</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded bg-blue-100 dark:bg-blue-950/30 border border-blue-200" />
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Normal</span>
+            <div className="w-2.5 h-2.5 rounded bg-blue-100 dark:bg-blue-950/30 border border-blue-300" />
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Normal</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded bg-blue-300 dark:bg-blue-800/40 border border-blue-400" />
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Moderate</span>
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Moderate</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded bg-indigo-500" />
-            <span className="text-[8px] font-black uppercase tracking-wider text-indigo-400">High</span>
+            <span className="text-[8px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">High</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded bg-rose-500" />
-            <span className="text-[8px] font-black uppercase tracking-wider text-rose-500 animate-pulse">Peak</span>
+            <span className="text-[8px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 animate-pulse">Peak</span>
           </div>
         </div>
       </div>
@@ -241,11 +241,11 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
       {/* Main Responsive 7-Day Grid Wrapper (Zero Horizontal Scroll) */}
       <div className="space-y-4 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-slate-300 flex items-center gap-1.5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#0F172A] dark:text-slate-200 flex items-center gap-1.5">
             <CalendarDays className="w-3.5 h-3.5 text-[#0D5BFF]" />
             7-Weekday Hourly Demand Distribution (Sun – Sat)
           </span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 italic">
             💡 Tap any heat cell to instantly open / close that slot
           </span>
         </div>
@@ -255,16 +255,16 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
           {/* 7 Weekday Column Headers */}
           <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] gap-1 sm:gap-1.5 items-center">
             <div className="text-left">
-              <span className="text-[8px] sm:text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <span className="text-[8px] sm:text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                 GMT+6
               </span>
             </div>
             {DAYS.map(day => (
-              <div key={day} className="min-w-0 text-center py-1 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] sm:text-xs font-black text-[#0B132B] dark:text-slate-200 uppercase tracking-tight block truncate">
+              <div key={day} className="min-w-0 text-center py-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] sm:text-xs font-black text-[#0F172A] dark:text-white uppercase tracking-tight block truncate">
                   {day.slice(0, 3)}
                 </span>
-                <span className="hidden sm:block text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5 truncate">
+                <span className="hidden sm:block text-[7px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest leading-none mt-0.5 truncate">
                   {day === "Friday" || day === "Saturday" ? "Weekend" : "Weekday"}
                 </span>
               </div>
@@ -278,7 +278,7 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
               className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] gap-1 sm:gap-1.5 items-center"
             >
               <div className="text-left pr-1">
-                <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-500 tracking-tighter block">
+                <span className="text-[9px] sm:text-[10px] font-black text-slate-700 dark:text-slate-200 tracking-tighter block">
                   {hour}
                 </span>
               </div>
