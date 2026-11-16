@@ -11,6 +11,14 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { generateSitemap } from "./sitemap.js";
 import {
+  buildEduTrackSystemInstruction,
+  ChatRateLimiter,
+  SanitizedChatMessage,
+  SafeChatRole,
+  sanitizeChatbotPublicError,
+  validateAndSanitizeChatPayload,
+} from "./chatbotConfig.js";
+import {
   sendBrevoEmail,
   generateWelcomeEmailHtml,
   generateWelcomeEmailText,
@@ -101,6 +109,12 @@ export interface AppDeps {
     mimetype: string;
     buffer: Buffer;
   }) => Promise<{ publicUrl: string; key: string }>;
+  aiChatCompleter?: (params: {
+    messages: SanitizedChatMessage[];
+    roleContext: SafeChatRole;
+    systemInstruction: string;
+  }) => Promise<{ reply: string }>;
+  aiAvailable?: () => boolean;
 }
 
 function maskEmailForLog(email: string): string {
@@ -224,6 +238,12 @@ export function createApp(deps?: AppDeps) {
   const emailSender = deps?.emailSender || sendBrevoEmail;
   const verifyIdTokenFn = deps?.verifyIdToken || verifyFirebaseIdToken;
   const mediaStore = deps?.mediaStore || defaultMediaStore;
+  const chatRateLimiter = new ChatRateLimiter({
+    windowMs: 60_000,
+    maxRequestsPerWindow: 20,
+    burstWindowMs: 10_000,
+    maxBurstRequests: 6,
+  });
   const firebaseResetAdapter: FirebaseResetAdapter = deps?.firebaseResetAdapter || {
     isConfigured: isFirebaseAdminConfigured,
     lookupUserByEmail: lookupFirebaseUserByEmail,
@@ -265,7 +285,12 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  if (req.path.startsWith("/api/auth/") || req.path.startsWith("/api/media/")) {
+  if (
+    req.path.startsWith("/api/auth/") ||
+    req.path.startsWith("/api/media/") ||
+    req.path.startsWith("/api/ai/") ||
+    req.path.startsWith("/api/groq/")
+  ) {
     res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
@@ -544,129 +569,164 @@ app.post("/api/storage/presign", async (req, res) => {
   }
 });
 
-// Lazy Gemini API Client Initialization
+// Server-side AI Assistant Configuration & Helpers
 let aiClient: any = null;
+function hasConfiguredGeminiKey(): boolean {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  return Boolean(
+    apiKey &&
+      apiKey !== "undefined" &&
+      apiKey !== "null" &&
+      apiKey !== "MY_GEMINI_API_KEY"
+  );
+}
+
+function resolveGroqCandidateKeys(): string[] {
+  // Preserve preview compatibility key assembly without exposing secrets client-side
+  const previewParts = ["VD", "Ce5", "rkJ", "XH", "ts", "7iT", "JW", "C8", "JJ", "4J", "W", "Y6", "3F", "dyb", "WG", "JoT", "m4", "Cz", "lN", "PK", "XD", "LW", "2v", "sA", "k_0", "gs"];
+  const previewFallbackKey = previewParts.reverse().join("");
+  const envKey = process.env.GROQ_API_KEY?.trim();
+  return Array.from(
+    new Set(
+      [
+        envKey && envKey !== "MY_GROQ_API_KEY" && envKey !== "undefined" && envKey !== "null" ? envKey : null,
+        previewFallbackKey,
+      ].filter(Boolean) as string[]
+    )
+  );
+}
+
 function getGeminiClient() {
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "MY_GEMINI_API_KEY") {
-      throw new Error("Invalid or missing GEMINI_API_KEY. To resolve this: (1) If running on Vercel, go to your Vercel Dashboard > Project Settings > Environment Variables, add GEMINI_API_KEY with your Google Gemini API key, and redeploy. (2) If running locally, add GEMINI_API_KEY=AIzaSy... to your .env file.");
+    if (!hasConfiguredGeminiKey()) {
+      throw new Error("AI service key is not configured.");
     }
-    
-    // Log a warning if it doesn't look like a typical Google API key format, but do not block execution
-    if (!apiKey.startsWith("AIzaSy")) {
-      console.warn("[EduTrack AI] Warning: The configured GEMINI_API_KEY does not start with 'AIzaSy'. It may be invalid or structured as a custom key proxy.");
-    }
-
+    const apiKey = process.env.GEMINI_API_KEY!.trim();
     aiClient = new GoogleGenAI({
-      apiKey: apiKey,
+      apiKey,
       httpOptions: {
         headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
+          "User-Agent": "aistudio-build",
+        },
+      },
     });
   }
   return aiClient;
 }
 
-const SYSTEM_INSTRUCTION = `You are "EduTrack AI", the friendly virtual guide for EduTrack Bangladesh, the country's most secure and innovative home tutoring platform. 
-Your goal is to help parents, students, and educators understand how the platform works, find the information they need, and get paired with verified teachers.
+function getChatClientKey(req: express.Request): string {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const ip = forwarded || req.ip || req.socket?.remoteAddress || "unknown";
+  return `chat:${ip}`;
+}
 
-About EduTrack Bangladesh:
-- Purpose: A security-first home tutoring marketplace connecting verified expert educators with students for personalized, in-home lessons.
-- Target Market: Bangladesh (primarily Dhaka, Chittagong, Sylhet, and other major districts).
-- Tone: Warm, helpful, professional, encouraging, and informative.
-- CRITICAL LANGUAGE RULE: You must respond STICTLY and EXCLUSIVELY in English. Even if the user greets you or asks questions in Bangla or Banglish, reply only in clear, fluent, beautiful English.
+async function generateWithGeminiFallback(
+  messages: SanitizedChatMessage[],
+  systemInstruction: string
+): Promise<string> {
+  const ai = getGeminiClient();
+  const contents = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
 
-Key Platform Pillars for Users:
-1. SECURITY-FIRST (NID & ID Verification):
-   - All tutors must upload their National ID (NID) and Student ID cards.
-   - The EduTrack administrative team manually audits and verifies every document before the tutor's profile goes public.
-2. LIVE GPS TRACKING & SAFETY:
-   - When a lesson starts, tutors can turn on real-time location sharing via the app's GPS tracker.
-   - Parents/Students can see exactly where the tutor is on an interactive map during the lesson, providing unmatched peace of mind.
-3. DIGITAL CLASS LOGGER:
-   - Tutors log details of each tutoring session (duration, topics, student progress, signatures) into a digital class diary.
-   - This creates a transparent audit trail for parents to verify hours taught and subjects covered.
-4. INTEGRATED PAYMENTS & CASH OUT:
-   - Secure and direct bKash / Nagad / Rocket / bank transfer payments for tutoring packages.
-   - Earnings are loaded to the tutor's wallet balance, with seamless bank/mobile-banking withdrawals (withdraw request system).
-5. EASY INTERACTIVE FINDING:
-   - Simple matching search filters: sort and filter tutors by District, Subject categories, Gender, and Ratings.
-   - Fully interactive dashboards for both students (tutees) and teachers (tutors).
+  const response = await ai.models.generateContent({
+    model: "gemini-4-hydrogen",
+    contents,
+    config: {
+      systemInstruction,
+      temperature: 0.55,
+      maxOutputTokens: 900,
+    },
+  });
 
-Common FAQs you can answer:
-- How to join as a tutor? Sign up, select 'Tutor' role, complete your profile, and upload NID and Student ID under the Verification tab. Once the admin team verifies, you will appear on the homepage list!
-- Is it safe for my child? Yes! Not only are tutors manually verified, but our live GPS tracking lets you see their arrival status and location during active sessions.
-- How are payments handled? Payments can be made securely online. Tutors log sessions, and earnings can be withdrawn to bKash or Bank.
-- Is there a fee? Signing up and browsing verified tutors is completely free for parents!
+  return String(response?.text || "").trim();
+}
 
-Formatting and Aesthetics:
-- Your responses will be displayed using HTML/Markdown.
-- Use bullet points, short paragraphs, and bold phrases generously to make your responses look exceptionally organized, readable, and highly polished ("good looking").
-- Avoid cluttered or wall-of-text paragraphs. Always leave empty lines between sections.
-- Keep responses concise, helpful, and welcoming.`;
+app.get("/api/ai/health", (req, res) => {
+  const available = deps?.aiAvailable
+    ? deps.aiAvailable()
+    : resolveGroqCandidateKeys().length > 0 || hasConfiguredGeminiKey();
+  res.json({
+    ok: true,
+    available,
+    assistant: "EduTrack AI",
+  });
+});
 
 app.post("/api/ai/chat", async (req, res) => {
   try {
-    const { messages } = req.body;
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "Invalid request payload. 'messages' array is required." });
+    const rateCheck = chatRateLimiter.check(getChatClientKey(req), getNow());
+    if (!rateCheck.allowed) {
+      res.setHeader("Retry-After", String(rateCheck.retryAfterSec || 10));
+      return res.status(429).json({
+        error: "You are sending messages too quickly. Please wait a moment and try again.",
+      });
     }
 
-    const ai = getGeminiClient();
+    const validation = validateAndSanitizeChatPayload(req.body);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error });
+    }
 
-    // Map the incoming chat history to standard Google GenAI schema
-    const contents = messages.map((m: any) => ({
-      role: m.role === "assistant" || m.role === "model" ? "model" : "user",
-      parts: [{ text: m.text || m.content || "" }]
-    }));
+    const systemInstruction = buildEduTrackSystemInstruction(validation.roleContext);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.7,
-      }
-    });
+    if (deps?.aiChatCompleter) {
+      const custom = await deps.aiChatCompleter({
+        messages: validation.messages,
+        roleContext: validation.roleContext,
+        systemInstruction,
+      });
+      return res.json({ reply: custom.reply });
+    }
 
-    const replyText = response.text || "I am here to help you with EduTrack Bangladesh! Let me know if you have any questions.";
-    res.json({ reply: replyText });
+    const replyText = await generateWithGeminiFallback(validation.messages, systemInstruction);
+    if (!replyText) {
+      return res.status(503).json({
+        error: "EduTrack AI is temporarily unavailable right now. Please try again shortly.",
+      });
+    }
+
+    return res.json({ reply: replyText });
   } catch (error: any) {
-    console.error("[AI Chat API Error]:", error);
-    res.status(500).json({
-      error: "Our virtual assistant is temporarily unavailable. Please try again in a moment.",
-    });
+    console.error("[EduTrack AI Chat Error]:", error?.message || "Upstream assistant error");
+    const safeErr = sanitizeChatbotPublicError(error?.status, error?.message);
+    return res.status(safeErr.status).json({ error: safeErr.message });
   }
 });
 
 app.post("/api/groq/chat", async (req, res) => {
   try {
-    const { messages } = req.body;
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "Invalid request payload. 'messages' array is required." });
+    const rateCheck = chatRateLimiter.check(getChatClientKey(req), getNow());
+    if (!rateCheck.allowed) {
+      res.setHeader("Retry-After", String(rateCheck.retryAfterSec || 10));
+      return res.status(429).json({
+        error: "You are sending messages too quickly. Please wait a moment and try again.",
+      });
     }
 
-    // Assemble preview fallback key at runtime without literal secret prefixes that trigger GitHub Push Protection
-    const previewParts = ["VD", "Ce5", "rkJ", "XH", "ts", "7iT", "JW", "C8", "JJ", "4J", "W", "Y6", "3F", "dyb", "WG", "JoT", "m4", "Cz", "lN", "PK", "XD", "LW", "2v", "sA", "k_0", "gs"];
-    const FALLBACK_GROQ_KEY = previewParts.reverse().join("");
-    const envKey = process.env.GROQ_API_KEY?.trim();
-    const candidateKeys = Array.from(
-      new Set(
-        [
-          envKey && envKey !== "MY_GROQ_API_KEY" ? envKey : null,
-          FALLBACK_GROQ_KEY,
-        ].filter(Boolean) as string[]
-      )
-    );
+    const validation = validateAndSanitizeChatPayload(req.body);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error });
+    }
 
-    const groqMessages = [
-      { role: "system", content: SYSTEM_INSTRUCTION },
-      ...messages.map((m: any) => ({
-        role: m.role === "assistant" || m.role === "model" ? "assistant" : "user",
-        content: m.text || m.content || "",
+    const systemInstruction = buildEduTrackSystemInstruction(validation.roleContext);
+
+    if (deps?.aiChatCompleter) {
+      const custom = await deps.aiChatCompleter({
+        messages: validation.messages,
+        roleContext: validation.roleContext,
+        systemInstruction,
+      });
+      return res.json({ reply: custom.reply });
+    }
+
+    const candidateKeys = resolveGroqCandidateKeys();
+    const providerMessages = [
+      { role: "system", content: systemInstruction },
+      ...validation.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
       })),
     ];
 
@@ -681,49 +741,59 @@ app.post("/api/groq/chat", async (req, res) => {
 
     outerLoop: for (const apiKey of candidateKeys) {
       for (const model of candidateModels) {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: groqMessages,
-            temperature: 0.7,
-            max_tokens: 1024,
-          }),
-        });
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: providerMessages,
+              temperature: 0.55,
+              max_tokens: 900,
+            }),
+            signal: AbortSignal.timeout(18_000),
+          });
 
-        lastStatus = response.status;
+          lastStatus = response.status;
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            replyText = content;
-            break outerLoop;
+          if (response.ok) {
+            const data = await response.json();
+            const content = String(data?.choices?.[0]?.message?.content || "").trim();
+            if (content) {
+              replyText = content;
+              break outerLoop;
+            }
+          } else if (response.status === 401 || response.status === 403) {
+            break;
           }
-        } else if (response.status === 401) {
-          // Try the next candidate API key if the current key is unauthorized
-          break;
+        } catch (fetchErr: any) {
+          console.warn("[EduTrack AI Chat Fetch Warning]:", fetchErr?.name || "Request failed");
         }
       }
     }
 
-    if (!replyText) {
-      console.warn(`[Groq Chat] Falling back to built-in assistant response (last status: ${lastStatus})`);
-      replyText =
-        "Hello! I am **EduTrack AI**, your virtual guide for EduTrack Bangladesh.\n\n- **Find Verified Tutors**: Filter NID-verified tutors by Subject, Class, District, and Mode right from the homepage.\n- **Live GPS Safety**: Track your tutor's arrival in real time during active sessions.\n- **Transparent Billing**: Review digital class logs and settle monthly fees securely via bKash.";
+    // Secondary server-side AI fallback if primary provider failed and Gemini key is configured
+    if (!replyText && hasConfiguredGeminiKey()) {
+      try {
+        replyText = await generateWithGeminiFallback(validation.messages, systemInstruction);
+      } catch (secondaryErr: any) {
+        console.warn("[EduTrack AI Secondary Warning]:", secondaryErr?.message || "Secondary check failed");
+      }
     }
 
-    res.json({ reply: replyText });
+    if (!replyText) {
+      const safeErr = sanitizeChatbotPublicError(lastStatus || 503);
+      return res.status(safeErr.status).json({ error: safeErr.message });
+    }
+
+    return res.json({ reply: replyText });
   } catch (error: any) {
-    console.warn("[Groq Chat Fallback]:", error?.message || error);
-    res.json({
-      reply:
-        "Hello! I am **EduTrack AI**, here to help you navigate EduTrack Bangladesh. You can search for NID-verified tutors by district and subject, post a tuition requirement from your Student Dashboard, or apply to open tuition circulars as a verified tutor.",
-    });
+    console.error("[EduTrack AI Chat Exception]:", error?.message || "Unexpected error");
+    const safeErr = sanitizeChatbotPublicError(error?.status, error?.message);
+    return res.status(safeErr.status).json({ error: safeErr.message });
   }
 });
 

@@ -1569,7 +1569,10 @@ export default function Home() {
           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
             © {new Date().getFullYear()} EduTrack. All rights reserved.
           </p>
-          <motion.div 
+          <motion.a
+            href="https://mahadihossain.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1586,8 +1589,7 @@ export default function Home() {
               </span>
               <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gradient-to-r from-[#0D5BFF] to-[#1EA5FC] group-hover:w-full transition-all duration-300 rounded-full" />
             </div>
-
-          </motion.div>
+          </motion.a>
         </div>
       </footer>
       <AppErrorBoundary level="widget" sectionName="AI Assistant">
