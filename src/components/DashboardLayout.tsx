@@ -32,15 +32,17 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   useBackHandler(isMobileMenuOpen, () => setIsMobileMenuOpen(false), 'dashboard-drawer');
 
-  if (!currentUser) return null;
+  const isTutor = currentUser?.role === 'tutor';
+  const isStudent = currentUser?.role === 'student';
+  const isAdmin = currentUser?.role === 'admin';
+  const currentUserId = currentUser?.id || '';
 
-  const isTutor = currentUser.role === 'tutor';
-  const isStudent = currentUser.role === 'student';
-  const isAdmin = currentUser.role === 'admin';
-
-  const totalUnreadMessages = useMemo(() => 
-    messages.filter(m => m.receiverId === currentUser.id && !m.isRead).length,
-    [messages, currentUser.id]
+  const totalUnreadMessages = useMemo(
+    () =>
+      currentUserId && Array.isArray(messages)
+        ? messages.filter((m) => m && m.receiverId === currentUserId && !m.isRead).length
+        : 0,
+    [messages, currentUserId]
   );
 
   const navItems = useMemo(() => [
@@ -63,6 +65,8 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       { label: 'Revenue', icon: CreditCard, path: '/dashboard/payments' },
     ] : []),
   ], [isTutor, isStudent, isAdmin, totalUnreadMessages]);
+
+  if (!currentUser) return null;
 
   const isActive = (path: string) => location.pathname === path;
 

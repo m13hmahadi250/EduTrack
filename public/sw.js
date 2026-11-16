@@ -1,6 +1,6 @@
 // Service Worker for EduTrack Web Notifications & Offline Caching Strategy
-const CACHE_NAME = 'edutrack-app-v5';
-const DYNAMIC_CACHE = 'edutrack-dynamic-v5';
+const CACHE_NAME = 'edutrack-app-v6';
+const DYNAMIC_CACHE = 'edutrack-dynamic-v6';
 
 // Core app assets to pre-cache on install
 const PRECACHE_ASSETS = [
@@ -20,7 +20,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event - Purge all outdated caches (including poisoned v1/v3 script caches)
+// Activate Event - Purge all outdated caches (including poisoned v1-v5 and workbox script caches)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -40,8 +40,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests or non-HTTP(S) requests
-  if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
+  // Skip non-GET requests or non-HTTP(S) requests or cross-origin APIs
+  if (request.method !== 'GET' || !url.protocol.startsWith('http') || url.origin !== self.location.origin) {
     return;
   }
 
@@ -52,7 +52,9 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/@') ||
     url.pathname.startsWith('/api/') ||
     url.searchParams.has('v') ||
-    url.searchParams.has('t')
+    url.searchParams.has('t') ||
+    url.searchParams.has('_v') ||
+    url.searchParams.has('_r')
   ) {
     return;
   }
@@ -62,22 +64,24 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          const contentType = networkResponse?.headers?.get('content-type') || '';
+          if (networkResponse && networkResponse.status === 200 && contentType.includes('text/html')) {
             const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy)).catch(() => {});
           }
           return networkResponse;
         })
         .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match('/index.html') || caches.match('/');
+          return caches.match('/index.html').then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
           });
         })
     );
     return;
   }
 
-  // 2. Production JS & CSS bundles - Network-First so updated builds never mix chunk versions
+  // 2. Production JS & CSS bundles - Network-First with strict MIME-type verification
+  // NEVER cache an HTML fallback response as a .js or .css chunk!
   if (
     request.destination === 'script' ||
     request.destination === 'style' ||
@@ -86,18 +90,47 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          const contentType = (networkResponse?.headers?.get('content-type') || '').toLowerCase();
+          const isHtmlFallback = contentType.includes('text/html');
+          const isValidCodeMime =
+            !isHtmlFallback &&
+            (contentType.includes('javascript') ||
+              contentType.includes('ecmascript') ||
+              contentType.includes('text/css'));
+
+          if (networkResponse && networkResponse.status === 200 && isValidCodeMime) {
             const copy = networkResponse.clone();
-            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+            return networkResponse;
           }
+
+          if (isHtmlFallback) {
+            // A stale chunk path hit an HTML fallback; reject so lazyWithRetry can recover cleanly
+            return new Response('Stale chunk not found', {
+              status: 404,
+              statusText: 'Not Found',
+              headers: { 'Content-Type': 'text/plain' },
+            });
+          }
+
           return networkResponse;
         })
-        .catch(() => caches.match(request))
+        .catch(() =>
+          caches.match(request).then((cached) => {
+            if (cached) {
+              const cachedType = (cached.headers?.get('content-type') || '').toLowerCase();
+              if (!cachedType.includes('text/html')) {
+                return cached;
+              }
+            }
+            return Response.error();
+          })
+        )
     );
     return;
   }
 
-  // 3. Static Media (Images, Fonts, Icons) - Stale-While-Revalidate
+  // 3. Static Media (Images, Fonts, Icons) - Stale-While-Revalidate (never cache HTML as media)
   if (
     request.destination === 'image' ||
     request.destination === 'font' ||
@@ -107,9 +140,10 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then((cachedResponse) => {
         const fetchPromise = fetch(request)
           .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
+            const contentType = (networkResponse?.headers?.get('content-type') || '').toLowerCase();
+            if (networkResponse && networkResponse.status === 200 && !contentType.includes('text/html')) {
               const copy = networkResponse.clone();
-              caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy));
+              caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
             }
             return networkResponse;
           })

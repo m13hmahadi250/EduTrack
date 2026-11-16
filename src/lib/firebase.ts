@@ -1,25 +1,50 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
   initializeFirestore, 
+  getFirestore,
   doc, 
   getDocFromServer, 
   persistentLocalCache, 
-  persistentMultipleTabManager 
+  persistentMultipleTabManager,
+  memoryLocalCache,
+  type Firestore
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-console.log("Initializing Firestore with Database ID:", firebaseConfig.firestoreDatabaseId || "(default)");
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Use initializeFirestore with modern persistent local cache (replaces deprecated enableIndexedDbPersistence)
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-}, firebaseConfig.firestoreDatabaseId);
+function createResilientFirestore(): Firestore {
+  const databaseId = firebaseConfig.firestoreDatabaseId;
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalForceLongPolling: true,
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      databaseId
+    );
+  } catch (persistErr) {
+    // Fallback for private browsing, restricted Android WebViews, or HMR re-init
+    try {
+      return initializeFirestore(
+        app,
+        {
+          experimentalForceLongPolling: true,
+          localCache: memoryLocalCache(),
+        },
+        databaseId
+      );
+    } catch {
+      return getFirestore(app, databaseId);
+    }
+  }
+}
 
+export const db = createResilientFirestore();
 export const auth = getAuth(app);
 
 // Connectivity check as per guidelines
@@ -30,4 +55,7 @@ async function testConnection() {
     // Silent offline or initialization check
   }
 }
-testConnection();
+if (typeof window !== 'undefined') {
+  testConnection();
+}
+

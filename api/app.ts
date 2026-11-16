@@ -13,10 +13,13 @@ import { generateSitemap } from "./sitemap.js";
 import {
   sendBrevoEmail,
   generateWelcomeEmailHtml,
+  generateWelcomeEmailText,
   generateOtpEmailHtml,
   generateOtpEmailText,
   generatePasswordResetEmailHtml,
+  generatePasswordResetEmailText,
   generateBulkCampaignEmailHtml,
+  generateBulkCampaignEmailText,
 } from "./mailService.js";
 import {
   AuthChallengeStore,
@@ -1033,12 +1036,18 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         resetLink,
         expiresMinutes: 15,
       });
+      const textContent = generatePasswordResetEmailText({
+        email: normalizedEmail,
+        resetLink,
+        expiresMinutes: 15,
+      });
 
       const emailResult = await emailSender({
         toEmail: normalizedEmail,
         toName: normalizedEmail.split("@")[0],
-        subject: "EduTrack BD - Reset Your Account Password",
+        subject: "Reset your password | EduTrack Bangladesh",
         htmlContent,
+        textContent,
       });
 
       console.info(
@@ -1360,6 +1369,8 @@ app.post("/api/auth/reset-password", async (req, res) => {
 /**
  * Brevo Mail API Endpoints
  */
+const dispatchedWelcomeEmails = new Set<string>();
+
 app.post("/api/mail/send-welcome", async (req, res) => {
   try {
     const { 
@@ -1371,6 +1382,7 @@ app.post("/api/mail/send-welcome", async (req, res) => {
       email, 
       name, 
       role, 
+      accountType,
       studentClass, 
       school, 
       university, 
@@ -1378,32 +1390,44 @@ app.post("/api/mail/send-welcome", async (req, res) => {
       district, 
       customMessage, 
       profileUrl, 
-      baseUrl 
+      baseUrl,
+      forceSend,
     } = req.body;
     
     if (!email) {
       return res.status(400).json({ error: "Recipient email is required" });
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
     let finalUserId = userId || id || uid || tutorId || teacherId;
-    if (!finalUserId && email && isFirebaseAdminConfigured()) {
+    if (!finalUserId && normalizedEmail && isFirebaseAdminConfigured()) {
       try {
-        const matchedUsers = await firestoreQueryByField("users", "email", email.toLowerCase(), 1);
+        const matchedUsers = await firestoreQueryByField("users", "email", normalizedEmail, 1);
         if (matchedUsers[0]?.id) {
           finalUserId = matchedUsers[0].id;
         }
       } catch (e) {}
     }
 
+    const dedupeKey = finalUserId ? `uid:${finalUserId}|email:${normalizedEmail}` : `email:${normalizedEmail}`;
+    if (!forceSend && !customMessage && dispatchedWelcomeEmails.has(dedupeKey)) {
+      return res.json({
+        success: true,
+        alreadySent: true,
+        message: "Welcome email already dispatched for this account.",
+      });
+    }
+
     const isTutor = role === 'tutor';
     const computedProfileUrl = profileUrl || (finalUserId && isTutor ? `https://edutrackbd.vercel.app/teachers/${finalUserId}` : undefined);
     const computedBaseUrl = baseUrl || "https://edutrackbd.vercel.app";
 
-    const htmlContent = generateWelcomeEmailHtml({
+    const emailParams = {
       userId: finalUserId,
-      email,
-      name: name || (isTutor ? "Teacher" : "Member"),
+      email: normalizedEmail,
+      name: name || (isTutor ? "Educator" : "Member"),
       role: role || "student",
+      accountType,
       studentClass,
       school,
       university,
@@ -1412,20 +1436,26 @@ app.post("/api/mail/send-welcome", async (req, res) => {
       customMessage,
       profileUrl: computedProfileUrl,
       baseUrl: computedBaseUrl,
-    });
+    };
+
+    const htmlContent = generateWelcomeEmailHtml(emailParams);
+    const textContent = generateWelcomeEmailText(emailParams);
 
     const subject = customMessage 
-      ? `EduTrack Bangladesh - Welcome & Special Message for ${name || 'User'}`
-      : isTutor 
-        ? `Welcome to EduTrack Bangladesh, Teacher ${name || 'Educator'}! Your Profile is Live 🎓`
-        : `Welcome to EduTrack Bangladesh, ${name || 'Member'}! 🎓`;
+      ? `EduTrack Bangladesh — Account Notice for ${name || 'Member'}`
+      : `Welcome to EduTrack! | EduTrack Bangladesh`;
 
-    const result = await sendBrevoEmail({
-      toEmail: email,
-      toName: name || email,
+    const result = await emailSender({
+      toEmail: normalizedEmail,
+      toName: name || normalizedEmail,
       subject,
-      htmlContent
+      htmlContent,
+      textContent,
     });
+
+    if (result.success && !customMessage) {
+      dispatchedWelcomeEmails.add(dedupeKey);
+    }
 
     res.json(result);
   } catch (error: any) {
@@ -1457,6 +1487,7 @@ app.post("/api/mail/send-custom", async (req, res) => {
       subject, 
       messageBody, 
       role, 
+      accountType,
       district, 
       studentClass, 
       school, 
@@ -1484,11 +1515,12 @@ app.post("/api/mail/send-custom", async (req, res) => {
     const computedProfileUrl = profileUrl || (finalUserId && isTutor ? `https://edutrackbd.vercel.app/teachers/${finalUserId}` : undefined);
     const computedBaseUrl = baseUrl || "https://edutrackbd.vercel.app";
 
-    const htmlContent = generateWelcomeEmailHtml({
+    const customParams = {
       userId: finalUserId,
       email: toEmail,
       name: toName || toEmail,
       role: role || "student",
+      accountType,
       district,
       studentClass,
       school,
@@ -1497,15 +1529,19 @@ app.post("/api/mail/send-custom", async (req, res) => {
       customMessage: messageBody,
       profileUrl: computedProfileUrl,
       baseUrl: computedBaseUrl,
-    });
+    };
+
+    const htmlContent = generateWelcomeEmailHtml(customParams);
+    const textContent = generateWelcomeEmailText(customParams);
 
     const finalSubject = subject || `Message from EduTrack Bangladesh Administration`;
 
-    const result = await sendBrevoEmail({
+    const result = await emailSender({
       toEmail,
       toName: toName || toEmail,
       subject: finalSubject,
-      htmlContent
+      htmlContent,
+      textContent,
     });
 
     res.json(result);
@@ -1602,7 +1638,7 @@ app.post("/api/mail/send-bulk", async (req, res) => {
       await Promise.all(
         batch.map(async (target) => {
           try {
-            const htmlContent = generateBulkCampaignEmailHtml({
+            const bulkParams = {
               recipientName: target.name,
               recipientEmail: target.email,
               recipientRole: target.role,
@@ -1615,13 +1651,16 @@ app.post("/api/mail/send-bulk", async (req, res) => {
               actionButtonText,
               actionButtonUrl,
               baseUrl,
-            });
+            };
+            const htmlContent = generateBulkCampaignEmailHtml(bulkParams);
+            const textContent = generateBulkCampaignEmailText(bulkParams);
 
-            const sendRes = await sendBrevoEmail({
+            const sendRes = await emailSender({
               toEmail: target.email,
               toName: target.name || target.email.split("@")[0],
               subject,
               htmlContent,
+              textContent,
             });
 
             if (sendRes.success) {
@@ -1684,12 +1723,38 @@ app.post("/api/mail/send-bulk", async (req, res) => {
 });
 
   app.all("/api/*", (req, res) => {
-    res.status(404).json({ error: "API Route Not Found", path: req.path });
+    res.status(404).json({
+      success: false,
+      code: "API_NOT_FOUND",
+      error: "API Route Not Found",
+      path: req.path,
+    });
   });
 
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Unhandled Error:", err);
-    res.status(500).json({ error: "Internal Server Error", message: err.message });
+    if (res.headersSent) {
+      return next(err);
+    }
+    if (err?.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        success: false,
+        code: "FILE_TOO_LARGE",
+        error: "Uploaded file exceeds the maximum allowed size limit (10MB).",
+      });
+    }
+    if (err instanceof SyntaxError && "body" in err) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_JSON",
+        error: "Malformed JSON request payload.",
+      });
+    }
+    console.error("[API Unhandled Error]:", err?.message || err);
+    return res.status(500).json({
+      success: false,
+      code: "INTERNAL_SERVER_ERROR",
+      error: "An unexpected server error occurred. Please try again.",
+    });
   });
 
   return app;

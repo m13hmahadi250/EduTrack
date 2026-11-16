@@ -255,31 +255,38 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
   // Filtered open tuitions for browsing
   const filteredTuitions = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return tuitions.filter((t) => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    return (Array.isArray(tuitions) ? tuitions : []).filter((t) => {
+      if (!t) return false;
       if (mode !== 'admin' && t.status === 'closed') return false;
       if (showSavedOnly && !savedTuitionIds.includes(t.id)) return false;
 
+      const titleStr = (t.title || '').toLowerCase();
+      const subjectStr = (t.subject || '').toLowerCase();
+      const districtStr = (t.district || '').toLowerCase();
+      const areaStr = (t.area || '').toLowerCase();
+      const classStr = (t.studentClass || '').toLowerCase();
+
       const matchesSearch =
         !q ||
-        t.title.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q) ||
-        t.district.toLowerCase().includes(q) ||
-        (t.area && t.area.toLowerCase().includes(q)) ||
-        t.studentClass.toLowerCase().includes(q);
+        titleStr.includes(q) ||
+        subjectStr.includes(q) ||
+        districtStr.includes(q) ||
+        areaStr.includes(q) ||
+        classStr.includes(q);
 
       const matchesSubject =
-        filterSubject === 'All' || t.subject.toLowerCase().includes(filterSubject.toLowerCase());
+        filterSubject === 'All' || subjectStr.includes(filterSubject.toLowerCase());
 
       const matchesClass =
-        filterClass === 'All' || t.studentClass.toLowerCase().includes(filterClass.toLowerCase());
+        filterClass === 'All' || classStr.includes(filterClass.toLowerCase());
 
       const matchesCurriculum =
         filterCurriculum === 'All' ||
         (t.curriculum && t.curriculum.toLowerCase().includes(filterCurriculum.toLowerCase()));
 
       const matchesDistrict =
-        filterDistrict === 'All' || t.district.toLowerCase() === filterDistrict.toLowerCase();
+        filterDistrict === 'All' || districtStr === filterDistrict.toLowerCase();
 
       const matchesMode =
         filterMode === 'All' ||
@@ -677,6 +684,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 ? 'Discover Matching Tuitions & Track Applications'
                 : 'Manage All Tuition Circulars & Applications'}
             </h2>
+            {mode === 'student' && (
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 leading-[1.65]"
+              >
+                আপনার প্রয়োজন অনুযায়ী টিউশনের বিস্তারিত তথ্য দিন।
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1226,9 +1241,17 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Tutor Applications ({post.applications.length})
-                    </h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        Tutor Applications ({post.applications.length})
+                      </h4>
+                      <p
+                        lang="bn"
+                        className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                      >
+                        আগ্রহী শিক্ষকদের প্রোফাইল দেখে পছন্দের শিক্ষক নির্বাচন করুন।
+                      </p>
+                    </div>
                     <div className="grid gap-3">
                       {post.applications.map((app) => (
                         <div

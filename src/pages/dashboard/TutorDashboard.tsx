@@ -82,14 +82,17 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-const MapTracker = lazy(() => import("../../components/MapTracker"));
-const ImageUpload = lazy(() => import("../../components/ImageUpload"));
-const FileUpload = lazy(() => import("../../components/FileUpload"));
-const ReferralsTab = lazy(() => import("../../components/ReferralsTab"));
-const DemandHeatmap = lazy(() => import("../../components/DemandHeatmap"));
-const ClassLogsCalendar = lazy(() => import("../../components/ClassLogsCalendar"));
-const HomeworkDashboard = lazy(() => import("../../components/HomeworkDashboard"));
-const TuitionMarketplaceHub = lazy(() => import("../../components/TuitionMarketplaceHub"));
+import { lazyWithRetry } from "../../utils/lazyWithRetry";
+import { AppErrorBoundary } from "../../components/AppErrorBoundary";
+
+const MapTracker = lazyWithRetry(() => import("../../components/MapTracker"), "MapTracker");
+const ImageUpload = lazyWithRetry(() => import("../../components/ImageUpload"), "ImageUpload");
+const FileUpload = lazyWithRetry(() => import("../../components/FileUpload"), "FileUpload");
+const ReferralsTab = lazyWithRetry(() => import("../../components/ReferralsTab"), "ReferralsTab");
+const DemandHeatmap = lazyWithRetry(() => import("../../components/DemandHeatmap"), "DemandHeatmap");
+const ClassLogsCalendar = lazyWithRetry(() => import("../../components/ClassLogsCalendar"), "ClassLogsCalendar");
+const HomeworkDashboard = lazyWithRetry(() => import("../../components/HomeworkDashboard"), "HomeworkDashboard");
+const TuitionMarketplaceHub = lazyWithRetry(() => import("../../components/TuitionMarketplaceHub"), "TuitionMarketplaceHub");
 import {
   AVAILABLE_SUBJECTS,
   AVAILABLE_CLASSES,
@@ -100,8 +103,8 @@ import {
   DashboardInput,
 } from "../../components/DashboardComponents";
 
-const RatingModal = lazy(() => import("../../components/RatingModal"));
-const ChatWindow = lazy(() => import("../../components/ChatWindow"));
+const RatingModal = lazyWithRetry(() => import("../../components/RatingModal"), "RatingModal");
+const ChatWindow = lazyWithRetry(() => import("../../components/ChatWindow"), "ChatWindow");
 
 const MapLoading = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
@@ -347,12 +350,12 @@ export default function TutorDashboard() {
   }, [currentUser]);
 
   const filteredStudents = useMemo(() => {
-    if (!currentUser.isVerified) return [];
-    const list = users.filter(user => {
-      if (user.role !== "student") return false;
+    if (!currentUser?.isVerified) return [];
+    const list = (Array.isArray(users) ? users : []).filter(user => {
+      if (!user || user.role !== "student") return false;
       
       const matchesSearch = !studentSearchTerm || 
-        user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+        (user.name || '').toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
         (user.school && user.school.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
         (user.address && user.address.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
         (user.area && user.area.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
@@ -703,9 +706,41 @@ export default function TutorDashboard() {
     };
   }, [currentUser?.id, updateLocation]);
 
-  if (!currentUser) return null;
-
   const [updateSuccess, setUpdateSuccess] = useState(false);
+
+  const activeSessions = useMemo(() => {
+    const sessionMap = new Map();
+    (Array.isArray(sessions) ? sessions : [])
+      .filter((s) => s && s.status !== "completed" && s.status !== "cancelled")
+      .forEach((s) => {
+        if (!sessionMap.has(s.id)) {
+          sessionMap.set(s.id, s);
+        }
+      });
+    return Array.from(sessionMap.values());
+  }, [sessions]);
+
+  const tutorPayments = useMemo(() => {
+    const paymentMap = new Map();
+    (Array.isArray(payments) ? payments : []).forEach((p) => {
+      if (p && !paymentMap.has(p.id)) {
+        paymentMap.set(p.id, p);
+      }
+    });
+    return Array.from(paymentMap.values());
+  }, [payments]);
+
+  const tutorWithdrawals = useMemo(() => {
+    const withdrawalMap = new Map();
+    (Array.isArray(withdrawals) ? withdrawals : []).forEach((w) => {
+      if (w && !withdrawalMap.has(w.id)) {
+        withdrawalMap.set(w.id, w);
+      }
+    });
+    return Array.from(withdrawalMap.values());
+  }, [withdrawals]);
+
+  if (!currentUser) return null;
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -805,38 +840,6 @@ export default function TutorDashboard() {
       );
     }
   };
-
-  const activeSessions = useMemo(() => {
-    const sessionMap = new Map();
-    sessions
-      .filter((s) => s.status !== "completed" && s.status !== "cancelled")
-      .forEach((s) => {
-        if (!sessionMap.has(s.id)) {
-          sessionMap.set(s.id, s);
-        }
-      });
-    return Array.from(sessionMap.values());
-  }, [sessions]);
-
-  const tutorPayments = useMemo(() => {
-    const paymentMap = new Map();
-    payments.forEach((p) => {
-      if (!paymentMap.has(p.id)) {
-        paymentMap.set(p.id, p);
-      }
-    });
-    return Array.from(paymentMap.values());
-  }, [payments]);
-
-  const tutorWithdrawals = useMemo(() => {
-    const withdrawalMap = new Map();
-    withdrawals.forEach((w) => {
-      if (!withdrawalMap.has(w.id)) {
-        withdrawalMap.set(w.id, w);
-      }
-    });
-    return Array.from(withdrawalMap.values());
-  }, [withdrawals]);
 
   return (
     <div className="space-y-12">
@@ -1745,49 +1748,51 @@ export default function TutorDashboard() {
                   </div>
 
                   <div className="bg-slate-900 rounded-[3rem] h-[500px] overflow-hidden border-8 border-white shadow-2xl relative">
-                    <Suspense fallback={<MapLoading />}>
-                      <MapTracker
-                        tutorLocation={effectiveTutorLocation}
-                        tutorName="Me (Tutor)"
-                        tutorImage={currentUser.profileImage}
-                        students={(() => {
-                          const uniqueStudents = new Map();
-                          sessions
-                            .filter(
-                              (s) =>
-                                s.status === "active" ||
-                                s.status === "scheduled",
-                            )
-                            .forEach((s) => {
-                              const student = users.find(
-                                (u) => u.id === s.studentId,
-                              );
-                              if (student) {
-                                let coords: [number, number] | undefined;
-                                if (student.location?.lat && student.location?.lng) {
-                                  coords = [student.location.lat, student.location.lng];
-                                } else if (student.lastLocation?.lat && student.lastLocation?.lng) {
-                                  coords = [student.lastLocation.lat, student.lastLocation.lng];
-                                } else if (student.district || student.thana || student.area) {
-                                  coords = getCoordinatesForLocation(student.district || 'Dhaka', student.thana || student.area, student.id);
+                    <AppErrorBoundary level="widget" sectionName="Live Map Tracker">
+                      <Suspense fallback={<MapLoading />}>
+                        <MapTracker
+                          tutorLocation={effectiveTutorLocation}
+                          tutorName="Me (Tutor)"
+                          tutorImage={currentUser.profileImage}
+                          students={(() => {
+                            const uniqueStudents = new Map();
+                            sessions
+                              .filter(
+                                (s) =>
+                                  s.status === "active" ||
+                                  s.status === "scheduled",
+                              )
+                              .forEach((s) => {
+                                const student = users.find(
+                                  (u) => u.id === s.studentId,
+                                );
+                                if (student) {
+                                  let coords: [number, number] | undefined;
+                                  if (student.location?.lat && student.location?.lng) {
+                                    coords = [student.location.lat, student.location.lng];
+                                  } else if (student.lastLocation?.lat && student.lastLocation?.lng) {
+                                    coords = [student.lastLocation.lat, student.lastLocation.lng];
+                                  } else if (student.district || student.thana || student.area) {
+                                    coords = getCoordinatesForLocation(student.district || 'Dhaka', student.thana || student.area, student.id);
+                                  }
+                                  if (coords && !uniqueStudents.has(student.id)) {
+                                    uniqueStudents.set(student.id, {
+                                      id: student.id,
+                                      location: coords,
+                                      name: student.name,
+                                      image: student.profileImage,
+                                      isOnline: student.isTrackingOn || student.isOnline,
+                                      isLastKnownLocation: !student.location && Boolean(student.lastLocation),
+                                      lastLocationUpdatedAt: student.lastLocationUpdatedAt || student.lastActiveAt,
+                                    });
+                                  }
                                 }
-                                if (coords && !uniqueStudents.has(student.id)) {
-                                  uniqueStudents.set(student.id, {
-                                    id: student.id,
-                                    location: coords,
-                                    name: student.name,
-                                    image: student.profileImage,
-                                    isOnline: student.isTrackingOn || student.isOnline,
-                                    isLastKnownLocation: !student.location && Boolean(student.lastLocation),
-                                    lastLocationUpdatedAt: student.lastLocationUpdatedAt || student.lastActiveAt,
-                                  });
-                                }
-                              }
-                            });
-                          return Array.from(uniqueStudents.values());
-                        })()}
-                      />
-                    </Suspense>
+                              });
+                            return Array.from(uniqueStudents.values());
+                          })()}
+                        />
+                      </Suspense>
+                    </AppErrorBoundary>
                   </div>
 
                   {currentUser.location && (
@@ -2376,10 +2381,16 @@ export default function TutorDashboard() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 pt-2">
+                      <div className="space-y-1.5 pt-2">
                         <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                           Identity Verification Documents (Tracked Separately from Completion)
                         </h4>
+                        <p
+                          lang="bn"
+                          className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                        >
+                          ভেরিফাইড ব্যাজ পেতে আপনার জাতীয় পরিচয়পত্র (NID) ও প্রাতিষ্ঠানিক আইডি কার্ড আপলোড করুন।
+                        </p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <ProfileField
@@ -2587,9 +2598,17 @@ export default function TutorDashboard() {
                       </div>
 
                       <div className="space-y-4">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                          Teaching Areas (Searchable by students)
-                        </label>
+                        <div className="space-y-1 ml-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                            Teaching Areas (Searchable by students)
+                          </label>
+                          <p
+                            lang="bn"
+                            className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                          >
+                            আপনি যেসব এলাকায় টিউশন করাতে আগ্রহী, সেগুলো নির্বাচন করুন।
+                          </p>
+                        </div>
                         <div className="flex gap-2">
                           <input
                             id="teachingAreaInput"
@@ -3058,10 +3077,18 @@ export default function TutorDashboard() {
                             Availability
                           </h3>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-loose">
-                          Select your active session windows. These slots will
-                          be visible to parents for instant booking.
-                        </p>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-loose">
+                            Select your active session windows. These slots will
+                            be visible to parents for instant booking.
+                          </p>
+                          <p
+                            lang="bn"
+                            className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                          >
+                            আপনি সপ্তাহের কোন দিন ও সময়ে টিউশন করাতে পারবেন তা নির্বাচন করুন।
+                          </p>
+                        </div>
 
                         <AvailabilityCalendar
                           slots={profileForm.availabilitySlots}
@@ -3217,9 +3244,11 @@ export default function TutorDashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-                <ClassLogsCalendar role="tutor" />
-              </Suspense>
+              <AppErrorBoundary level="widget" sectionName="Class Calendar">
+                <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                  <ClassLogsCalendar role="tutor" />
+                </Suspense>
+              </AppErrorBoundary>
             </motion.div>
           )}
 
@@ -3364,15 +3393,17 @@ export default function TutorDashboard() {
               className="space-y-8 text-left"
             >
               {/* Live Tuition Circulars Job Board, Recommendations & Application Tracker */}
-              <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
-                <TuitionMarketplaceHub
-                  mode="tutor"
-                  onMessageUser={(studentId) => {
-                    setSelectedRecipientId(studentId);
-                    handleTabChange("messages");
-                  }}
-                />
-              </Suspense>
+              <AppErrorBoundary level="widget" sectionName="Tuition Marketplace">
+                <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
+                  <TuitionMarketplaceHub
+                    mode="tutor"
+                    onMessageUser={(studentId) => {
+                      setSelectedRecipientId(studentId);
+                      handleTabChange("messages");
+                    }}
+                  />
+                </Suspense>
+              </AppErrorBoundary>
 
               {!currentUser.isVerified ? (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-14 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto my-8">
@@ -3932,9 +3963,11 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-                <ReferralsTab />
-              </Suspense>
+              <AppErrorBoundary level="widget" sectionName="Referrals">
+                <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                  <ReferralsTab />
+                </Suspense>
+              </AppErrorBoundary>
             </motion.div>
           )}
 
@@ -3946,9 +3979,11 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-                <HomeworkDashboard />
-              </Suspense>
+              <AppErrorBoundary level="widget" sectionName="Homework">
+                <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                  <HomeworkDashboard />
+                </Suspense>
+              </AppErrorBoundary>
             </motion.div>
           )}
         </motion.div>

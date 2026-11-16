@@ -3,11 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut } from 'lucide-react';
 import { useAppStore, consumePostLoginDestination } from './store';
+import { auth } from './lib/firebase';
+import { reportProductionError, isChunkOrModuleLoadError } from './lib/errorMonitoring';
+import { lazyWithRetry, clearChunkReloadState, performBoundedChunkRecovery } from './utils/lazyWithRetry';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { prefetchPage, prefetchMultiple } from './utils/prefetch';
 import { getCurrentAccuratePosition, watchAccuratePosition } from './utils/geocoding';
 import Navbar from './components/Navbar';
@@ -20,112 +24,17 @@ import OfflineIndicator from './components/OfflineIndicator';
 
 import BeautifulSkeleton from './components/BeautifulSkeleton';
 
-// Lazy load route-level components for optimal bundle splitting
-const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
-const DashboardRouter = lazy(() => import('./pages/DashboardRouter'));
-const Messages = lazy(() => import('./pages/Messages'));
-const TeacherProfile = lazy(() => import('./pages/TeacherProfile'));
-const TuitionDetail = lazy(() => import('./pages/TuitionDetail'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+// Lazy load route-level components with automatic transient retry & post-deploy chunk recovery
+const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
+const Login = lazyWithRetry(() => import('./pages/Login'), 'Login');
+const Signup = lazyWithRetry(() => import('./pages/Signup'), 'Signup');
+const DashboardRouter = lazyWithRetry(() => import('./pages/DashboardRouter'), 'DashboardRouter');
+const Messages = lazyWithRetry(() => import('./pages/Messages'), 'Messages');
+const TeacherProfile = lazyWithRetry(() => import('./pages/TeacherProfile'), 'TeacherProfile');
+const TuitionDetail = lazyWithRetry(() => import('./pages/TuitionDetail'), 'TuitionDetail');
+const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'), 'ResetPassword');
 
 const LoadingScreen = () => <BeautifulSkeleton />;
-
-/**
- * Global utility to write error tracking records into a secure Firebase collection
- */
-async function logErrorToFirebase(error: any, context?: string) {
-  try {
-    const [{ collection, doc, setDoc }, { db }] = await Promise.all([
-      import('firebase/firestore'),
-      import('./lib/firebase'),
-    ]);
-    const errorId = `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    const errorDocRef = doc(collection(db, 'error_logs'), errorId);
-    
-    let message = 'Unknown runtime error';
-    let stack = 'No stack trace available';
-    
-    if (error instanceof Error) {
-      message = error.message;
-      stack = error.stack || stack;
-    } else if (typeof error === 'string') {
-      message = error;
-    } else if (error && typeof error === 'object') {
-      message = error.message || JSON.stringify(error);
-      stack = error.stack || stack;
-    }
-
-    const payload = {
-      id: errorId,
-      message: `${context ? `[${context}] ` : ''}${message}`.substring(0, 4000),
-      stack: stack.substring(0, 12000),
-      url: window.location.href.substring(0, 2000),
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent.substring(0, 1000),
-      userId: useAppStore.getState().currentUser?.id || 'anonymous'
-    };
-
-    await setDoc(errorDocRef, payload);
-    console.log('[Error Tracker] Error logged to secure Firebase:', errorId);
-  } catch (err) {
-    console.error('[Error Tracker] Failed to log error to Firebase:', err);
-  }
-}
-
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Caught runtime component error:', error, errorInfo);
-    logErrorToFirebase(error, `ComponentBoundary: ${errorInfo.componentStack?.substring(0, 500)}`);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-6 font-sans">
-          <div className="max-w-md w-full bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700/50 text-center">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2 animate-pulse">Something went wrong</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-              An unexpected application error occurred. The incident has been logged and our development team has been notified.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-[#0D5BFF] hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md shadow-blue-500/10 active:scale-95"
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const currentUser = useAppStore(state => state.currentUser);
@@ -146,7 +55,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
             Your login token has been frozen due to compliance or terms of service issues.
           </p>
           <div className="text-[9px] font-black text-[#0D5BFF] tracking-widest mb-6">
-            Ref ID: {currentUser.id.substring(0, 12).toUpperCase()}
+            Ref ID: {(currentUser.id || 'USER').substring(0, 12).toUpperCase()}
           </div>
           <button 
             type="button"
@@ -172,6 +81,14 @@ function LayoutWrapper() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Clear any temporary chunk-reload guard once the app has mounted and rendered cleanly
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      clearChunkReloadState();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
+
   React.useEffect(() => {
     if (isInitialized) {
       // Idle pre-fetching for high-traffic entry points
@@ -184,7 +101,7 @@ function LayoutWrapper() {
         if (currentUser.role === 'student') prefetchPage('StudentDashboard');
       }
     }
-  }, [isInitialized, currentUser]);
+  }, [isInitialized, currentUser?.id, currentUser?.role]);
 
   React.useEffect(() => {
     if (currentUser && (location.pathname === '/login' || location.pathname === '/signup')) {
@@ -211,10 +128,11 @@ function LayoutWrapper() {
   // Set up global FCM token receiver callback to bridge with Android App or other senders
   React.useEffect(() => {
     (window as any).onFcmTokenReceived = (token: string) => {
-      console.log('[FCM Bridge] Received token from device:', token);
       if (!token) return;
 
-      localStorage.setItem('fcm_token', token);
+      try {
+        localStorage.setItem('fcm_token', token);
+      } catch {}
 
       // Call server backend API route
       fetch('/api/save-fcm-token', {
@@ -225,13 +143,12 @@ function LayoutWrapper() {
         body: JSON.stringify({ token })
       })
       .then(res => res.json())
-      .then(data => console.log('[FCM Bridge] Server token save response:', data))
       .catch(err => console.warn('[FCM Bridge] Server token save warning:', err));
 
-      // Associate with current user in Firestore if logged in
+      // Associate with current user in Firestore if authenticated
       const activeUser = useAppStore.getState().currentUser;
-      if (activeUser && activeUser.fcmToken !== token) {
-        useAppStore.getState().updateUser(activeUser.id, { fcmToken: token });
+      if (activeUser && auth.currentUser?.uid === activeUser.id && activeUser.fcmToken !== token) {
+        useAppStore.getState().updateUser(activeUser.id, { fcmToken: token }).catch(() => {});
       }
     };
 
@@ -240,15 +157,17 @@ function LayoutWrapper() {
     };
   }, []);
 
-  // Sync token to user document whenever currentUser changes
+  // Sync token to user document only after Firebase Auth token is restored for this user
   React.useEffect(() => {
-    if (currentUser) {
-      const storedToken = localStorage.getItem('fcm_token');
-      if (storedToken && currentUser.fcmToken !== storedToken) {
-        useAppStore.getState().updateUser(currentUser.id, { fcmToken: storedToken });
-      }
+    if (currentUser?.id && auth.currentUser?.uid === currentUser.id) {
+      try {
+        const storedToken = localStorage.getItem('fcm_token');
+        if (storedToken && currentUser.fcmToken !== storedToken) {
+          useAppStore.getState().updateUser(currentUser.id, { fcmToken: storedToken }).catch(() => {});
+        }
+      } catch {}
     }
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.fcmToken]);
 
   // Active Presence Lifecycle Sync (without unconditional background GPS tracking)
   React.useEffect(() => {
@@ -341,21 +260,27 @@ function LayoutWrapper() {
 
   React.useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
-      // Avoid infinite loop if Firebase SDK itself fails or is offline
-      if (event.message?.includes('Firestore') || event.message?.includes('Firebase')) {
-        console.warn('[Error Tracker] Ignored Firebase/Firestore error to prevent recursion:', event.message);
-        return;
+      const targetError = event.error || event.message;
+      if (isChunkOrModuleLoadError(targetError)) {
+        void performBoundedChunkRecovery();
       }
-      logErrorToFirebase(event.error || event.message, 'GlobalError');
+      void reportProductionError(targetError, {
+        section: 'window.onerror',
+        userId: useAppStore.getState().currentUser?.id,
+      });
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
-      if (reason && (String(reason).includes('Firestore') || String(reason).includes('Firebase') || (reason.message && (reason.message.includes('Firestore') || reason.message.includes('Firebase'))))) {
-        console.warn('[Error Tracker] Ignored Firebase/Firestore unhandled rejection to prevent recursion:', reason);
-        return;
+      if (isChunkOrModuleLoadError(reason)) {
+        event.preventDefault();
+        void performBoundedChunkRecovery();
       }
-      logErrorToFirebase(reason, 'UnhandledPromiseRejection');
+      void reportProductionError(reason, {
+        category: isChunkOrModuleLoadError(reason) ? 'CHUNK_LOAD_ERROR' : 'UNHANDLED_REJECTION',
+        section: 'window.onunhandledrejection',
+        userId: useAppStore.getState().currentUser?.id,
+      });
     };
 
     window.addEventListener('error', handleGlobalError);
@@ -376,9 +301,11 @@ function LayoutWrapper() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] text-[#0F172A] dark:text-[#F8FAFC] flex flex-col font-sans relative transition-colors duration-200">
       <OfflineIndicator />
-      <DeadlineNotifier />
-      <MessageToastCenter />
-      <GuidedTour />
+      <AppErrorBoundary level="widget" sectionName="Notifications">
+        <DeadlineNotifier />
+        <MessageToastCenter />
+        <GuidedTour />
+      </AppErrorBoundary>
       {!isAuthPage && <PromotionalBanner />}
       {!isAuthPage && <Navbar />}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
@@ -386,28 +313,30 @@ function LayoutWrapper() {
          <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-50/50 rounded-full blur-3xl"></div>
       </div>
       <main className="flex-grow">
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/teachers/:id" element={<TeacherProfile />} />
-            <Route path="/tuitions/:id" element={<TuitionDetail />} />
-            <Route path="/tuitions" element={<Navigate to="/#curriculums" replace />} />
-            <Route path="/dashboard/*" element={
-              <ProtectedRoute>
-                <DashboardRouter />
-              </ProtectedRoute>
-            } />
-            <Route path="/messages" element={
-              <ProtectedRoute>
-                <Messages />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+        <AppErrorBoundary level="route" sectionName="Page Content" resetKey={location.pathname}>
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/teachers/:id" element={<TeacherProfile />} />
+              <Route path="/tuitions/:id" element={<TuitionDetail />} />
+              <Route path="/tuitions" element={<Navigate to="/#curriculums" replace />} />
+              <Route path="/dashboard/*" element={
+                <ProtectedRoute>
+                  <DashboardRouter />
+                </ProtectedRoute>
+              } />
+              <Route path="/messages" element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </AppErrorBoundary>
       </main>
 
       {/* Premium Fullscreen Logout Transition Overlay */}
@@ -469,10 +398,11 @@ function LayoutWrapper() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
+    <AppErrorBoundary level="app" sectionName="EduTrack Application">
       <Router>
         <LayoutWrapper />
       </Router>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }
+

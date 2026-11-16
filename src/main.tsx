@@ -2,6 +2,9 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { installChunkErrorHandlers } from './utils/lazyWithRetry';
+
+installChunkErrorHandlers();
 
 // Clear any legacy service worker script caches that could hold outdated Vite dependency chunks
 if ('caches' in window) {
@@ -10,8 +13,10 @@ if ('caches' in window) {
       if (
         key === 'edutrack-app-v3' ||
         key === 'edutrack-app-v4' ||
+        key === 'edutrack-app-v5' ||
         key === 'edutrack-dynamic-v1' ||
         key === 'edutrack-dynamic-v4' ||
+        key === 'edutrack-dynamic-v5' ||
         key.startsWith('workbox-')
       ) {
         caches.delete(key).catch(() => {});

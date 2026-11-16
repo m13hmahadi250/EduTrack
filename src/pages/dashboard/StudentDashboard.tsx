@@ -76,11 +76,13 @@ import {
 } from '../../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../../shared/tutorPrivacy';
 import UserAvatar from '../../components/UserAvatar';
-const MapTracker = lazy(() => import('../../components/MapTracker'));
-const ImageUpload = lazy(() => import('../../components/ImageUpload'));
-const FileUpload = lazy(() => import('../../components/FileUpload'));
-const RatingModal = lazy(() => import('../../components/RatingModal'));
-const ChatWindow = lazy(() => import('../../components/ChatWindow'));
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+import { AppErrorBoundary } from '../../components/AppErrorBoundary';
+const MapTracker = lazyWithRetry(() => import('../../components/MapTracker'), 'MapTracker');
+const ImageUpload = lazyWithRetry(() => import('../../components/ImageUpload'), 'ImageUpload');
+const FileUpload = lazyWithRetry(() => import('../../components/FileUpload'), 'FileUpload');
+const RatingModal = lazyWithRetry(() => import('../../components/RatingModal'), 'RatingModal');
+const ChatWindow = lazyWithRetry(() => import('../../components/ChatWindow'), 'ChatWindow');
 import { motion, AnimatePresence } from 'motion/react';
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from '../../data/bangladeshData';
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from '../../utils/geocoding';
@@ -88,10 +90,10 @@ import { AVAILABLE_SUBJECTS, AVAILABLE_CLASSES, SUBJECT_CATEGORIES, AVAILABLE_VE
 import { MetricCard, FilterGroup, DashboardInput } from '../../components/DashboardComponents';
 import { Skeleton } from '../../components/Skeleton';
 
-const ReferralsTab = lazy(() => import('../../components/ReferralsTab'));
-const ClassLogsCalendar = lazy(() => import('../../components/ClassLogsCalendar'));
-const HomeworkDashboard = lazy(() => import('../../components/HomeworkDashboard'));
-const TuitionMarketplaceHub = lazy(() => import('../../components/TuitionMarketplaceHub'));
+const ReferralsTab = lazyWithRetry(() => import('../../components/ReferralsTab'), 'ReferralsTab');
+const ClassLogsCalendar = lazyWithRetry(() => import('../../components/ClassLogsCalendar'), 'ClassLogsCalendar');
+const HomeworkDashboard = lazyWithRetry(() => import('../../components/HomeworkDashboard'), 'HomeworkDashboard');
+const TuitionMarketplaceHub = lazyWithRetry(() => import('../../components/TuitionMarketplaceHub'), 'TuitionMarketplaceHub');
 
 const TutorRow = ({ index, style, rowProps }: any) => {
   const { filteredTutors, selectedTutor, setSelectedTutor, savedTutors = [], toggleSavedTutor, viewerContext, sessions = [] } = rowProps;
@@ -926,14 +928,14 @@ export default function StudentDashboard() {
       const searchLower = debouncedSearch.toLowerCase().trim();
       const matchesSearch =
         !searchLower ||
-        user.name.toLowerCase().includes(searchLower) ||
+        (user.name || '').toLowerCase().includes(searchLower) ||
         user.university?.toLowerCase().includes(searchLower) ||
         user.course?.toLowerCase().includes(searchLower) ||
         user.district?.toLowerCase().includes(searchLower) ||
         user.thana?.toLowerCase().includes(searchLower) ||
         user.area?.toLowerCase().includes(searchLower) ||
-        user.teachingAreas?.some(a => a.toLowerCase().includes(searchLower)) ||
-        userSubjects.some(s => s.toLowerCase().includes(searchLower));
+        user.teachingAreas?.some(a => (a || '').toLowerCase().includes(searchLower)) ||
+        userSubjects.some(s => (s || '').toLowerCase().includes(searchLower));
 
       const matchesSubject =
         filterSubjects.length === 0 ||
@@ -1929,19 +1931,36 @@ export default function StudentDashboard() {
                 <h3 className="text-2xl font-black text-[#0B132B] uppercase italic">Expert Radius</h3>
                  <div className="bg-slate-50 rounded-[3rem] p-4 border border-slate-100 h-64 overflow-hidden relative">
                     {currentUser?.location ? (
-                      <Suspense fallback={<MapLoading />}>
-                        <MapTracker 
-                          studentLocation={[currentUser.location.lat, currentUser.location.lng]}
-                          studentName="Me"
-                          tutors={(() => {
-                            const uniqueTutors = new Map();
-                            mySessions
-                              .filter(s => s.status === 'active' || s.status === 'scheduled')
-                              .forEach(s => {
-                                const tutor = users.find(u => u.id === s.tutorId);
-                                if (tutor) {
+                      <AppErrorBoundary level="widget" sectionName="Expert Radius Map">
+                        <Suspense fallback={<MapLoading />}>
+                          <MapTracker 
+                            studentLocation={[currentUser.location.lat, currentUser.location.lng]}
+                            studentName="Me"
+                            tutors={(() => {
+                              const uniqueTutors = new Map();
+                              mySessions
+                                .filter(s => s.status === 'active' || s.status === 'scheduled')
+                                .forEach(s => {
+                                  const tutor = users.find(u => u.id === s.tutorId);
+                                  if (tutor) {
+                                    const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
+                                    if (coords && !uniqueTutors.has(tutor.id)) {
+                                      const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, mySessions);
+                                      uniqueTutors.set(tutor.id, {
+                                        id: tutor.id,
+                                        location: coords,
+                                        name: tutor.name,
+                                        image: unlocked ? tutor.profileImage : undefined,
+                                        isOnline: tutor.isTrackingOn
+                                      });
+                                    }
+                                  }
+                                });
+                              users
+                                .filter(u => isTutorEligibleForStudentSearch(u))
+                                .forEach(tutor => {
                                   const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
-                                  if (coords && !uniqueTutors.has(tutor.id)) {
+                                  if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
                                     const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, mySessions);
                                     uniqueTutors.set(tutor.id, {
                                       id: tutor.id,
@@ -1951,28 +1970,13 @@ export default function StudentDashboard() {
                                       isOnline: tutor.isTrackingOn
                                     });
                                   }
-                                }
-                              });
-                            users
-                              .filter(u => isTutorEligibleForStudentSearch(u))
-                              .forEach(tutor => {
-                                const coords = getTutorLocation(tutor.id, tutor.location, [currentUser.location!.lat, currentUser.location!.lng], tutor.district, tutor.thana);
-                                if (coords && !uniqueTutors.has(tutor.id) && uniqueTutors.size < 6) {
-                                  const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, mySessions);
-                                  uniqueTutors.set(tutor.id, {
-                                    id: tutor.id,
-                                    location: coords,
-                                    name: tutor.name,
-                                    image: unlocked ? tutor.profileImage : undefined,
-                                    isOnline: tutor.isTrackingOn
-                                  });
-                                }
-                              });
-                            return Array.from(uniqueTutors.values());
-                          })()}
-                          eta={eta}
-                        />
-                      </Suspense>
+                                });
+                              return Array.from(uniqueTutors.values());
+                            })()}
+                            eta={eta}
+                          />
+                        </Suspense>
+                      </AppErrorBoundary>
                     ) : (
                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] text-white">
                        <MapPin className="w-8 h-8 mb-3 text-[#0D5BFF] animate-pulse" />
@@ -1995,15 +1999,17 @@ export default function StudentDashboard() {
 
             {/* Guardian Tuition Posting, Applicant Pipeline & Smart Tutor Recommendations */}
             <div className="pt-4">
-              <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
-                <TuitionMarketplaceHub
-                  mode="student"
-                  onMessageUser={(tutorId) => {
-                    setSelectedRecipientId(tutorId);
-                    navigate('/dashboard/messages');
-                  }}
-                />
-              </Suspense>
+              <AppErrorBoundary level="widget" sectionName="Tuition Marketplace">
+                <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
+                  <TuitionMarketplaceHub
+                    mode="student"
+                    onMessageUser={(tutorId) => {
+                      setSelectedRecipientId(tutorId);
+                      navigate('/dashboard/messages');
+                    }}
+                  />
+                </Suspense>
+              </AppErrorBoundary>
             </div>
           </motion.div>
         )}
@@ -2022,21 +2028,23 @@ export default function StudentDashboard() {
                <div className="absolute top-8 left-8 z-10 bg-white/90 backdrop-blur px-4 py-2 rounded-xl text-[10px] font-black uppercase italic text-[#0B132B] shadow-sm border border-slate-100">
                  Global Tutor Radius: {filteredTutors.length} Experts Found
                </div>
-               <Suspense fallback={<MapLoading />}>
-                 <MapTracker 
-                   studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
-                   studentName="Me"
-                   tutors={filteredTutors
-                     .filter(t => t.location)
-                     .map(t => ({
-                       id: t.id,
-                       location: [t.location!.lat, t.location!.lng] as [number, number],
-                       name: t.name,
-                       image: canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, t.id, mySessions) ? t.profileImage : undefined,
-                       isOnline: t.isTrackingOn
-                     }))}
-                 />
-               </Suspense>
+               <AppErrorBoundary level="widget" sectionName="Tutor Search Map">
+                 <Suspense fallback={<MapLoading />}>
+                   <MapTracker 
+                     studentLocation={currentUser.location ? [currentUser.location.lat, currentUser.location.lng] : undefined}
+                     studentName="Me"
+                     tutors={filteredTutors
+                       .filter(t => t.location)
+                       .map(t => ({
+                         id: t.id,
+                         location: [t.location!.lat, t.location!.lng] as [number, number],
+                         name: t.name,
+                         image: canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, t.id, mySessions) ? t.profileImage : undefined,
+                         isOnline: t.isTrackingOn
+                       }))}
+                   />
+                 </Suspense>
+               </AppErrorBoundary>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -2540,6 +2548,12 @@ export default function StudentDashboard() {
                                 <h4 className="text-sm font-bold text-[#0B132B] dark:text-white">No Mentors Match Your Filters</h4>
                                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-[260px] leading-relaxed mx-auto">
                                   Try adjusting your subject, class, or district filters to see more verified tutors.
+                                </p>
+                                <p
+                                  lang="bn"
+                                  className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1.5 max-w-[280px] leading-[1.65] mx-auto"
+                                >
+                                  আপনার নির্বাচিত শর্ত অনুযায়ী কোনো শিক্ষক পাওয়া যায়নি। ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন।
                                 </p>
                               </div>
                             </motion.div>
@@ -3396,87 +3410,89 @@ export default function StudentDashboard() {
                       </div>
                     )}
                     <div className="bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] h-[350px] sm:h-[500px] overflow-hidden border-4 sm:border-8 border-white shadow-2xl relative animate-fade-in">
-                      <Suspense fallback={<MapLoading />}>
-                        <MapTracker 
-                          studentLocation={effectiveStudentLocation}
-                          studentName="Me"
-                          studentImage={currentUser?.profileImage}
-                          tutors={(() => {
-                            if (transitMode === 'tracking') {
-                              const uniqueTutors = new Map();
-                              mySessions
-                                .filter(s => s.status === 'active' || s.status === 'scheduled')
-                                .forEach(s => {
-                                  const tutor = users.find(u => u.id === s.tutorId);
-                                  if (tutor) {
-                                    // Apply search filters
-                                    if (mapSubjectQuery) {
-                                      const tSub = tutor.subjects || [];
-                                      if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                      <AppErrorBoundary level="widget" sectionName="Live Location Radar">
+                        <Suspense fallback={<MapLoading />}>
+                          <MapTracker 
+                            studentLocation={effectiveStudentLocation}
+                            studentName="Me"
+                            studentImage={currentUser?.profileImage}
+                            tutors={(() => {
+                              if (transitMode === 'tracking') {
+                                const uniqueTutors = new Map();
+                                mySessions
+                                  .filter(s => s.status === 'active' || s.status === 'scheduled')
+                                  .forEach(s => {
+                                    const tutor = users.find(u => u.id === s.tutorId);
+                                    if (tutor) {
+                                      // Apply search filters
+                                      if (mapSubjectQuery) {
+                                        const tSub = tutor.subjects || [];
+                                        if (!tSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                          return;
+                                        }
+                                      }
+                                      if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
                                         return;
                                       }
-                                    }
-                                    if (mapMinRating > 0 && (tutor.rating || 0) < mapMinRating) {
-                                      return;
-                                    }
 
-                                    const coords = getTutorLocation(tutor.id, tutor.location || tutor.lastLocation, effectiveStudentLocation, tutor.district, tutor.thana);
-                                    if (coords && !uniqueTutors.has(tutor.id)) {
-                                      const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, mySessions);
-                                      uniqueTutors.set(tutor.id, {
-                                        id: tutor.id,
-                                        location: coords,
-                                        name: tutor.name,
-                                        image: unlocked ? tutor.profileImage : undefined,
-                                        isOnline: tutor.isTrackingOn || tutor.isOnline,
-                                        isLastKnownLocation: !tutor.location && Boolean(tutor.lastLocation),
-                                        lastLocationUpdatedAt: tutor.lastLocationUpdatedAt || tutor.lastActiveAt,
-                                        subjects: tutor.subjects,
-                                        rating: tutor.rating
-                                      });
+                                      const coords = getTutorLocation(tutor.id, tutor.location || tutor.lastLocation, effectiveStudentLocation, tutor.district, tutor.thana);
+                                      if (coords && !uniqueTutors.has(tutor.id)) {
+                                        const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, tutor.id, mySessions);
+                                        uniqueTutors.set(tutor.id, {
+                                          id: tutor.id,
+                                          location: coords,
+                                          name: tutor.name,
+                                          image: unlocked ? tutor.profileImage : undefined,
+                                          isOnline: tutor.isTrackingOn || tutor.isOnline,
+                                          isLastKnownLocation: !tutor.location && Boolean(tutor.lastLocation),
+                                          lastLocationUpdatedAt: tutor.lastLocationUpdatedAt || tutor.lastActiveAt,
+                                          subjects: tutor.subjects,
+                                          rating: tutor.rating
+                                        });
+                                      }
                                     }
-                                  }
-                                });
-                              return Array.from(uniqueTutors.values());
-                            } else {
-                              return users
-                                .filter(u => isTutorEligibleForStudentSearch(u))
-                                .filter(u => {
-                                  if (mapSubjectQuery) {
-                                    const uSub = u.subjects || [];
-                                    if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                  });
+                                return Array.from(uniqueTutors.values());
+                              } else {
+                                return users
+                                  .filter(u => isTutorEligibleForStudentSearch(u))
+                                  .filter(u => {
+                                    if (mapSubjectQuery) {
+                                      const uSub = u.subjects || [];
+                                      if (!uSub.some(sub => sub.toLowerCase().includes(mapSubjectQuery.toLowerCase()))) {
+                                        return false;
+                                      }
+                                    }
+                                    if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
                                       return false;
                                     }
-                                  }
-                                  if (mapMinRating > 0 && (u.rating || 0) < mapMinRating) {
-                                    return false;
-                                  }
-                                  return true;
-                                })
-                                .map(t => {
-                                  const coords = getTutorLocation(t.id, t.location || t.lastLocation, effectiveStudentLocation, t.district, t.thana);
-                                  if (!coords) return null;
-                                  const dist = getDistance(effectiveStudentLocation[0], effectiveStudentLocation[1], coords[0], coords[1]);
-                                  if (dist > nearbyRadius) return null;
-                                  const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, t.id, mySessions);
-                                  return {
-                                    id: t.id,
-                                    location: coords,
-                                    name: t.name,
-                                    image: unlocked ? t.profileImage : undefined,
-                                    isOnline: t.isTrackingOn || t.isOnline,
-                                    isLastKnownLocation: !t.location && Boolean(t.lastLocation),
-                                    lastLocationUpdatedAt: t.lastLocationUpdatedAt || t.lastActiveAt,
-                                    subjects: t.subjects,
-                                    rating: t.rating
-                                  };
-                                })
-                                .filter((t): t is NonNullable<typeof t> => t !== null);
-                            }
-                          })()}
-                          eta={transitMode === 'tracking' ? eta : undefined}
-                        />
-                      </Suspense>
+                                    return true;
+                                  })
+                                  .map(t => {
+                                    const coords = getTutorLocation(t.id, t.location || t.lastLocation, effectiveStudentLocation, t.district, t.thana);
+                                    if (!coords) return null;
+                                    const dist = getDistance(effectiveStudentLocation[0], effectiveStudentLocation[1], coords[0], coords[1]);
+                                    if (dist > nearbyRadius) return null;
+                                    const unlocked = canViewTutorPhoto({ id: currentUser.id, role: currentUser.role }, t.id, mySessions);
+                                    return {
+                                      id: t.id,
+                                      location: coords,
+                                      name: t.name,
+                                      image: unlocked ? t.profileImage : undefined,
+                                      isOnline: t.isTrackingOn || t.isOnline,
+                                      isLastKnownLocation: !t.location && Boolean(t.lastLocation),
+                                      lastLocationUpdatedAt: t.lastLocationUpdatedAt || t.lastActiveAt,
+                                      subjects: t.subjects,
+                                      rating: t.rating
+                                    };
+                                  })
+                                  .filter((t): t is NonNullable<typeof t> => t !== null);
+                              }
+                            })()}
+                            eta={transitMode === 'tracking' ? eta : undefined}
+                          />
+                        </Suspense>
+                      </AppErrorBoundary>
                     </div>
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -3712,9 +3728,11 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-              <ClassLogsCalendar role="student" />
-            </Suspense>
+            <AppErrorBoundary level="widget" sectionName="Class Calendar">
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <ClassLogsCalendar role="student" />
+              </Suspense>
+            </AppErrorBoundary>
           </motion.div>
         )}
 
@@ -4453,9 +4471,11 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-              <ReferralsTab />
-            </Suspense>
+            <AppErrorBoundary level="widget" sectionName="Referrals">
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <ReferralsTab />
+              </Suspense>
+            </AppErrorBoundary>
           </motion.div>
         )}
 
@@ -4467,9 +4487,11 @@ export default function StudentDashboard() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.04, ease: "easeOut" }}
           >
-            <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
-              <HomeworkDashboard />
-            </Suspense>
+            <AppErrorBoundary level="widget" sectionName="Homework">
+              <Suspense fallback={<div className="p-12 flex justify-center"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>}>
+                <HomeworkDashboard />
+              </Suspense>
+            </AppErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>

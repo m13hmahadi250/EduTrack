@@ -2194,6 +2194,374 @@ async function runTests() {
           assert.equal(marketplaceSrc.includes("formatTutorSubjectsSummary"), true);
           assert.equal(marketplaceSrc.includes("formatTutorClassesRange"), true);
         });
+
+        // ---------------------------------------------------------------------
+        // 17. Emergency Production Crash Fix & Application Stability Suite
+        // ---------------------------------------------------------------------
+        await test("Error monitoring sanitizes PII (emails, BD phones, JWT/Bearer tokens, OTPs, passwords, NIDs) and classifies chunk errors", async () => {
+          const {
+            sanitizeDiagnosticText,
+            sanitizeUrl,
+            isChunkOrModuleLoadError,
+            classifyError,
+            generateIncidentId,
+          } = await import("../src/lib/errorMonitoring");
+
+          const dirtyLog =
+            'Auth failed for student@edutrackbd.com phone +8801712345678 nid=1999123456789 password="MySecretPassword123" otp: 482910 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+          const scrubbed = sanitizeDiagnosticText(dirtyLog);
+
+          assert.equal(scrubbed.includes("student@edutrackbd.com"), false, "Email must be redacted");
+          assert.equal(scrubbed.includes("01712345678"), false, "BD phone number must be redacted");
+          assert.equal(scrubbed.includes("1999123456789"), false, "13-digit NID must be redacted");
+          assert.equal(scrubbed.includes("MySecretPassword123"), false, "Password must be redacted");
+          assert.equal(scrubbed.includes("482910"), false, "OTP must be redacted");
+          assert.equal(scrubbed.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), false, "JWT must be redacted");
+          assert.equal(scrubbed.includes("[REDACTED_EMAIL]"), true);
+          assert.equal(scrubbed.includes("[REDACTED_PHONE]"), true);
+
+          const dirtyUrl =
+            "https://edutrackbd.vercel.app/reset-password?token=secret12345&email=user@example.com&otp=918273#privateHash";
+          const cleanUrl = sanitizeUrl(dirtyUrl);
+          assert.equal(cleanUrl.includes("secret12345"), false);
+          assert.equal(cleanUrl.includes("user@example.com"), false);
+          assert.equal(cleanUrl.includes("918273"), false);
+          assert.equal(cleanUrl.includes("privateHash"), false);
+
+          assert.equal(
+            isChunkOrModuleLoadError(
+              new TypeError("Failed to fetch dynamically imported module: https://edutrackbd.vercel.app/assets/StudentDashboard-abc.js")
+            ),
+            true
+          );
+          assert.equal(
+            classifyError(new Error("Importing a module script failed.")),
+            "CHUNK_LOAD_ERROR"
+          );
+          assert.equal(/^INC-[A-Z0-9]+-[A-Z0-9]+$/.test(generateIncidentId()), true);
+        });
+
+        await test("lazyWithRetry retries transient import failures and enforces bounded single-reload guard", async () => {
+          const { importWithRetry } = await import("../src/utils/lazyWithRetry");
+
+          let attempts = 0;
+          const result = await importWithRetry(async () => {
+            attempts++;
+            if (attempts === 1) {
+              throw new Error("Transient mobile network timeout");
+            }
+            return { default: "LoadedComponent" };
+          }, "TransientTestComponent");
+
+          assert.equal(attempts, 2, "importWithRetry must retry once after transient failure");
+          assert.equal(result.default, "LoadedComponent");
+        });
+
+        await test("React Rules of Hooks invariants: zero hooks called after conditional return null in DashboardLayout, Messages, TutorDashboard, StudentDashboard, and AdminDashboard", () => {
+          const filesToVerify = [
+            "src/components/DashboardLayout.tsx",
+            "src/pages/Messages.tsx",
+            "src/pages/dashboard/TutorDashboard.tsx",
+            "src/pages/dashboard/StudentDashboard.tsx",
+            "src/pages/dashboard/AdminDashboard.tsx",
+          ];
+
+          for (const relPath of filesToVerify) {
+            const src = fs.readFileSync(path.resolve(relPath), "utf-8");
+            const earlyReturnIdx = src.indexOf("\n  if (!currentUser) return null;");
+            assert.notEqual(
+              earlyReturnIdx,
+              -1,
+              `${relPath} must guard against null currentUser at component level`
+            );
+
+            // Check the main component body after `if (!currentUser) return null;` up to the main `return (` statement
+            const afterEarlyReturn = src.slice(earlyReturnIdx);
+            const mainRenderIdx = afterEarlyReturn.indexOf("\n  return (");
+            const betweenGuardAndRender =
+              mainRenderIdx !== -1 ? afterEarlyReturn.slice(0, mainRenderIdx) : afterEarlyReturn.slice(0, 1500);
+
+            assert.equal(
+              /\b(useState|useMemo|useEffect|useCallback|useRef|React\.useMemo|React\.useState|React\.useEffect)\s*\(/.test(
+                betweenGuardAndRender
+              ),
+              false,
+              `${relPath} must NEVER call React hooks after 'if (!currentUser) return null;'`
+            );
+          }
+
+          // Verify TutorDashboard filteredStudents safely uses optional chaining on currentUser?.isVerified
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          assert.equal(tutorDashSrc.includes("if (!currentUser?.isVerified) return [];"), true);
+          assert.equal(tutorDashSrc.includes("if (!currentUser.isVerified) return [];"), false);
+        });
+
+        await test("Vercel deployment config, Service Worker MIME guard, and Multi-Level AppErrorBoundary are active", () => {
+          const vercelConfig = JSON.parse(fs.readFileSync(path.resolve("vercel.json"), "utf-8"));
+          const swSource = fs.readFileSync(path.resolve("public/sw.js"), "utf-8");
+          const appSource = fs.readFileSync(path.resolve("src/App.tsx"), "utf-8");
+          const routerSource = fs.readFileSync(path.resolve("src/pages/DashboardRouter.tsx"), "utf-8");
+          const boundarySource = fs.readFileSync(path.resolve("src/components/AppErrorBoundary.tsx"), "utf-8");
+
+          // vercel.json excludes /assets/ and .js/.css from SPA rewrite to /index.html
+          const spaRewrite = vercelConfig.rewrites.find((r: any) => r.destination === "/index.html");
+          assert.ok(spaRewrite, "SPA rewrite rule must exist in vercel.json");
+          assert.equal(spaRewrite.source.includes("assets/"), true, "SPA rewrite must exclude /assets/");
+          assert.equal(Array.isArray(vercelConfig.headers), true, "vercel.json must configure Cache-Control headers");
+
+          // Service Worker checks Content-Type before caching JS/CSS chunks so HTML fallbacks never poison cache
+          assert.equal(swSource.includes("edutrack-app-v6"), true);
+          assert.equal(swSource.includes("isValidCodeMime"), true);
+          assert.equal(swSource.includes("Stale chunk not found"), true);
+
+          // AppErrorBoundary provides truthful reporting and recovery actions
+          assert.equal(appSource.includes("AppErrorBoundary"), true);
+          assert.equal(appSource.includes("lazyWithRetry"), true);
+          assert.equal(routerSource.includes("AppErrorBoundary"), true);
+          assert.equal(boundarySource.includes("We couldn&apos;t load this section. Please try again."), true);
+          assert.equal(boundarySource.includes("Return to Homepage"), true);
+          assert.equal(boundarySource.includes("edutrackbangladesh@gmail.com"), true);
+        });
+
+        // ---------------------------------------------------------------------
+        // 18. Unified Transactional Email System & Natural Bangla–English UI
+        // ---------------------------------------------------------------------
+        await test("All transactional emails (OTP, Welcome, Password Reset, Notification) share the 100% text-only OTP visual system with plain-text fallbacks", async () => {
+          const {
+            generateOtpEmailHtml,
+            generateOtpEmailText,
+            generatePasswordResetEmailHtml,
+            generatePasswordResetEmailText,
+            generateWelcomeEmailHtml,
+            generateWelcomeEmailText,
+            generateBulkCampaignEmailHtml,
+            generateBulkCampaignEmailText,
+          } = await import("../api/mailService");
+
+          const otpHtml = generateOtpEmailHtml({ email: "tanvir@edutrack.bd", otpCode: "849201" });
+          const otpText = generateOtpEmailText({ email: "tanvir@edutrack.bd", otpCode: "849201" });
+          const resetHtml = generatePasswordResetEmailHtml({
+            email: "tanvir@edutrack.bd",
+            resetLink: "https://edutrackbd.vercel.app/reset-password?token=tok_abc123",
+          });
+          const resetText = generatePasswordResetEmailText({
+            email: "tanvir@edutrack.bd",
+            resetLink: "https://edutrackbd.vercel.app/reset-password?token=tok_abc123",
+          });
+          const studentWelcomeHtml = generateWelcomeEmailHtml({
+            name: "Rafiq Ahmed",
+            email: "rafiq@edutrack.bd",
+            role: "student",
+            accountType: "student",
+            userId: "stu_101",
+            district: "Dhaka",
+          });
+          const guardianWelcomeHtml = generateWelcomeEmailHtml({
+            name: "Farhana Begum",
+            email: "farhana@edutrack.bd",
+            role: "student",
+            accountType: "guardian",
+            userId: "grd_102",
+            district: "Chattogram",
+          });
+          const tutorWelcomeHtml = generateWelcomeEmailHtml({
+            name: "Arif Hossain",
+            email: "arif@edutrack.bd",
+            role: "tutor",
+            userId: "tut_103",
+            district: "Sylhet",
+          });
+          const tutorWelcomeText = generateWelcomeEmailText({
+            name: "Arif Hossain",
+            email: "arif@edutrack.bd",
+            role: "tutor",
+            userId: "tut_103",
+            district: "Sylhet",
+          });
+          const bulkHtml = generateBulkCampaignEmailHtml({
+            recipientEmail: "arif@edutrack.bd",
+            recipientName: "Arif Hossain",
+            subject: "Verification Approved",
+            messageBody: "Your National ID and University ID documents have been verified.",
+          });
+          const bulkText = generateBulkCampaignEmailText({
+            recipientEmail: "arif@edutrack.bd",
+            recipientName: "Arif Hossain",
+            subject: "Verification Approved",
+            messageBody: "Your National ID and University ID documents have been verified.",
+          });
+
+          const allHtmlTemplates = [
+            { name: "OTP", html: otpHtml },
+            { name: "PasswordReset", html: resetHtml },
+            { name: "WelcomeStudent", html: studentWelcomeHtml },
+            { name: "WelcomeGuardian", html: guardianWelcomeHtml },
+            { name: "WelcomeTutor", html: tutorWelcomeHtml },
+            { name: "BulkNotification", html: bulkHtml },
+          ];
+
+          for (const tpl of allHtmlTemplates) {
+            assert.equal(/<img\b/i.test(tpl.html), false, `${tpl.name} must contain zero <img> tags`);
+            assert.equal(/<svg\b/i.test(tpl.html), false, `${tpl.name} must contain zero <svg> tags`);
+            assert.equal(/data:image\//i.test(tpl.html), false, `${tpl.name} must contain zero data URIs`);
+            assert.equal(/linear-gradient|radial-gradient/i.test(tpl.html), false, `${tpl.name} must contain zero CSS gradients`);
+            assert.equal(/dashed/i.test(tpl.html), false, `${tpl.name} must contain zero dashed borders`);
+            assert.equal(tpl.html.includes("#F1F5F9"), true, `${tpl.name} must use #F1F5F9 outer background`);
+            assert.equal(tpl.html.includes("#FFFFFF"), true, `${tpl.name} must use #FFFFFF card surface`);
+            assert.equal(tpl.html.includes("#155DFC"), true, `${tpl.name} must use #155DFC primary blue accent`);
+            assert.equal(tpl.html.includes("#101828"), true, `${tpl.name} must use #101828 dark navy heading color`);
+            assert.equal(tpl.html.includes("Edu<span class=\"brand-link\" style=\"color: #155DFC;\">Track</span>"), true, `${tpl.name} must use unified EduTrack text brand header`);
+            assert.equal(tpl.html.includes("BANGLADESH"), true, `${tpl.name} must include BANGLADESH subtitle`);
+            assert.equal(tpl.html.includes("Contact Support"), true, `${tpl.name} must include Contact Support footer`);
+          }
+
+          // Verify OTP remains untouched
+          assert.equal(otpHtml.includes("Verify your email address"), true);
+          assert.equal(otpHtml.includes("849201"), true);
+          assert.equal(otpText.includes("849201"), true);
+
+          // Verify Password Reset template specifics
+          assert.equal(resetHtml.includes("Reset your password"), true);
+          assert.equal(resetHtml.includes("We received a request to reset your EduTrack account password."), true);
+          assert.equal(resetHtml.includes("Reset Password"), true);
+          assert.equal(resetHtml.includes("https://edutrackbd.vercel.app/reset-password?token=tok_abc123"), true);
+          assert.equal(resetHtml.includes("15 minutes"), true);
+          assert.equal(resetText.includes("https://edutrackbd.vercel.app/reset-password?token=tok_abc123"), true);
+
+          // Verify role-aware Welcome templates
+          assert.equal(studentWelcomeHtml.includes("Welcome to EduTrack!"), true);
+          assert.equal(studentWelcomeHtml.includes("Go to Dashboard"), true);
+          assert.equal(studentWelcomeHtml.includes("https://edutrackbd.vercel.app/dashboard"), true);
+          assert.equal(studentWelcomeHtml.includes("GETTING STARTED AS A STUDENT"), true);
+          assert.equal(guardianWelcomeHtml.includes("GETTING STARTED AS A GUARDIAN"), true);
+          assert.equal(tutorWelcomeHtml.includes("GETTING STARTED AS A TUTOR"), true);
+          assert.equal(tutorWelcomeHtml.includes("National ID"), true);
+          assert.equal(tutorWelcomeText.includes("https://edutrackbd.vercel.app/dashboard"), true);
+          assert.equal(bulkText.includes("Verification Approved"), true);
+        });
+
+        await test("Welcome email endpoint enforces idempotency for automatic signup triggers while allowing admin forceSend", async () => {
+          const beforeCount = sentEmails.length;
+
+          // First automatic welcome email for a new user -> sent
+          const firstRes = await fetch(`${srvA.baseUrl}/api/mail/send-welcome`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: "Nadia Rahman",
+              email: "nadia.welcome@edutrack.bd",
+              role: "student",
+              accountType: "guardian",
+              userId: "usr_nadia_001",
+              district: "Dhaka",
+            }),
+          });
+          assert.equal(firstRes.status, 200);
+          const firstData = await firstRes.json();
+          assert.equal(firstData.success, true);
+          assert.equal(Boolean(firstData.alreadySent), false);
+          assert.equal(sentEmails.length, beforeCount + 1);
+          assert.equal(sentEmails[sentEmails.length - 1].subject, "Welcome to EduTrack! | EduTrack Bangladesh");
+          assert.equal(sentEmails[sentEmails.length - 1].htmlContent.includes("GETTING STARTED AS A GUARDIAN"), true);
+
+          // Second automatic call for same user (e.g. page reload or listener re-fire) -> skipped idempotently
+          const dupRes = await fetch(`${srvA.baseUrl}/api/mail/send-welcome`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: "Nadia Rahman",
+              email: "nadia.welcome@edutrack.bd",
+              role: "student",
+              accountType: "guardian",
+              userId: "usr_nadia_001",
+            }),
+          });
+          assert.equal(dupRes.status, 200);
+          const dupData = await dupRes.json();
+          assert.equal(dupData.success, true);
+          assert.equal(dupData.alreadySent, true);
+          assert.equal(sentEmails.length, beforeCount + 1);
+
+          // Explicit admin resend with forceSend: true -> dispatches
+          const adminRes = await fetch(`${srvA.baseUrl}/api/mail/send-welcome`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: "Nadia Rahman",
+              email: "nadia.welcome@edutrack.bd",
+              role: "student",
+              accountType: "guardian",
+              userId: "usr_nadia_001",
+              forceSend: true,
+            }),
+          });
+          assert.equal(adminRes.status, 200);
+          const adminData = await adminRes.json();
+          assert.equal(adminData.success, true);
+          assert.equal(Boolean(adminData.alreadySent), false);
+          assert.equal(sentEmails.length, beforeCount + 2);
+        });
+
+        await test("Selective Bangla–English UI integration loads Noto Sans Bengali, renders natural Bangla helpers, and adds zero language switcher toggles", () => {
+          const indexHtml = fs.readFileSync(path.resolve("index.html"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+          const navbarSrc = fs.readFileSync(path.resolve("src/components/Navbar.tsx"), "utf-8");
+
+          // Font configuration
+          assert.equal(indexHtml.includes("Noto+Sans+Bengali"), true);
+          assert.equal(indexCss.includes("Noto Sans Bengali"), true);
+          assert.equal(indexCss.includes(".font-bn"), true);
+
+          // Selective Bangla copy in Home, Marketplace, StudentDashboard, TutorDashboard, and Signup
+          assert.equal(
+            homeSrc.includes("আপনার সন্তানের জন্য উপযুক্ত ও যাচাইকৃত গৃহশিক্ষক খুঁজুন সহজেই।"),
+            true
+          );
+          assert.equal(
+            homeSrc.includes("বিষয়, শ্রেণি ও এলাকা অনুযায়ী শিক্ষক খুঁজুন।"),
+            true
+          );
+          assert.equal(
+            homeSrc.includes("আপনার নির্বাচিত শর্ত অনুযায়ী কোনো শিক্ষক পাওয়া যায়নি। ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন।"),
+            true
+          );
+          assert.equal(
+            hubSrc.includes("আপনার প্রয়োজন অনুযায়ী টিউশনের বিস্তারিত তথ্য দিন।"),
+            true
+          );
+          assert.equal(
+            hubSrc.includes("আগ্রহী শিক্ষকদের প্রোফাইল দেখে পছন্দের শিক্ষক নির্বাচন করুন।"),
+            true
+          );
+          assert.equal(
+            studentDashSrc.includes("আপনার নির্বাচিত শর্ত অনুযায়ী কোনো শিক্ষক পাওয়া যায়নি। ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন।"),
+            true
+          );
+          assert.equal(
+            tutorDashSrc.includes("ভেরিফাইড ব্যাজ পেতে আপনার জাতীয় পরিচয়পত্র (NID) ও প্রাতিষ্ঠানিক আইডি কার্ড আপলোড করুন।"),
+            true
+          );
+          assert.equal(
+            tutorDashSrc.includes("আপনি যেসব এলাকায় টিউশন করাতে আগ্রহী, সেগুলো নির্বাচন করুন।"),
+            true
+          );
+          assert.equal(
+            tutorDashSrc.includes("আপনি সপ্তাহের কোন দিন ও সময়ে টিউশন করাতে পারবেন তা নির্বাচন করুন।"),
+            true
+          );
+          assert.equal(
+            signupSrc.includes("আপনি যেসব এলাকায় টিউশন করাতে আগ্রহী, সেগুলো নির্বাচন করুন।"),
+            true
+          );
+
+          // Ensure no language switcher / toggle UI was added to Navbar
+          assert.equal(/i18next|react-i18next|LanguageSwitcher/i.test(navbarSrc), false);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

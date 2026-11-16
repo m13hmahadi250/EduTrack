@@ -1,10 +1,13 @@
-import React, { lazy, Suspense, memo } from 'react';
+import React, { Suspense, memo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { ShieldAlert, LogOut } from 'lucide-react';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+import { AppErrorBoundary } from '../components/AppErrorBoundary';
 
-const AdminDashboard = lazy(() => import('./dashboard/AdminDashboard'));
-const TutorDashboard = lazy(() => import('./dashboard/TutorDashboard'));
-const StudentDashboard = lazy(() => import('./dashboard/StudentDashboard'));
+const AdminDashboard = lazyWithRetry(() => import('./dashboard/AdminDashboard'), 'AdminDashboard');
+const TutorDashboard = lazyWithRetry(() => import('./dashboard/TutorDashboard'), 'TutorDashboard');
+const StudentDashboard = lazyWithRetry(() => import('./dashboard/StudentDashboard'), 'StudentDashboard');
 
 const DashboardLoading = () => (
   <div className="p-8 flex items-center justify-center min-h-[60vh]">
@@ -46,6 +49,7 @@ const BlockedScreen = () => {
 
 const DashboardRouter = memo(function DashboardRouter() {
   const currentUser = useAppStore(state => state.currentUser);
+  const location = useLocation();
   const role = currentUser?.role;
 
   if (!role) return null;
@@ -55,21 +59,24 @@ const DashboardRouter = memo(function DashboardRouter() {
   }
 
   return (
-    <Suspense fallback={<DashboardLoading />}>
-      {(() => {
-        switch (role) {
-          case 'admin':
-            return <AdminDashboard />;
-          case 'tutor':
-            return <TutorDashboard />;
-          case 'student':
-            return <StudentDashboard />;
-          default:
-            return <div className="p-8">Role not recognized</div>;
-        }
-      })()}
-    </Suspense>
+    <AppErrorBoundary level="dashboard" sectionName={`${role} Dashboard`} resetKey={location.pathname}>
+      <Suspense fallback={<DashboardLoading />}>
+        {(() => {
+          switch (role) {
+            case 'admin':
+              return <AdminDashboard />;
+            case 'tutor':
+              return <TutorDashboard />;
+            case 'student':
+              return <StudentDashboard />;
+            default:
+              return <div className="p-8">Role not recognized</div>;
+          }
+        })()}
+      </Suspense>
+    </AppErrorBoundary>
   );
 })
 
 export default DashboardRouter;
+

@@ -33,21 +33,22 @@ import {
   Gift,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatJoinDate } from "../../components/admin/AdminUserDirectory";
 import UserAvatar from "../../components/UserAvatar";
+import { lazyWithRetry } from "../../utils/lazyWithRetry";
 
-const AdminAnalytics = lazy(() => import("../../components/admin/AdminAnalytics"));
-const AdminUserDirectory = lazy(() => import("../../components/admin/AdminUserDirectory"));
-const AdminUserMap = lazy(() => import("../../components/admin/AdminUserMap"));
-const AdminSessionAudits = lazy(() => import("../../components/admin/AdminSessionAudits"));
-const AdminBroadcastCenter = lazy(() => import("../../components/admin/AdminBroadcastCenter"));
-const AdminBulkEmailer = lazy(() => import("../../components/admin/AdminBulkEmailer"));
-const AdminReferralOperations = lazy(() => import("../../components/admin/AdminReferralOperations"));
-const AdminSystemHub = lazy(() => import("../../components/admin/AdminSystemHub"));
-const ImageUpload = lazy(() => import("../../components/ImageUpload"));
-const ChatWindow = lazy(() => import("../../components/ChatWindow"));
+const AdminAnalytics = lazyWithRetry(() => import("../../components/admin/AdminAnalytics"), "AdminAnalytics");
+const AdminUserDirectory = lazyWithRetry(() => import("../../components/admin/AdminUserDirectory"), "AdminUserDirectory");
+const AdminUserMap = lazyWithRetry(() => import("../../components/admin/AdminUserMap"), "AdminUserMap");
+const AdminSessionAudits = lazyWithRetry(() => import("../../components/admin/AdminSessionAudits"), "AdminSessionAudits");
+const AdminBroadcastCenter = lazyWithRetry(() => import("../../components/admin/AdminBroadcastCenter"), "AdminBroadcastCenter");
+const AdminBulkEmailer = lazyWithRetry(() => import("../../components/admin/AdminBulkEmailer"), "AdminBulkEmailer");
+const AdminReferralOperations = lazyWithRetry(() => import("../../components/admin/AdminReferralOperations"), "AdminReferralOperations");
+const AdminSystemHub = lazyWithRetry(() => import("../../components/admin/AdminSystemHub"), "AdminSystemHub");
+const ImageUpload = lazyWithRetry(() => import("../../components/ImageUpload"), "ImageUpload");
+const ChatWindow = lazyWithRetry(() => import("../../components/ChatWindow"), "ChatWindow");
 
 export default function AdminDashboard() {
   const {

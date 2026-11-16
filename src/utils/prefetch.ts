@@ -28,14 +28,13 @@ const fetchedModules = new Set<string>();
  * @param key The key of the prefetch map to trigger loading for
  */
 export const prefetchPage = (key: PrefetchKey): void => {
-  if (fetchedModules.has(key)) return;
+  const loader = prefetchMap[key] as (() => Promise<unknown>) | undefined;
+  if (!loader || fetchedModules.has(key)) return;
   
   fetchedModules.add(key);
   
-  prefetchMap[key]()
-    .then(() => {
-      console.log(`[Prefetch] Successfully pre-loaded: ${key}`);
-    })
+  Promise.resolve()
+    .then(() => loader())
     .catch((err) => {
       // Graceful warning so prefetch failures never disrupt user experience
       console.warn(`[Prefetch] Background loading for ${key} failed or was cancelled:`, err);

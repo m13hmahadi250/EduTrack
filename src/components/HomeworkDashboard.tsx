@@ -76,20 +76,21 @@ export default function HomeworkDashboard() {
   };
 
   // Filter homeworks
-  const filteredHomeworks = homeworkAssignments
+  const filteredHomeworks = (Array.isArray(homeworkAssignments) ? homeworkAssignments : [])
     .filter(hw => {
+      if (!hw) return false;
       if (filter !== 'all' && hw.status !== filter) return false;
-      const term = search.toLowerCase();
+      const term = (search || '').toLowerCase();
       if (term) {
         return (
-          hw.title.toLowerCase().includes(term) ||
-          hw.subject.toLowerCase().includes(term) ||
-          hw.text.toLowerCase().includes(term)
+          (hw.title || '').toLowerCase().includes(term) ||
+          (hw.subject || '').toLowerCase().includes(term) ||
+          (hw.text || '').toLowerCase().includes(term)
         );
       }
       return true;
     })
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => (new Date(b.createdAt || 0).getTime() || 0) - (new Date(a.createdAt || 0).getTime() || 0));
 
   // PDF Download of Homework Sheet
   const downloadHomeworkPDF = async (hw: HomeworkAssignment) => {

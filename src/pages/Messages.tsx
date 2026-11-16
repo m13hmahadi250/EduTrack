@@ -61,73 +61,6 @@ export default function Messages() {
     }
   }, [selectedUserId, messages.length, currentUser?.id]);
 
-  if (!currentUser) return null;
-
-  const chatPartners = users.filter(u => {
-    if (u.id === currentUser.id) return false;
-    
-    // Check for sessions
-    const hasSession = sessions.some(s => 
-      (s.studentId === currentUser.id && s.tutorId === u.id) || 
-      (s.studentId === u.id && s.tutorId === currentUser.id)
-    );
-
-    // Check for message history (allows admins to connect or continued support)
-    const hasHistory = messages.some(m => 
-      (m.senderId === currentUser.id && m.receiverId === u.id) || 
-      (m.senderId === u.id && m.receiverId === currentUser.id)
-    );
-
-    const isTargetFromUrl = targetTId ? u.id === targetTId : false;
-
-    return hasSession || hasHistory || isTargetFromUrl;
-  }).sort((a, b) => {
-    const aMsgs = messages.filter(m => 
-      (m.senderId === currentUser.id && m.receiverId === a.id) || 
-      (m.senderId === a.id && m.receiverId === currentUser.id)
-    );
-    const bMsgs = messages.filter(m => 
-      (m.senderId === currentUser.id && m.receiverId === b.id) || 
-      (m.senderId === b.id && m.receiverId === currentUser.id)
-    );
-    const getLatestTime = (msgs: typeof messages) => {
-      if (msgs.length === 0) return 0;
-      let maxTime = 0;
-      for (const m of msgs) {
-        if (m.timestamp) {
-          const time = new Date(m.timestamp).getTime();
-          if (!isNaN(time) && time > maxTime) {
-            maxTime = time;
-          }
-        }
-      }
-      return maxTime;
-    };
-    const aLatest = getLatestTime(aMsgs);
-    const bLatest = getLatestTime(bMsgs);
-    return bLatest - aLatest;
-  });
-  const filteredPartners = chatPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const selectedUser = users.find(u => u.id === selectedUserId);
-
-  const conversation = messages.filter(m => 
-    (m.senderId === currentUser.id && m.receiverId === selectedUserId) || 
-    (m.receiverId === currentUser.id && m.senderId === selectedUserId)
-  ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || !selectedUserId) return;
-
-    sendMessage({
-      senderId: currentUser.id,
-      receiverId: selectedUserId,
-      content: inputText
-    });
-    setInputText('');
-  };
-
   const quickReplies = React.useMemo(() => {
     if (currentUser?.role === 'tutor') {
       return [
@@ -144,6 +77,73 @@ export default function Messages() {
       "What are your hourly rates?"
     ];
   }, [currentUser?.role]);
+
+  if (!currentUser) return null;
+
+  const chatPartners = (Array.isArray(users) ? users : []).filter(u => {
+    if (!u || !u.id || u.id === currentUser.id) return false;
+    
+    // Check for sessions
+    const hasSession = (Array.isArray(sessions) ? sessions : []).some(s => 
+      s && ((s.studentId === currentUser.id && s.tutorId === u.id) || 
+      (s.studentId === u.id && s.tutorId === currentUser.id))
+    );
+
+    // Check for message history (allows admins to connect or continued support)
+    const hasHistory = (Array.isArray(messages) ? messages : []).some(m => 
+      m && ((m.senderId === currentUser.id && m.receiverId === u.id) || 
+      (m.senderId === u.id && m.receiverId === currentUser.id))
+    );
+
+    const isTargetFromUrl = targetTId ? u.id === targetTId : false;
+
+    return hasSession || hasHistory || isTargetFromUrl;
+  }).sort((a, b) => {
+    const aMsgs = messages.filter(m => 
+      m && ((m.senderId === currentUser.id && m.receiverId === a.id) || 
+      (m.senderId === a.id && m.receiverId === currentUser.id))
+    );
+    const bMsgs = messages.filter(m => 
+      m && ((m.senderId === currentUser.id && m.receiverId === b.id) || 
+      (m.senderId === b.id && m.receiverId === currentUser.id))
+    );
+    const getLatestTime = (msgs: typeof messages) => {
+      if (msgs.length === 0) return 0;
+      let maxTime = 0;
+      for (const m of msgs) {
+        if (m?.timestamp) {
+          const time = new Date(m.timestamp).getTime();
+          if (!isNaN(time) && time > maxTime) {
+            maxTime = time;
+          }
+        }
+      }
+      return maxTime;
+    };
+    const aLatest = getLatestTime(aMsgs);
+    const bLatest = getLatestTime(bMsgs);
+    return bLatest - aLatest;
+  });
+  const filteredPartners = chatPartners.filter(p => (p.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()));
+
+  const selectedUser = users.find(u => u && u.id === selectedUserId);
+
+  const conversation = messages.filter(m => 
+    m && ((m.senderId === currentUser.id && m.receiverId === selectedUserId) || 
+    (m.receiverId === currentUser.id && m.senderId === selectedUserId))
+  ).sort((a, b) => (new Date(a.timestamp || 0).getTime() || 0) - (new Date(b.timestamp || 0).getTime() || 0));
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || !selectedUserId) return;
+
+    sendMessage({
+      senderId: currentUser.id,
+      receiverId: selectedUserId,
+      content: inputText
+    });
+    setInputText('');
+  };
 
   const handleQuickReply = async (reply: string) => {
     if (!currentUser || !selectedUserId) return;
@@ -178,13 +178,19 @@ export default function Messages() {
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 space-y-2 pb-6">
             {filteredPartners.map(partner => {
-              const partnerMessages = messages
-                .filter(m => m.participants.includes(partner.id) && m.participants.includes(currentUser.id));
+              const partnerMessages = messages.filter(m =>
+                m &&
+                ((Array.isArray(m.participants) &&
+                  m.participants.includes(partner.id) &&
+                  m.participants.includes(currentUser.id)) ||
+                  (m.senderId === partner.id && m.receiverId === currentUser.id) ||
+                  (m.senderId === currentUser.id && m.receiverId === partner.id))
+              );
               
-              const lastMessage = [...partnerMessages].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+              const lastMessage = [...partnerMessages].sort((a, b) => (new Date(b.timestamp || 0).getTime() || 0) - (new Date(a.timestamp || 0).getTime() || 0))[0];
               
               const unreadCount = partnerMessages.filter(m => m.receiverId === currentUser.id && !m.isRead).length;
-              const isPartnerOnline = partner.role === 'admin' || partner.isTrackingOn || partner.isOnline || (partner.id.charCodeAt(0) % 2 === 0);
+              const isPartnerOnline = partner.role === 'admin' || partner.isTrackingOn || partner.isOnline || ((partner.id || 'u').charCodeAt(0) % 2 === 0);
 
               return (
                 <button 
@@ -227,9 +233,9 @@ export default function Messages() {
                       <h3 className={`text-sm font-bold break-words leading-snug ${
                         selectedUserId === partner.id ? 'text-white' : 'text-[#0B132B] dark:text-white'
                       }`}>
-                        {partner.name}
+                        {partner.name || 'EduTrack User'}
                       </h3>
-                      {lastMessage && (
+                      {lastMessage && lastMessage.timestamp && (
                         <span className={`text-[8px] font-black uppercase flex-shrink-0 ${
                           selectedUserId === partner.id ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'
                         }`}>
@@ -246,7 +252,7 @@ export default function Messages() {
                             {lastMessage.senderId === currentUser.id && "YOU: "}
                             {lastMessage.content}
                           </>
-                        ) : `CONNECT WITH ${partner.role.toUpperCase()}`}
+                        ) : `CONNECT WITH ${(partner.role || 'USER').toUpperCase()}`}
                       </p>
                     </div>
                   </div>

@@ -4,7 +4,8 @@ export interface SendWelcomeEmailParams {
   userId?: string;
   email: string;
   name: string;
-  role: 'student' | 'tutor' | 'admin';
+  role: 'student' | 'tutor' | 'admin' | 'guardian' | string;
+  accountType?: string;
   studentClass?: string;
   school?: string;
   university?: string;
@@ -170,6 +171,141 @@ export function generateOtpEmailHtml({
 </html>`;
 }
 
+export interface EduTrackEmailLayoutParams {
+  title: string;
+  preheader: string;
+  recipientEmail: string;
+  heading: string;
+  bodyHtml: string;
+}
+
+export function renderEduTrackEmailLayout({
+  title,
+  preheader,
+  recipientEmail,
+  heading,
+  bodyHtml,
+}: EduTrackEmailLayoutParams): string {
+  const safeTitle = escapeHtml(title);
+  const safePreheader = escapeHtml(preheader);
+  const safeEmail = escapeHtml(recipientEmail || "");
+  const safeHeading = escapeHtml(heading);
+  const currentYear = new Date().getFullYear();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>${safeTitle}</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #0B1120 !important; }
+      .email-card { background-color: #111827 !important; border-color: #1E293B !important; }
+      .text-primary { color: #F8FAFC !important; }
+      .text-secondary { color: #94A3B8 !important; }
+      .brand-track { color: #3B82F6 !important; }
+      .accent-box { background-color: #1E293B !important; border-color: #334155 !important; }
+      .accent-label { color: #60A5FA !important; }
+      .info-box { background-color: #0F172A !important; border-color: #1E293B !important; }
+      .divider { border-top-color: #1E293B !important; }
+      .text-muted { color: #64748B !important; }
+    }
+    @media screen and (max-width: 600px) {
+      .email-wrapper { padding: 20px 12px !important; }
+      .email-card-pad { padding: 28px 20px !important; }
+    }
+  </style>
+</head>
+  <body class="email-bg" style="margin: 0; padding: 0; width: 100%; background-color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #101828; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;">
+  <div style="display: none; font-size: 1px; color: #F1F5F9; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    ${safePreheader}
+  </div>
+
+  <table role="presentation" class="email-bg email-wrapper" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F1F5F9; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="email-card" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
+          <tr>
+            <td class="email-card-pad" style="padding: 36px 36px 32px 36px;">
+
+              <!-- Top Brand Header -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 20px; border-bottom: 1px solid #E2E8F0; margin-bottom: 24px;" class="divider">
+                    <div class="text-primary" style="font-size: 22px; font-weight: 800; color: #101828; letter-spacing: -0.4px; line-height: 1.1;">
+                      Edu<span class="brand-link" style="color: #155DFC;">Track</span>
+                    </div>
+                    <div class="brand-link" style="margin-top: 4px; font-size: 10px; font-weight: 700; color: #155DFC; letter-spacing: 3px; text-transform: uppercase; line-height: 1;">
+                      BANGLADESH
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main Heading -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-top: 24px; padding-bottom: 12px;">
+                    <h1 class="text-primary" style="margin: 0; font-size: 24px; font-weight: 800; color: #101828; letter-spacing: -0.3px; line-height: 1.25;">
+                      ${safeHeading}
+                    </h1>
+                  </td>
+                </tr>
+              </table>
+
+              ${bodyHtml}
+
+              <!-- Footer -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td class="divider" style="border-top: 1px solid #E2E8F0; padding-top: 20px;">
+                    <p class="text-primary" style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #101828; line-height: 1.5;">
+                      EduTrack Bangladesh
+                    </p>
+                    <p class="text-muted" style="margin: 0 0 6px 0; font-size: 12px; line-height: 1.5; color: #475569;">
+                      <a href="mailto:edutrackbangladesh@gmail.com" class="brand-link" style="color: #155DFC; text-decoration: underline; font-weight: 600;">Contact Support</a>
+                      ${safeEmail ? `<span style="color: #94A3B8;"> &middot; </span><span>${safeEmail}</span>` : ""}
+                    </p>
+                    <p class="text-muted" style="margin: 0; font-size: 12px; color: #475569; line-height: 1.5;">
+                      &copy; ${currentYear} EduTrack Bangladesh
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function renderEmailPrimaryButton(label: string, url: string): string {
+  const safeLabel = escapeHtml(label);
+  const safeUrl = escapeHtml(url);
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  <tr>
+    <td align="center" style="padding: 8px 0 24px 0;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+          <td align="center" style="background-color: #155DFC; border-radius: 8px;">
+            <a href="${safeUrl}" target="_blank" style="display: inline-block; background-color: #155DFC; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 8px; border: 1px solid #155DFC; line-height: 1.2;">
+              ${safeLabel}
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
+}
+
 export function generatePasswordResetEmailHtml({
   email,
   resetLink,
@@ -179,128 +315,133 @@ export function generatePasswordResetEmailHtml({
   resetLink: string;
   expiresMinutes?: number;
 }): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your EduTrack BD Password</title>
-  <style>
-    .btn-reset:hover {
-      background-color: #0b4ad6 !important;
-      box-shadow: 0 10px 25px rgba(13, 91, 255, 0.4) !important;
-    }
-  </style>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; color: #334155; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; padding: 40px 12px;">
-    <tr>
-      <td align="center">
-        
-        <!-- Main Card Container -->
-        <table role="presentation" width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
-          
-          <!-- Top Accent Branding Stripe -->
-          <tr>
-            <td style="background: linear-gradient(90deg, #0D5BFF 0%, #3B82F6 50%, #7C3AED 100%); height: 6px;"></td>
-          </tr>
+  const safeExpiresMinutes =
+    Number.isFinite(Number(expiresMinutes)) && Number(expiresMinutes) > 0
+      ? Math.round(Number(expiresMinutes))
+      : 15;
+  const safeResetLink = escapeHtml(resetLink || "");
 
-          <!-- Hero Header Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #0B132B 0%, #111A2E 60%, #0D5BFF 100%); padding: 38px 32px; text-align: center;">
-              
-              <!-- Brand Badge -->
-              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 16px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                <span style="color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
-                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
-              </div>
+  const bodyHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 24px;">
+                    <p class="text-secondary" style="margin: 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                      We received a request to reset your EduTrack account password. Click the button below to choose a new password.
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-              <!-- Main Title -->
-              <h1 style="color: #ffffff; font-size: 22px; font-weight: 900; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                Password Reset Request
-              </h1>
+              ${renderEmailPrimaryButton("Reset Password", resetLink)}
 
-              <!-- Subtitle -->
-              <p style="color: #93c5fd; font-size: 12px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                Secure Account Access Recovery
-              </p>
-            </td>
-          </tr>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom: 24px;">
+                    <div class="text-secondary" style="font-size: 13px; font-weight: 500; color: #475569;">
+                      Valid for ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}. This reset link can only be used once.
+                    </div>
+                  </td>
+                </tr>
+              </table>
 
-          <!-- Main Content Body -->
-          <tr>
-            <td style="padding: 36px 32px 28px 32px;">
-              
-              <div style="margin-bottom: 24px;">
-                <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0;">
-                  Need to reset your password?
-                </h2>
-                <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0;">
-                  We received a request to reset the password for your EduTrack Bangladesh account associated with <strong>${email}</strong>. Click the button below to set a new password.
-                </p>
-              </div>
+              <!-- Security Warning -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 20px;">
+                    <table role="presentation" class="info-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                      <tr>
+                        <td style="padding: 14px 16px;">
+                          <p class="text-secondary" style="margin: 0; font-size: 13px; line-height: 1.55; color: #475569;">
+                            Never share this password reset link with anyone. EduTrack staff will never ask for your password or reset link.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-              <!-- Primary Action CTA Button -->
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${resetLink}" target="_blank" class="btn-reset" style="display: inline-block; background-color: #0D5BFF; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 900; padding: 16px 36px; border-radius: 14px; letter-spacing: 1px; text-transform: uppercase; transition: all 0.2s ease-in-out; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.3);">
-                  Reset Your Password Now
-                </a>
-              </div>
+              <!-- Fallback URL Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 20px;">
+                    <p class="text-muted" style="margin: 0 0 6px 0; font-size: 12px; line-height: 1.5; color: #64748B;">
+                      If the button above does not work, copy and paste this link into your browser:
+                    </p>
+                    <p style="margin: 0; font-size: 12px; line-height: 1.5; word-break: break-all; color: #155DFC;">
+                      <a href="${safeResetLink}" style="color: #155DFC; text-decoration: underline;">${safeResetLink}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-              <!-- Notice Box -->
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
-                <p style="font-size: 12px; font-weight: 700; color: #64748b; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ⏰ Important Security Details:
-                </p>
-                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.6;">
-                  <li>This link will automatically expire in <strong>${expiresMinutes} minutes</strong>.</li>
-                  <li>This link is single-use and will be invalidated once used.</li>
-                  <li>If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</li>
-                </ul>
-              </div>
+              <!-- Ignore Notice -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 28px;">
+                    <p class="text-muted" style="margin: 0; font-size: 13px; line-height: 1.5; color: #64748B;">
+                      Didn&#39;t request this? You can safely ignore this email. Your password will remain unchanged.
+                    </p>
+                  </td>
+                </tr>
+              </table>`;
 
-              <!-- Fallback Direct URL -->
-              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
-                <p style="font-size: 11px; color: #64748b; margin: 0 0 6px 0;">
-                  If the button above does not work, copy and paste this URL into your browser:
-                </p>
-                <div style="word-break: break-all; font-family: monospace; font-size: 11px; color: #0D5BFF; background-color: #f1f5f9; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1;">
-                  ${resetLink}
-                </div>
-              </div>
+  return renderEduTrackEmailLayout({
+    title: "Reset your password | EduTrack Bangladesh",
+    preheader: `Reset your EduTrack Bangladesh password. Valid for ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}.`,
+    recipientEmail: email,
+    heading: "Reset your password",
+    bodyHtml,
+  });
+}
 
-            </td>
-          </tr>
+export function generatePasswordResetEmailText({
+  email,
+  resetLink,
+  expiresMinutes = 15,
+}: {
+  email: string;
+  resetLink: string;
+  expiresMinutes?: number;
+}): string {
+  const safeExpiresMinutes =
+    Number.isFinite(Number(expiresMinutes)) && Number(expiresMinutes) > 0
+      ? Math.round(Number(expiresMinutes))
+      : 15;
+  const currentYear = new Date().getFullYear();
 
-          <!-- Footer Section -->
-          <tr>
-            <td style="background-color: #f8fafc; border-top: 1px solid #f1f5f9; padding: 24px 32px; text-align: center;">
-              <p style="color: #64748b; font-size: 12px; font-weight: 700; margin: 0 0 6px 0;">
-                EduTrack Bangladesh Security Team
-              </p>
-              <p style="color: #94a3b8; font-size: 11px; margin: 0 0 12px 0;">
-                Empowering Education & Tuition Management across Bangladesh
-              </p>
-              <p style="color: #cbd5e1; font-size: 10px; margin: 0;">
-                © ${new Date().getFullYear()} EduTrack Bangladesh. All rights reserved.
-              </p>
-            </td>
-          </tr>
+  return [
+    "EduTrack BANGLADESH",
+    "",
+    "Reset your password",
+    "",
+    "We received a request to reset your EduTrack account password.",
+    "",
+    `Reset Password: ${resetLink}`,
+    `Valid for ${safeExpiresMinutes} ${safeExpiresMinutes === 1 ? "minute" : "minutes"}. This reset link can only be used once.`,
+    "",
+    "Never share this password reset link with anyone. EduTrack staff will never ask for your password or reset link.",
+    "Didn't request this? You can safely ignore this email. Your password will remain unchanged.",
+    "",
+    "EduTrack Bangladesh",
+    `Contact Support: edutrackbangladesh@gmail.com (${email})`,
+    `© ${currentYear} EduTrack Bangladesh`,
+  ].join("\n");
+}
 
-        </table>
-
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+function stripDecorativeSymbols(input: string): string {
+  return String(input || "")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function generateWelcomeEmailHtml({
   userId,
+  email,
   name,
   role,
+  accountType,
   studentClass,
   school,
   university,
@@ -308,365 +449,260 @@ export function generateWelcomeEmailHtml({
   district,
   customMessage,
   profileUrl,
-  baseUrl,
+  baseUrl = "https://edutrackbd.vercel.app",
 }: SendWelcomeEmailParams): string {
-  const isTutor = role === 'tutor';
-  const productionBaseUrl = "https://edutrackbd.vercel.app";
-  const targetDashboardUrl = `${productionBaseUrl}/dashboard`;
-  
-  // Real teacher profile URL format: https://edutrackbd.vercel.app/teachers/{userId}
-  const teacherProfileUrl = profileUrl || (userId ? `https://edutrackbd.vercel.app/teachers/${userId}` : (isTutor ? `https://edutrackbd.vercel.app/teachers` : `${productionBaseUrl}/dashboard`));
+  const normalizedRole = String(role || "student").toLowerCase();
+  const normalizedAccountType = String(accountType || "").toLowerCase();
+  const isTutor = normalizedRole === "tutor";
+  const isGuardian = normalizedRole === "guardian" || normalizedAccountType === "guardian";
+  const cleanName = stripDecorativeSymbols(name || "").trim();
+  const safeGreetingName = escapeHtml(cleanName || (isTutor ? "Educator" : "there"));
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${isTutor ? 'Welcome Teacher - EduTrack Bangladesh' : 'Welcome to EduTrack Bangladesh'}</title>
-  <style>
-    @keyframes glowPulse {
-      0% { box-shadow: 0 0 8px rgba(13, 91, 255, 0.3); }
-      50% { box-shadow: 0 0 20px rgba(52, 211, 153, 0.6); }
-      100% { box-shadow: 0 0 8px rgba(13, 91, 255, 0.3); }
-    }
-    .creator-badge {
-      animation: glowPulse 3s infinite ease-in-out;
-    }
-  </style>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; color: #334155; -webkit-font-smoothing: antialiased;">
-  <!-- Main Email Background Wrapper -->
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; padding: 40px 12px;">
-    <tr>
-      <td align="center">
-        
-        <!-- Main Card Container -->
-        <table role="presentation" width="100%" style="max-width: 640px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
-          
-          <!-- Top Accent Branding Stripe -->
-          <tr>
-            <td style="background: linear-gradient(90deg, #0D5BFF 0%, #00C853 50%, #7C3AED 100%); height: 6px;"></td>
-          </tr>
+  const cleanBaseUrl = String(baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
+  const dashboardUrl = "https://edutrackbd.vercel.app/dashboard";
+  const computedProfileUrl =
+    profileUrl || (userId && isTutor ? `${cleanBaseUrl}/teachers/${encodeURIComponent(userId)}` : undefined);
 
-          <!-- Hero Header Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #0B132B 0%, #111A2E 55%, #0D5BFF 100%); padding: 44px 36px 36px 36px; text-align: center; position: relative;">
-              
-              <!-- Brand Badge -->
-              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 20px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                <span style="color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
-                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
-              </div>
+  const roleLabel = isTutor
+    ? "Tutor"
+    : isGuardian
+      ? "Guardian"
+      : normalizedRole === "admin"
+        ? "Administrator"
+        : "Student";
 
-              <!-- Main Title -->
-              <h1 style="color: #ffffff; font-size: 26px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2;">
-                ${isTutor ? 'Welcome to EduTrack Teacher Network!' : 'Welcome to the Future of Education!'}
-              </h1>
+  let guidanceLabel = "GETTING STARTED AS A STUDENT";
+  let guidanceText =
+    "Find verified tutors by subject, class, and location, post your tuition needs in the marketplace, and manage your scheduled sessions and class logs from your dashboard.";
 
-              <!-- Subtitle -->
-              <p style="color: #93c5fd; font-size: 13px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
-                ${isTutor ? 'Your Teacher Profile is Live & Ready to Connect with Students' : "Bangladesh's #1 Security-First Home & Online Tutoring Ecosystem"}
-              </p>
-            </td>
-          </tr>
+  if (isTutor) {
+    guidanceLabel = "GETTING STARTED AS A TUTOR";
+    guidanceText =
+      "Complete your academic profile, upload your verification documents (National ID and institutional ID card), and explore matching tuition opportunities across Bangladesh.";
+  } else if (isGuardian) {
+    guidanceLabel = "GETTING STARTED AS A GUARDIAN";
+    guidanceText =
+      "Find suitable verified tutors for your child by subject, class, and area, post specific tuition requirements, and monitor scheduled sessions in one place.";
+  }
 
-          <!-- Main Content Body -->
-          <tr>
-            <td style="padding: 36px 32px 28px 32px;">
-              
-              <!-- Greeting -->
-              <div style="margin-bottom: 24px;">
-                <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0;">
-                  Hello ${name || (isTutor ? 'Honorable Teacher' : 'Valued Member')},
-                </h2>
-                <p style="font-size: 14px; line-height: 1.65; color: #475569; margin: 0;">
-                  Congratulations and welcome to <strong>EduTrack Bangladesh</strong>! Your account has been officially registered as a <span style="display: inline-block; background-color: ${isTutor ? '#fef3c7' : '#dbeafe'}; color: ${isTutor ? '#b45309' : '#1d4ed8'}; font-weight: 800; padding: 2px 10px; border-radius: 8px; font-size: 11px; text-transform: uppercase; border: 1px solid ${isTutor ? '#fcd34d' : '#bfdbfe'};">${isTutor ? 'Verified Tutor / Teacher' : role}</span>.
-                </p>
-              </div>
+  const summaryRows: Array<{ label: string; value: string }> = [];
+  if (cleanName) {
+    summaryRows.push({ label: "Full Name", value: escapeHtml(cleanName) });
+  }
+  summaryRows.push({ label: "Account Role", value: escapeHtml(roleLabel) });
+  if (district) {
+    summaryRows.push({ label: "District / Location", value: escapeHtml(district) });
+  }
+  if (isTutor && (university || course)) {
+    const inst = [university, course].filter(Boolean).join(" — ");
+    summaryRows.push({ label: "Institution", value: escapeHtml(inst) });
+  } else if (!isTutor && (studentClass || school)) {
+    const academic = [studentClass, school].filter(Boolean).join(" — ");
+    summaryRows.push({ label: "Academic Details", value: escapeHtml(academic) });
+  }
+  if (isTutor && computedProfileUrl) {
+    const safeProfUrl = escapeHtml(computedProfileUrl);
+    summaryRows.push({
+      label: "Teacher Profile",
+      value: `<a href="${safeProfUrl}" style="color: #155DFC; text-decoration: none; font-weight: 600;">${safeProfUrl}</a>`,
+    });
+  }
 
-              ${customMessage ? `
-              <!-- Special Admin Announcement Box -->
-              <div style="background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%); border-left: 5px solid #0D5BFF; border-radius: 16px; padding: 20px; margin-bottom: 28px; box-shadow: 0 4px 12px rgba(13, 91, 255, 0.06);">
-                <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  <span style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e40af; letter-spacing: 1px;">Official Notice from Administration:</span>
-                </div>
-                <p style="font-size: 14px; line-height: 1.6; color: #1e293b; margin: 0; font-weight: 600; font-style: italic;">
-                  "${customMessage}"
-                </p>
-              </div>
-              ` : ''}
+  const summaryTableHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 24px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="info-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                      ${summaryRows
+                        .map(
+                          (row, idx) => `<tr>
+                        <td style="padding: 10px 16px; font-size: 13px; color: #64748B; font-weight: 600; width: 38%; ${idx > 0 ? "border-top: 1px solid #E2E8F0;" : ""}">
+                          ${row.label}
+                        </td>
+                        <td class="text-primary" style="padding: 10px 16px; font-size: 13px; color: #101828; font-weight: 600; ${idx > 0 ? "border-top: 1px solid #E2E8F0;" : ""}">
+                          ${row.value}
+                        </td>
+                      </tr>`
+                        )
+                        .join("")}
+                    </table>
+                  </td>
+                </tr>
+              </table>`;
 
-              <!-- Account Summary Card -->
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 20px; margin-bottom: 28px;">
-                <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; display: flex; align-items: center;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                  <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 1px;">
-                    Your Profile Overview
-                  </span>
-                </div>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size: 13px;">
-                  <tr>
-                    <td width="35%" style="padding: 4px 0; color: #64748b; font-weight: 600;">Full Name:</td>
-                    <td width="65%" style="padding: 4px 0; color: #0f172a; font-weight: 800;">${name || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Registered Role:</td>
-                    <td style="padding: 4px 0; color: #0D5BFF; font-weight: 800; text-transform: capitalize;">${isTutor ? 'Tutor / Teacher' : role}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">District / Area:</td>
-                    <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">${district || 'Bangladesh (All Districts)'}</td>
-                  </tr>
-                  ${isTutor ? `
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Institution / Degree:</td>
-                    <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">${university || course || 'University Scholar'}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Teacher Profile Link:</td>
-                    <td style="padding: 4px 0;">
-                      <a href="${teacherProfileUrl}" target="_blank" style="color: #0D5BFF; font-weight: 800; text-decoration: underline; font-size: 12px; word-break: break-all;">
-                        ${teacherProfileUrl}
-                      </a>
-                    </td>
-                  </tr>
-                  ` : `
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Class / School:</td>
-                    <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">${studentClass ? 'Class ' + studentClass : ''} ${school ? '(' + school + ')' : 'General Student'}</td>
-                  </tr>
-                  `}
-                  <tr>
-                    <td style="padding: 4px 0; color: #64748b; font-weight: 600;">Security Status:</td>
-                    <td style="padding: 4px 0; color: #059669; font-weight: 800;">
-                      <span style="display: inline-block; background-color: #d1fae5; color: #047857; padding: 1px 8px; border-radius: 6px; font-size: 10px; text-transform: uppercase;">Protected Account</span>
-                    </td>
-                  </tr>
-                </table>
-              </div>
+  let customMessageHtml = "";
+  if (customMessage && customMessage.trim()) {
+    const paragraphs = customMessage
+      .split(/\n\s*\n/)
+      .map((block) => {
+        const trimmed = stripDecorativeSymbols(block);
+        if (!trimmed) return "";
+        const lines = block
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const isBulletBlock = lines.every((l) => l.startsWith("•") || l.startsWith("-"));
+        if (isBulletBlock) {
+          const listItems = lines
+            .map((l) => {
+              const itemText = escapeHtml(stripDecorativeSymbols(l.replace(/^[•\-]\s*/, "")));
+              return itemText
+                ? `<li style="margin-bottom: 6px; color: #475569; font-size: 14px; line-height: 1.6;">${itemText}</li>`
+                : "";
+            })
+            .join("");
+          return `<ul style="margin: 0 0 16px 0; padding-left: 20px; color: #155DFC;">${listItems}</ul>`;
+        }
+        const safeBlock = lines.map((l) => escapeHtml(stripDecorativeSymbols(l))).join("<br/>");
+        return `<p class="text-secondary" style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #475569;">${safeBlock}</p>`;
+      })
+      .join("");
 
-              ${isTutor ? `
-              <!-- TEACHER-EXCLUSIVE PROFILE ACCESS CARD -->
-              <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 2px solid #bfdbfe; border-radius: 20px; padding: 26px 22px; margin-bottom: 30px; box-shadow: 0 10px 25px rgba(13, 91, 255, 0.08); text-align: center;">
-                
-                <div style="display: inline-flex; align-items: center; background-color: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 900; padding: 4px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #bfdbfe;">
-                  <span style="margin-right: 6px;">🌟</span> YOUR OFFICIAL TEACHER PROFILE
-                </div>
+    customMessageHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 20px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="accent-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;">
+                      <tr>
+                        <td style="padding: 18px 20px;">
+                          <div class="accent-label" style="font-size: 11px; font-weight: 700; color: #155DFC; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px;">
+                            ACCOUNT NOTICE
+                          </div>
+                          ${paragraphs}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>`;
+  } else {
+    customMessageHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 20px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="accent-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;">
+                      <tr>
+                        <td style="padding: 18px 20px;">
+                          <div class="accent-label" style="font-size: 11px; font-weight: 700; color: #155DFC; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px;">
+                            ${guidanceLabel}
+                          </div>
+                          <p class="text-secondary" style="margin: 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            ${escapeHtml(guidanceText)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>`;
+  }
 
-                <h3 style="font-size: 17px; font-weight: 900; color: #0f172a; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                  Access & Share Your Teacher Profile
-                </h3>
+  const bodyHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 20px;">
+                    <p class="text-primary" style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #101828;">
+                      Hello ${safeGreetingName},
+                    </p>
+                    <p class="text-secondary" style="margin: 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                      Your EduTrack Bangladesh account is ready. You can now access your dashboard to manage your profile, tuition connections, and academic sessions.
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-                <p style="font-size: 13px; line-height: 1.6; color: #334155; margin: 0 0 18px 0;">
-                  Your dedicated teacher profile has been created! Use the button below to review your live profile or share your link with students, parents, and guardians across Bangladesh.
-                </p>
+              ${customMessageHtml}
 
-                <!-- Primary Big Action Button for Teacher Profile -->
-                <div style="margin-bottom: 16px;">
-                  <a href="${teacherProfileUrl}" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0D5BFF 0%, #0040C9 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; padding: 16px 36px; border-radius: 14px; box-shadow: 0 8px 20px rgba(13, 91, 255, 0.35); border: 1px solid rgba(255,255,255,0.3);">
-                    <span>VIEW YOUR TEACHER PROFILE</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
+              ${summaryTableHtml}
 
-                <!-- Monospace Direct Profile Link Box -->
-                <div style="background-color: #ffffff; border: 1px dashed #3b82f6; border-radius: 12px; padding: 12px 16px; margin: 14px auto 0 auto; max-width: 520px; text-align: center;">
-                  <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; margin: 0 0 4px 0; letter-spacing: 1px;">
-                    Direct Teacher Profile URL (Click or Copy):
-                  </p>
-                  <a href="${teacherProfileUrl}" target="_blank" style="font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: 700; color: #0D5BFF; text-decoration: underline; word-break: break-all;">
-                    ${teacherProfileUrl}
-                  </a>
-                </div>
+              ${renderEmailPrimaryButton("Go to Dashboard", dashboardUrl)}`;
 
-                <!-- Secondary Dashboard Link -->
-                <div style="margin-top: 14px;">
-                  <a href="${targetDashboardUrl}" target="_blank" style="font-size: 12px; font-weight: 700; color: #047857; text-decoration: none; display: inline-flex; align-items: center;">
-                    <span style="text-decoration: underline;">Or access your full Teacher Dashboard</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                  </a>
-                </div>
+  return renderEduTrackEmailLayout({
+    title: "Welcome to EduTrack! | EduTrack Bangladesh",
+    preheader: `Welcome to EduTrack! Your ${roleLabel} account on EduTrack Bangladesh is ready.`,
+    recipientEmail: email,
+    heading: "Welcome to EduTrack!",
+    bodyHtml,
+  });
+}
 
-              </div>
-              ` : `
-              <!-- Primary Action Button Section for Non-Tutors (Students) -->
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${targetDashboardUrl}" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0D5BFF 0%, #0040C9 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; padding: 18px 42px; border-radius: 16px; box-shadow: 0 10px 25px rgba(13, 91, 255, 0.4); border: 1px solid rgba(255,255,255,0.2);">
-                  <span>OPEN YOUR DASHBOARD</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 10px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                </a>
-                <p style="font-size: 11px; color: #94a3b8; margin-top: 10px; font-weight: 600;">
-                  Direct Portal URL: <a href="${targetDashboardUrl}" style="color: #0D5BFF; text-decoration: none;">${targetDashboardUrl}</a>
-                </p>
-              </div>
-              `}
+export function generateWelcomeEmailText({
+  userId,
+  email,
+  name,
+  role,
+  accountType,
+  studentClass,
+  school,
+  university,
+  course,
+  district,
+  customMessage,
+  profileUrl,
+  baseUrl = "https://edutrackbd.vercel.app",
+}: SendWelcomeEmailParams): string {
+  const normalizedRole = String(role || "student").toLowerCase();
+  const normalizedAccountType = String(accountType || "").toLowerCase();
+  const isTutor = normalizedRole === "tutor";
+  const isGuardian = normalizedRole === "guardian" || normalizedAccountType === "guardian";
+  const cleanName = stripDecorativeSymbols(name || "").trim() || (isTutor ? "Educator" : "there");
+  const roleLabel = isTutor
+    ? "Tutor"
+    : isGuardian
+      ? "Guardian"
+      : normalizedRole === "admin"
+        ? "Administrator"
+        : "Student";
 
-              <!-- Tailored Walkthrough for Role -->
-              <div style="background-color: #f1f5f9; border-radius: 20px; padding: 24px; margin-bottom: 32px; border: 1px solid #e2e8f0;">
-                <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin: 0 0 16px 0; letter-spacing: 0.5px; display: flex; align-items: center;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D5BFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  <span>${isTutor ? 'Action Items for Tutors & Educators:' : 'Quick Start Guide for Students & Guardians:'}</span>
-                </h3>
+  const cleanBaseUrl = String(baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
+  const dashboardUrl = "https://edutrackbd.vercel.app/dashboard";
+  const computedProfileUrl =
+    profileUrl || (userId && isTutor ? `${cleanBaseUrl}/teachers/${encodeURIComponent(userId)}` : undefined);
 
-                ${isTutor ? `
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">1</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Check Your Profile:</strong> Use the profile link above to review your live teaching credentials, expected salary, and bio.
-                  </div>
-                </div>
+  let guidanceText =
+    "Find verified tutors by subject, class, and location, post your tuition needs in the marketplace, and manage your scheduled sessions and class logs from your dashboard.";
+  if (isTutor) {
+    guidanceText =
+      "Complete your academic profile, upload your verification documents (National ID and institutional ID card), and explore matching tuition opportunities across Bangladesh.";
+  } else if (isGuardian) {
+    guidanceText =
+      "Find suitable verified tutors for your child by subject, class, and area, post specific tuition requirements, and monitor scheduled sessions in one place.";
+  }
 
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">2</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Complete Verification:</strong> Upload your NID / University Student ID Card in your dashboard to earn the official <em>Verified Badge</em>.
-                  </div>
-                </div>
+  const currentYear = new Date().getFullYear();
+  const lines: string[] = [
+    "EduTrack BANGLADESH",
+    "",
+    "Welcome to EduTrack!",
+    "",
+    `Hello ${cleanName},`,
+    "Your EduTrack Bangladesh account is ready. You can now access your dashboard to manage your profile, tuition connections, and academic sessions.",
+    "",
+    customMessage && customMessage.trim() ? stripDecorativeSymbols(customMessage) : guidanceText,
+    "",
+    `Account Role: ${roleLabel}`,
+  ];
 
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">3</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Set Subjects & Salary:</strong> Specify your preferred teaching classes, subjects, district areas, and expected monthly salary.
-                  </div>
-                </div>
+  if (district) lines.push(`District / Location: ${district}`);
+  if (isTutor && (university || course)) {
+    lines.push(`Institution: ${[university, course].filter(Boolean).join(" - ")}`);
+  } else if (!isTutor && (studentClass || school)) {
+    lines.push(`Academic Details: ${[studentClass, school].filter(Boolean).join(" - ")}`);
+  }
+  if (isTutor && computedProfileUrl) {
+    lines.push(`Teacher Profile: ${computedProfileUrl}`);
+  }
 
-                <div style="display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">4</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Accept Tuition Inquiries:</strong> Receive tuition booking requests from students and start managing sessions.
-                  </div>
-                </div>
-                ` : `
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">1</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Search & Filter Tutors:</strong> Explore thousands of verified teachers filtered by District, Subject, Class, Institution, and Gender preference.
-                  </div>
-                </div>
+  lines.push(
+    "",
+    `Go to Dashboard: ${dashboardUrl}`,
+    "",
+    "EduTrack Bangladesh",
+    `Contact Support: edutrackbangladesh@gmail.com (${email})`,
+    `© ${currentYear} EduTrack Bangladesh`
+  );
 
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">2</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Hire & Track Live Location:</strong> Monitor your tutor's live GPS route to your house and get real-time lesson arrival updates.
-                  </div>
-                </div>
-
-                <div style="margin-bottom: 12px; display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">3</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Digital Class Diary:</strong> Access detailed lesson logs, homework assignments, class duration reports, and performance metrics.
-                  </div>
-                </div>
-
-                <div style="display: flex; align-items: start;">
-                  <div style="background: #0D5BFF; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">4</div>
-                  <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                    <strong>Safe Mobile Payments:</strong> Pay tuition fees securely via bKash, Nagad, or Bank transfer with automated digital receipts.
-                  </div>
-                </div>
-                `}
-              </div>
-
-              <!-- Feature Highlights Showcase Grid -->
-              <div style="margin-bottom: 32px;">
-                <p style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 1px; margin: 0 0 16px 0; text-align: center;">
-                  Why EduTrack Bangladesh leads the nation:
-                </p>
-
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td width="50%" style="padding: 6px;">
-                      <div style="background-color: #ffffff; border-radius: 16px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                        <div style="margin-bottom: 8px;">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0D5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 11 12 14 22 4"/></svg>
-                        </div>
-                        <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase;">100% Verified Tutors</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">NID, Student ID, and institutional credentials audited.</div>
-                      </div>
-                    </td>
-                    <td width="50%" style="padding: 6px;">
-                      <div style="background-color: #ffffff; border-radius: 16px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                        <div style="margin-bottom: 8px;">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                        </div>
-                        <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Live GPS Security</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">Real-time location map monitoring for complete safety.</div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td width="50%" style="padding: 6px;">
-                      <div style="background-color: #ffffff; border-radius: 16px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                        <div style="margin-bottom: 8px;">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                        </div>
-                        <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Digital Class Logger</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">Automated diary logs, topic history, and student progress.</div>
-                      </div>
-                    </td>
-                    <td width="50%" style="padding: 6px;">
-                      <div style="background-color: #ffffff; border-radius: 16px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                        <div style="margin-bottom: 8px;">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                        </div>
-                        <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase;">bKash & Nagad</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;">Instant mobile wallet payouts and safe digital escrow.</div>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <!-- Support Footer Section inside Card -->
-              <div style="border-top: 1px border-dashed #e2e8f0; padding-top: 20px; text-align: center;">
-                <p style="font-size: 12px; color: #64748b; margin: 0 0 6px 0;">
-                  Need assistance or have questions about your account?
-                </p>
-                <p style="font-size: 13px; font-weight: 700; color: #0f172a; margin: 0;">
-                  Contact Support: <a href="mailto:edutrackbangladesh@gmail.com" style="color: #0D5BFF; text-decoration: underline;">edutrackbangladesh@gmail.com</a>
-                </p>
-              </div>
-
-            </td>
-          </tr>
-
-          <!-- Footer Banner -->
-          <tr>
-            <td style="background-color: #0b132b; padding: 28px 32px; text-align: center; border-top: 1px solid #1e293b;">
-              <p style="color: #94a3b8; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0;">
-                EduTrack Bangladesh
-              </p>
-              <p style="color: #64748b; font-size: 11px; margin: 0 0 12px 0; line-height: 1.5;">
-                Empowering Education, Security & Academic Excellence across all 64 Districts of Bangladesh
-              </p>
-              <p style="color: #475569; font-size: 10px; margin: 0 0 16px 0;">
-                © ${new Date().getFullYear()} EduTrack Bangladesh. All rights reserved.
-              </p>
-
-              <!-- Designer & Developer Signature Badge -->
-              <div style="display: inline-block;">
-                <div class="creator-badge" style="background: linear-gradient(135deg, rgba(13, 91, 255, 0.15) 0%, rgba(124, 58, 237, 0.2) 100%); border: 1px solid rgba(96, 165, 250, 0.25); border-radius: 50px; padding: 3px 12px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(13, 91, 255, 0.15);">
-                  <span style="color: #64748b; font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px;">
-                    Designed & Built by
-                  </span>
-                  <span style="color: #60a5fa; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; display: inline-flex; align-items: center;">
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="#60a5fa" stroke="#60a5fa" stroke-width="1" style="vertical-align: middle; margin-right: 3px;"><path d="M12 2l2.4 7.2L21.6 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8z"/></svg>
-                    <span>MOHAMMED MAHADI HOSSAIN</span>
-                  </span>
-                </div>
-              </div>
-            </td>
-          </tr>
-
-        </table>
-
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  return lines.join("\n");
 }
 
 export interface BulkCampaignEmailParams {
@@ -678,7 +714,7 @@ export interface BulkCampaignEmailParams {
   preheader?: string;
   headline?: string;
   messageBody: string;
-  category?: 'promotional' | 'announcement' | 'update' | 'custom';
+  category?: "promotional" | "announcement" | "update" | "custom";
   actionButtonText?: string;
   actionButtonUrl?: string;
   baseUrl?: string;
@@ -687,208 +723,162 @@ export interface BulkCampaignEmailParams {
 export function generateBulkCampaignEmailHtml({
   recipientName,
   recipientEmail,
-  recipientRole = 'member',
+  recipientRole = "member",
   recipientDistrict,
   subject,
   preheader,
   headline,
   messageBody,
-  category = 'update',
+  category = "update",
   actionButtonText,
   actionButtonUrl,
   baseUrl = "https://edutrackbd.vercel.app",
 }: BulkCampaignEmailParams): string {
-  const displayName = recipientName?.trim() || recipientEmail.split('@')[0];
-  const roleLabel = recipientRole === 'tutor' ? 'Tutor / Educator' : recipientRole === 'student' ? 'Student / Guardian' : 'Platform Member';
-  
-  // Replace dynamic template variables in message body
-  let processedBody = messageBody
+  const displayName = stripDecorativeSymbols(recipientName?.trim() || recipientEmail.split("@")[0]);
+  const roleLabel =
+    recipientRole === "tutor"
+      ? "Tutor"
+      : recipientRole === "student"
+        ? "Student / Guardian"
+        : "Platform Member";
+
+  const processedBody = String(messageBody || "")
     .replace(/\{\{\s*name\s*\}\}/gi, displayName)
     .replace(/\{\{\s*email\s*\}\}/gi, recipientEmail)
     .replace(/\{\{\s*role\s*\}\}/gi, roleLabel)
-    .replace(/\{\{\s*district\s*\}\}/gi, recipientDistrict || 'Bangladesh');
+    .replace(/\{\{\s*district\s*\}\}/gi, recipientDistrict || "Bangladesh");
 
-  // Convert double newlines to paragraph blocks and lines starting with - or • to styled list items
-  const paragraphs = processedBody.split(/\n\s*\n/).map(block => {
-    const trimmed = block.trim();
-    if (!trimmed) return '';
-    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-      const items = trimmed.split('\n').map(line => {
-        const clean = line.replace(/^[•\-]\s*/, '').trim();
-        return clean ? `<li style="margin-bottom: 8px; color: #334155; line-height: 1.6;">${clean}</li>` : '';
-      }).join('');
-      return `<ul style="margin: 16px 0; padding-left: 24px; color: #0D5BFF;">${items}</ul>`;
-    }
-    return `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #334155; font-size: 15px;">${trimmed.replace(/\n/g, '<br/>')}</p>`;
-  }).join('');
+  const paragraphs = processedBody
+    .split(/\n\s*\n/)
+    .map((block) => {
+      const trimmed = stripDecorativeSymbols(block);
+      if (!trimmed) return "";
+      const lines = block
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.every((l) => l.startsWith("•") || l.startsWith("-"))) {
+        const items = lines
+          .map((line) => {
+            const clean = escapeHtml(stripDecorativeSymbols(line.replace(/^[•\-]\s*/, "")));
+            return clean
+              ? `<li style="margin-bottom: 8px; color: #475569; font-size: 15px; line-height: 1.6;">${clean}</li>`
+              : "";
+          })
+          .join("");
+        return `<ul style="margin: 0 0 16px 0; padding-left: 20px; color: #155DFC;">${items}</ul>`;
+      }
+      const safeBlock = lines.map((l) => escapeHtml(stripDecorativeSymbols(l))).join("<br/>");
+      return `<p class="text-secondary" style="margin: 0 0 16px 0; line-height: 1.6; color: #475569; font-size: 15px;">${safeBlock}</p>`;
+    })
+    .join("");
 
-  // Category Theme Attributes
-  let badgeText = "Platform Announcement";
-  let badgeBg = "rgba(13, 91, 255, 0.15)";
-  let badgeColor = "#60a5fa";
-  let topGradient = "linear-gradient(90deg, #0D5BFF 0%, #00C853 50%, #7C3AED 100%)";
-  let headerBg = "linear-gradient(135deg, #0B132B 0%, #111A2E 55%, #0D5BFF 100%)";
-  let ctaBg = "#0D5BFF";
-
-  if (category === 'promotional') {
-    badgeText = "Special Promotion & Offer";
-    badgeBg = "rgba(16, 185, 129, 0.2)";
-    badgeColor = "#34d399";
-    topGradient = "linear-gradient(90deg, #10B981 0%, #0D5BFF 50%, #F59E0B 100%)";
-    headerBg = "linear-gradient(135deg, #064E3B 0%, #0B132B 60%, #10B981 100%)";
-    ctaBg = "#059669";
-  } else if (category === 'announcement') {
-    badgeText = "Important Announcement";
-    badgeBg = "rgba(124, 58, 237, 0.25)";
-    badgeColor = "#c084fc";
-    topGradient = "linear-gradient(90deg, #7C3AED 0%, #0D5BFF 100%)";
-    headerBg = "linear-gradient(135deg, #1E1B4B 0%, #0B132B 55%, #7C3AED 100%)";
-    ctaBg = "#7C3AED";
-  } else if (category === 'custom') {
-    badgeText = "Official Notice";
-    badgeBg = "rgba(255, 255, 255, 0.15)";
-    badgeColor = "#93c5fd";
-    topGradient = "linear-gradient(90deg, #3B82F6 0%, #6366F1 100%)";
-    headerBg = "linear-gradient(135deg, #0B132B 0%, #1E293B 100%)";
-    ctaBg = "#0B132B";
+  let categoryLabel = "PLATFORM UPDATE";
+  if (category === "promotional") {
+    categoryLabel = "SPECIAL OFFER";
+  } else if (category === "announcement") {
+    categoryLabel = "IMPORTANT ANNOUNCEMENT";
+  } else if (category === "custom") {
+    categoryLabel = "OFFICIAL NOTICE";
   }
 
-  const defaultHeadline = headline || subject;
-  const snippet = preheader || defaultHeadline;
+  const cleanHeadline = stripDecorativeSymbols(headline || subject || "EduTrack Bangladesh Update");
+  const cleanSnippet = stripDecorativeSymbols(preheader || cleanHeadline);
+  const cleanButtonLabel = actionButtonText ? stripDecorativeSymbols(actionButtonText) : "";
+  const cleanButtonUrl = actionButtonUrl || `${String(baseUrl).replace(/\/+$/, "")}/dashboard`;
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; color: #334155; -webkit-font-smoothing: antialiased;">
-  <!-- Hidden inbox preheader snippet -->
-  <div style="display:none;font-size:1px;color:#0f172a;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
-    ${snippet}
-  </div>
+  const bodyHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 12px;">
+                    <div class="accent-label" style="font-size: 11px; font-weight: 700; color: #155DFC; letter-spacing: 1.4px; text-transform: uppercase;">
+                      ${escapeHtml(categoryLabel)}
+                    </div>
+                  </td>
+                </tr>
+              </table>
 
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; padding: 36px 12px;">
-    <tr>
-      <td align="center">
-        
-        <!-- Main Email Container -->
-        <table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);">
-          
-          <!-- Top Accent Stripe -->
-          <tr>
-            <td style="background: ${topGradient}; height: 6px;"></td>
-          </tr>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 18px;">
+                    <p class="text-primary" style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #101828;">
+                      Hello ${escapeHtml(displayName)},
+                    </p>
+                    <p class="text-muted" style="margin: 0; font-size: 13px; color: #64748B;">
+                      Account Role: ${escapeHtml(roleLabel)}${recipientDistrict ? ` | District: ${escapeHtml(recipientDistrict)}` : ""}
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-          <!-- Header Section -->
-          <tr>
-            <td style="background: ${headerBg}; padding: 40px 32px 36px 32px; text-align: center;">
-              
-              <!-- Brand Badge -->
-              <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 8px 18px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.18); margin-bottom: 20px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                <span style="color: #ffffff; font-size: 16px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">EduTrack</span>
-                <span style="background-color: #0D5BFF; color: #ffffff; font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 8px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px;">BANGLADESH</span>
-              </div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 12px;">
+                    ${paragraphs}
+                  </td>
+                </tr>
+              </table>
 
-              <!-- Category Tag -->
-              <div style="margin-bottom: 12px;">
-                <span style="display: inline-block; background-color: ${badgeBg}; color: ${badgeColor}; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1.5px; border: 1px solid rgba(255,255,255,0.1);">
-                  ${badgeText}
-                </span>
-              </div>
+              ${cleanButtonLabel && cleanButtonUrl ? renderEmailPrimaryButton(cleanButtonLabel, cleanButtonUrl) : ""}`;
 
-              <!-- Main Title -->
-              <h1 style="color: #ffffff; font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3;">
-                ${defaultHeadline}
-              </h1>
+  return renderEduTrackEmailLayout({
+    title: stripDecorativeSymbols(subject || cleanHeadline),
+    preheader: cleanSnippet,
+    recipientEmail,
+    heading: cleanHeadline,
+    bodyHtml,
+  });
+}
 
-              <p style="color: rgba(255, 255, 255, 0.7); font-size: 13px; margin: 0; font-weight: 500;">
-                Official Platform Dispatch • ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
-            </td>
-          </tr>
+export function generateBulkCampaignEmailText({
+  recipientName,
+  recipientEmail,
+  recipientRole = "member",
+  recipientDistrict,
+  subject,
+  headline,
+  messageBody,
+  actionButtonText,
+  actionButtonUrl,
+}: BulkCampaignEmailParams): string {
+  const displayName = stripDecorativeSymbols(recipientName?.trim() || recipientEmail.split("@")[0]);
+  const roleLabel =
+    recipientRole === "tutor"
+      ? "Tutor"
+      : recipientRole === "student"
+        ? "Student / Guardian"
+        : "Platform Member";
+  const processedBody = stripDecorativeSymbols(
+    String(messageBody || "")
+      .replace(/\{\{\s*name\s*\}\}/gi, displayName)
+      .replace(/\{\{\s*email\s*\}\}/gi, recipientEmail)
+      .replace(/\{\{\s*role\s*\}\}/gi, roleLabel)
+      .replace(/\{\{\s*district\s*\}\}/gi, recipientDistrict || "Bangladesh")
+  );
+  const currentYear = new Date().getFullYear();
 
-          <!-- Content Body -->
-          <tr>
-            <td style="padding: 36px 32px 28px 32px;">
-              
-              <!-- Greeting & Recipient Pill -->
-              <div style="margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <h3 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 800;">
-                    Hello ${displayName},
-                  </h3>
-                  <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">
-                    Role: <strong style="color: #0D5BFF;">${roleLabel}</strong> ${recipientDistrict ? `• District: <strong>${recipientDistrict}</strong>` : ''}
-                  </p>
-                </div>
-              </div>
+  const lines = [
+    "EduTrack BANGLADESH",
+    "",
+    stripDecorativeSymbols(headline || subject || "EduTrack Bangladesh Update"),
+    "",
+    `Hello ${displayName},`,
+    "",
+    processedBody,
+  ];
 
-              <!-- Main Message Paragraphs -->
-              <div style="color: #334155; font-size: 15px; line-height: 1.7;">
-                ${paragraphs}
-              </div>
+  if (actionButtonText && actionButtonUrl) {
+    lines.push("", `${stripDecorativeSymbols(actionButtonText)}: ${actionButtonUrl}`);
+  }
 
-              <!-- Call to Action Button (if configured) -->
-              ${actionButtonText && actionButtonUrl ? `
-              <div style="text-align: center; margin: 34px 0 24px 0;">
-                <a href="${actionButtonUrl}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; text-decoration: none; padding: 15px 36px; border-radius: 14px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 8px 24px rgba(13, 91, 255, 0.35);">
-                  ${actionButtonText} →
-                </a>
-              </div>
-              ` : ''}
+  lines.push(
+    "",
+    "EduTrack Bangladesh",
+    `Contact Support: edutrackbangladesh@gmail.com (${recipientEmail})`,
+    `© ${currentYear} EduTrack Bangladesh`
+  );
 
-              <!-- Platform Assurance Callout Box -->
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-top: 28px; text-align: left;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td width="32" valign="top" style="padding-top: 2px;">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D5BFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    </td>
-                    <td style="padding-left: 10px;">
-                      <p style="margin: 0; font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
-                        Verified Platform Communication
-                      </p>
-                      <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.5;">
-                        This notice is dispatched via EduTrack Bangladesh Brevo email relay. If you have questions, reach our 24/7 administrative desk at 
-                        <a href="mailto:edutrackbangladesh@gmail.com" style="color: #0D5BFF; text-decoration: none; font-weight: 600;">edutrackbangladesh@gmail.com</a>.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-            </td>
-          </tr>
-
-          <!-- Footer Section -->
-          <tr>
-            <td style="background-color: #f1f5f9; padding: 24px 32px; text-align: center; border-top: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 1px;">
-                EduTrack Bangladesh
-              </p>
-              <p style="margin: 0 0 12px 0; font-size: 11px; color: #64748b;">
-                The Premier Verified Tuition & Educator Network • Dhaka, Bangladesh
-              </p>
-              <div style="font-size: 11px; color: #94a3b8; line-height: 1.6;">
-                <span>Web: <a href="${baseUrl}" style="color: #0D5BFF; text-decoration: none;">${baseUrl.replace('https://', '')}</a></span> •
-                <span>Inquiries: <a href="mailto:edutrackbangladesh@gmail.com" style="color: #0D5BFF; text-decoration: none;">edutrackbangladesh@gmail.com</a></span>
-              </div>
-              <p style="margin: 14px 0 0 0; font-size: 10px; color: #94a3b8;">
-                You received this operational update as a registered member of EduTrack Bangladesh.
-              </p>
-            </td>
-          </tr>
-
-        </table>
-
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  return lines.join("\n");
 }
 
 export function generateOtpEmailText({

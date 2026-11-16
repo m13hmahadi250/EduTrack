@@ -85,8 +85,8 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
     if (isProfileIncomplete) {
       return `Complete your tuition setup & profile verification - EduTrack`;
     }
-    return `Welcome to EduTrack Bangladesh, ${user.name || 'Member'}! 🎓`;
-  }, [isProfileIncomplete, user.name]);
+    return `Welcome to EduTrack! | EduTrack Bangladesh`;
+  }, [isProfileIncomplete]);
 
   const [subject, setSubject] = useState(initialSubject);
   const [customMessage, setCustomMessage] = useState(
@@ -104,7 +104,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
       setSubject(`Complete your tuition setup & profile verification - EduTrack`);
       setCustomMessage(buildReminderEmailTemplate(user));
     } else if (type === 'welcome') {
-      setSubject(`Welcome to EduTrack Bangladesh, ${user.name || 'Member'}! 🎓`);
+      setSubject(`Welcome to EduTrack! | EduTrack Bangladesh`);
       setCustomMessage('');
     } else {
       setSubject(`Important Update from EduTrack Bangladesh Administration`);
@@ -135,11 +135,13 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
           email: user.email,
           name: user.name,
           role: user.role,
+          accountType: user.accountType,
           studentClass: user.studentClass,
           school: user.school,
           university: user.university,
           course: user.course,
           district: user.district,
+          forceSend: true,
         });
       } else {
         res = await sendCustomAdminMail({

@@ -371,6 +371,12 @@ export default function Home() {
               </h1>
 
               {/* Subtitle matching Reference Screenshot */}
+              <p
+                lang="bn"
+                className="font-bn text-sm sm:text-base font-semibold text-[#0D5BFF] dark:text-blue-400 leading-[1.65] mb-2.5 max-w-xl"
+              >
+                আপনার সন্তানের জন্য উপযুক্ত ও যাচাইকৃত গৃহশিক্ষক খুঁজুন সহজেই।
+              </p>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed mb-8 max-w-xl font-normal">
                 A secure and reliable platform to find verified tutors for your child&apos;s academic success. With real-time tracking, verified educators, and hassle-free booking — get quality education at home, on your terms.
               </p>
@@ -536,9 +542,17 @@ export default function Home() {
                     </h2>
                   </div>
                   <span className="hidden sm:inline-block h-4 w-px bg-slate-200 dark:bg-slate-700" />
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                    Search by subject, class, location, and mode to get started.
-                  </p>
+                  <div className="space-y-0.5">
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                      Search by subject, class, location, and mode to get started.
+                    </p>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs text-slate-500 dark:text-slate-400 leading-[1.65]"
+                    >
+                      বিষয়, শ্রেণি ও এলাকা অনুযায়ী শিক্ষক খুঁজুন।
+                    </p>
+                  </div>
                 </div>
 
                 {/* Keyword Input & Favorites Filter */}
@@ -857,6 +871,12 @@ export default function Home() {
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                       Try selecting a different subject, class, or location, or reset the search filters to view available verified educators.
                     </p>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 max-w-md mx-auto leading-[1.65]"
+                    >
+                      আপনার নির্বাচিত শর্ত অনুযায়ী কোনো শিক্ষক পাওয়া যায়নি। ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন।
+                    </p>
                     {hasActiveFilter && (
                       <button
                         type="button"
@@ -1048,6 +1068,12 @@ export default function Home() {
             <h3 className="text-4xl lg:text-5xl font-black font-heading text-[#0B132B] dark:text-white uppercase italic">
               Security You Can <span className="text-[#0D5BFF]">Trust</span>
             </h3>
+            <p
+              lang="bn"
+              className="font-bn text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-3 max-w-xl mx-auto leading-[1.65]"
+            >
+              সকল শিক্ষকের জাতীয় পরিচয়পত্র (NID) ও একাডেমিক সনদ যাচাইকৃত এবং নিরাপদ হোম টিউশনের জন্য রয়েছে লাইভ জিপিএস ট্র্যাকিং।
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
@@ -1081,6 +1107,12 @@ export default function Home() {
               </h3>
               <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-3">
                 A transparent, step-by-step workflow built for both Guardians and Verified Tutors across Bangladesh.
+              </p>
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-[1.65]"
+              >
+                অভিভাবক ও যাচাইকৃত শিক্ষকদের জন্য সহজ, স্বচ্ছ এবং নিরাপদ টিউশন ব্যবস্থাপনা।
               </p>
             </div>
 

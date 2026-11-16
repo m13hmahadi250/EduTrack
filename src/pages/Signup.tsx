@@ -1353,16 +1353,26 @@ export default function Signup() {
                   transition={{ duration: 0.2 }}
                   className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5"
                 >
-                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-3">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-[#0D5BFF]" />
-                      <span>
-                        Step 2 of 3: {role === 'student' ? 'Tuition Location' : 'Preferred Teaching Location'}
+                  <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#0D5BFF]" />
+                        <span>
+                          Step 2 of 3: {role === 'student' ? 'Tuition Location' : 'Preferred Teaching Location'}
+                        </span>
+                      </h2>
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        64 Districts Supported
                       </span>
-                    </h2>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                      64 Districts Supported
-                    </span>
+                    </div>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
+                    >
+                      {role === 'tutor'
+                        ? 'আপনি যেসব এলাকায় টিউশন করাতে আগ্রহী, সেগুলো নির্বাচন করুন।'
+                        : 'টিউশনের জন্য আপনার জেলা, থানা ও এলাকার তথ্য দিন।'}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

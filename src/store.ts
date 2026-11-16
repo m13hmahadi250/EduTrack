@@ -416,8 +416,15 @@ function cleanUndefined<T>(obj: T): T {
 let activeUnsubscribes: (() => void)[] = [];
 
 function cleanupListeners() {
-  activeUnsubscribes.forEach(unsub => unsub());
+  const subs = activeUnsubscribes;
   activeUnsubscribes = [];
+  subs.forEach((unsub) => {
+    try {
+      if (typeof unsub === 'function') unsub();
+    } catch (err) {
+      console.warn('Non-blocking error during Firestore listener cleanup:', err);
+    }
+  });
 }
 
 function clearEphemeralAuthStorage() {
@@ -586,13 +593,16 @@ export const useAppStore = create<AppState>((set, get) => {
 
           set({ currentUser: cleanedUser, isLoading: false, isInitialized: true });
 
-          if (cleanedUser.email && cleanedUser.role === 'tutor') {
+          if (cleanedUser.email && requestedRoleStr) {
             sendWelcomeMail({
               userId: cleanedUser.id,
-              profileUrl: `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}`,
+              profileUrl: cleanedUser.role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}` : undefined,
               email: cleanedUser.email,
               name: cleanedUser.name,
               role: cleanedUser.role,
+              accountType: cleanedUser.accountType,
+              studentClass: cleanedUser.studentClass,
+              school: cleanedUser.school,
               university: cleanedUser.university,
               course: cleanedUser.course,
               district: cleanedUser.district,
@@ -1125,13 +1135,16 @@ export const useAppStore = create<AppState>((set, get) => {
               }
             }
 
-            if (userData.email && userData.role === 'tutor') {
+            if (userData.email) {
               sendWelcomeMail({
                 userId: userData.id,
-                profileUrl: `https://edutrackbd.vercel.app/teachers/${userData.id}`,
+                profileUrl: userData.role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${userData.id}` : undefined,
                 email: userData.email,
                 name: userData.name,
                 role: userData.role,
+                accountType: userData.accountType,
+                studentClass: userData.studentClass,
+                school: userData.school,
                 university: userData.university,
                 course: userData.course,
                 district: userData.district,
@@ -1406,14 +1419,15 @@ export const useAppStore = create<AppState>((set, get) => {
         } catch (e) {}
         setupListeners(uid, cleanedUser.role, set, get);
 
-        // Trigger Brevo Welcome & App Detailed Email (Profile link included for teachers)
-        if (cleanedUser.email && cleanedUser.role === 'tutor') {
+        // Trigger Brevo Welcome Email once on account activation (Student, Guardian, or Tutor)
+        if (cleanedUser.email) {
           sendWelcomeMail({
             userId: cleanedUser.id,
-            profileUrl: `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}`,
+            profileUrl: cleanedUser.role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}` : undefined,
             email: cleanedUser.email,
             name: cleanedUser.name,
             role: cleanedUser.role,
+            accountType: cleanedUser.accountType,
             studentClass: cleanedUser.studentClass,
             school: cleanedUser.school,
             university: cleanedUser.university,
@@ -2702,7 +2716,7 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
       }
 
       return hydrated;
-    });
+    }).filter((user): user is User => Boolean(user && user.id));
 
     if (role !== 'admin') {
       users = users.filter((user) => !user.isBlocked);
@@ -3017,14 +3031,22 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
   activeUnsubscribes.push(unsubHomework);
 
   // Listen to typing indicators
-  const unsubTyping = onSnapshot(collection(db, 'typing'), (snapshot) => {
-    const typingStatus: { [userId: string]: string | null } = {};
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      typingStatus[doc.id] = data.typingTo;
-    });
-    set({ typingStatus });
-  });
+  const unsubTyping = onSnapshot(
+    collection(db, 'typing'),
+    (snapshot) => {
+      const typingStatus: { [userId: string]: string | null } = {};
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data) {
+          typingStatus[docSnap.id] = data.typingTo ?? null;
+        }
+      });
+      set({ typingStatus });
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'typing');
+    }
+  );
   activeUnsubscribes.push(unsubTyping);
 
   // Listen to referrals
