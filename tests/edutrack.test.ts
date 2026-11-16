@@ -38,6 +38,15 @@ import {
   sanitizeTutorProfileForViewer,
 } from "../shared/tutorPrivacy";
 import { getAvatarInitials, isValidAvatarUrl } from "../src/components/UserAvatar";
+import {
+  DAYS_OF_WEEK,
+  SHORT_DAYS_UPPER,
+  AVAILABILITY_HOURS,
+  normalizeAvailabilitySlots,
+  getDhakaDateString,
+  getWeekdayFromDateString,
+  formatMonthlySalary,
+} from "../shared/availabilityUtils";
 
 const OTP_CACHE_FILE = path.join(os.tmpdir(), "edutrack_otp_cache.json");
 const RESET_CACHE_FILE = path.join(os.tmpdir(), "edutrack_reset_tokens_cache.json");
@@ -2543,7 +2552,7 @@ async function runTests() {
             true
           );
           assert.equal(
-            tutorDashSrc.includes("ভেরিফাইড ব্যাজ পেতে আপনার জাতীয় পরিচয়পত্র (NID) ও প্রাতিষ্ঠানিক আইডি কার্ড আপলোড করুন।"),
+            tutorDashSrc.includes("পরিচয় যাচাইয়ের জন্য NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড—যেকোনো একটি জমা দিন।"),
             true
           );
           assert.equal(
@@ -2561,6 +2570,224 @@ async function runTests() {
 
           // Ensure no language switcher / toggle UI was added to Navbar
           assert.equal(/i18next|react-i18next|LanguageSwitcher/i.test(navbarSrc), false);
+        });
+
+        // ============================================================
+        // SECTION 19: WEEKLY AVAILABILITY, MONTHLY SALARY, ONE-DOCUMENT VERIFICATION & HIND SILIGURI BENGALI TYPOGRAPHY
+        // ============================================================
+        console.log("\n--- SECTION 19: Weekly Availability, Monthly Salary, One-Doc Verification & Hind Siliguri Bengali ---");
+
+        await test("Weekly Availability Calendar fits all 7 weekdays (SUN–SAT) without horizontal overflow and uses Asia/Dhaka timezone-safe date mapping", () => {
+          // 1. Canonical 7-day Sunday-to-Saturday order
+          assert.deepEqual(DAYS_OF_WEEK, [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ]);
+          assert.deepEqual(
+            DAYS_OF_WEEK.map((d) => SHORT_DAYS_UPPER[d]),
+            ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+          );
+          assert.equal(AVAILABILITY_HOURS.length, 15);
+          assert.equal(AVAILABILITY_HOURS[0], "08:00");
+          assert.equal(AVAILABILITY_HOURS[AVAILABILITY_HOURS.length - 1], "22:00");
+
+          // 2. Slot normalization maps legacy abbreviations & sorts slots cleanly
+          const normalized = normalizeAvailabilitySlots({
+            sun: ["17:00", "9:00", "17:00"],
+            Wed: ["18:00"],
+            Saturday: ["10:00", "08:00"],
+          });
+          assert.deepEqual(normalized.Sunday, ["09:00", "17:00"]);
+          assert.deepEqual(normalized.Wednesday, ["18:00"]);
+          assert.deepEqual(normalized.Saturday, ["08:00", "10:00"]);
+          assert.equal(normalized.Monday, undefined);
+
+          // 3. Timezone-safe date-to-weekday mapping (YYYY-MM-DD never shifts due to UTC offset)
+          assert.equal(getWeekdayFromDateString("2026-04-19"), "Sunday");
+          assert.equal(getWeekdayFromDateString("2026-04-20"), "Monday");
+          assert.equal(getWeekdayFromDateString("2026-04-24"), "Friday");
+          assert.equal(getWeekdayFromDateString("2026-04-25"), "Saturday");
+
+          const dhakaToday = getDhakaDateString();
+          assert.match(dhakaToday, /^\d{4}-\d{2}-\d{2}$/);
+
+          // 4. Verify WeeklyAvailabilityCalendar and TutorDashboard have zero horizontal-scroll min-w-[800px]/min-w-[760px]
+          const calendarSrc = fs.readFileSync(path.resolve("src/components/WeeklyAvailabilityCalendar.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const heatmapSrc = fs.readFileSync(path.resolve("src/components/DemandHeatmap.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+
+          assert.equal(calendarSrc.includes("grid-cols-7"), true);
+          assert.equal(calendarSrc.includes("grid-cols-[44px_repeat(7,minmax(0,1fr))]"), true);
+          assert.equal(calendarSrc.includes("availability-save-confirmation"), true);
+          assert.equal(calendarSrc.includes("mobile-day-slot-editor"), true);
+          assert.equal(tutorDashSrc.includes("min-w-[800px]"), false);
+          assert.equal(tutorDashSrc.includes("min-w-[760px]"), false);
+          assert.equal(heatmapSrc.includes("min-w-[850px]"), false);
+          assert.equal(teacherProfileSrc.includes("profile-weekly-7day-grid"), true);
+        });
+
+        await test("Monthly Tuition Salary (BDT ৳) is standardized across TutorDashboard, StudentDashboard, Home, Messages, Signup, and ProfileCompletion", () => {
+          assert.equal(formatMonthlySalary(5000), "৳5,000/month");
+          assert.equal(formatMonthlySalary(0), "Negotiable");
+
+          const completion = calculateProfileCompletion({
+            role: "tutor",
+            name: "Dr. Farhan Ahmed",
+            phone: "01712345678",
+            district: "Dhaka",
+            area: "Dhanmondi",
+            university: "BUET",
+            course: "EEE",
+            year: "Graduated",
+            subjects: ["Physics", "Higher Math"],
+            classes: ["Class 11-12 (HSC)"],
+            curriculum: "Bangla Medium (NCTB)",
+            teachingMode: "Home & Online",
+            hourlyRate: 6000,
+            bio: "Experienced HSC Physics educator.",
+            availabilitySlots: { Sunday: ["17:00"] },
+          });
+          const rateField = completion.requirements.find((f) => f.key === "hourlyRate");
+          assert.ok(rateField);
+          assert.equal(rateField.label, "Expected Monthly Salary");
+          assert.equal(rateField.displayValue, "৳6,000/month");
+
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const messagesSrc = fs.readFileSync(path.resolve("src/pages/Messages.tsx"), "utf-8");
+          const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+
+          assert.equal(tutorDashSrc.includes("Expected Monthly Salary (BDT ৳)"), true);
+          assert.equal(studentDashSrc.includes("Expected Monthly Salary"), true);
+          assert.equal(studentDashSrc.includes("Hourly Value"), false);
+          assert.equal(homeSrc.includes("Any Monthly Salary"), true);
+          assert.equal(homeSrc.includes("Up to ৳5,000/month"), true);
+          assert.equal(messagesSrc.includes("What is your monthly tuition budget?"), true);
+          assert.equal(messagesSrc.includes("What is your expected monthly salary?"), true);
+          assert.equal(signupSrc.includes("Expected Monthly Salary (BDT ৳) (Optional)"), true);
+        });
+
+        await test("Tutor Identity Verification enforces One-Document Rule (NID OR University/College ID Card) with Document-Type Selector and Bilingual Guidance", () => {
+          // 1. Submitting ONLY NID transitions overall status to pending_review
+          const nidOnlyPending = getTutorVerificationStatus({
+            nidFrontImg: "https://cdn.example.com/nid-front.jpg",
+            documents: [],
+          });
+          assert.equal(nidOnlyPending.overall, "pending_review");
+          assert.equal(nidOnlyPending.nidStatus, "pending");
+
+          // 2. Submitting ONLY University/College ID Card transitions overall status to pending_review
+          const univIdOnlyPending = getTutorVerificationStatus({
+            nidFrontImg: "",
+            documents: ["https://cdn.example.com/du-id-card.jpg"],
+          });
+          assert.equal(univIdOnlyPending.overall, "pending_review");
+          assert.equal(univIdOnlyPending.academicStatus, "pending");
+
+          // 3. Approving ONLY NID transitions overall status to approved & isVerified = true
+          const nidOnlyApproved = getTutorVerificationStatus({
+            nidFrontImg: "https://cdn.example.com/nid-front.jpg",
+            nidStatus: "approved",
+            documents: [],
+          });
+          assert.equal(nidOnlyApproved.overall, "approved");
+          assert.equal(nidOnlyApproved.isVerified, true);
+
+          // 4. Approving ONLY University/College ID Card transitions overall status to approved & isVerified = true
+          const univIdOnlyApproved = getTutorVerificationStatus({
+            nidFrontImg: "",
+            documents: ["https://cdn.example.com/buet-id.jpg"],
+            academicStatus: "approved",
+          });
+          assert.equal(univIdOnlyApproved.overall, "approved");
+          assert.equal(univIdOnlyApproved.isVerified, true);
+
+          // 5. UI verification in TutorDashboard & AdminDashboard
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
+
+          assert.equal(
+            tutorDashSrc.includes("Upload any ONE valid identity document: National ID (NID) or University/College ID Card."),
+            true
+          );
+          assert.equal(
+            tutorDashSrc.includes("পরিচয় যাচাইয়ের জন্য NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড—যেকোনো একটি জমা দিন।"),
+            true
+          );
+          assert.equal(tutorDashSrc.includes("verify-doc-selector-nid"), true);
+          assert.equal(tutorDashSrc.includes("verify-doc-selector-university-id"), true);
+          assert.equal(tutorDashSrc.includes("Only 1 Document Required"), true);
+          assert.equal(
+            adminDashSrc.includes("শিক্ষকের NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড—যেকোনো একটি যাচাই ও অনুমোদন করুন।"),
+            true
+          );
+        });
+
+        await test("Hind Siliguri Bengali typography and natural Bangladeshi Bengali supporting copy are integrated across Homepage and Dashboards without touching Chatbot", () => {
+          const indexHtml = fs.readFileSync(path.resolve("index.html"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
+
+          // 1. Hind Siliguri font configured as primary Bengali font
+          assert.equal(indexHtml.includes("Hind+Siliguri:wght@400;500;600;700"), true);
+          assert.equal(indexCss.includes('"Hind Siliguri"'), true);
+          assert.equal(indexCss.includes("line-height: 1.7"), true);
+          assert.equal(indexCss.includes("font-style: normal !important"), true);
+          assert.equal(indexCss.includes("letter-spacing: 0 !important"), true);
+
+          // 2. Homepage Bengali enhancements
+          assert.equal(
+            homeSrc.includes("বিষয়, শ্রেণি ও এলাকা অনুযায়ী পছন্দের শিক্ষক খুঁজে নিন।"),
+            true
+          );
+          assert.equal(
+            homeSrc.includes("নিজের দক্ষতা অনুযায়ী টিউশনের সুযোগ খুঁজুন।"),
+            true
+          );
+          assert.equal(
+            homeSrc.includes("আপনার সন্তানের জন্য উপযুক্ত শিক্ষক খুঁজুন সহজেই।"),
+            true
+          );
+
+          // 3. Student & Guardian Dashboard Bengali enhancements
+          assert.equal(
+            studentDashSrc.includes("আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।"),
+            true
+          );
+          assert.equal(
+            studentDashSrc.includes("পছন্দের শিক্ষক নির্বাচন করতে তাঁর প্রোফাইল দেখুন।"),
+            true
+          );
+          assert.equal(
+            hubSrc.includes("আপনার টিউশনের প্রয়োজনীয় তথ্য দিয়ে অনুরোধ প্রকাশ করুন।"),
+            true
+          );
+
+          // 4. Tutor & Admin Dashboard Bengali enhancements
+          assert.equal(
+            tutorDashSrc.includes("টিউশন পাওয়ার সম্ভাবনা বাড়াতে আপনার প্রোফাইল সম্পূর্ণ করুন।"),
+            true
+          );
+          assert.equal(
+            hubSrc.includes("আপনার যোগ্যতা ও পছন্দ অনুযায়ী টিউশন খুঁজুন।"),
+            true
+          );
+          assert.equal(
+            adminDashSrc.includes("প্রকাশিত টিউশন সার্কুলার ও শিক্ষকদের আবেদন তদারকি করুন।") ||
+              hubSrc.includes("প্রকাশিত টিউশন সার্কুলার ও শিক্ষকদের আবেদন তদারকি করুন।"),
+            true
+          );
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

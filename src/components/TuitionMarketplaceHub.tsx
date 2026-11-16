@@ -692,6 +692,22 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 আপনার প্রয়োজন অনুযায়ী টিউশনের বিস্তারিত তথ্য দিন।
               </p>
             )}
+            {mode === 'tutor' && (
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 leading-[1.65]"
+              >
+                আপনার যোগ্যতা ও পছন্দ অনুযায়ী টিউশন খুঁজুন।
+              </p>
+            )}
+            {mode === 'admin' && (
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 leading-[1.65]"
+              >
+                প্রকাশিত টিউশন সার্কুলার ও শিক্ষকদের আবেদন তদারকি করুন।
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1160,6 +1176,12 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                 Post your subject, class, location, and budget in 60 seconds so verified tutors from top universities can apply directly.
               </p>
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-md mx-auto"
+              >
+                আপনার টিউশনের প্রয়োজনীয় তথ্য দিয়ে অনুরোধ প্রকাশ করুন।
+              </p>
               <button
                 type="button"
                 onClick={() => setActiveSubTab('post')}
@@ -1474,6 +1496,12 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                 Browse open tuition requirements or check your recommended matches to submit your first application.
+              </p>
+              <p
+                lang="bn"
+                className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-md mx-auto"
+              >
+                আপনার যোগ্যতা ও পছন্দ অনুযায়ী টিউশনে আবেদন করুন এবং আবেদনের সর্বশেষ অবস্থা এখানে দেখুন।
               </p>
               <button
                 type="button"

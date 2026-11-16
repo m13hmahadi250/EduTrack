@@ -14,6 +14,10 @@ import { triggerConfetti } from '../../utils/confetti';
 import BadgeDisplay from '../../components/BadgeDisplay';
 import UserAvatar from '../../components/UserAvatar';
 import {
+  WeeklyAvailabilityCalendar,
+  WeeklyScheduleOverview,
+} from '../../components/WeeklyAvailabilityCalendar';
+import {
   Bell,
   MapPin,
   TrendingUp,
@@ -556,6 +560,17 @@ export default function TutorDashboard() {
     },
   });
 
+  const [verificationDocType, setVerificationDocType] = useState<"nid" | "university_id">(() => {
+    if (
+      !currentUser?.nidFrontImg &&
+      Array.isArray(currentUser?.documents) &&
+      currentUser.documents.length > 0
+    ) {
+      return "university_id";
+    }
+    return "nid";
+  });
+
   const navigateToMissingField = (fieldId?: string | null) => {
     handleTabChange("pro_profile");
     setIsEditingProfile(true);
@@ -763,7 +778,7 @@ export default function TutorDashboard() {
       return;
     }
     if (profileForm.hourlyRate && (!Number.isFinite(parsedRate) || parsedRate <= 0)) {
-      setProfileUpdateError("Expected monthly fee must be a positive amount.");
+      setProfileUpdateError("Expected monthly salary must be a positive amount.");
       return;
     }
 
@@ -1048,6 +1063,9 @@ export default function TutorDashboard() {
                   <h3 className="text-2xl font-black uppercase italic leading-tight">
                     Complete your teaching profile to rank higher in student searches
                   </h3>
+                  <p lang="bn" className="font-bn text-xs sm:text-sm font-medium text-blue-50 leading-[1.65]">
+                    টিউশন পাওয়ার সম্ভাবনা বাড়াতে আপনার প্রোফাইল সম্পূর্ণ করুন।
+                  </p>
                   <div className="flex flex-wrap gap-2 my-2">
                     {tutorCompletion.missingFields.map((mf) => (
                       <button
@@ -2140,18 +2158,26 @@ export default function TutorDashboard() {
                       />
                     </div>
                     {!tutorCompletion.isComplete && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {tutorCompletion.missingFields.map((mf) => (
-                          <button
-                            key={mf.key}
-                            type="button"
-                            onClick={() => navigateToMissingField(mf.targetFieldId)}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-800 dark:text-amber-300 cursor-pointer"
-                          >
-                            + {mf.label}
-                          </button>
-                        ))}
-                      </div>
+                      <>
+                        <p
+                          lang="bn"
+                          className="font-bn text-xs text-slate-600 dark:text-slate-300"
+                        >
+                          আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {tutorCompletion.missingFields.map((mf) => (
+                            <button
+                              key={mf.key}
+                              type="button"
+                              onClick={() => navigateToMissingField(mf.targetFieldId)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-800 dark:text-amber-300 cursor-pointer"
+                            >
+                              + {mf.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -2381,26 +2407,8 @@ export default function TutorDashboard() {
                         </div>
                       </div>
 
-                      <div className="space-y-1.5 pt-2">
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                          Identity Verification Documents (Tracked Separately from Completion)
-                        </h4>
-                        <p
-                          lang="bn"
-                          className="font-bn text-xs text-slate-600 dark:text-slate-300 leading-[1.65]"
-                        >
-                          ভেরিফাইড ব্যাজ পেতে আপনার জাতীয় পরিচয়পত্র (NID) ও প্রাতিষ্ঠানিক আইডি কার্ড আপলোড করুন।
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <ProfileField
-                          label="National ID (NID)"
-                          value={profileForm.nidNumber}
-                          onChange={(v) =>
-                            setProfileForm({ ...profileForm, nidNumber: v })
-                          }
-                          placeholder="Enter 10 or 17 digit NID"
-                        />
+                      {/* Personal Demographics */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <ProfileField
                           label="Date of Birth"
                           value={profileForm.birthDate}
@@ -2423,105 +2431,239 @@ export default function TutorDashboard() {
                             <option value="">SELECT GENDER</option>
                             <option value="Male">MALE</option>
                             <option value="Female">FEMALE</option>
-
                           </select>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                            NID Front Image
-                          </label>
-                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
-                            <FileUpload
-                              currentFileUrl={profileForm.nidFrontImg}
-                              folder="nid"
-                              onUpload={(url) =>
-                                setProfileForm({
-                                  ...profileForm,
-                                  nidFrontImg: url,
-                                })
-                              }
-                              label="Upload NID Front"
-                            />
-                          </Suspense>
+                      {/* Identity Verification — One Valid Document Required (NID OR University/College ID Card) */}
+                      <div
+                        id="tutor-identity-verification-section"
+                        data-testid="tutor-identity-verification-section"
+                        className="p-5 sm:p-7 rounded-3xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-6"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-200/70 dark:border-slate-700/70 pb-4">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <ShieldCheck className="w-5 h-5 text-[#0D5BFF] shrink-0" />
+                              <h4 className="text-sm sm:text-base font-black uppercase tracking-wider text-[#0B132B] dark:text-white">
+                                Identity Verification
+                              </h4>
+                              <span
+                                className={`px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  tutorVerification.overall === "approved"
+                                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                    : tutorVerification.overall === "rejected" ||
+                                      tutorVerification.overall === "changes_required"
+                                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                                    : tutorVerification.overall === "pending_review"
+                                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                    : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                }`}
+                              >
+                                {tutorVerification.label}
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+                              Upload any ONE valid identity document: National ID (NID) or University/College ID Card.
+                            </p>
+                            <p
+                              lang="bn"
+                              className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-[1.65]"
+                            >
+                              পরিচয় যাচাইয়ের জন্য NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড—যেকোনো একটি জমা দিন।
+                            </p>
+                          </div>
+                          <div className="shrink-0">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] font-bold text-[#0D5BFF] dark:text-blue-400">
+                              <Lock className="w-3.5 h-3.5" />
+                              Only 1 Document Required
+                            </span>
+                          </div>
                         </div>
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
-                            NID Back Image
-                          </label>
-                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
-                            <FileUpload
-                              currentFileUrl={profileForm.nidBackImg}
-                              folder="nid"
-                              onUpload={(url) =>
-                                setProfileForm({
-                                  ...profileForm,
-                                  nidBackImg: url,
-                                })
-                              }
-                              label="Upload NID Back"
-                            />
-                          </Suspense>
-                        </div>
-                      </div>
 
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between px-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            Current College/ University ID CARD
+                        {/* Document-Type Selector: Option A (NID) vs Option B (University / College ID Card) */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block">
+                            Select Document Type to Upload
                           </label>
-                          <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                            {profileForm.documents.length} Files
-                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              data-testid="verify-doc-selector-nid"
+                              onClick={() => setVerificationDocType("nid")}
+                              className={`p-4 rounded-2xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
+                                verificationDocType === "nid"
+                                  ? "bg-[#0D5BFF]/10 border-[#0D5BFF] ring-1 ring-[#0D5BFF]/40"
+                                  : "bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Shield className="w-4 h-4 text-[#0D5BFF]" />
+                                  <span className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">
+                                    National ID (NID)
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  Smart NID Card or National Identity Document
+                                </p>
+                              </div>
+                              {Boolean(profileForm.nidFrontImg) && (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold shrink-0">
+                                  Uploaded
+                                </span>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              data-testid="verify-doc-selector-university-id"
+                              onClick={() => setVerificationDocType("university_id")}
+                              className={`p-4 rounded-2xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
+                                verificationDocType === "university_id"
+                                  ? "bg-[#0D5BFF]/10 border-[#0D5BFF] ring-1 ring-[#0D5BFF]/40"
+                                  : "bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <GraduationCap className="w-4 h-4 text-[#0D5BFF]" />
+                                  <span className="text-xs font-black uppercase tracking-wider text-[#0B132B] dark:text-white">
+                                    University / College ID Card
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  Current Student ID or Institutional Identity Card
+                                </p>
+                              </div>
+                              {profileForm.documents.length > 0 && (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold shrink-0">
+                                  {profileForm.documents.length} Saved
+                                </span>
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {profileForm.documents.map((docUrl, idx) => (
-                            <div key={idx} className="relative group">
-                              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
-                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-[#0D5BFF]" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[9px] font-black uppercase text-[#0B132B] truncate leading-none mb-1">
-                                    Document {idx + 1}
-                                  </p>
-                                  <p className="text-[8px] font-medium text-slate-400 uppercase tracking-widest truncate">
-                                    Verified encrypted storage
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setProfileForm({
-                                      ...profileForm,
-                                      documents: profileForm.documents.filter(
-                                        (_, i) => i !== idx,
-                                      ),
-                                    })
-                                  }
-                                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+
+                        {/* Option A: National ID (NID) Upload Fields */}
+                        {verificationDocType === "nid" ? (
+                          <div className="space-y-5 pt-2">
+                            <ProfileField
+                              label="National ID (NID) Number (Optional)"
+                              value={profileForm.nidNumber}
+                              onChange={(v) =>
+                                setProfileForm({ ...profileForm, nidNumber: v })
+                              }
+                              placeholder="Enter 10 or 17 digit NID number"
+                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2.5">
+                                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                                  NID Front Image (Required for NID Option)
+                                </label>
+                                <Suspense fallback={<div className="h-20 bg-slate-100 animate-pulse rounded-2xl" />}>
+                                  <FileUpload
+                                    currentFileUrl={profileForm.nidFrontImg}
+                                    folder="nid"
+                                    onUpload={(url) =>
+                                      setProfileForm({
+                                        ...profileForm,
+                                        nidFrontImg: url,
+                                      })
+                                    }
+                                    label="Upload NID Front"
+                                  />
+                                </Suspense>
+                              </div>
+                              <div className="space-y-2.5">
+                                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
+                                  NID Back Image (Optional)
+                                </label>
+                                <Suspense fallback={<div className="h-20 bg-slate-100 animate-pulse rounded-2xl" />}>
+                                  <FileUpload
+                                    currentFileUrl={profileForm.nidBackImg}
+                                    folder="nid"
+                                    onUpload={(url) =>
+                                      setProfileForm({
+                                        ...profileForm,
+                                        nidBackImg: url,
+                                      })
+                                    }
+                                    label="Upload NID Back (Optional)"
+                                  />
+                                </Suspense>
                               </div>
                             </div>
-                          ))}
-                          <Suspense fallback={<div className="h-20 bg-slate-50 animate-pulse rounded-2xl" />}>
-                            <FileUpload
-                              currentFileUrl=""
-                              folder="documents"
-                              onUpload={(url) =>
-                                setProfileForm({
-                                  ...profileForm,
-                                  documents: [...profileForm.documents, url],
-                                })
-                              }
-                              label="Add New Document (PDF/IMG)"
-                            />
-                          </Suspense>
-                        </div>
+                            {profileForm.documents.length > 0 && (
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                                ✓ You also have {profileForm.documents.length} University/College ID document(s) saved.
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          /* Option B: University / College Student ID Card Upload Fields */
+                          <div className="space-y-4 pt-2">
+                            <div className="flex items-center justify-between px-2">
+                              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                                University / College ID Card (Front or Both Sides)
+                              </label>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {profileForm.documents.length} {profileForm.documents.length === 1 ? "File" : "Files"}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {profileForm.documents.map((docUrl, idx) => (
+                                <div key={idx} className="relative group">
+                                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center">
+                                      <FileText className="w-5 h-5 text-[#0D5BFF]" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] font-black uppercase text-[#0B132B] dark:text-white truncate leading-none mb-1">
+                                        University / College ID #{idx + 1}
+                                      </p>
+                                      <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest truncate">
+                                        Private encrypted verification file
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setProfileForm({
+                                          ...profileForm,
+                                          documents: profileForm.documents.filter(
+                                            (_, i) => i !== idx,
+                                          ),
+                                        })
+                                      }
+                                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              <Suspense fallback={<div className="h-20 bg-slate-100 animate-pulse rounded-2xl" />}>
+                                <FileUpload
+                                  currentFileUrl=""
+                                  folder="documents"
+                                  onUpload={(url) =>
+                                    setProfileForm({
+                                      ...profileForm,
+                                      documents: [...profileForm.documents, url],
+                                    })
+                                  }
+                                  label="Upload University / College ID Card (JPG/PNG/PDF)"
+                                />
+                              </Suspense>
+                            </div>
+                            {Boolean(profileForm.nidFrontImg) && (
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                                ✓ You also have a National ID (NID) image saved.
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -2688,9 +2830,9 @@ export default function TutorDashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <ProfileField
                           id="tutor-field-hourly-rate"
-                          label="Monthly Tutor Fee (৳)"
+                          label="Expected Monthly Salary (BDT ৳)"
                           value={profileForm.hourlyRate}
-                          placeholder="e.g. 10,000 or 5,000"
+                          placeholder="e.g. 5,000 or 8,000 / month"
                           onChange={(v) => {
                             const clean = v.replace(/[^0-9]/g, "");
                             const formatted = clean ? Number(clean).toLocaleString('en-US') : "";
@@ -3166,70 +3308,24 @@ export default function TutorDashboard() {
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors">
-                      <div className="flex items-center gap-4 mb-6 sm:mb-10">
-                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
-                        <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                          Visual Schedule
-                        </h3>
-                      </div>
-
-                      <div className="overflow-x-auto pb-4 custom-scrollbar w-full font-sans" id="visual-schedule-responsive-scroller">
-                        <div className="grid grid-cols-7 gap-3 min-w-[760px] lg:min-w-0" id="visual-schedule-columns-matrix">
-                          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                            (day) => {
-                              const dayName =
-                                day === "Sun"
-                                  ? "Sunday"
-                                  : day === "Mon"
-                                    ? "Monday"
-                                    : day === "Tue"
-                                      ? "Tuesday"
-                                      : day === "Wed"
-                                        ? "Wednesday"
-                                        : day === "Thu"
-                                          ? "Thursday"
-                                          : day === "Fri"
-                                            ? "Friday"
-                                            : "Saturday";
-                              const daySlots =
-                                currentUser.availabilitySlots?.[dayName] || [];
-
-                              return (
-                                <div
-                                  key={day}
-                                  className="min-w-[100px] space-y-3"
-                                >
-                                  <div className="text-center p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                                    <span className="text-[10px] font-black uppercase text-[#0B132B] dark:text-slate-200 italic">
-                                      {day}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1.5 px-1">
-                                    {daySlots.map((slot) => (
-                                      <div
-                                        key={slot}
-                                        className="px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl text-center"
-                                      >
-                                        <span className="text-[8px] sm:text-[9px] font-black text-[#0D5BFF] dark:text-blue-400 whitespace-nowrap">
-                                          {slot}
-                                        </span>
-                                      </div>
-                                    ))}
-                                    {daySlots.length === 0 && (
-                                      <div className="px-3 py-4 border border-dashed border-slate-100 dark:border-slate-800 rounded-xl text-center">
-                                        <span className="text-[7px] font-black text-slate-200 dark:text-slate-700 uppercase">
-                                          REST
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            },
-                          )}
+                    <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] lg:rounded-[4rem] p-4 sm:p-8 lg:p-12 xl:p-16 border border-slate-100 dark:border-slate-800/80 shadow-sm transition-colors w-full min-w-0">
+                      <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#0D5BFF]" />
+                          <h3 className="text-lg sm:text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                            Weekly Availability Schedule
+                          </h3>
                         </div>
+                        <span className="text-[11px] font-bold text-slate-400">
+                          All 7 Days (Sun – Sat)
+                        </span>
                       </div>
+
+                      <WeeklyScheduleOverview
+                        slots={currentUser.availabilitySlots || {}}
+                        bookedSessions={sessions.filter((s) => s.tutorId === currentUser.id && (s.status === "scheduled" || s.status === "active"))}
+                        onManageClick={() => handleTabChange("availability")}
+                      />
                     </div>
                   </div>
                 )}
@@ -3266,11 +3362,17 @@ export default function TutorDashboard() {
                     <Calendar className="w-10 h-10 text-[#0D5BFF]" />
                   </div>
                   <div>
-                    <h2 className="text-4xl font-black text-[#0B132B] uppercase italic leading-none">
+                    <h2 className="text-4xl font-black text-[#0B132B] dark:text-white uppercase italic leading-none">
                       Schedule Manager
                     </h2>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">
                       Optimize your academic performance windows
+                    </p>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1"
+                    >
+                      সপ্তাহের কোন দিন ও সময়ে আপনি পড়াতে পারবেন তা নির্ধারণ করুন।
                     </p>
                   </div>
                 </div>
@@ -3291,10 +3393,10 @@ export default function TutorDashboard() {
                   </Suspense>
                 </div>
                 <div className="space-y-8">
-                  <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
+                  <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border border-slate-100 dark:border-slate-800 shadow-sm">
                     <div className="flex items-center gap-4 mb-8">
                       <Zap className="w-6 h-6 text-amber-500" />
-                      <h3 className="text-xl font-black text-[#0B132B] uppercase italic">
+                      <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic">
                         Efficiency Tips
                       </h3>
                     </div>
@@ -3311,10 +3413,16 @@ export default function TutorDashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-[4rem] p-16 border border-slate-100 shadow-sm mb-12">
-                    <h3 className="text-xl font-black text-[#0B132B] uppercase italic mb-8">
+                  <div className="bg-white dark:bg-slate-900 rounded-[4rem] p-10 sm:p-16 border border-slate-100 dark:border-slate-800 shadow-sm mb-12">
+                    <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-2">
                       Earning & Payment History
                     </h3>
+                    <p
+                      lang="bn"
+                      className="font-bn text-xs text-slate-600 dark:text-slate-300 mb-6"
+                    >
+                      আপনার টিউশন আয় ও পেমেন্টের বিস্তারিত তথ্য এখানে দেখুন।
+                    </p>
                     <div className="grid grid-cols-1 gap-4">
                       {tutorPayments.map((p) => (
                         <div
@@ -4339,11 +4447,11 @@ export default function TutorDashboard() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Expected Fee
+                        Expected Monthly Salary
                       </p>
                       <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
                         {guestTutor.hourlyRate
-                          ? `৳${Number(guestTutor.hourlyRate).toLocaleString()}/mo`
+                          ? `৳${Number(guestTutor.hourlyRate).toLocaleString()}/month`
                           : "Negotiable (Hidden)"}
                       </p>
                     </div>
@@ -4613,91 +4721,14 @@ const AvailabilityCalendar = memo(
     onChange,
   }: {
     slots: { [key: string]: string[] };
-    onChange: (slots: { [key: string]: string[] }) => void;
+    onChange: (slots: { [key: string]: string[] }) => Promise<void> | void;
   }) => {
-    const toggleSlot = (day: string, hour: string) => {
-      const daySlots = slots[day] || [];
-      const newDaySlots = daySlots.includes(hour)
-        ? daySlots.filter((h) => h !== hour)
-        : [...daySlots, hour].sort();
-
-      onChange({
-        ...slots,
-        [day]: newDaySlots,
-      });
-    };
-
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-xl shadow-slate-100/50 dark:shadow-none">
-        <div className="overflow-x-auto custom-scrollbar">
-          <div className="flex min-w-[800px]">
-            {/* Hour Labels */}
-            <div className="w-20 pt-16 flex flex-col border-r border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60">
-              {HOURS.map((hour) => (
-                <div
-                  key={hour}
-                  className="h-14 flex items-center justify-center border-b border-white dark:border-slate-800/60"
-                >
-                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter">
-                    {hour}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Days Columns */}
-            {DAYS.map((day) => (
-              <div
-                key={day}
-                className="flex-1 min-w-[100px] border-r border-slate-50 dark:border-slate-800 last:border-r-0"
-              >
-                <div className="h-16 flex items-center justify-center bg-[#0B132B] text-white border-b border-slate-800">
-                  <span className="text-[9px] font-black uppercase italic tracking-widest">
-                    {day.slice(0, 3)}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  {HOURS.map((hour) => {
-                    const isActive = slots[day]?.includes(hour);
-                    return (
-                      <button
-                        key={`${day}-${hour}`}
-                        type="button"
-                        onClick={() => toggleSlot(day, hour)}
-                        className={`h-14 border-b border-slate-50 dark:border-slate-800/70 transition-all flex items-center justify-center group relative overflow-hidden ${
-                          isActive ? "bg-[#0D5BFF]" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                        }`}
-                      >
-                        {isActive ? (
-                          <CheckCircle className="w-5 h-5 text-white/50" />
-                        ) : (
-                          <div className="w-2 h-2 rounded-full bg-slate-100 group-hover:scale-150 transition-transform"></div>
-                        )}
-
-                        <div
-                          className={`absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}
-                        ></div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-6 bg-[#0B132B] border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-[#0D5BFF]" />
-            <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">
-              Active Slot
-            </span>
-          </div>
-          <p className="text-[8px] font-black text-[#0D5BFF] uppercase italic">
-            Click to toggle availability
-          </p>
-        </div>
-      </div>
+      <WeeklyAvailabilityCalendar
+        slots={slots}
+        onChange={onChange}
+      />
     );
   },
 );
+

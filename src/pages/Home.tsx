@@ -731,15 +731,15 @@ export default function Home() {
                   </select>
 
                   <select
-                    aria-label="Filter by Salary Range"
+                    aria-label="Filter by Monthly Salary Range"
                     value={selectedMaxBudget}
                     onChange={(e) => setSelectedMaxBudget(e.target.value)}
                     className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
                   >
-                    <option value="All">Any Salary / Budget</option>
-                    <option value="5000">Up to ৳5,000 / mo</option>
-                    <option value="8000">Up to ৳8,000 / mo</option>
-                    <option value="12000">Up to ৳12,000 / mo</option>
+                    <option value="All">Any Monthly Salary</option>
+                    <option value="5000">Up to ৳5,000/month</option>
+                    <option value="8000">Up to ৳8,000/month</option>
+                    <option value="12000">Up to ৳12,000/month</option>
                   </select>
 
                   <button
@@ -799,6 +799,12 @@ export default function Home() {
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
                     Qualified, verified, and ready to teach at your location or online.
+                  </p>
+                  <p
+                    lang="bn"
+                    className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-0.5"
+                  >
+                    বিষয়, শ্রেণি ও এলাকা অনুযায়ী পছন্দের শিক্ষক খুঁজে নিন।
                   </p>
                 </div>
 
@@ -935,6 +941,13 @@ export default function Home() {
                     <span>Digital Class Logs &amp; Secure Billing</span>
                   </div>
                 </div>
+
+                <p
+                  lang="bn"
+                  className="font-bn text-xs font-semibold text-[#0D5BFF] dark:text-blue-400 pt-3.5 mt-4 border-t border-blue-200/60 dark:border-blue-900/50"
+                >
+                  নিজের দক্ষতা অনুযায়ী টিউশনের সুযোগ খুঁজুন।
+                </p>
               </div>
             </div>
           </div>
@@ -958,8 +971,14 @@ export default function Home() {
               <h2 className="text-4xl lg:text-6xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-8 leading-[0.9] italic">
                 Real-Time <span className="text-rose-500">Security</span> <br /> In Your Pocket
               </h2>
-              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-10 leading-relaxed max-w-lg">
+              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
                 Never wonder where the tutor is. Our platform integrates real-time GPS tracking, allowing parents to monitor arrival, session duration, and departure directly from the dashboard.
+              </p>
+              <p
+                lang="bn"
+                className="font-bn text-sm font-medium text-slate-600 dark:text-slate-300 mb-8 max-w-lg"
+              >
+                শিক্ষকের আগমন ও ক্লাসের সময় সরাসরি ড্যাশবোর্ড থেকে ট্র্যাক করুন।
               </p>
               <div className="grid grid-cols-2 gap-6">
                 <div className="border-l-4 border-rose-500 pl-4">
@@ -1014,8 +1033,14 @@ export default function Home() {
               <h2 className="text-4xl lg:text-6xl font-black font-heading text-[#0B132B] dark:text-white uppercase mb-8 leading-[0.9] italic">
                 NID Verified <span className="text-emerald-500">Elite</span> <br /> Educators
               </h2>
-              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-10 leading-relaxed max-w-lg">
-                We don't just take anyone. Every tutor undergoes a rigorous 3-step verification process including National ID check, Academic History audit, and a background interview.
+              <p className="text-lg text-slate-500 dark:text-slate-300 font-medium mb-3 leading-relaxed max-w-lg">
+                We don't just take anyone. Every tutor undergoes a rigorous verification process including National ID or University/College ID check and an academic history audit.
+              </p>
+              <p
+                lang="bn"
+                className="font-bn text-sm font-medium text-slate-600 dark:text-slate-300 mb-8 max-w-lg"
+              >
+                জাতীয় পরিচয়পত্র (NID) অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড যাচাইকৃত নির্ভরযোগ্য শিক্ষক।
               </p>
               <div className="space-y-4">
                 {["100% Manual ID Verification", "Academic Certificate Audit", "University ID Confirmation"].map(t => (
@@ -1226,6 +1251,12 @@ export default function Home() {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 max-w-lg mx-auto">
               See how EduTrack is revolutionizing home tutoring with top safety measures and academic discipline.
             </p>
+            <p
+              lang="bn"
+              className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 max-w-lg mx-auto"
+            >
+              সারা বাংলাদেশের অভিভাবক ও শিক্ষকদের আস্থার প্ল্যাটফর্ম।
+            </p>
           </div>
 
           <RealUserSuccessStories />
@@ -1242,6 +1273,12 @@ export default function Home() {
             </h3>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-3">
               Quick, honest answers regarding verification, safety, matchings, and billing structures.
+            </p>
+            <p
+              lang="bn"
+              className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5"
+            >
+              টিউটর যাচাই, নিরাপত্তা ও মাসিক টিউশন বেতন সংক্রান্ত সাধারণ প্রশ্নের উত্তর।
             </p>
           </div>
 
@@ -1266,6 +1303,12 @@ export default function Home() {
             </h2>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-3 max-w-2xl mx-auto">
               From English Medium Cambridge & Edexcel to National Curriculum SSC, HSC, and BUET/Medical Admission Mentors.
+            </p>
+            <p
+              lang="bn"
+              className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 max-w-xl mx-auto"
+            >
+              বাংলা মিডিয়াম, ইংলিশ ভার্সন, ইংলিশ মিডিয়াম এবং ভর্তি পরীক্ষার জন্য অভিজ্ঞ গৃহশিক্ষক।
             </p>
           </div>
 
@@ -1397,8 +1440,14 @@ export default function Home() {
                <h2 className="text-[3rem] lg:text-[4.5rem] font-black font-heading text-white leading-none uppercase mb-8">
                  Ready to <span className="text-[#0D5BFF]">Start?</span>
                </h2>
-               <p className="text-slate-400 text-lg mb-12 max-w-xl mx-auto">
+               <p className="text-slate-400 text-lg mb-3 max-w-xl mx-auto">
                  Join thousands of parents who have already upgraded their child's education with EduTrack.
+               </p>
+               <p
+                 lang="bn"
+                 className="font-bn text-sm sm:text-base font-medium text-blue-300 mb-10 max-w-xl mx-auto"
+               >
+                 আপনার সন্তানের জন্য উপযুক্ত শিক্ষক খুঁজুন সহজেই।
                </p>
                <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
                  <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} className="w-full sm:w-auto">
@@ -2686,7 +2735,7 @@ const FAQAccordionList = () => {
     },
     {
       q: "How does the manual NID & Academic verification work?",
-      a: "Every tutor must upload their official National ID card and Student ID. Our verification department manually confirms their academic standing and identity through institutional cross-checks within 24 hours."
+      a: "Every tutor must upload any ONE valid identity document — either their official National ID (NID) card or their University/College Student ID card. Our verification department manually confirms their academic standing and identity within 24 hours."
     },
     {
       q: "Can we request a trial class before long-term commitment?",

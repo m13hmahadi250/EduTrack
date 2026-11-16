@@ -93,7 +93,7 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
       });
     });
 
-    // We augment the matrix with actual live booking history from sessions
+    // We augment the matrix with actual live booking history from sessions in Asia/Dhaka timezone
     if (sessions && sessions.length > 0) {
       sessions.forEach(sess => {
         if (!sess.scheduledTime) return;
@@ -101,8 +101,16 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
           const date = new Date(sess.scheduledTime);
           if (isNaN(date.getTime())) return;
           
-          const dayName = DAYS[date.getDay()];
-          const hourStr = `${String(date.getHours()).padStart(2, '0')}:00`;
+          const dayName = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Dhaka',
+            weekday: 'long',
+          }).format(date);
+          const hourNumStr = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Dhaka',
+            hour: '2-digit',
+            hourCycle: 'h23',
+          }).format(date);
+          const hourStr = `${hourNumStr.padStart(2, '0')}:00`;
           
           if (matrix[dayName] && matrix[dayName][hourStr]) {
             matrix[dayName][hourStr].count += 1;
@@ -187,7 +195,7 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
   }, [slots, demandMatrix]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800/80 p-8 sm:p-10 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-8">
+    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800/80 p-4 sm:p-8 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6 w-full min-w-0">
       {/* Header section with explanatory tags */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-800 pb-6">
         <div className="space-y-1">
@@ -200,7 +208,7 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
             Student Booking Demand Heatmap
           </h3>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-relaxed">
-            Derived from historic database bookings & systemic student activity peaks.
+            Derived from historic database bookings & systemic student activity peaks (GMT+6).
           </p>
         </div>
         
@@ -230,128 +238,129 @@ const DemandHeatmap = memo(function DemandHeatmap({ slots, onChange, sessions }:
         </div>
       </div>
 
-      {/* Main Grid Wrapper with responsive scroll indicator */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Main Responsive 7-Day Grid Wrapper (Zero Horizontal Scroll) */}
+      <div className="space-y-4 w-full min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <span className="text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-slate-300 flex items-center gap-1.5">
             <CalendarDays className="w-3.5 h-3.5 text-[#0D5BFF]" />
-            Hourly Frequency Distribution
+            7-Weekday Hourly Demand Distribution (Sun – Sat)
           </span>
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">
             💡 Tap any heat cell to instantly open / close that slot
           </span>
         </div>
 
-        {/* Heatmap Layout: Days as Rows, Hours as Columns */}
-        <div className="overflow-x-auto pb-2 custom-scrollbar">
-          <div className="min-w-[850px] space-y-1.5">
-            {/* Hours Labels Header */}
-            <div className="flex items-center">
-              {/* Day Label offset */}
-              <div className="w-24 shrink-0 text-left">
-                <span className="text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Day / GMT+6</span>
-              </div>
-              <div className="flex-1 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1.5">
-                {HOURS.map(hour => (
-                  <div key={hour} className="text-center">
-                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 tracking-tighter block hover:text-[#0D5BFF] transition-colors">{hour}</span>
-                  </div>
-                ))}
-              </div>
+        {/* Responsive 7-Column Weekday Heatmap (Days as 7 Columns, Hours as Rows — Fits 100% Width) */}
+        <div className="w-full min-w-0 space-y-1.5">
+          {/* 7 Weekday Column Headers */}
+          <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] gap-1 sm:gap-1.5 items-center">
+            <div className="text-left">
+              <span className="text-[8px] sm:text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                GMT+6
+              </span>
             </div>
-
-            {/* Matrix Rows */}
             {DAYS.map(day => (
-              <div key={day} className="flex items-center">
-                {/* Day name label */}
-                <div className="w-24 shrink-0 text-left">
-                  <span className="text-xs font-black text-[#0B132B] dark:text-slate-300 uppercase tracking-wider">{day.slice(0, 3)}</span>
-                  <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block leading-none mt-0.5">{day === "Friday" || day === "Saturday" ? "Weekend" : "Weekday"}</span>
-                </div>
-
-                <div className="flex-1 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1.5">
-                  {HOURS.map(hour => {
-                    const isCellSelected = slots[day]?.includes(hour);
-                    const { finalScore, bgColor, label, pulse } = getCellDetails(day, hour);
-                    const isHovered = hoveredCell?.day === day && hoveredCell?.hour === hour;
-
-                    return (
-                      <div 
-                        key={hour} 
-                        className="relative"
-                        onMouseEnter={() => setHoveredCell({ day, hour })}
-                        onMouseLeave={() => setHoveredCell(null)}
-                      >
-                        <button
-                          onClick={() => handleCellClick(day, hour)}
-                          className={`w-full aspect-square md:h-10 rounded-xl cursor-pointer transition-all duration-305 border border-transparent hover:scale-105 active:scale-90 flex flex-col items-center justify-center relative ${
-                            isCellSelected 
-                              ? 'ring-2 ring-[#0D5BFF] ring-offset-2 dark:ring-offset-slate-900 border-white' 
-                              : bgColor
-                          }`}
-                        >
-                          {/* Checked indicator if tutor already has it in schedule */}
-                          {isCellSelected ? (
-                            <Check className="w-4 h-4 text-[#0D5BFF] drop-shadow-sm stroke-[3]" />
-                          ) : (
-                            finalScore >= 80 && (
-                              <Flame className={`w-3.5 h-3.5 text-white ${pulse ? 'animate-bounce' : ''}`} />
-                            )
-                          )}
-
-                          {/* Subtle scale ripple on highest weight */}
-                          {!isCellSelected && finalScore >= 85 && (
-                            <span className="absolute inset-0 rounded-xl bg-rose-500/10 animate-ping pointer-events-none" />
-                          )}
-                        </button>
-
-                        {/* High fidelity inline card preview for mouse hover */}
-                        <AnimatePresence>
-                          {isHovered && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 5 }}
-                              className="absolute bottom-full left-1/2 -combine-translate-x-1/2 mb-2 z-30 w-52 bg-slate-950 text-white rounded-2xl p-4 shadow-2xl border border-slate-800 text-left space-y-2 pointer-events-none"
-                              style={{ transform: 'translateX(-50%)' }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Target Slot</span>
-                                <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${
-                                  label === 'Peak Demand' ? 'bg-rose-500 text-white' : 
-                                  label === 'High Demand' ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300'
-                                }`}>
-                                  {label}
-                                </span>
-                              </div>
-                              
-                              <div>
-                                <h5 className="text-[11px] font-black italic">{day}, {hour}</h5>
-                                <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                                  Approximate demand rating: <span className="text-white font-black">{finalScore}%</span>
-                                </p>
-                              </div>
-
-                              <div className="border-t border-slate-800 pt-1.5 flex items-center justify-between text-[8px] text-slate-400">
-                                <span>Tutor status:</span>
-                                <span className={`font-black uppercase tracking-wider ${isCellSelected ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {isCellSelected ? 'Open (Active)' : 'Closed (Inactive)'}
-                                </span>
-                              </div>
-
-                              <div className="text-[8px] text-amber-300 font-medium italic">
-                                {isCellSelected ? '✓ Click to close this slot' : '✦ Click to open and win bookings!'}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div key={day} className="min-w-0 text-center py-1 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] sm:text-xs font-black text-[#0B132B] dark:text-slate-200 uppercase tracking-tight block truncate">
+                  {day.slice(0, 3)}
+                </span>
+                <span className="hidden sm:block text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5 truncate">
+                  {day === "Friday" || day === "Saturday" ? "Weekend" : "Weekday"}
+                </span>
               </div>
             ))}
           </div>
+
+          {/* Hour Rows across all 7 Weekdays */}
+          {HOURS.map(hour => (
+            <div
+              key={hour}
+              className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] sm:grid-cols-[62px_repeat(7,minmax(0,1fr))] gap-1 sm:gap-1.5 items-center"
+            >
+              <div className="text-left pr-1">
+                <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-500 tracking-tighter block">
+                  {hour}
+                </span>
+              </div>
+
+              {DAYS.map(day => {
+                const isCellSelected = slots[day]?.includes(hour);
+                const { finalScore, bgColor, label, pulse } = getCellDetails(day, hour);
+                const isHovered = hoveredCell?.day === day && hoveredCell?.hour === hour;
+
+                return (
+                  <div
+                    key={`${day}-${hour}`}
+                    className="relative min-w-0"
+                    onMouseEnter={() => setHoveredCell({ day, hour })}
+                    onMouseLeave={() => setHoveredCell(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleCellClick(day, hour)}
+                      className={`w-full h-7 sm:h-9 rounded-lg sm:rounded-xl cursor-pointer transition-all duration-200 border border-transparent hover:scale-[1.03] active:scale-95 flex flex-col items-center justify-center relative ${
+                        isCellSelected
+                          ? 'ring-2 ring-[#0D5BFF] ring-offset-1 dark:ring-offset-slate-900 border-white'
+                          : bgColor
+                      }`}
+                    >
+                      {isCellSelected ? (
+                        <Check className="w-3.5 h-3.5 text-[#0D5BFF] drop-shadow-sm stroke-[3]" />
+                      ) : (
+                        finalScore >= 80 && (
+                          <Flame className={`w-3 h-3 text-white ${pulse ? 'animate-bounce' : ''}`} />
+                        )
+                      )}
+
+                      {!isCellSelected && finalScore >= 85 && (
+                        <span className="absolute inset-0 rounded-lg sm:rounded-xl bg-rose-500/10 animate-ping pointer-events-none" />
+                      )}
+                    </button>
+
+                    <AnimatePresence>
+                      {isHovered && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="hidden sm:block absolute bottom-full left-1/2 mb-2 z-30 w-52 bg-slate-950 text-white rounded-2xl p-4 shadow-2xl border border-slate-800 text-left space-y-2 pointer-events-none"
+                          style={{ transform: 'translateX(-50%)' }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Target Slot</span>
+                            <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${
+                              label === 'Peak Demand' ? 'bg-rose-500 text-white' : 
+                              label === 'High Demand' ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300'
+                            }`}>
+                              {label}
+                            </span>
+                          </div>
+                          
+                          <div>
+                            <h5 className="text-[11px] font-black italic">{day}, {hour}</h5>
+                            <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                              Approximate demand rating: <span className="text-white font-black">{finalScore}%</span>
+                            </p>
+                          </div>
+
+                          <div className="border-t border-slate-800 pt-1.5 flex items-center justify-between text-[8px] text-slate-400">
+                            <span>Tutor status:</span>
+                            <span className={`font-black uppercase tracking-wider ${isCellSelected ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {isCellSelected ? 'Open (Active)' : 'Closed (Inactive)'}
+                            </span>
+                          </div>
+
+                          <div className="text-[8px] text-amber-300 font-medium italic">
+                            {isCellSelected ? '✓ Click to close this slot' : '✦ Click to open and win bookings!'}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 

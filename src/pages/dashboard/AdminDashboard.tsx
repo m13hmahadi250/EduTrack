@@ -2004,9 +2004,17 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-4">
-                      Verification Protocol Check
-                    </p>
+                    <div className="mb-4 space-y-1">
+                      <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                        Verification Protocol Check (1 Valid ID Required: NID or University/College ID)
+                      </p>
+                      <p
+                        lang="bn"
+                        className="font-bn text-xs text-slate-600 dark:text-slate-400"
+                      >
+                        শিক্ষকের NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড—যেকোনো একটি যাচাই ও অনুমোদন করুন।
+                      </p>
+                    </div>
                     <div className="space-y-4">
                       {/* NID Section */}
                       <div className={`p-6 rounded-3xl border space-y-4 transition-all duration-500 ${

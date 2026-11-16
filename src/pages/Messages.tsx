@@ -66,7 +66,7 @@ export default function Messages() {
       return [
         "Yes, I can tutor this subject.",
         "My availability is flexible. What times work for you?",
-        "What is your budget per hour?",
+        "What is your monthly tuition budget?",
         "Sure, let's schedule a session!"
       ];
     }
@@ -74,7 +74,7 @@ export default function Messages() {
       "What is your availability?",
       "Can you tutor this subject?",
       "Are you free for a session today?",
-      "What are your hourly rates?"
+      "What is your expected monthly salary?"
     ];
   }, [currentUser?.role]);
 

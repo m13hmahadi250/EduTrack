@@ -5,6 +5,13 @@ import { useShallow } from 'zustand/react/shallow';
 import { calculateEarnedBadges } from '../../utils/badges';
 import { triggerConfetti } from '../../utils/confetti';
 import BadgeDisplay from '../../components/BadgeDisplay';
+import {
+  DAYS_OF_WEEK,
+  SHORT_DAYS_UPPER,
+  getDhakaDateString,
+  getWeekdayFromDateString,
+  normalizeAvailabilitySlots,
+} from '../../../shared/availabilityUtils';
 import { 
   Search, 
   MapPin, 
@@ -1019,15 +1026,14 @@ export default function StudentDashboard() {
     return BookOpen;
   };
 
-  // Helper to get next 30 days
-  const availableDates = useMemo(() => Array.from({ length: 30 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() + i);
-    return date.toISOString().split('T')[0];
-  }), []);
+  // Helper to get next 30 days in Bangladesh Standard Time (Asia/Dhaka)
+  const availableDates = useMemo(
+    () => Array.from({ length: 30 }, (_, i) => getDhakaDateString(new Date(), i)),
+    []
+  );
 
   const getDayName = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
+    return getWeekdayFromDateString(dateStr);
   };
 
   const myPayments = useMemo(() => {
@@ -2721,17 +2727,30 @@ export default function StudentDashboard() {
                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Experience</p>
                                <p className="text-xs sm:text-sm font-semibold text-[#0B132B] dark:text-white break-words">{selectedTutor.experience || 'Experienced Mentor'}</p>
                             </div>
-                            <div className="p-4 bg-[#0B132B] rounded-2xl border border-white/10 flex flex-col justify-center">
-                               <p className="text-xs font-semibold text-slate-300 mb-2">Weekly Availability</p>
-                               <div className="flex gap-1.5 items-center">
-                                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                                     const hasSlots = (selectedTutor.availabilitySlots?.[day] || []).length > 0;
+                            <div className="p-4 bg-[#0B132B] rounded-2xl border border-white/10 flex flex-col justify-center min-w-0">
+                               <p className="text-xs font-semibold text-slate-300 mb-2">Weekly Availability (Sun – Sat)</p>
+                               <div className="grid grid-cols-7 gap-1 w-full min-w-0">
+                                  {DAYS_OF_WEEK.map(day => {
+                                     const normalizedTutorSlots = normalizeAvailabilitySlots(selectedTutor.availabilitySlots);
+                                     const slotCount = (normalizedTutorSlots[day] || []).length;
+                                     const hasSlots = slotCount > 0;
                                      return (
-                                        <div 
-                                          key={day} 
-                                          className={`w-3.5 h-3.5 rounded border ${hasSlots ? 'bg-[#0D5BFF] border-[#0D5BFF]' : 'bg-transparent border-white/20'}`}
-                                          title={`${day}: ${hasSlots ? 'Available' : 'No Slots'}`}
-                                        />
+                                        <div
+                                          key={day}
+                                          className={`min-w-0 py-1 px-0.5 rounded-lg border text-center transition-colors ${
+                                            hasSlots
+                                              ? 'bg-[#0D5BFF]/25 border-[#0D5BFF] text-white'
+                                              : 'bg-white/[0.03] border-white/10 text-slate-500'
+                                          }`}
+                                          title={`${day}: ${hasSlots ? `${slotCount} available slots` : 'No Slots'}`}
+                                        >
+                                          <div className="text-[9px] font-extrabold tracking-tight truncate">
+                                            {SHORT_DAYS_UPPER[day]}
+                                          </div>
+                                          <div className="text-[10px] font-bold opacity-80 truncate">
+                                            {hasSlots ? `${slotCount}h` : '–'}
+                                          </div>
+                                        </div>
                                      );
                                   })}
                                </div>
@@ -2923,9 +2942,11 @@ export default function StudentDashboard() {
                                  >
                                    {availableDates.map((date) => {
                                      const dayName = getDayName(date);
-                                     const hasSlots = (selectedTutor.availabilitySlots?.[dayName] || []).length > 0;
+                                     const normalizedTutorSlots = normalizeAvailabilitySlots(selectedTutor.availabilitySlots);
+                                     const hasSlots = (normalizedTutorSlots[dayName] || []).length > 0;
                                      const isSelected = bookingDate === date;
-                                     const isToday = date === new Date().toISOString().split('T')[0];
+                                     const isToday = date === getDhakaDateString(new Date(), 0);
+                                     const dayOfMonth = Number(date.split('-')[2]) || new Date(date).getDate();
                                      
                                      return (
                                        <button
@@ -2948,7 +2969,7 @@ export default function StudentDashboard() {
                                              {dayName.substring(0, 3)}
                                            </p>
                                            <p className="text-sm sm:text-xl font-black leading-none animate-fade-in">
-                                             {new Date(date).getDate()}
+                                             {dayOfMonth}
                                            </p>
                                          </div>
                                          {isToday && !isSelected && <p className="text-[11px] font-bold text-[#0D5BFF] dark:text-blue-400 mt-1">Today</p>}
@@ -2966,7 +2987,8 @@ export default function StudentDashboard() {
                               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
                                 {(() => {
                                   const dayName = getDayName(bookingDate);
-                                  const slots = selectedTutor.availabilitySlots?.[dayName] || [];
+                                  const normalizedTutorSlots = normalizeAvailabilitySlots(selectedTutor.availabilitySlots);
+                                  const slots = normalizedTutorSlots[dayName] || [];
                                   
                                   if (slots.length === 0) {
                                     return (
@@ -3213,6 +3235,12 @@ export default function StudentDashboard() {
                     <div className="h-full min-h-[400px] border-4 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-start md:items-center justify-center text-left md:text-center p-12">
                        <LayoutDashboard className="w-12 h-12 text-slate-200 mb-6 ml-0 mr-auto md:mx-auto" />
                        <h3 className="text-xl font-black text-slate-300 uppercase italic">Select Profile</h3>
+                       <p
+                         lang="bn"
+                         className="font-bn text-xs text-slate-400 dark:text-slate-500 mt-1.5"
+                       >
+                         পছন্দের শিক্ষক নির্বাচন করতে তাঁর প্রোফাইল দেখুন।
+                       </p>
                     </div>
                   )}
                 </div>
@@ -3232,7 +3260,15 @@ export default function StudentDashboard() {
             transition={{ duration: 0.04, ease: "easeOut" }}
             className="space-y-8"
           >
-             <h3 className="text-xl sm:text-3xl font-black text-[#0B132B] uppercase italic">Central Activity Logs</h3>
+             <div>
+               <h3 className="text-xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">Central Activity Logs</h3>
+               <p
+                 lang="bn"
+                 className="font-bn text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1"
+               >
+                 আপনার বুকিং, ক্লাসের সময়সূচি এবং সেশনের ইতিহাস এখানে দেখুন।
+               </p>
+             </div>
              <div className="w-full">
                 <section className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors h-fit w-full">
                    <h4 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-8">Lesson History</h4>
@@ -3820,6 +3856,12 @@ export default function StudentDashboard() {
                     {profileCompletion.isComplete
                       ? 'Your profile is 100% complete and synchronized.'
                       : `${profileCompletion.missingFields.length} required detail${profileCompletion.missingFields.length > 1 ? 's' : ''} remaining`}
+                  </p>
+                  <p
+                    lang="bn"
+                    className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1"
+                  >
+                    আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।
                   </p>
                 </div>
                 <span
@@ -4683,8 +4725,12 @@ export default function StudentDashboard() {
                     <p className="text-xs font-bold text-[#0B132B] dark:text-white">{viewingProfileUser.experience || 'Experienced Professional Educator'}</p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hourly Value</span>
-                    <p className="text-xs font-black text-[#0D5BFF]">৳{viewingProfileUser.hourlyRate || 'Consult'}/hour</p>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expected Monthly Salary</span>
+                    <p className="text-xs font-black text-[#0D5BFF]">
+                      {viewingProfileUser.hourlyRate
+                        ? `৳${Number(viewingProfileUser.hourlyRate).toLocaleString()}/month`
+                        : 'Negotiable'}
+                    </p>
                   </div>
                 </div>
 

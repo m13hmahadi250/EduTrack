@@ -764,6 +764,9 @@ export default function Signup() {
             }
           : {
               teachingMode: cleanMeaningfulString(formData.teachingMode) || 'Home & Online',
+              ...(formData.hourlyRate && Number(String(formData.hourlyRate).replace(/\D/g, '')) > 0
+                ? { hourlyRate: Number(String(formData.hourlyRate).replace(/\D/g, '')) }
+                : {}),
             }),
       };
       delete payload.password;
@@ -1680,6 +1683,16 @@ export default function Signup() {
                             onBlur={handleBlur}
                             placeholder="e.g. 5th Semester or Session 2021-22"
                             value={formData.semester || ''}
+                            accentColor="#D97706"
+                          />
+                          <Input
+                            label="Expected Monthly Salary (BDT ৳) (Optional)"
+                            name="hourlyRate"
+                            type="number"
+                            onChange={handleInputChange}
+                            onBlur={handleBlur}
+                            placeholder="e.g. 5000"
+                            value={formData.hourlyRate || ''}
                             accentColor="#D97706"
                           />
                           <div className="sm:col-span-2">

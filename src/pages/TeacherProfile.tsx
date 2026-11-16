@@ -41,15 +41,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const DAYS_ORDER = [
-  'Saturday',
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-];
+import {
+  DAYS_OF_WEEK,
+  SHORT_DAYS_UPPER,
+  normalizeAvailabilitySlots,
+  formatHourLabel,
+} from '../../shared/availabilityUtils';
+
+const DAYS_ORDER = DAYS_OF_WEEK;
 
 function normalizeWhatsAppLink(num?: string) {
   if (!num) return '';
@@ -394,15 +393,17 @@ export default function TeacherProfile() {
     }
   };
 
+  const normalizedSlots = useMemo(
+    () => normalizeAvailabilitySlots(tutor?.availabilitySlots),
+    [tutor?.availabilitySlots]
+  );
+
   const availabilityEntries = useMemo(() => {
-    if (!tutor?.availabilitySlots) return [];
     return DAYS_ORDER.map((day) => ({
       day,
-      slots: Array.isArray(tutor.availabilitySlots[day])
-        ? tutor.availabilitySlots[day]
-        : [],
+      slots: normalizedSlots[day] || [],
     })).filter((entry) => entry.slots.length > 0);
-  }, [tutor?.availabilitySlots]);
+  }, [normalizedSlots]);
 
   const totalWeeklySlots = useMemo(
     () => availabilityEntries.reduce((acc, e) => acc + e.slots.length, 0),
@@ -869,10 +870,47 @@ export default function TeacherProfile() {
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Live schedule synced directly from the tutor&apos;s calendar
                   </p>
+                  <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    সপ্তাহের কোন দিন ও সময়ে শিক্ষক পড়াতে পারবেন তা নিচে দেখুন।
+                  </p>
                 </div>
                 <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 text-xs font-bold">
                   {totalWeeklySlots > 0 ? `${totalWeeklySlots} Open Slots` : 'Flexible Schedule'}
                 </span>
+              </div>
+
+              {/* 7-Weekday Responsive Overview Bar (SUN - SAT, Zero Horizontal Scroll) */}
+              <div
+                data-testid="profile-weekly-7day-grid"
+                className="grid grid-cols-7 gap-1 sm:gap-1.5 w-full min-w-0"
+              >
+                {DAYS_ORDER.map((day) => {
+                  const daySlots = normalizedSlots[day] || [];
+                  const hasSlots = daySlots.length > 0;
+                  return (
+                    <div
+                      key={day}
+                      className={`min-w-0 flex flex-col items-center justify-center rounded-xl py-2 px-1 border text-center transition-colors ${
+                        hasSlots
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70'
+                          : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200/70 dark:border-slate-800 opacity-75'
+                      }`}
+                    >
+                      <span className="text-[10px] sm:text-xs font-black tracking-tight text-[#0B132B] dark:text-white leading-tight">
+                        {SHORT_DAYS_UPPER[day]}
+                      </span>
+                      <span
+                        className={`mt-1 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none ${
+                          hasSlots
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {hasSlots ? `${daySlots.length}h` : 'Off'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               {availabilityEntries.length > 0 ? (
@@ -882,8 +920,11 @@ export default function TeacherProfile() {
                       key={entry.day}
                       className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800"
                     >
-                      <div className="text-xs font-bold uppercase tracking-wider text-[#0B132B] dark:text-white mb-2">
-                        {entry.day}
+                      <div className="text-xs font-bold uppercase tracking-wider text-[#0B132B] dark:text-white mb-2 flex items-center justify-between">
+                        <span>{entry.day}</span>
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          {entry.slots.length} {entry.slots.length === 1 ? 'slot' : 'slots'}
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {entry.slots.map((slot: string) => (
@@ -899,7 +940,7 @@ export default function TeacherProfile() {
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] hover:text-[#0D5BFF] transition-colors cursor-pointer"
                           >
                             <Clock className="w-3 h-3 text-[#0D5BFF]" />
-                            <span>{slot}</span>
+                            <span>{formatHourLabel(slot)}</span>
                           </button>
                         ))}
                       </div>
@@ -1005,40 +1046,44 @@ export default function TeacherProfile() {
             <div className="bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-4">
               <h3 className="text-base font-bold font-heading text-[#0B132B] dark:text-white flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-emerald-500" />
-                <span>Safety & Verification</span>
+                <span>Safety &amp; Verification</span>
               </h3>
               <div className="space-y-2.5 text-xs sm:text-sm">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
                   <span className="font-medium text-slate-700 dark:text-slate-300">
-                    National ID Check
+                    Identity Verification (NID / Univ ID)
                   </span>
                   <span
                     className={`font-bold ${
-                      tutor.nidStatus === 'approved'
+                      tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }`}
                   >
-                    {tutor.nidStatus === 'approved' ? 'Verified' : 'Under Review'}
+                    {tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
+                      ? 'Verified'
+                      : 'Under Review'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
                   <span className="font-medium text-slate-700 dark:text-slate-300">
-                    Academic Credentials
+                    Credential Compliance
                   </span>
                   <span
                     className={`font-bold ${
-                      tutor.academicStatus === 'approved'
+                      tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }`}
                   >
-                    {tutor.academicStatus === 'approved' ? 'Verified' : 'Under Review'}
+                    {tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
+                      ? 'Approved'
+                      : 'Pending Check'}
                   </span>
                 </div>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Identity documents are reviewed privately by EduTrack compliance administrators and are never exposed publicly.
+                Identity documents (NID or University/College ID Card) are reviewed privately by EduTrack compliance administrators and are never exposed publicly.
               </p>
             </div>
 

@@ -307,7 +307,8 @@ export function getTutorVerificationStatus(
     return {
       overall: 'not_submitted',
       label: 'Not Submitted',
-      description: 'Upload NID and academic documents to apply for verification.',
+      description:
+        'Upload any ONE valid identity document: National ID (NID) or University/College ID Card.',
       nidStatus: 'not_submitted',
       academicStatus: 'not_submitted',
       isVerified: false,
@@ -317,7 +318,8 @@ export function getTutorVerificationStatus(
   }
 
   const hasNidSubmission =
-    isMeaningfulValue(user.nidNumber) && isMeaningfulValue(user.nidFrontImg);
+    isMeaningfulValue(user.nidFrontImg) ||
+    (isMeaningfulValue(user.nidNumber) && isMeaningfulValue((user as any).nidBackImg));
   const hasAcademicSubmission =
     Array.isArray(user.documents) && user.documents.some((d) => isMeaningfulValue(d));
 
@@ -339,24 +341,42 @@ export function getTutorVerificationStatus(
       ? 'pending'
       : 'not_submitted';
 
-  if (user.isVerified || (nidStatus === 'approved' && academicStatus === 'approved')) {
+  const hasAnyRejection = nidStatus === 'rejected' || academicStatus === 'rejected';
+  const hasAnyApproval = nidStatus === 'approved' || academicStatus === 'approved';
+
+  // One-Document Verification Rule:
+  // A tutor is verified if user.isVerified is true OR at least one submitted identity document
+  // (NID OR University/College ID) is approved without an active unaddressed rejection.
+  if (user.isVerified || (hasAnyApproval && !hasAnyRejection)) {
     return {
       overall: 'approved',
       label: 'Verified Educator',
-      description: 'Your NID and academic credentials are verified by EduTrack.',
-      nidStatus: nidStatus === 'not_submitted' ? 'approved' : nidStatus,
-      academicStatus: academicStatus === 'not_submitted' ? 'approved' : academicStatus,
+      description:
+        nidStatus === 'approved' && academicStatus === 'approved'
+          ? 'Your National ID and institutional credentials are verified by EduTrack.'
+          : nidStatus === 'approved'
+          ? 'Your National ID (NID) is verified by EduTrack.'
+          : academicStatus === 'approved'
+          ? 'Your University/College ID Card is verified by EduTrack.'
+          : 'Your identity credentials are verified by EduTrack.',
+      nidStatus: user.isVerified && nidStatus === 'not_submitted' && academicStatus === 'not_submitted' ? 'approved' : nidStatus,
+      academicStatus: user.isVerified && nidStatus === 'not_submitted' && academicStatus === 'not_submitted' ? 'approved' : academicStatus,
       isVerified: true,
-      hasNidSubmission: true,
-      hasAcademicSubmission: true,
+      hasNidSubmission: hasNidSubmission || nidStatus === 'approved' || Boolean(user.isVerified),
+      hasAcademicSubmission: hasAcademicSubmission || academicStatus === 'approved' || Boolean(user.isVerified),
     };
   }
 
-  if (nidStatus === 'rejected' && academicStatus === 'rejected') {
+  if (
+    (nidStatus === 'rejected' && academicStatus === 'rejected') ||
+    (nidStatus === 'rejected' && !hasAcademicSubmission && academicStatus === 'not_submitted') ||
+    (academicStatus === 'rejected' && !hasNidSubmission && nidStatus === 'not_submitted')
+  ) {
     return {
       overall: 'rejected',
       label: 'Verification Rejected',
-      description: 'Your submitted documents could not be verified. Please re-upload clear files.',
+      description:
+        'Your submitted identity document could not be verified. Please upload a clear National ID (NID) or University/College ID Card.',
       nidStatus,
       academicStatus,
       isVerified: false,
@@ -365,11 +385,12 @@ export function getTutorVerificationStatus(
     };
   }
 
-  if (nidStatus === 'rejected' || academicStatus === 'rejected') {
+  if (hasAnyRejection) {
     return {
       overall: 'changes_required',
-      label: 'Changes Required',
-      description: 'One or more verification documents need re-submission.',
+      label: 'Additional Information Required',
+      description:
+        'A submitted verification document requires attention. Please re-upload a clear file or provide an alternative ID.',
       nidStatus,
       academicStatus,
       isVerified: false,
@@ -384,8 +405,10 @@ export function getTutorVerificationStatus(
       label: 'Pending Admin Review',
       description:
         hasNidSubmission && hasAcademicSubmission
-          ? 'Your NID and academic documents are under review.'
-          : 'Documents partially submitted. Upload remaining credentials for full approval.',
+          ? 'Your National ID (NID) and University/College ID documents are under admin review.'
+          : hasNidSubmission
+          ? 'Your National ID (NID) is submitted and awaiting admin review.'
+          : 'Your University/College ID Card is submitted and awaiting admin review.',
       nidStatus,
       academicStatus,
       isVerified: false,
@@ -397,7 +420,8 @@ export function getTutorVerificationStatus(
   return {
     overall: 'not_submitted',
     label: 'Not Submitted',
-    description: 'Submit NID and student/graduation ID card for Verified Tutor badge.',
+    description:
+      'Upload any ONE valid identity document: National ID (NID) or University/College ID Card.',
     nidStatus: 'not_submitted',
     academicStatus: 'not_submitted',
     isVerified: false,
@@ -562,9 +586,9 @@ export function calculateProfileCompletion(
       },
       {
         key: 'hourlyRate',
-        label: 'Expected Tuition Fee',
+        label: 'Expected Monthly Salary',
         completed: hasRate,
-        displayValue: hasRate ? `৳${Number(user.hourlyRate).toLocaleString()}/mo` : 'Fee Not Set',
+        displayValue: hasRate ? `৳${Number(user.hourlyRate).toLocaleString()}/month` : 'Salary Not Set',
         targetTab: 'pro_profile',
         targetFieldId: 'tutor-field-hourly-rate',
         category: 'teaching',

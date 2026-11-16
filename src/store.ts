@@ -38,6 +38,7 @@ import {
   TutorPrivacySettings,
 } from '../shared/tutorPrivacy';
 import { clearAuthorizedPhotoCache } from './lib/authorizedMedia';
+import { normalizeAvailabilitySlots } from '../shared/availabilityUtils';
 import {
   AccountType,
   StudentProfileRecord,
@@ -1902,9 +1903,19 @@ export const useAppStore = create<AppState>((set, get) => {
     updateAvailabilitySlots: async (slots) => {
       const user = get().currentUser;
       if (!user) return;
+      const normalized = normalizeAvailabilitySlots(slots);
       try {
-        await updateDoc(doc(db, 'users', user.id), { availabilitySlots: slots });
-        set({ currentUser: { ...user, availabilitySlots: slots } });
+        await updateDoc(doc(db, 'users', user.id), { availabilitySlots: normalized });
+        const updatedUser = { ...user, availabilitySlots: normalized };
+        set((state) => ({
+          currentUser: updatedUser,
+          users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
+        }));
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedUser));
+        } catch (_e) {
+          // Ignore storage quota errors
+        }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
       }
@@ -1916,30 +1927,37 @@ export const useAppStore = create<AppState>((set, get) => {
         if (type === 'nid') updateData.nidStatus = status;
         if (type === 'academic') updateData.academicStatus = status;
 
-        // Check if both are approved to set overall isVerified
+        // One-Document Verification Rule:
+        // Approving either NID OR University/College ID (without an active rejection) verifies the tutor.
         const user = get().users.find(u => u.id === id);
         if (user) {
           const currentNidStatus = type === 'nid' ? status : user.nidStatus;
           const currentAcademicStatus = type === 'academic' ? status : user.academicStatus;
-          
-          if (currentNidStatus === 'approved' && currentAcademicStatus === 'approved') {
+          const hasAnyApproval = currentNidStatus === 'approved' || currentAcademicStatus === 'approved';
+          const hasAnyRejection = currentNidStatus === 'rejected' || currentAcademicStatus === 'rejected';
+
+          if (status === 'approved' && hasAnyApproval && !hasAnyRejection) {
             updateData.isVerified = true;
-          } else {
+          } else if (status === 'rejected' && !hasAnyApproval) {
             updateData.isVerified = false;
+          } else {
+            updateData.isVerified = Boolean(hasAnyApproval && !hasAnyRejection);
           }
+        } else if (status === 'approved') {
+          updateData.isVerified = true;
         }
 
         await updateDoc(doc(db, 'users', id), updateData);
         
-        const typeLabel = type === 'nid' ? 'NID' : 'Academic Certificates';
+        const typeLabel = type === 'nid' ? 'National ID (NID)' : 'University / College ID Card';
         const message = status === 'approved' 
-          ? `Your ${typeLabel} have been approved.` 
-          : `Your ${typeLabel} verification was rejected. Please re-upload valid documents.`;
+          ? `Your ${typeLabel} has been approved.` 
+          : `Your ${typeLabel} verification was rejected. Please re-upload a clear identity document.`;
         
         await get().sendNotification(id, 'Verification Update', message, status === 'approved' ? 'success' : 'error');
         
         if (updateData.isVerified) {
-          await get().sendNotification(id, 'Full Verification Complete', 'Your expert profile is now fully verified!', 'success');
+          await get().sendNotification(id, 'Verification Complete', 'Your tutor identity is now verified on EduTrack Bangladesh!', 'success');
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
