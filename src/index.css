@@ -565,4 +565,129 @@ html:not(.dark) [class*="text-[#0B132B]/50"] {
   -webkit-font-smoothing: antialiased;
 }
 
+/* -------------------------------------------------------------
+ * Premium Ambient Atmospheric Background (Homepage / Dashboard / Profile)
+ * ------------------------------------------------------------- */
+.edutrack-ambient-bg {
+  --ambient-p: 0;
+  --ambient-lx: 0px;
+  --ambient-ly: 0px;
+  --ambient-rx: 0px;
+  --ambient-ry: 0px;
+  --ambient-mx: 0px;
+  --ambient-my: 0px;
+  --ambient-by: 0px;
+}
+
+.ambient-glow-left {
+  background-image: radial-gradient(
+    closest-side,
+    rgba(21, 93, 252, 1) 0%,
+    rgba(21, 93, 252, 0.76) 28%,
+    rgba(21, 93, 252, 0.42) 52%,
+    rgba(21, 93, 252, 0.16) 72%,
+    rgba(21, 93, 252, 0.04) 86%,
+    rgba(21, 93, 252, 0) 98%
+  );
+  opacity: calc(0.115 + var(--ambient-p, 0) * 0.025);
+  transform: translate3d(var(--ambient-lx, 0px), var(--ambient-ly, 0px), 0);
+  will-change: transform;
+}
+
+.ambient-glow-right {
+  background-image: radial-gradient(
+    closest-side,
+    rgba(20, 43, 96, 1) 0%,
+    rgba(20, 43, 96, 0.85) 28%,
+    rgba(20, 43, 96, 0.52) 52%,
+    rgba(20, 43, 96, 0.2) 74%,
+    rgba(20, 43, 96, 0.05) 86%,
+    rgba(20, 43, 96, 0) 98%
+  );
+  opacity: calc(0.13 + var(--ambient-p, 0) * 0.03);
+  transform: translate3d(var(--ambient-rx, 0px), var(--ambient-ry, 0px), 0);
+  will-change: transform;
+}
+
+.ambient-glow-mid-right {
+  background-image: radial-gradient(
+    closest-side,
+    rgba(20, 43, 96, 1) 0%,
+    rgba(20, 43, 96, 0.74) 32%,
+    rgba(21, 93, 252, 0.34) 58%,
+    rgba(20, 43, 96, 0.1) 78%,
+    rgba(20, 43, 96, 0) 97%
+  );
+  opacity: calc(0.1 + var(--ambient-p, 0) * 0.04);
+  transform: translate3d(var(--ambient-mx, 0px), var(--ambient-my, 0px), 0);
+  will-change: transform;
+}
+
+.ambient-glow-lower {
+  background-image: radial-gradient(
+    ellipse 80% 88% at 50% 85%,
+    rgba(21, 93, 252, 0.055) 0%,
+    rgba(20, 43, 96, 0.045) 48%,
+    rgba(248, 250, 252, 0) 84%
+  );
+  opacity: calc(0.5 + var(--ambient-p, 0) * 0.5);
+  transform: translate3d(0, var(--ambient-by, 0px), 0);
+}
+
+/* Slightly calmer edge density inside authenticated dashboards */
+.edutrack-ambient-bg[data-ambient-variant="dashboard"] .ambient-glow-left {
+  opacity: calc(0.085 + var(--ambient-p, 0) * 0.015);
+}
+
+.edutrack-ambient-bg[data-ambient-variant="dashboard"] .ambient-glow-right {
+  opacity: calc(0.095 + var(--ambient-p, 0) * 0.02);
+}
+
+.edutrack-ambient-bg[data-ambient-variant="dashboard"] .ambient-glow-mid-right {
+  opacity: calc(0.065 + var(--ambient-p, 0) * 0.02);
+}
+
+/* Dark mode: restrained deep-navy ambient shading instead of bright blue */
+.dark .ambient-glow-left {
+  opacity: calc(0.125 + var(--ambient-p, 0) * 0.025);
+}
+
+.dark .ambient-glow-right {
+  background-image: radial-gradient(
+    closest-side,
+    rgba(20, 43, 96, 1) 0%,
+    rgba(20, 43, 96, 0.7) 38%,
+    rgba(11, 19, 43, 0.22) 70%,
+    rgba(11, 19, 43, 0) 96%
+  );
+  opacity: calc(0.28 + var(--ambient-p, 0) * 0.06);
+}
+
+.dark .ambient-glow-mid-right {
+  opacity: calc(0.18 + var(--ambient-p, 0) * 0.05);
+}
+
+.dark .ambient-glow-lower {
+  background-image: radial-gradient(
+    ellipse 80% 88% at 50% 85%,
+    rgba(20, 43, 96, 0.3) 0%,
+    rgba(15, 29, 64, 0.14) 50%,
+    rgba(11, 19, 43, 0) 84%
+  );
+  opacity: calc(0.55 + var(--ambient-p, 0) * 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edutrack-ambient-bg {
+    --ambient-p: 0 !important;
+  }
+
+  .ambient-glow-left,
+  .ambient-glow-right,
+  .ambient-glow-mid-right,
+  .ambient-glow-lower {
+    transform: none !important;
+  }
+}
+
 

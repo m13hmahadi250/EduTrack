@@ -5,6 +5,7 @@ import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
+import AmbientBackground from '../components/AmbientBackground';
 import { formatUserFriendlyError } from '../lib/errorMonitoring';
 import { useBackHandler, scrollFieldIntoView, useVirtualKeyboardOpen } from '../utils/mobileWebView';
 import {
@@ -509,7 +510,8 @@ export default function TeacherProfile() {
   const bookingMeta = getBookingBadgeMeta();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B132B] pt-4 pb-28 md:pb-16 px-4 sm:px-6 lg:px-8 transition-colors">
+    <div className="relative min-h-screen bg-[#FCFDFF] dark:bg-[#0B132B] pt-4 pb-28 md:pb-16 px-4 sm:px-6 lg:px-8 transition-colors">
+      <AmbientBackground />
       <SEOHead
         title={`${tutor.name} | Verified Tutor Profile - EduTrack Bangladesh`}
         description={`Connect with ${tutor.name} (${tutor.university || 'Academic Specialist'}) for ${tutor.subjects?.slice(0, 4).join(', ') || 'academic coaching'} in ${tutor.district || 'Bangladesh'}.`}
@@ -517,7 +519,7 @@ export default function TeacherProfile() {
         canonicalUrl={`https://edutrackbd.vercel.app/teachers/${tutor.id}`}
       />
 
-      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 relative z-10">
         {/* Top Breadcrumb Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button

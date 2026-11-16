@@ -3308,6 +3308,40 @@ async function runTests() {
           assert.equal(chatSrc.includes("Retry"), true);
           assert.equal(chatSrc.includes("font-bn"), true);
         });
+
+        // =========================================================================
+        // 25. Premium Ambient Background & Subtle Scroll-Reactive Effects
+        // =========================================================================
+        console.log("\n--- SECTION 25: Premium Ambient Background & Subtle Scroll-Reactive Effects ---");
+
+        await test("AmbientBackground uses zero-rerender passive rAF CSS variable updates and renders on Home, DashboardLayout & TeacherProfile", () => {
+          const ambientSrc = fs.readFileSync(path.resolve("src/components/AmbientBackground.tsx"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const layoutSrc = fs.readFileSync(path.resolve("src/components/DashboardLayout.tsx"), "utf-8");
+          const profileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+
+          // Zero React state on scroll + passive listener + rAF + reduced-motion guard
+          assert.equal(ambientSrc.includes("useState"), false);
+          assert.equal(ambientSrc.includes("requestAnimationFrame"), true);
+          assert.equal(ambientSrc.includes("{ passive: true }"), true);
+          assert.equal(ambientSrc.includes("--ambient-p"), true);
+          assert.equal(ambientSrc.includes("prefers-reduced-motion: reduce"), true);
+          assert.equal(ambientSrc.includes("pointer-events-none"), true);
+          assert.equal(ambientSrc.includes('aria-hidden="true"'), true);
+
+          // Exact subtle color tones (#155DFC left, #142B60 right), dark mode, and static reduced-motion
+          assert.equal(indexCss.includes("rgba(21, 93, 252"), true);
+          assert.equal(indexCss.includes("rgba(20, 43, 96"), true);
+          assert.equal(indexCss.includes(".dark .ambient-glow-left"), true);
+          assert.equal(indexCss.includes(".dark .ambient-glow-right"), true);
+          assert.equal(indexCss.includes(".edutrack-ambient-bg"), true);
+
+          // Integrated across Homepage, DashboardLayout, and TeacherProfile
+          assert.equal(homeSrc.includes("<AmbientBackground />"), true);
+          assert.equal(layoutSrc.includes('<AmbientBackground variant="dashboard" />'), true);
+          assert.equal(profileSrc.includes("<AmbientBackground />"), true);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

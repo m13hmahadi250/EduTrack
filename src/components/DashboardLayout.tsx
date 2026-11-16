@@ -4,6 +4,7 @@ import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
+import AmbientBackground from './AmbientBackground';
 import { 
   BarChart3, 
   Calendar, 
@@ -72,9 +73,11 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] dark:bg-[#0B132B] flex-col lg:flex-row transition-colors duration-300 select-none sm:select-auto">
+    <div className="relative flex min-h-screen bg-[#FCFDFF] dark:bg-[#0B132B] flex-col lg:flex-row transition-colors duration-300 select-none sm:select-auto">
+      <AmbientBackground variant="dashboard" />
+
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
+      <div className="hidden lg:block relative z-20">
         <Sidebar />
       </div>
 
@@ -178,7 +181,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       )}
 
       {/* Main App Content View Container */}
-      <main className={`flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip ${isKeyboardOpen ? 'pb-4' : 'pb-24'} lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0`}>
+      <main className={`relative z-10 flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip ${isKeyboardOpen ? 'pb-4' : 'pb-24'} lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0`}>
         {children}
       </main>
 

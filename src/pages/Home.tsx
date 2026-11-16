@@ -8,6 +8,7 @@ const AIChatWidget = lazyWithRetry(() => import('../components/AIChatWidget'), '
 import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
+import AmbientBackground from '../components/AmbientBackground';
 import { prefetchPage } from '../utils/prefetch';
 import { useBackHandler } from '../utils/mobileWebView';
 import { sanitizeTutorProfileForViewer } from '../../shared/tutorPrivacy';
@@ -317,7 +318,8 @@ export default function Home() {
   };
 
   return (
-    <div id="top" className="bg-[#F8F9FA] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
+    <div id="top" className="relative min-h-screen bg-[#FCFDFF] dark:bg-[#0B132B] text-[#0B132B] dark:text-slate-100 font-sans selection:bg-[#0D5BFF] selection:text-white transition-colors duration-300">
+      <AmbientBackground />
       <SEOHead
         title="EduTrack Bangladesh | #1 Home Tutor & Tuition Platform in Bangladesh"
         description="Hire trusted, NID-verified home & online tutors in Dhaka, Chittagong, and all 64 districts of Bangladesh. Real-time GPS transit tracking, expert teachers from BUET, DU, Medical, and automated bKash payments."
@@ -327,10 +329,7 @@ export default function Home() {
       />
 
       {/* Hero + Search + Verified Tutors Unified Showcase matching Reference Design */}
-      <section className="relative pt-8 sm:pt-12 pb-16 sm:pb-24 overflow-hidden bg-gradient-to-b from-white via-[#F8FAFC] to-[#F8F9FA] dark:from-[#0B132B] dark:via-[#0E172E] dark:to-[#0B132B] transition-colors duration-300">
-        {/* Subtle background geometry */}
-        <div className="absolute top-0 right-0 w-1/2 h-[540px] bg-gradient-to-bl from-blue-50/70 via-transparent to-transparent dark:from-blue-950/20 pointer-events-none" />
-
+      <section className="relative z-10 pt-8 sm:pt-12 pb-16 sm:pb-24 overflow-hidden bg-transparent transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Top Two-Column Hero Row */}
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
@@ -956,7 +955,7 @@ export default function Home() {
       </section>
 
       {/* Detailed Features - Horizontal Alternating */}
-      <section className="py-16 sm:py-24 bg-white dark:bg-[#111A2E]/40 overflow-hidden transition-colors duration-300">
+      <section className="relative z-10 py-16 sm:py-24 bg-white/20 dark:bg-[#111A2E]/25 overflow-hidden transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Row 1 - GPS */}
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16 mb-16 sm:mb-24">
@@ -1087,7 +1086,7 @@ export default function Home() {
       </section>
 
       {/* Trust & Safety Section - Visible Grid Style */}
-      <section id="safety" className="py-16 sm:py-20 bg-white dark:bg-[#0B132B] border-y border-slate-100 dark:border-slate-800/60 transition-colors duration-300">
+      <section id="safety" className="relative z-10 py-16 sm:py-20 bg-transparent border-y border-slate-100/80 dark:border-slate-800/60 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Safety First</h2>
@@ -1126,7 +1125,7 @@ export default function Home() {
       </section>
 
       {/* How it Works - Dual Journey Step Layout */}
-      <section id="how-it-works" className="py-16 sm:py-24 bg-slate-50/50 dark:bg-[#111A2E]/30 border-y border-slate-100/50 dark:border-slate-800/40 transition-colors duration-300 scroll-mt-20">
+      <section id="how-it-works" className="relative z-10 py-16 sm:py-24 bg-slate-50/20 dark:bg-[#111A2E]/20 border-y border-slate-100/60 dark:border-slate-800/40 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
             <div className="max-w-xl">
@@ -1252,8 +1251,7 @@ export default function Home() {
       </section>
 
       {/* Verified Real-User Reviews Section */}
-      <section className="py-16 sm:py-24 bg-[#F8F9FA] dark:bg-[#111A2E]/20 transition-colors duration-300 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <section className="relative z-10 py-16 sm:py-24 bg-transparent dark:bg-[#111A2E]/15 transition-colors duration-300 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Success Stories</h2>
@@ -1276,7 +1274,7 @@ export default function Home() {
       </section>
 
       {/* Interactive Frequently Asked Questions (FAQ) Section */}
-      <section id="faq" className="py-16 sm:py-24 bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300 scroll-mt-20">
+      <section id="faq" className="relative z-10 py-16 sm:py-24 bg-white/20 dark:bg-transparent border-t border-slate-100/80 dark:border-slate-800/60 transition-colors duration-300 scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-sm font-black text-[#0D5BFF] uppercase tracking-[0.3em] mb-3">Common Concerns</h2>
@@ -1301,7 +1299,7 @@ export default function Home() {
       </section>
 
       {/* SEO Directory & Academic Curriculums across Bangladesh */}
-      <section className="py-16 sm:py-24 bg-slate-50/70 dark:bg-[#111A2E]/50 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300" id="curriculums">
+      <section className="relative z-10 py-16 sm:py-24 bg-slate-50/20 dark:bg-[#111A2E]/25 border-t border-slate-100/80 dark:border-slate-800/60 transition-colors duration-300" id="curriculums">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Header */}
@@ -1447,7 +1445,7 @@ export default function Home() {
       </section>
 
       {/* Footer CTA */}
-      <section className="py-16 sm:py-20 bg-white dark:bg-[#0B132B] transition-colors duration-300">
+      <section className="relative z-10 py-16 sm:py-20 bg-white/20 dark:bg-transparent transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-[#0B132B] rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0D5BFF]/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
@@ -1494,7 +1492,7 @@ export default function Home() {
       </section>
 
       {/* Footer Section */}
-      <footer className="bg-white dark:bg-[#0B132B] border-t border-slate-100 dark:border-slate-800/60 py-14 px-4 md:px-0 transition-colors duration-300">
+      <footer className="relative z-10 bg-white/85 dark:bg-[#0B132B]/90 border-t border-slate-100 dark:border-slate-800/60 py-14 px-4 md:px-0 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-10 mb-14">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-3 mb-4 select-none group w-fit">
