@@ -288,13 +288,13 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
           )}
 
           {canEdit && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() =>
                   handlePresetApply(['17:00', '18:00', '19:00', '20:00'], 'Evening Peak (5–8 PM)')
                 }
-                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                className="min-h-[40px] px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                 title="Select 5 PM - 8 PM across all 7 days"
               >
                 <Sparkles className="w-3 h-3" />
@@ -304,7 +304,7 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  className="min-h-[40px] px-3 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                   title="Clear all selected slots"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -418,7 +418,7 @@ export const WeeklyAvailabilityCalendar: React.FC<WeeklyAvailabilityCalendarProp
                         key={slotId}
                         type="button"
                         onClick={() => handleSlotClick(currentDayObj.key, t.hour)}
-                        className={`py-2 px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-between cursor-pointer ${
+                        className={`min-h-[42px] py-2.5 px-2.5 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
                             : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-[#0F172A] dark:text-slate-200 hover:border-indigo-400'

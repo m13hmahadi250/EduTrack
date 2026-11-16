@@ -159,7 +159,10 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
               className="w-full h-full object-cover rounded-[2.2rem]"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 rounded-[2.2rem]">
+            <div className="sm:hidden absolute bottom-1.5 right-1.5 w-8 h-8 rounded-full bg-[#0D5BFF] text-white shadow-md flex items-center justify-center border-2 border-white dark:border-[#111A2E]">
+              <Camera className="w-3.5 h-3.5" />
+            </div>
+            <div className="hidden sm:flex absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center gap-3 rounded-[2.2rem]">
                <Camera className="w-5 h-5 text-white hover:scale-110 transition-transform" />
                {onDelete && (
                  <button
@@ -168,7 +171,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
                       e.stopPropagation();
                       onDelete();
                     }}
-                    className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                    className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all hover:scale-110 min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="Delete Photo"
                  >
                     <Trash2 className="w-4 h-4" />
@@ -204,7 +207,7 @@ export default function ImageUpload({ currentImageUrl, onUpload, onDelete }: Ima
             e.stopPropagation();
             onDelete();
           }}
-          className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 active:scale-95 transition-all mt-1 cursor-pointer bg-transparent border-0 p-1.5 min-h-[36px]"
+          className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 active:scale-95 transition-all mt-1 cursor-pointer bg-transparent border-0 px-3 min-h-[44px]"
         >
           <Trash2 className="w-3.5 h-3.5" />
           Remove Photo

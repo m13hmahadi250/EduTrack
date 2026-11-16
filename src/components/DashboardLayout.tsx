@@ -22,7 +22,7 @@ import {
   Moon,
   Wallet
 } from 'lucide-react';
-import { useBackHandler } from '../utils/mobileWebView';
+import { useBackHandler, useVirtualKeyboardOpen } from '../utils/mobileWebView';
 
 const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, theme, toggleTheme, messages } = useAppStore();
@@ -30,6 +30,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isKeyboardOpen = useVirtualKeyboardOpen();
   useBackHandler(isMobileMenuOpen, () => setIsMobileMenuOpen(false), 'dashboard-drawer');
 
   const isTutor = currentUser?.role === 'tutor';
@@ -143,7 +144,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <div 
-            className="w-full max-h-[85vh] bg-white dark:bg-[#111A2E] rounded-t-3xl shadow-2xl transition-transform duration-200 overflow-hidden flex flex-col border-t border-slate-100 dark:border-slate-800" 
+            className="w-full max-h-[85dvh] pb-safe bg-white dark:bg-[#111A2E] rounded-t-3xl shadow-2xl transition-transform duration-200 overflow-hidden flex flex-col border-t border-slate-100 dark:border-slate-800" 
             onClick={e => e.stopPropagation()}
           >
              {/* Mobile Sheet Drag Handle */}
@@ -177,11 +178,12 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       )}
 
       {/* Main App Content View Container */}
-      <main className="flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip pb-24 lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0">
+      <main className={`flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip ${isKeyboardOpen ? 'pb-4' : 'pb-24'} lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0`}>
         {children}
       </main>
 
-      {/* Native Mobile App Bottom Dock Tab Bar */}
+      {/* Native Mobile App Bottom Dock Tab Bar (hidden while typing to avoid covering forms) */}
+      {!isKeyboardOpen && (
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800/80 p-1.5 pb-safe pt-2 px-3 z-40 flex justify-around items-center shadow-[0_-8px_24px_rgba(0,0,0,0.08)] transition-colors duration-200">
         {navItems.map((item) => {
           const active = isActive(item.path);
@@ -223,6 +225,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
           );
         })}
       </div>
+      )}
 
       <div className="hidden lg:block">
         <NotificationCenter />

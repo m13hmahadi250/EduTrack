@@ -36,6 +36,7 @@ import {
 } from '../data/bangladeshData';
 import OtpVerificationModal from '../components/OtpVerificationModal';
 import SEOHead from '../components/SEOHead';
+import { scrollFieldIntoView } from '../utils/mobileWebView';
 
 /**
  * Normalizes Bangladeshi mobile numbers:
@@ -857,7 +858,7 @@ export default function Signup() {
         keywords="tutor registration bangladesh, find tutor signup, join edutrack, tuition media registration bd, private tutor register"
         canonicalUrl="https://edutrackbd.vercel.app/signup"
       />
-      <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-6 sm:p-10 relative overflow-hidden">
+      <div className="w-full max-w-2xl bg-white dark:bg-[#111A2E] rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-4 sm:p-10 relative overflow-hidden">
         {loading ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -897,7 +898,7 @@ export default function Signup() {
         ) : (
           <>
             <button
-              className="absolute top-6 right-6 sm:top-8 sm:right-8 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              className="absolute top-4 right-4 sm:top-8 sm:right-8 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
               onClick={() => navigate('/')}
               aria-label="Close"
             >
@@ -1125,7 +1126,7 @@ export default function Signup() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5"
+                  className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-4 sm:p-6 rounded-2xl space-y-5"
                 >
                   <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
                     <div className="flex items-center justify-between">
@@ -1188,8 +1189,9 @@ export default function Signup() {
                             required
                             value={formData.guardianRelationship || ''}
                             onChange={handleInputChange}
+                            onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                             onBlur={handleBlur}
-                            className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all duration-200 appearance-none cursor-pointer ${
+                            className={`w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all duration-200 appearance-none cursor-pointer ${
                               touched.guardianRelationship && errors.guardianRelationship
                                 ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600'
                                 : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-emerald-600'
@@ -1243,8 +1245,9 @@ export default function Signup() {
                           required
                           value={formData.gender || ''}
                           onChange={handleInputChange}
+                          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                           onBlur={handleBlur}
-                          className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all duration-200 appearance-none cursor-pointer ${
+                          className={`w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all duration-200 appearance-none cursor-pointer ${
                             touched.gender && errors.gender
                               ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600'
                               : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-[#0D5BFF]'
@@ -1281,7 +1284,7 @@ export default function Signup() {
 
                       {/* Smart Same-as-WhatsApp Checkbox */}
                       <div className="pt-1">
-                        <label className="flex items-start gap-3 cursor-pointer select-none group">
+                        <label className="flex items-start gap-3 min-h-[44px] py-1 cursor-pointer select-none group">
                           <input
                             type="checkbox"
                             checked={sameAsMobile}
@@ -1296,7 +1299,7 @@ export default function Signup() {
                                 setErrors((prev) => ({ ...prev, whatsappNumber: '' }));
                               }
                             }}
-                            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF] cursor-pointer"
+                            className="mt-0.5 w-5 h-5 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF] cursor-pointer shrink-0"
                           />
                           <div className="flex-1">
                             <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400 transition-colors">
@@ -1373,7 +1376,7 @@ export default function Signup() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5"
+                  className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-4 sm:p-6 rounded-2xl space-y-5"
                 >
                   <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
                     <div className="flex items-center justify-between">
@@ -1408,7 +1411,8 @@ export default function Signup() {
                           name="division"
                           value={formData.division || ''}
                           onChange={handleInputChange}
-                          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-[#0D5BFF] text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer"
+                          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                          className="w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-[#0D5BFF] text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer"
                         >
                           <option value="">All Divisions (Bangladesh)</option>
                           {BANGLADESH_DIVISIONS.map((div) => (
@@ -1441,8 +1445,9 @@ export default function Signup() {
                           required
                           value={formData.district || ''}
                           onChange={handleInputChange}
+                          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                           onBlur={handleBlur}
-                          className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer ${
+                          className={`w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer ${
                             touched.district && errors.district
                               ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20'
                               : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-[#0D5BFF]'
@@ -1482,8 +1487,9 @@ export default function Signup() {
                           disabled={!formData.district}
                           value={formData.thana || ''}
                           onChange={handleInputChange}
+                          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                           onBlur={handleBlur}
-                          className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer ${
+                          className={`w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer ${
                             !formData.district
                               ? 'opacity-60 bg-slate-100 dark:bg-slate-800 cursor-not-allowed'
                               : ''
@@ -1549,7 +1555,7 @@ export default function Signup() {
                   transition={{ duration: 0.2 }}
                   className="space-y-5"
                 >
-                  <div className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 sm:p-6 rounded-2xl space-y-5">
+                  <div className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-4 sm:p-6 rounded-2xl space-y-5">
                     <div className="border-b border-slate-200/80 dark:border-slate-800 pb-3 space-y-1">
                       <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         {role === 'student' ? (
@@ -1691,7 +1697,8 @@ export default function Signup() {
                                 name="teachingMode"
                                 value={formData.teachingMode || 'Home & Online'}
                                 onChange={handleInputChange}
-                                className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-amber-500 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer"
+                                onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                                className="w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 focus:border-amber-500 text-sm font-semibold text-slate-900 dark:text-white pl-4 pr-10 py-3 rounded-xl focus:outline-none transition-all appearance-none cursor-pointer"
                               >
                                 <option value="Home & Online">Home &amp; Online Tutoring</option>
                                 <option value="Home Tutoring">Home Tutoring Only</option>
@@ -1715,6 +1722,7 @@ export default function Signup() {
                             label="Expected Monthly Salary (BDT ৳) (Optional)"
                             name="hourlyRate"
                             type="number"
+                            inputMode="numeric"
                             onChange={handleInputChange}
                             onBlur={handleBlur}
                             placeholder="e.g. 5000"
@@ -1738,7 +1746,7 @@ export default function Signup() {
                   </div>
 
                   {/* Referral Option */}
-                  <div className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-5 rounded-2xl space-y-2.5">
+                  <div className="border border-slate-200 dark:border-slate-700/90 bg-slate-50/70 dark:bg-slate-900/50 p-4 sm:p-5 rounded-2xl space-y-2.5">
                     <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                       <Award className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       Referral Code (Optional)
@@ -1748,6 +1756,7 @@ export default function Signup() {
                         type="text"
                         placeholder="Enter referral code if invited (e.g. EDU-XXXX)"
                         value={referralCodeInput}
+                        onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                         onChange={(e) => setReferralCodeInput(e.target.value)}
                         className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-all"
                       />
@@ -1767,7 +1776,7 @@ export default function Signup() {
                   <button
                     type="button"
                     onClick={handlePrevStep}
-                    className="px-5 py-3.5 rounded-xl border-2 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-2 cursor-pointer"
+                    className="min-h-[44px] px-4 sm:px-5 py-3.5 rounded-xl border-2 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Back</span>
@@ -1780,7 +1789,7 @@ export default function Signup() {
                   <button
                     type="button"
                     onClick={handleNextStep}
-                    className={`px-7 py-3.5 text-white rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer ${
+                    className={`min-h-[44px] px-5 sm:px-7 py-3.5 text-white rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer ${
                       role === 'student'
                         ? 'bg-[#0D5BFF] hover:bg-blue-700'
                         : 'bg-amber-500 hover:bg-amber-600'
@@ -1794,7 +1803,7 @@ export default function Signup() {
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={loading}
-                    className={`flex-1 sm:flex-initial sm:min-w-[240px] px-8 py-4 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
+                    className={`flex-1 sm:flex-initial sm:min-w-[240px] min-h-[48px] px-5 sm:px-8 py-3.5 sm:py-4 text-white rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer ${
                       role === 'student'
                         ? 'bg-[#0D5BFF] hover:bg-blue-700 shadow-[#0d5bff]/25'
                         : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
@@ -1953,6 +1962,7 @@ function Input({
   error,
   helperText,
   autoComplete,
+  inputMode,
 }: {
   label: string;
   type?: string;
@@ -1966,6 +1976,7 @@ function Input({
   helperText?: string;
   accentColor?: string;
   autoComplete?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const isPasswordType = type === 'password';
@@ -1992,10 +2003,12 @@ function Input({
           required={required}
           value={value}
           onChange={onChange}
+          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
           onBlur={onBlur}
           autoComplete={autoComplete}
+          inputMode={inputMode}
           placeholder={placeholder}
-          className={`w-full bg-white dark:bg-slate-900 border-2 text-sm font-medium text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none transition-all duration-200 ${
+          className={`w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 text-sm font-medium text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none transition-all duration-200 ${
             hasError
               ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 focus:border-rose-600 focus:ring-2 focus:ring-rose-500/20'
               : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 focus:border-[#0D5BFF] dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15'
@@ -2006,8 +2019,9 @@ function Input({
             type="button"
             id={`toggle-${name}-visibility`}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white focus:outline-none flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
             title={showPassword ? 'Hide Password' : 'Show Password'}
+            aria-label={showPassword ? 'Hide Password' : 'Show Password'}
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>

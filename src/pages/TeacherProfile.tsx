@@ -6,7 +6,7 @@ import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
 import { formatUserFriendlyError } from '../lib/errorMonitoring';
-import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
+import { useBackHandler, scrollFieldIntoView, useVirtualKeyboardOpen } from '../utils/mobileWebView';
 import {
   canUnlockTutorContact,
   getViewerTutorBookingStatus,
@@ -92,6 +92,7 @@ export default function TeacherProfile() {
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('');
 
   useBackHandler(showBookingModal, () => setShowBookingModal(false), 'teacher-booking-modal');
+  const isKeyboardOpen = useVirtualKeyboardOpen();
 
   const viewerContext = useMemo(
     () => (currentUser ? { id: currentUser.id, role: currentUser.role } : null),
@@ -891,7 +892,7 @@ export default function TeacherProfile() {
                   return (
                     <div
                       key={day}
-                      className={`min-w-0 flex flex-col items-center justify-center rounded-xl py-2 px-1 border text-center transition-colors ${
+                      className={`min-w-0 flex flex-col items-center justify-center rounded-xl py-2 px-0.5 sm:px-1 border text-center transition-colors ${
                         hasSlots
                           ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70'
                           : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200/70 dark:border-slate-800 opacity-75'
@@ -1190,7 +1191,7 @@ export default function TeacherProfile() {
       </div>
 
       {/* Mobile Sticky Bottom Action Bar (320px–767px) */}
-      {!isOwner && (
+      {!isOwner && !isKeyboardOpen && !showBookingModal && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-4 py-3 pb-safe shadow-[0_-6px_24px_rgba(11,19,43,0.08)]">
           <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -1271,7 +1272,7 @@ export default function TeacherProfile() {
                 <button
                   type="button"
                   onClick={() => setShowBookingModal(false)}
-                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0"
                   aria-label="Close booking dialog"
                 >
                   <X className="w-5 h-5" />

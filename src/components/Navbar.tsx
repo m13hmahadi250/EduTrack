@@ -105,17 +105,17 @@ const Navbar = memo(() => {
 
   return (
     <nav className="sticky top-0 z-50 bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800/70 text-[#0B132B] dark:text-slate-100 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 sm:h-[72px]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 sm:h-[72px] gap-1.5">
           {/* Left: Original EduTrack Logo & Brand Title */}
           <div className="flex items-center shrink-0">
             <Link
               to="/"
               onClick={(e) => handleSectionNavigation(e, '#top')}
-              className="flex items-center space-x-2.5 group rounded-xl py-1 pr-1.5 transition-colors duration-200"
+              className="flex items-center space-x-2 sm:space-x-2.5 group rounded-xl py-1 pr-1 sm:pr-1.5 transition-colors duration-200"
             >
-              <Logo className="w-9 h-9 sm:w-10 sm:h-10 group-hover:shadow-md group-hover:shadow-blue-500/20" />
-              <span className="text-xl sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
+              <Logo className="w-8 h-8 sm:w-10 sm:h-10 group-hover:shadow-md group-hover:shadow-blue-500/20" />
+              <span className="text-lg sm:text-2xl font-black font-heading text-[#0B132B] dark:text-white tracking-tight select-none transition-colors duration-200 group-hover:text-[#0D5BFF] dark:group-hover:text-blue-400">
                 EduTrack
               </span>
             </Link>
@@ -200,10 +200,10 @@ const Navbar = memo(() => {
           </div>
 
           {/* Right: Dashboard & User Profile Controls / Auth Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
             <button
               onClick={toggleTheme}
-              className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors duration-150 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer active:scale-95"
+              className="min-w-[44px] min-h-[44px] p-2 sm:p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors duration-150 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center cursor-pointer active:scale-95"
               aria-label="Toggle Theme"
               title="Toggle Theme"
             >
@@ -215,7 +215,7 @@ const Navbar = memo(() => {
             </button>
 
             {currentUser ? (
-              <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="flex items-center space-x-1.5 sm:space-x-3">
                 <Link
                   to="/messages"
                   onMouseEnter={() => prefetchPage('Messages')}
@@ -246,10 +246,11 @@ const Navbar = memo(() => {
                     if (currentUser?.role === 'tutor') prefetchPage('TutorDashboard');
                     if (currentUser?.role === 'student') prefetchPage('StudentDashboard');
                   }}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] hover:text-[#0D5BFF] dark:hover:border-blue-400 transition-colors transition-transform duration-150 active:scale-[0.98] shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 min-h-[44px] rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] hover:text-[#0D5BFF] dark:hover:border-blue-400 transition-colors transition-transform duration-150 active:scale-[0.98] shadow-2xs"
+                  aria-label="Dashboard"
                 >
-                  <LayoutGrid className="w-4 h-4 text-[#0B132B] dark:text-slate-200" />
-                  <span>Dashboard</span>
+                  <LayoutGrid className="w-4 h-4 text-[#0B132B] dark:text-slate-200 shrink-0" />
+                  <span className="hidden min-[380px]:inline">Dashboard</span>
                 </Link>
 
                 <div className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-slate-700" />
@@ -259,7 +260,7 @@ const Navbar = memo(() => {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="flex items-center gap-2.5 py-1 px-1.5 rounded-full hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors duration-150 cursor-pointer"
+                    className="flex items-center gap-1.5 sm:gap-2.5 min-h-[44px] py-1 px-1 sm:px-1.5 rounded-full hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors duration-150 cursor-pointer"
                     aria-expanded={profileMenuOpen}
                     aria-haspopup="true"
                   >
@@ -357,13 +358,13 @@ const Navbar = memo(() => {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="flex items-center space-x-1.5 sm:space-x-3">
                 <Link
                   id="sign-in-button"
                   to="/login"
                   onMouseEnter={() => prefetchPage('Login')}
                   onFocus={() => prefetchPage('Login')}
-                  className="bg-[#0D5BFF] hover:bg-blue-700 text-white px-4 sm:px-5 min-h-[44px] inline-flex items-center justify-center rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.98]"
+                  className="bg-[#0D5BFF] hover:bg-blue-700 text-white px-3 sm:px-5 min-h-[44px] inline-flex items-center justify-center rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.98] whitespace-nowrap"
                 >
                   Sign In
                 </Link>
@@ -389,7 +390,7 @@ const Navbar = memo(() => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden bg-white dark:bg-[#0B132B] border-b border-slate-200 dark:border-slate-800 px-5 py-5 shadow-xl"
+            className="md:hidden max-h-[calc(100dvh-4.5rem)] overflow-y-auto bg-white dark:bg-[#0B132B] border-b border-slate-200 dark:border-slate-800 px-4 sm:px-5 py-4 sm:py-5 shadow-xl"
           >
             <div className="flex flex-col space-y-2.5 font-sans">
               <Link

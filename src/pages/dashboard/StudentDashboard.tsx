@@ -458,6 +458,7 @@ export default function StudentDashboard() {
   const [showProfileNotice, setShowProfileNotice] = useState(true);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+  const [confirmEndSessionId, setConfirmEndSessionId] = useState<string | null>(null);
 
   const effectiveStudentLocation = useMemo<[number, number]>(() => {
     if (currentUser?.location?.lat && currentUser?.location?.lng) {
@@ -998,6 +999,21 @@ export default function StudentDashboard() {
     windowWidth <= 1024 && Boolean(selectedTutor) && !showFilters,
     () => setSelectedTutor(null),
     'student-mobile-tutor-detail',
+  );
+  useBackHandler(isChildModalOpen, () => setIsChildModalOpen(false), 'student-child-modal');
+  useBackHandler(showLocationDeniedModal, () => setShowLocationDeniedModal(false), 'student-location-modal');
+  useBackHandler(
+    Boolean(viewingProfileUser),
+    () => {
+      setViewingProfileUser(null);
+      setViewingProfileSession(null);
+    },
+    'student-viewing-profile-modal',
+  );
+  useBackHandler(
+    Boolean(pendingRatingSession),
+    () => setPendingRatingSession(null),
+    'student-rating-modal',
   );
 
 
@@ -1646,15 +1662,15 @@ export default function StudentDashboard() {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-rose-500 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200 group"
+                className="bg-rose-500 rounded-3xl sm:rounded-[3rem] p-5 sm:p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200 group"
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-md">
-                      <Play className="w-8 h-8 text-white fill-white animate-pulse" />
+                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 sm:gap-8">
+                  <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 rounded-2xl sm:rounded-3xl flex items-center justify-center backdrop-blur-md shrink-0">
+                      <Play className="w-7 h-7 sm:w-8 sm:h-8 text-white fill-white animate-pulse" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-100">Live Operation In Progress</span>
                         <div className="flex h-2 w-2 relative">
@@ -1662,7 +1678,7 @@ export default function StudentDashboard() {
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                         </div>
                       </div>
-                      <h3 className="text-3xl font-black uppercase italic leading-tight">
+                      <h3 className="text-xl sm:text-3xl font-black uppercase italic leading-tight break-words">
                         Session with {users.find(u => u.id === activeSession.tutorId)?.name || 'Expert'}
                       </h3>
                       <p className="text-[10px] font-bold text-rose-100 uppercase tracking-widest mt-2">
@@ -1670,28 +1686,28 @@ export default function StudentDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button 
                       onClick={() => handleTabChange('transit')}
-                      className="px-8 py-4 bg-white text-rose-500 rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-rose-900/20 flex items-center gap-2 group/btn"
+                      className="min-h-[44px] w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-rose-500 rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-rose-900/20 flex items-center justify-center gap-2 group/btn cursor-pointer"
                     >
-                      <MapPin className="w-4 h-4" />
+                      <MapPin className="w-4 h-4 shrink-0" />
                       <span>Track Expert Location</span>
-                      <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform shrink-0" />
                     </button>
                     {activeSession.meetingLink && (
                       <a 
                         href={activeSession.meetingLink}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-8 py-4 bg-[#0B132B] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-black transition-all shadow-xl shadow-rose-900/20"
+                        className="min-h-[44px] w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-[#0B132B] text-white rounded-2xl text-[10px] font-black uppercase italic tracking-widest hover:bg-black transition-all shadow-xl shadow-rose-900/20 text-center flex items-center justify-center"
                       >
                         Join Digital Classroom
                       </a>
                     )}
                   </div>
                 </div>
-                <div className="mt-8 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-6">
                   <div className="flex items-start sm:items-center gap-4">
                     <div className="p-3 bg-white/15 rounded-2xl shrink-0">
                       <ShieldAlert className="w-6 h-6 text-white" />
@@ -1701,7 +1717,7 @@ export default function StudentDashboard() {
                       <p className="text-[10px] text-rose-100 mt-1 max-w-xl leading-relaxed">Your tutor cannot mark this session as completed on their dashboard without your active permission.</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto shrink-0">
                     {activeSession.tutorRequestedEnd && !activeSession.studentPermissionGranted && (
                       <span className="text-[11px] bg-yellow-400 text-slate-900 px-3 py-1 rounded-lg font-black uppercase tracking-wider shadow-xs">
                         Tutor Requested
@@ -1709,7 +1725,7 @@ export default function StudentDashboard() {
                     )}
                     <button
                       onClick={() => grantEndPermission(activeSession.id, !activeSession.studentPermissionGranted)}
-                      className={`w-full sm:w-auto px-6 py-4.5 rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
+                      className={`min-h-[44px] w-full sm:w-auto px-5 sm:px-6 py-3.5 rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
                         activeSession.studentPermissionGranted 
                           ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' 
                           : 'bg-[#0B132B] text-white hover:bg-slate-900 shadow-black/20'
@@ -1728,28 +1744,48 @@ export default function StudentDashboard() {
                       )}
                     </button>
 
-                    <button
-                      onClick={async () => {
-                        if (window.confirm("Are you sure you want to end and complete this tutoring session now?")) {
-                          try {
-                            await grantEndPermission(activeSession.id, true);
-                            await endSession(activeSession.id);
-                            useAppStore.getState().sendNotification(
-                              currentUser.id,
-                              'Session Completed',
-                              'You have successfully ended and marked this session as completed.',
-                              'success'
-                            );
-                          } catch (err) {
-                            console.error('Failed to end session:', err);
-                          }
-                        }
-                      }}
-                      className="w-full sm:w-auto px-6 py-4.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer shadow-rose-900/20"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>End Session</span>
-                    </button>
+                    {confirmEndSessionId === activeSession.id ? (
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await grantEndPermission(activeSession.id, true);
+                              await endSession(activeSession.id);
+                              setConfirmEndSessionId(null);
+                              useAppStore.getState().sendNotification(
+                                currentUser.id,
+                                'Session Completed',
+                                'You have successfully ended and marked this session as completed.',
+                                'success'
+                              );
+                            } catch (err) {
+                              console.error('Failed to end session:', err);
+                              setConfirmEndSessionId(null);
+                            }
+                          }}
+                          className="min-h-[44px] flex-1 sm:flex-initial px-4 py-3 bg-white text-rose-600 hover:bg-rose-50 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-xl cursor-pointer"
+                        >
+                          Confirm End
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmEndSessionId(null)}
+                          className="min-h-[44px] px-4 py-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmEndSessionId(activeSession.id)}
+                        className="min-h-[44px] w-full sm:w-auto px-5 sm:px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[9px] font-black uppercase italic tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer shadow-rose-900/20"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>End Session</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -3936,7 +3972,7 @@ export default function StudentDashboard() {
             )}
 
             {isEditingAccount ? (
-              <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-6">
+              <form onSubmit={handleAccountUpdate} className="grid md:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-2">
                     {effectiveAccountType === 'guardian' ? 'Guardian Full Name *' : 'Student Full Name *'}
@@ -3944,8 +3980,9 @@ export default function StudentDashboard() {
                   <input
                     id="account-field-name"
                     value={accountForm.name}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                     placeholder="Enter full name"
                   />
                 </div>
@@ -3955,9 +3992,13 @@ export default function StudentDashboard() {
                   </label>
                   <input
                     id="account-field-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     value={accountForm.phone}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                     placeholder="01XXXXXXXXX"
                   />
                 </div>
@@ -3970,8 +4011,9 @@ export default function StudentDashboard() {
                     <select
                       id="account-field-relationship"
                       value={accountForm.guardianRelationship}
+                      onFocus={scrollFieldIntoView}
                       onChange={(e) => setAccountForm({ ...accountForm, guardianRelationship: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                      className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                     >
                       <option value="">Select Relationship</option>
                       <option value="Mother">Mother</option>
@@ -3989,8 +4031,9 @@ export default function StudentDashboard() {
                   </label>
                   <select
                     value={accountForm.gender}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, gender: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                   >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
@@ -4005,8 +4048,9 @@ export default function StudentDashboard() {
                   <select
                     id="account-field-district"
                     value={accountForm.district}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, district: e.target.value, thana: '' })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                   >
                     <option value="">Select District</option>
                     {BANGLADESH_DISTRICTS.map((dist) => (
@@ -4022,8 +4066,9 @@ export default function StudentDashboard() {
                   <select
                     value={accountForm.thana}
                     disabled={!accountForm.district}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, thana: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF] disabled:opacity-50"
                   >
                     <option value="">{accountForm.district ? 'Select Thana' : 'Select District First'}</option>
                     {accountForm.district && BANGLADESH_THANAS[accountForm.district]?.map((th) => (
@@ -4039,8 +4084,9 @@ export default function StudentDashboard() {
                   <input
                     id="account-field-area"
                     value={accountForm.area}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, area: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                     placeholder="e.g. Dhanmondi 15, Mirpur 10"
                   />
                 </div>
@@ -4052,8 +4098,9 @@ export default function StudentDashboard() {
                   <input
                     id="account-field-address"
                     value={accountForm.address}
+                    onFocus={scrollFieldIntoView}
                     onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                     placeholder="e.g. House 14, Road 8, Dhanmondi, Dhaka"
                   />
                 </div>
@@ -4067,8 +4114,9 @@ export default function StudentDashboard() {
                       <input
                         id="account-field-school"
                         value={accountForm.school}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setAccountForm({ ...accountForm, school: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                        className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                         placeholder="e.g. Viqarunnisa Noon School & College"
                       />
                     </div>
@@ -4079,8 +4127,9 @@ export default function StudentDashboard() {
                       <select
                         id="account-field-class"
                         value={accountForm.studentClass}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setAccountForm({ ...accountForm, studentClass: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                        className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                       >
                         <option value="">Select Class</option>
                         {AVAILABLE_CLASSES.map((cls) => (
@@ -4095,8 +4144,9 @@ export default function StudentDashboard() {
                       <input
                         id="account-field-curriculum"
                         value={accountForm.curriculum}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setAccountForm({ ...accountForm, curriculum: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                        className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                         placeholder="e.g. Bangla Medium (Science), English Version"
                       />
                     </div>
@@ -4430,18 +4480,24 @@ export default function StudentDashboard() {
 
             {/* Guardian Add / Edit Child Modal */}
             {isChildModalOpen && (
-              <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="w-full max-w-lg bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-2xl space-y-5">
-                  <div className="flex items-center justify-between">
+              <div
+                className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setIsChildModalOpen(false);
+                }}
+              >
+                <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white dark:bg-[#111A2E] rounded-3xl border border-slate-200 dark:border-slate-700 p-5 sm:p-8 shadow-2xl space-y-5">
+                  <div className="flex items-center justify-between gap-2">
                     <h4 className="text-lg font-black text-[#0B132B] dark:text-white">
                       {editingChildId ? 'Edit Student Profile' : 'Add Linked Student Profile'}
                     </h4>
                     <button
                       type="button"
                       onClick={() => setIsChildModalOpen(false)}
-                      className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 cursor-pointer"
+                      aria-label="Close student modal"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 cursor-pointer shrink-0"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
 
@@ -4458,9 +4514,10 @@ export default function StudentDashboard() {
                       </label>
                       <input
                         value={childForm.studentName}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setChildForm({ ...childForm, studentName: e.target.value })}
                         placeholder="e.g. Aayan Rahman"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                        className="w-full min-h-[44px] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
                       />
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
@@ -4470,8 +4527,9 @@ export default function StudentDashboard() {
                         </label>
                         <select
                           value={childForm.studentClass}
+                          onFocus={scrollFieldIntoView}
                           onChange={(e) => setChildForm({ ...childForm, studentClass: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                          className="w-full min-h-[44px] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
                         >
                           <option value="">Select Class</option>
                           {AVAILABLE_CLASSES.map((cls) => (
@@ -4485,9 +4543,10 @@ export default function StudentDashboard() {
                         </label>
                         <input
                           value={childForm.curriculum}
+                          onFocus={scrollFieldIntoView}
                           onChange={(e) => setChildForm({ ...childForm, curriculum: e.target.value })}
                           placeholder="e.g. English Version"
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                          className="w-full min-h-[44px] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
                         />
                       </div>
                     </div>
@@ -4497,9 +4556,10 @@ export default function StudentDashboard() {
                       </label>
                       <input
                         value={childForm.school}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setChildForm({ ...childForm, school: e.target.value })}
                         placeholder="e.g. Scholastica"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                        className="w-full min-h-[44px] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
                       />
                     </div>
                     <div>
@@ -4508,23 +4568,24 @@ export default function StudentDashboard() {
                       </label>
                       <input
                         value={childForm.subjectsText}
+                        onFocus={scrollFieldIntoView}
                         onChange={(e) => setChildForm({ ...childForm, subjectsText: e.target.value })}
                         placeholder="e.g. Mathematics, Science, English"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
+                        className="w-full min-h-[44px] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-semibold text-[#0B132B] dark:text-white"
                       />
                     </div>
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => setIsChildModalOpen(false)}
-                        className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                        className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={isSavingChild}
-                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                        className="min-h-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
                       >
                         {isSavingChild ? 'Saving...' : editingChildId ? 'Save Student' : 'Create Student Profile'}
                       </button>
@@ -4608,7 +4669,7 @@ export default function StudentDashboard() {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-md w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative overflow-hidden"
+              className="bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto border border-slate-100 dark:border-slate-800 shadow-2xl relative"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-rose-500/10 to-transparent rounded-full -mr-16 -mt-16 pointer-events-none" />
               
@@ -4637,7 +4698,7 @@ export default function StudentDashboard() {
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
                     onClick={() => setShowLocationDeniedModal(false)}
-                    className="w-full sm:flex-1 py-4 bg-[#0B132B] hover:bg-slate-800 text-white dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
+                    className="w-full sm:flex-1 min-h-[44px] py-3.5 bg-[#0B132B] hover:bg-slate-800 text-white dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
                   >
                     Cancel
                   </button>
@@ -4652,7 +4713,7 @@ export default function StudentDashboard() {
                         "success"
                       );
                     }}
-                    className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
+                    className="w-full sm:flex-1 min-h-[44px] py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer text-center"
                   >
                     Simulate Demo Loc
                   </button>
@@ -4661,7 +4722,7 @@ export default function StudentDashboard() {
                       setShowLocationDeniedModal(false);
                       refreshLocationManual();
                     }}
-                    className="w-full sm:w-auto py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer italic text-center"
+                    className="w-full sm:w-auto min-h-[44px] py-3.5 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 duration-200 cursor-pointer italic text-center"
                   >
                     Retry GPS
                   </button>
@@ -4678,22 +4739,30 @@ export default function StudentDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewingProfileUser(null);
+                setViewingProfileSession(null);
+              }
+            }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[3rem] w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
             >
-              <div className="bg-gradient-to-r from-indigo-900 to-indigo-950 p-6 sm:p-10 text-white relative shrink-0">
+              <div className="bg-gradient-to-r from-indigo-900 to-indigo-950 p-5 sm:p-10 text-white relative shrink-0">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <button
+                  type="button"
                   onClick={() => {
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}
-                  className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                  aria-label="Close tutor profile modal"
+                  className="absolute top-3.5 right-3.5 sm:top-6 sm:right-6 min-w-[44px] min-h-[44px] w-11 h-11 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

@@ -251,7 +251,7 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-[#111A2E] rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border border-slate-200 dark:border-slate-700"
+              className="bg-white dark:bg-[#111A2E] rounded-3xl p-5 sm:p-8 max-w-sm w-full max-h-[90dvh] overflow-y-auto shadow-2xl text-center border border-slate-200 dark:border-slate-700"
             >
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/30 rounded-full flex items-center justify-center mx-auto mb-5">
                 <ShieldAlert className="w-8 h-8 text-rose-500 animate-pulse" />
@@ -274,7 +274,7 @@ export default function Login() {
                     setResetSuccess('');
                     setShowForgotPassword(true);
                   }}
-                  className="w-full py-3.5 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-md cursor-pointer"
+                  className="w-full min-h-[44px] py-3.5 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-md cursor-pointer"
                 >
                   Reset Forgotten Password
                 </button>
@@ -285,7 +285,7 @@ export default function Login() {
                     setShowInvalidCredPopup(false);
                     navigate('/signup');
                   }}
-                  className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="w-full min-h-[44px] py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Create New Account
                 </button>
@@ -293,7 +293,7 @@ export default function Login() {
                   type="button"
                   id="close-invalid-cred-popup-btn"
                   onClick={() => setShowInvalidCredPopup(false)}
-                  className="w-full py-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="w-full min-h-[44px] py-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Try Again
                 </button>
@@ -319,13 +319,14 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-[#111A2E] rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700 relative"
+              className="bg-white dark:bg-[#111A2E] rounded-3xl p-5 sm:p-8 max-w-sm w-full max-h-[90dvh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700 relative"
             >
               <button
                 type="button"
                 id="forgot-password-close-icon-btn"
-                className="absolute top-6 right-6 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 onClick={() => setShowForgotPassword(false)}
+                aria-label="Close password reset dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -411,7 +412,7 @@ export default function Login() {
                     type="button"
                     id="forgot-password-cancel-btn"
                     onClick={() => setShowForgotPassword(false)}
-                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                    className="flex-1 min-h-[44px] py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
@@ -419,7 +420,7 @@ export default function Login() {
                     type="submit"
                     id="forgot-password-submit-btn"
                     disabled={resetLoading}
-                    className="flex-1 py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors shadow-md disabled:opacity-50"
+                    className="flex-1 min-h-[44px] py-3 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors shadow-md disabled:opacity-50"
                   >
                     {resetLoading ? 'Sending...' : 'Send Link'}
                   </button>
@@ -434,7 +435,7 @@ export default function Login() {
         initial={{ opacity: 0, scale: 0.98, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="w-full max-w-[460px] bg-white dark:bg-[#111A2E] rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-7 sm:p-9 relative overflow-hidden"
+        className="w-full max-w-[460px] bg-white dark:bg-[#111A2E] rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-5 sm:p-9 relative overflow-hidden"
       >
         {loading ? (
           <motion.div
@@ -475,7 +476,7 @@ export default function Login() {
         ) : (
           <>
             <button
-              className="absolute top-6 right-6 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white z-10 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
               onClick={() => navigate('/')}
               aria-label="Close"
             >
@@ -597,7 +598,7 @@ export default function Login() {
                       setResetSuccess('');
                       setShowForgotPassword(true);
                     }}
-                    className="text-xs font-bold text-[#0D5BFF] hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer"
+                    className="min-h-[44px] inline-flex items-center text-xs font-bold text-[#0D5BFF] hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer px-1"
                   >
                     Forgot password?
                   </button>
@@ -624,8 +625,9 @@ export default function Login() {
                     type="button"
                     id="toggle-login-password-visibility"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white focus:outline-none flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white focus:outline-none flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     title={showPassword ? 'Hide Password' : 'Show Password'}
+                    aria-label={showPassword ? 'Hide Password' : 'Show Password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -636,7 +638,7 @@ export default function Login() {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 mt-2 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-[#0d5bff]/25 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full min-h-[48px] py-3.5 mt-2 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-[#0d5bff]/25 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? 'Signing in...' : 'Sign In to Dashboard'}
               </motion.button>
@@ -703,7 +705,7 @@ export default function Login() {
                   }
                 }}
                 disabled={loading}
-                className="w-full py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                className="w-full min-h-[48px] py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
               >
                 <svg
                   className="w-4 h-4"
@@ -737,11 +739,11 @@ export default function Login() {
               <p className="text-center text-xs font-semibold text-slate-600 dark:text-slate-300 mb-3">
                 New to EduTrack Bangladesh? Create your account:
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => navigate('/signup?role=student')}
-                  className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#0D5BFF] dark:hover:border-blue-400 bg-slate-50/70 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#0D5BFF] dark:hover:border-blue-400 bg-slate-50/70 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <GraduationCap className="w-3.5 h-3.5 text-[#0D5BFF]" />
                   <span>Join as Student</span>
@@ -749,7 +751,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => navigate('/signup?role=tutor')}
-                  className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-400 bg-slate-50/70 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="min-h-[44px] py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-400 bg-slate-50/70 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-amber-500" />
                   <span>Join as Tutor</span>

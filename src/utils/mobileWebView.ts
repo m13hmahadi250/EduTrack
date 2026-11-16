@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { FocusEvent } from 'react';
 
 /**
  * Intercepts hardware Android Back button (`popstate`) and `Escape` key
@@ -56,12 +57,85 @@ export function useBackHandler(isOpen: boolean, onClose: () => void, stateKey = 
 }
 
 /**
+ * Detects when a mobile virtual keyboard is open (either via visualViewport resize
+ * or focus on a text-entry control on narrow/touch viewports) so fixed bottom docks
+ * can gracefully hide instead of covering active fields and CTA buttons.
+ */
+export function useVirtualKeyboardOpen(): boolean {
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const isTextEntryElement = (el: Element | null): boolean => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      if (el.isContentEditable) return true;
+      const tag = el.tagName;
+      if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (tag === 'INPUT') {
+        const inputType = ((el as HTMLInputElement).type || 'text').toLowerCase();
+        return !['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'].includes(inputType);
+      }
+      return false;
+    };
+
+    let baselineHeight = window.visualViewport?.height || window.innerHeight;
+
+    const evaluate = () => {
+      const isNarrowViewport = window.innerWidth < 1024;
+      if (!isNarrowViewport) {
+        setIsKeyboardOpen(false);
+        return;
+      }
+
+      const activeFocused = isTextEntryElement(document.activeElement);
+      const vvHeight = window.visualViewport?.height || window.innerHeight;
+      if (vvHeight > baselineHeight) {
+        baselineHeight = vvHeight;
+      }
+      const heightReducedByKeyboard = baselineHeight - vvHeight > 120;
+      setIsKeyboardOpen(activeFocused || heightReducedByKeyboard);
+    };
+
+    const handleFocusIn = () => {
+      evaluate();
+    };
+
+    const handleFocusOut = () => {
+      setTimeout(evaluate, 90);
+    };
+
+    const handleResize = () => {
+      if (window.innerHeight > baselineHeight) {
+        baselineHeight = window.innerHeight;
+      }
+      evaluate();
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
+
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      window.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return isKeyboardOpen;
+}
+
+/**
  * Scrolls focused input into center view on small screens / Android WebViews
  * after the virtual keyboard opens so fields and CTA buttons aren't occluded.
  */
-export function scrollFieldIntoView(element: HTMLElement | null) {
-  if (!element || typeof window === 'undefined') return;
-  if (window.innerWidth > 1024) return;
+export function scrollFieldIntoView(target: HTMLElement | FocusEvent<HTMLElement> | null) {
+  if (!target || typeof window === 'undefined') return;
+  const element = target instanceof HTMLElement ? target : target.currentTarget;
+  if (!element || window.innerWidth > 1024) return;
   setTimeout(() => {
     try {
       element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });

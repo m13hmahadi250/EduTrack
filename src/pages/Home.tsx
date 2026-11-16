@@ -9,6 +9,7 @@ import Logo from '../components/Logo';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
 import { prefetchPage } from '../utils/prefetch';
+import { useBackHandler } from '../utils/mobileWebView';
 import { sanitizeTutorProfileForViewer } from '../../shared/tutorPrivacy';
 import {
   filterPublicTutors,
@@ -215,6 +216,8 @@ export default function Home() {
     localStorage.setItem('edutrack_app_download_dismissed', 'true');
     setShowDownloadPopup(false);
   };
+
+  useBackHandler(showDownloadPopup, handleDismissPopup, 'home-download-popup');
 
   const logDownloadAttempt = async (source: string) => {
     try {
@@ -704,7 +707,7 @@ export default function Home() {
                           setSelectedTags([...selectedTags, tag]);
                         }
                       }}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                      className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-[#0D5BFF] border-[#0D5BFF] text-white'
                           : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-[#0D5BFF] hover:text-[#0D5BFF]'
@@ -715,12 +718,12 @@ export default function Home() {
                   );
                 })}
 
-                <div className="flex flex-wrap items-center gap-2 ml-auto">
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto w-full sm:w-auto">
                   <select
                     aria-label="Filter by Curriculum"
                     value={selectedCurriculum}
                     onChange={(e) => setSelectedCurriculum(e.target.value)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
+                    className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
                   >
                     <option value="All">All Curriculums</option>
                     <option value="Bangla Medium">NCTB Bangla Medium</option>
@@ -732,7 +735,7 @@ export default function Home() {
                     aria-label="Filter by Monthly Salary Range"
                     value={selectedMaxBudget}
                     onChange={(e) => setSelectedMaxBudget(e.target.value)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
+                    className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:border-[#0D5BFF] cursor-pointer"
                   >
                     <option value="All">Any Monthly Salary</option>
                     <option value="5000">Up to ৳5,000/month</option>
@@ -743,7 +746,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setOnlyAvailableToday((prev) => !prev)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                    className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                       onlyAvailableToday
                         ? 'bg-emerald-600 border-emerald-600 text-white'
                         : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500'
@@ -978,7 +981,7 @@ export default function Home() {
               >
                 শিক্ষকের আগমন ও ক্লাসের সময় সরাসরি ড্যাশবোর্ড থেকে ট্র্যাক করুন।
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 sm:gap-4">
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80">
                   <div className="text-xl font-black text-[#0B132B] dark:text-white">Live Map</div>
                   <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-0.5">Active during transit</p>
@@ -1602,7 +1605,7 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring", duration: 0.5 }}
-              className="relative bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center overflow-hidden"
+              className="relative bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800/80 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto shadow-2xl text-center"
             >
               {/* Decorative Background Glows */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#0D5BFF]/5 rounded-full blur-2xl pointer-events-none" />
@@ -1611,7 +1614,7 @@ export default function Home() {
               {/* Close Button */}
               <button
                 onClick={handleDismissPopup}
-                className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1E293B]/60 cursor-pointer"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1E293B]/60 cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -2282,10 +2285,10 @@ const AdminTestimonialManager = ({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ duration: 0.25 }}
-        className="max-w-5xl w-full bg-white dark:bg-[#1E293B] rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="max-w-5xl w-full bg-white dark:bg-[#1E293B] rounded-3xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden"
       >
         {/* Header bar */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50 dark:bg-[#111A2E]/50">
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 bg-slate-50 dark:bg-[#111A2E]/50">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 bg-blue-500/10 rounded-lg text-[#0D5BFF]">
@@ -2302,16 +2305,16 @@ const AdminTestimonialManager = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all cursor-pointer"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Dynamic Bento Style Two Column layout */}
-        <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5">
+        <div className="flex-1 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-5">
           {/* Left Column: Story List Selector & Import Tab */}
-          <div className="col-span-2 border-r border-slate-100 dark:border-slate-800/60 p-6 overflow-y-auto flex flex-col justify-between bg-slate-50/40 dark:bg-[#111A2E]/20">
+          <div className="md:col-span-2 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800/60 p-4 sm:p-6 md:overflow-y-auto flex flex-col justify-between bg-slate-50/40 dark:bg-[#111A2E]/20">
             <div className="space-y-4">
               {/* Segmented Control Tab Bar */}
               <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2">
@@ -2558,7 +2561,7 @@ const AdminTestimonialManager = ({
           </div>
 
           {/* Right Column: Add/Edit Details Form */}
-          <div className="col-span-3 p-8 overflow-y-auto bg-white dark:bg-[#1E293B]">
+          <div className="md:col-span-3 p-4 sm:p-8 md:overflow-y-auto bg-white dark:bg-[#1E293B]">
             {selectedStory ? (
               <div className="space-y-6">
                 <div>
@@ -2570,7 +2573,7 @@ const AdminTestimonialManager = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Author Name */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
@@ -2606,7 +2609,7 @@ const AdminTestimonialManager = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Location */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block">

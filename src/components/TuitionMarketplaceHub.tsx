@@ -23,6 +23,7 @@ import {
   isTutorVerified,
 } from '../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 import {
   BookOpen,
   MapPin,
@@ -196,6 +197,9 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     applicant: TuitionApplicationItem;
   } | null>(null);
   const [trialDateTime, setTrialDateTime] = useState('');
+
+  useBackHandler(Boolean(applyingTuition), () => setApplyingTuition(null), 'marketplace-apply-modal');
+  useBackHandler(Boolean(trialModalState), () => setTrialModalState(null), 'marketplace-trial-modal');
 
   // Auto-populate wizard fields when Firestore user / studentProfiles hydrate asynchronously
   useEffect(() => {
@@ -995,7 +999,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Academic Curriculum / Medium *
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
                     'NCTB Bangla Medium',
                     'NCTB English Version',
@@ -1674,7 +1678,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
                   {/* Visual Application Status Timeline */}
                   {myApp.status !== 'rejected' && (
-                    <div className="grid grid-cols-4 gap-2 pt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
                       {stages.map((st, idx) => (
                         <div
                           key={st.key}
@@ -2040,8 +2044,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           MODAL 1: TUTOR APPLICATION SUBMISSION
       ===================================================================== */}
       {applyingTuition && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-4 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setApplyingTuition(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 space-y-4 shadow-xl"
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="text-xs font-bold uppercase text-[#0D5BFF]">
@@ -2054,7 +2064,8 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <button
                 type="button"
                 onClick={() => setApplyingTuition(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
+                aria-label="Close application modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2067,12 +2078,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   required
                   min={1000}
                   max={50000}
                   value={proposedRate}
+                  onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                   onChange={(e) => setProposedRate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF] tabular-nums"
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF] tabular-nums"
                 />
               </div>
 
@@ -2084,6 +2097,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                   rows={3}
                   required
                   value={applicationNote}
+                  onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                   onChange={(e) => setApplicationNote(e.target.value)}
                   placeholder="Briefly highlight your university department, experience with this curriculum, and availability for a trial class..."
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-medium text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
@@ -2094,14 +2108,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 <button
                   type="button"
                   onClick={() => setApplyingTuition(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingApp}
-                  className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
                 >
                   {isSubmittingApp ? 'Submitting...' : 'Submit Application'}
                 </button>
@@ -2115,8 +2129,14 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           MODAL 2: STUDENT TRIAL CLASS SCHEDULER
       ===================================================================== */}
       {trialModalState && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 space-y-4 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setTrialModalState(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 space-y-4 shadow-xl"
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="text-xs font-bold uppercase text-[#0D5BFF]">
@@ -2129,7 +2149,8 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <button
                 type="button"
                 onClick={() => setTrialModalState(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
+                aria-label="Close trial modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2142,8 +2163,9 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <input
                 type="datetime-local"
                 value={trialDateTime}
+                onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                 onChange={(e) => setTrialDateTime(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                className="w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs sm:text-sm font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
               />
             </div>
 
@@ -2151,7 +2173,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <button
                 type="button"
                 onClick={() => setTrialModalState(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
               >
                 Cancel
               </button>
@@ -2165,7 +2187,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                     trialDateTime
                   )
                 }
-                className="px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
               >
                 Confirm Trial Schedule
               </button>

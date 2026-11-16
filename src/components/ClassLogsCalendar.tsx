@@ -33,6 +33,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import UserAvatar from './UserAvatar';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 const AnimatingCount = memo(function AnimatingCount({ value, className = '' }: { value: number | string; className?: string }) {
   return (
@@ -86,6 +87,9 @@ const ClassLogsCalendar = memo(function ClassLogsCalendar({ role }: ClassLogsCal
   const [showWatchHomeworkModal, setShowWatchHomeworkModal] = useState(false);
   const [isSavingHomework, setIsSavingHomework] = useState(false);
   const [homeworkSuccess, setHomeworkSuccess] = useState(false);
+
+  useBackHandler(showWatchHomeworkModal, () => setShowWatchHomeworkModal(false), 'classlog-watch-hw');
+  useBackHandler(showLogModal, () => setShowLogModal(false), 'classlog-log-modal');
 
   useEffect(() => {
     if (selectedClassLog) {
@@ -1408,62 +1412,62 @@ Please show this to your tutor during your live tuition.
       </div>
 
       {/* 1. Header Metrics Panel */}
-      <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+      <div className="col-span-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm flex items-center justify-between gap-2">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Month Classes</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-slate-800 dark:text-white flex items-baseline gap-1">
+            <h4 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tight mt-1 text-slate-800 dark:text-white flex items-baseline gap-1">
               <AnimatingCount value={stats.total} />
-              <span className="text-sm font-bold text-slate-400 dark:text-slate-500 lowercase not-italic ml-1">Classes</span>
+              <span className="text-xs sm:text-sm font-bold text-slate-400 dark:text-slate-500 lowercase not-italic ml-1">Classes</span>
             </h4>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
             <CalendarIcon className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm flex items-center justify-between gap-2">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Verified Classes</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500 flex items-baseline gap-1">
+            <h4 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tight mt-1 text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500 flex items-baseline gap-1">
               <AnimatingCount value={stats.verified} />
-              <span className="text-sm font-bold text-emerald-500/80 dark:text-emerald-400/80 lowercase not-italic ml-1">Verified</span>
+              <span className="text-xs sm:text-sm font-bold text-emerald-500/80 dark:text-emerald-400/80 lowercase not-italic ml-1">Verified</span>
             </h4>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-500">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-500 shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm flex items-center justify-between gap-2">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Pending Review</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-amber-500 flex items-baseline gap-1">
+            <h4 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tight mt-1 text-amber-500 flex items-baseline gap-1">
               <AnimatingCount value={stats.pending} />
-              <span className="text-sm font-bold text-amber-500/80 dark:text-amber-400/80 lowercase not-italic ml-1">Pending</span>
+              <span className="text-xs sm:text-sm font-bold text-amber-500/80 dark:text-amber-400/80 lowercase not-italic ml-1">Pending</span>
             </h4>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center text-amber-500 animate-pulse">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center text-amber-500 animate-pulse shrink-0">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm flex items-center justify-between gap-2">
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-rose-500">Disputed Entries</p>
-            <h4 className="text-3xl font-black italic uppercase tracking-tight mt-1 text-rose-500 flex items-baseline gap-1">
+            <h4 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tight mt-1 text-rose-500 flex items-baseline gap-1">
               <AnimatingCount value={stats.disputed} />
-              <span className="text-sm font-bold text-rose-500/80 dark:text-rose-400/80 lowercase not-italic ml-1">Disputed</span>
+              <span className="text-xs sm:text-sm font-bold text-rose-500/80 dark:text-rose-400/80 lowercase not-italic ml-1">Disputed</span>
             </h4>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center text-rose-500">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center text-rose-500 shrink-0">
             <XCircle className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* 2. Interactive Calendar Panel - 7 columns on Desktop */}
-      <div className="col-span-12 lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between">
+      <div className="col-span-12 lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm flex flex-col justify-between">
         <div>
           {/* Calendar Header Toggles */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -1527,20 +1531,20 @@ Please show this to your tutor during your live tuition.
           </div>
 
           {/* Days Grid Heading */}
-          <div className="grid grid-cols-7 gap-2 text-center border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center border-b border-slate-100 dark:border-slate-800 pb-3 mb-3 sm:mb-4">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-              <span key={day} className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+              <span key={day} className="text-[9px] font-black uppercase tracking-wider text-slate-400">
                 {day}
               </span>
             ))}
           </div>
 
           {/* Days Grid Rendering */}
-          <div className="grid grid-cols-7 gap-2.5">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2.5">
             {calendarCells.map((cell, idx) => {
               if (!cell.isCurrentMonth) {
                 return (
-                  <div key={`empty-${idx}`} className="h-16 rounded-2xl bg-slate-50/40 dark:bg-slate-800/20 border border-dashed border-slate-100/30 dark:border-slate-800/35" />
+                  <div key={`empty-${idx}`} className="h-12 sm:h-16 rounded-xl sm:rounded-2xl bg-slate-50/40 dark:bg-slate-800/20 border border-dashed border-slate-100/30 dark:border-slate-800/35" />
                 );
               }
 
@@ -1584,7 +1588,7 @@ Please show this to your tutor during your live tuition.
                       setSelectedClassLog(null);
                     }
                   }}
-                  className={`h-20 rounded-2xl p-2.5 border text-left flex flex-col justify-between transition-all duration-300 relative cursor-pointer group ${
+                  className={`h-12 sm:h-20 rounded-xl sm:rounded-2xl p-1 sm:p-2.5 border text-left flex flex-col justify-between transition-all duration-300 relative cursor-pointer group min-w-0 ${
                     isSelected ? 'ring-2 ring-[#0D5BFF] border-transparent' : borderStyle
                   } ${bgStyle}`}
                 >
@@ -1671,7 +1675,7 @@ Please show this to your tutor during your live tuition.
       <div className="col-span-12 lg:col-span-5 flex flex-col gap-6">
         
         {/* Detail Panel Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm flex-1">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm flex-1">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-5 mb-6">
             <p className="text-[8px] font-black uppercase tracking-widest text-[#0D5BFF] mb-1">Interactive Log Deck</p>
             <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">
@@ -1748,7 +1752,7 @@ Please show this to your tutor during your live tuition.
                 </div>
 
                 {/* Subject & User Details */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-slate-400 text-[8px] font-black uppercase tracking-wider mb-2">
                       <BookOpen className="w-3 h-3 text-indigo-500" />
@@ -2011,7 +2015,7 @@ Please show this to your tutor during your live tuition.
         </div>
 
         {/* 4. Side History Log Panel - Shows recent class history */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm h-72 flex flex-col">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm h-72 flex flex-col">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
             <div>
               <p className="text-[7.5px] font-black uppercase tracking-widest text-slate-400">Class Journal Roll</p>
@@ -2065,7 +2069,7 @@ Please show this to your tutor during your live tuition.
       </div>
 
       {/* 4.5. Monthly Conduction & Partner Analytics Ledger (Added for student/teacher statistics) */}
-      <div className="col-span-12 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm flex flex-col gap-6" id="monthly-analytics-ledger-card">
+      <div className="col-span-12 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm flex flex-col gap-6" id="monthly-analytics-ledger-card">
         {/* Header Block */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
           <div>
@@ -2124,13 +2128,14 @@ Please show this to your tutor during your live tuition.
               </button>
             </div>
 
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <input
                 type="text"
                 placeholder={`Search ${role === 'student' ? 'teacher' : 'student'}...`}
                 value={analyticsSearch}
+                onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                 onChange={(e) => setAnalyticsSearch(e.target.value)}
-                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2 pl-9 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all w-48"
+                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 pl-9 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all w-full sm:w-48"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
                 🔍
@@ -2217,7 +2222,7 @@ Please show this to your tutor during your live tuition.
                       </div>
 
                       {/* Cumulative Metric Cards */}
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                         <div className="bg-white dark:bg-slate-900 border border-slate-100/60 dark:border-slate-800/80 rounded-2xl p-3 text-center shadow-inner">
                           <p className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Total</p>
                           <p className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{p.total}</p>
@@ -2294,7 +2299,7 @@ Please show this to your tutor during your live tuition.
                 })}
 
               {analyticsData.partners.length === 0 && (
-                <div className="col-span-2 text-center py-12 text-slate-400 text-xs italic font-semibold">
+                <div className="col-span-full text-center py-12 text-slate-400 text-xs italic font-semibold">
                   No tuition records available to display stats.
                 </div>
               )}
@@ -2700,17 +2705,18 @@ Please show this to your tutor during your live tuition.
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+              className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl sm:rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90dvh]"
             >
               {/* Modal Header */}
-              <div className="bg-indigo-900 dark:bg-indigo-950 px-8 py-6 flex items-center justify-between text-white border-b border-indigo-950/20">
+              <div className="bg-indigo-900 dark:bg-indigo-950 px-5 sm:px-8 py-4 sm:py-6 flex items-center justify-between text-white border-b border-indigo-950/20">
                 <div>
                   <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300">Live Presentation Deck</span>
                   <h3 className="text-base font-black uppercase tracking-tight mt-0.5">Tuition Homework Reader</h3>
                 </div>
                 <button 
                   onClick={() => setShowWatchHomeworkModal(false)}
-                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition cursor-pointer"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition cursor-pointer shrink-0"
+                  aria-label="Close homework viewer"
                 >
                   <X className="w-5 h-5 text-white" />
                 </button>
@@ -2794,16 +2800,17 @@ Please show this to your tutor during your live tuition.
       {/* 5. Custom Student Mark-Class Interactive Overlay Modal (Editorial Brutalist Styling) */}
       <AnimatePresence>
         {showLogModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 backdrop-blur-md bg-slate-900/40" id="mark-class-modal-portal">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md bg-slate-900/40" id="mark-class-modal-portal">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl relative"
+              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-8 w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl relative"
             >
               <button 
                 onClick={() => setShowLogModal(false)}
-                className="absolute top-6 right-6 w-10 h-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                aria-label="Close mark class modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2879,6 +2886,7 @@ Please show this to your tutor during your live tuition.
                       <input
                         type="text"
                         value={customSubjectInput}
+                        onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                         onChange={(e) => setCustomSubjectInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ',') {
@@ -2945,6 +2953,7 @@ Please show this to your tutor during your live tuition.
                     <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Optional Notes</label>
                     <textarea
                       value={formNotes}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       onChange={(e) => setFormNotes(e.target.value)}
                       placeholder="What was discussed or homework assigned?"
                       className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-300 focus:outline-none focus:border-[#0D5BFF] transition-all"

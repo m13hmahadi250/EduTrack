@@ -69,9 +69,21 @@ export default function FileUpload({
     setError(null);
     setProgress(0);
 
+    const resolveEffectiveFileType = (selectedFile: File): string => {
+      if (selectedFile.type) return selectedFile.type;
+      const lowerName = selectedFile.name.toLowerCase();
+      if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'image/jpeg';
+      if (lowerName.endsWith('.png')) return 'image/png';
+      if (lowerName.endsWith('.webp')) return 'image/webp';
+      if (lowerName.endsWith('.gif')) return 'image/gif';
+      if (lowerName.endsWith('.pdf')) return 'application/pdf';
+      return 'application/octet-stream';
+    };
+
     try {
       const idToken = await auth.currentUser.getIdToken();
-      const isImg = file.type.startsWith('image/');
+      const effectiveFileType = resolveEffectiveFileType(file);
+      const isImg = effectiveFileType.startsWith('image/');
       const targetFolder = folder || 'documents';
       
       if (isImg) {
@@ -129,7 +141,7 @@ export default function FileUpload({
           },
           body: JSON.stringify({
             fileName: file.name,
-            fileType: file.type,
+            fileType: effectiveFileType,
             folder: targetFolder,
           })
         });
@@ -155,7 +167,7 @@ export default function FileUpload({
 
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl, true);
-        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('Content-Type', effectiveFileType);
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {

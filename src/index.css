@@ -465,7 +465,7 @@ html:not(.dark) [class*="text-[#0B132B]/50"] {
 }
 
 /* Inputs, Textareas, and Selects */
-.dark input:not([type="checkbox"]):not([type="radio"]), 
+.dark input:not([type="checkbox"]):not([type="radio"]):not(.otp-unified-input), 
 .dark select, 
 .dark textarea {
   background-color: #162038 !important;
@@ -482,18 +482,36 @@ html:not(.dark) [class*="text-[#0B132B]/50"] {
   color: #94a3b8 !important;
   opacity: 1 !important;
 }
-.dark input:focus, 
+.dark input:not(.otp-unified-input):focus, 
 .dark select:focus, 
 .dark textarea:focus {
   border-color: #3b82f6 !important;
 }
-.dark input:disabled,
+.dark input:disabled:not(.otp-unified-input),
 .dark select:disabled,
 .dark textarea:disabled {
   background-color: #0f172a !important;
   color: #64748b !important;
   border-color: #1e293b !important;
   opacity: 0.75 !important;
+}
+
+/* Unified accessible OTP input overlaid transparently atop 6 visual digit cells */
+.otp-unified-input,
+.dark .otp-unified-input,
+.otp-unified-input:focus,
+.dark .otp-unified-input:focus,
+.otp-unified-input:disabled,
+.dark .otp-unified-input:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  text-shadow: none !important;
 }
 
 /* Map Popup Overrides */

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Check, RotateCw, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useBackHandler } from '../utils/mobileWebView';
 
 interface ImageCropModalProps {
   imageSrc: string;
@@ -9,6 +10,7 @@ interface ImageCropModalProps {
 }
 
 export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageCropModalProps) {
+  useBackHandler(true, onCancel, 'image-crop-modal');
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -232,32 +234,33 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
   const imageTransform = `translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg) scale(${zoom})`;
 
   return (
-    <div id="image-crop-modal-overlay" className="fixed inset-0 bg-[#0B132B]/85 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+    <div id="image-crop-modal-overlay" className="fixed inset-0 bg-[#0B132B]/85 backdrop-blur-md z-[200] flex items-center justify-center p-2.5 sm:p-4">
       <motion.div
         id="image-crop-modal-container"
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="bg-white dark:bg-[#111A2E] rounded-[2.5rem] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 shadow-2xl flex flex-col"
+        className="bg-white dark:bg-[#111A2E] rounded-3xl sm:rounded-[2.5rem] w-full max-w-md max-h-[92dvh] overflow-y-auto border border-slate-100 dark:border-slate-800 shadow-2xl flex flex-col"
       >
         {/* Modal Header */}
-        <div className="px-8 pt-8 pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
+        <div className="px-4 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
           <div>
-            <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase tracking-wider">Crop Profile Photo</h3>
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Adjust crop matching perfect 1:1 format</p>
+            <h3 className="text-base sm:text-lg font-black text-[#0B132B] dark:text-white uppercase tracking-wider">Crop Profile Photo</h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Adjust crop matching 1:1 format</p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="p-2.5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full transition-all hover:scale-105 active:scale-95"
+            className="min-w-[44px] min-h-[44px] p-2.5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
             title="Cancel"
+            aria-label="Cancel crop"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Crop Stage */}
-        <div className="p-8 flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0A101D] border-b border-slate-100 dark:border-slate-800">
+        <div className="p-4 sm:p-8 flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0A101D] border-b border-slate-100 dark:border-slate-800">
           <div
             id="crop-viewport-container"
             ref={containerRef}
@@ -300,7 +303,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
         </div>
 
         {/* Modal Controls */}
-        <div className="p-8 space-y-6">
+        <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Zoom controls */}
           <div className="space-y-2">
             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-[#0B132B] dark:text-slate-300">
@@ -310,14 +313,15 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
               </span>
               <span className="text-[#0D5BFF]">{zoom.toFixed(2)}x</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button 
                 type="button"
                 onClick={() => handleZoomChange(zoom - 0.2)}
                 disabled={zoom <= 1}
-                className="p-1.5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-[#0B132B] dark:text-white rounded-lg transition-all"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-[#0B132B] dark:text-white rounded-xl transition-all"
+                aria-label="Zoom out"
               >
-                <ZoomOut className="w-3.5 h-3.5" />
+                <ZoomOut className="w-4 h-4" />
               </button>
               <input
                 type="range"
@@ -326,25 +330,26 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
                 step="0.01"
                 value={zoom}
                 onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-100 dark:bg-[#1A253E] rounded-lg appearance-none cursor-pointer accent-[#0D5BFF]"
+                className="w-full h-2 bg-slate-100 dark:bg-[#1A253E] rounded-lg appearance-none cursor-pointer accent-[#0D5BFF]"
               />
               <button 
                 type="button"
                 onClick={() => handleZoomChange(zoom + 0.2)}
                 disabled={zoom >= 4}
-                className="p-1.5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-[#0B132B] dark:text-white rounded-lg transition-all"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-[#0B132B] dark:text-white rounded-xl transition-all"
+                aria-label="Zoom in"
               >
-                <ZoomIn className="w-3.5 h-3.5" />
+                <ZoomIn className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Buttons for transforms */}
-          <div className="flex justify-between gap-4">
+          <div className="flex justify-between gap-3 sm:gap-4">
             <button
               type="button"
               onClick={handleRotate}
-              className="flex-1 py-3 px-4 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-transparent text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="flex-1 min-h-[44px] py-3 px-4 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-transparent text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <RotateCw className="w-3.5 h-3.5" />
               Rotate 90°
@@ -352,7 +357,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
             <button
               type="button"
               onClick={handleReset}
-              className="py-3 px-5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-transparent text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="min-h-[44px] py-3 px-5 bg-slate-50 dark:bg-[#1A253E] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-transparent text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
               title="Reset Adjustments"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -361,18 +366,18 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: ImageC
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-4 pt-1 border-t border-slate-50 dark:border-slate-800">
+          <div className="flex gap-3 sm:gap-4 pt-2 border-t border-slate-50 dark:border-slate-800">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 py-4 px-6 bg-slate-100 dark:bg-slate-800 hover:bg-slate-250 dark:hover:bg-slate-700 text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex-1 min-h-[44px] py-3.5 px-4 sm:px-6 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#0B132B] dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleApplyCrop}
-              className="flex-1 py-4 px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_12px_24px_-8px_rgba(13,91,255,0.4)]"
+              className="flex-1 min-h-[44px] py-3.5 px-4 sm:px-6 bg-[#0D5BFF] hover:bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_12px_24px_-8px_rgba(13,91,255,0.4)]"
             >
               <Check className="w-4 h-4" />
               Apply Crop

@@ -68,7 +68,7 @@ import {
   Lock,
   AlertCircle,
 } from "lucide-react";
-import { useBackHandler } from "../../utils/mobileWebView";
+import { useBackHandler, scrollFieldIntoView } from "../../utils/mobileWebView";
 import { sanitizeTutorProfileForViewer } from "../../../shared/tutorPrivacy";
 import {
   calculateProfileCompletion,
@@ -414,6 +414,23 @@ export default function TutorDashboard() {
   const [proposalSuccess, setProposalSuccess] = useState(false);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+
+  useBackHandler(
+    Boolean(selectedStudentForProposal),
+    () => {
+      setSelectedStudentForProposal(null);
+      setProposalSuccess(false);
+    },
+    "tutor-proposal-modal",
+  );
+  useBackHandler(
+    Boolean(viewingProfileUser),
+    () => {
+      setViewingProfileUser(null);
+      setViewingProfileSession(null);
+    },
+    "tutor-viewing-profile-modal",
+  );
 
   const getMaskedPhone = (phone?: string) => {
     if (!phone) return 'Hidden for Privacy';
@@ -2688,6 +2705,7 @@ export default function TutorDashboard() {
                             <select
                               id="tutor-field-district"
                               value={profileForm.district || ""}
+                              onFocus={scrollFieldIntoView}
                               onChange={(e) => {
                                 const newDist = e.target.value;
                                 setProfileForm({
@@ -2696,7 +2714,7 @@ export default function TutorDashboard() {
                                   thana: "",
                                 });
                               }}
-                              className="w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer"
+                              className="w-full min-h-[44px] bg-slate-50 border border-slate-100 rounded-full py-4 sm:py-5 pl-6 sm:pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer"
                             >
                               <option value="" disabled>Select District</option>
                               {BANGLADESH_DISTRICTS.map((dist) => (
@@ -2717,13 +2735,14 @@ export default function TutorDashboard() {
                             <select
                               value={profileForm.thana || ""}
                               disabled={!profileForm.district}
+                              onFocus={scrollFieldIntoView}
                               onChange={(e) =>
                                 setProfileForm({
                                   ...profileForm,
                                   thana: e.target.value,
                                 })
                               }
-                              className={`w-full bg-slate-50 border border-slate-100 rounded-full py-5 pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer ${
+                              className={`w-full min-h-[44px] bg-slate-50 border border-slate-100 rounded-full py-4 sm:py-5 pl-6 sm:pl-10 pr-12 text-xs font-black uppercase italic text-[#0B132B] dark:bg-slate-900 dark:border-slate-800 dark:text-white focus:outline-none focus:border-[#0D5BFF] appearance-none cursor-pointer ${
                                 !profileForm.district ? "opacity-60 cursor-not-allowed" : ""
                               }`}
                             >
@@ -2753,7 +2772,7 @@ export default function TutorDashboard() {
                       </div>
 
                       <div className="space-y-4">
-                        <div className="space-y-1 ml-4">
+                        <div className="space-y-1 ml-2 sm:ml-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
                             Teaching Areas (Searchable by students)
                           </label>
@@ -2768,7 +2787,8 @@ export default function TutorDashboard() {
                           <input
                             id="teachingAreaInput"
                             placeholder="Add an area..."
-                            className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-full py-4 px-8 text-xs font-black uppercase italic text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                            onFocus={scrollFieldIntoView}
+                            className="flex-1 min-w-0 min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-full py-3.5 px-5 sm:px-8 text-xs font-black uppercase italic text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -2791,6 +2811,7 @@ export default function TutorDashboard() {
                           />
                           <button
                             type="button"
+                            aria-label="Add teaching area"
                             onClick={() => {
                               const input = document.getElementById(
                                 "teachingAreaInput",
@@ -2810,7 +2831,7 @@ export default function TutorDashboard() {
                                 input.value = "";
                               }
                             }}
-                            className="w-14 h-14 bg-[#0B132B] text-white rounded-2xl flex items-center justify-center"
+                            className="min-w-[48px] min-h-[48px] w-12 h-12 sm:w-14 sm:h-14 bg-[#0B132B] text-white rounded-2xl flex items-center justify-center shrink-0 cursor-pointer"
                           >
                             <Plus className="w-5 h-5" />
                           </button>
@@ -2855,6 +2876,7 @@ export default function TutorDashboard() {
                             });
                           }}
                           type="text"
+                          inputMode="numeric"
                         />
                         <ProfileField
                           label="Days Taught per Week"
@@ -2867,6 +2889,7 @@ export default function TutorDashboard() {
                             });
                           }}
                           type="text"
+                          inputMode="numeric"
                           placeholder="e.g. 3"
                         />
                         <ProfileField
@@ -2988,6 +3011,7 @@ export default function TutorDashboard() {
                             <input
                               type="text"
                               value={customSubjectInput}
+                              onFocus={scrollFieldIntoView}
                               onChange={(e) => setCustomSubjectInput(e.target.value)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -3000,7 +3024,7 @@ export default function TutorDashboard() {
                                 }
                               }}
                               placeholder="Add another subject (e.g. Statistics, Spoken English)..."
-                              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                              className="flex-1 min-w-0 min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B132B] text-xs font-semibold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
                             />
                             <button
                               type="button"
@@ -3011,7 +3035,7 @@ export default function TutorDashboard() {
                                 }
                                 setCustomSubjectInput('');
                               }}
-                              className="px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold shrink-0 cursor-pointer"
+                              className="min-h-[44px] px-4 py-2 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold shrink-0 cursor-pointer"
                             >
                               Add
                             </button>
@@ -3200,22 +3224,23 @@ export default function TutorDashboard() {
                         <textarea
                           id="tutor-field-bio"
                           value={profileForm.bio}
+                          onFocus={scrollFieldIntoView}
                           onChange={(e) =>
                             setProfileForm({
                               ...profileForm,
                               bio: e.target.value,
                             })
                           }
-                          className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 sm:p-8 text-sm font-medium leading-relaxed text-[#0B132B] dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 h-40 focus:outline-none focus:border-[#0D5BFF]"
+                          className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-3xl sm:rounded-[2rem] p-5 sm:p-8 text-sm font-medium leading-relaxed text-[#0B132B] dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 h-40 focus:outline-none focus:border-[#0D5BFF]"
                           placeholder="Describe your teaching philosophy, academic achievements, and methodology..."
                         />
                       </div>
 
                       {/* Tutor Privacy & Public Visibility Controls */}
                       <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <Lock className="w-5 h-5 text-[#0D5BFF]" />
+                            <Lock className="w-5 h-5 text-[#0D5BFF] shrink-0" />
                             <div>
                               <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase italic">
                                 Privacy & Public Controls
@@ -3228,7 +3253,7 @@ export default function TutorDashboard() {
                           <button
                             type="button"
                             onClick={() => setShowPublicPreview(true)}
-                            className="shrink-0 min-h-[40px] px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                            className="shrink-0 min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-400 text-[10px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors cursor-pointer"
                           >
                             Preview Public
                           </button>
@@ -3954,12 +3979,20 @@ export default function TutorDashboard() {
 
                   {/* Proposal Modal Overlay */}
                   {selectedStudentForProposal && (
-                    <div className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                    <div
+                      className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4"
+                      onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                          setSelectedStudentForProposal(null);
+                          setProposalSuccess(false);
+                        }
+                      }}
+                    >
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 15 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                        className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-lg p-8 sm:p-10 shadow-3xl text-left relative overflow-hidden"
+                        className="bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[3rem] w-full max-w-lg max-h-[90dvh] overflow-y-auto p-5 sm:p-8 shadow-3xl text-left relative"
                       >
                         {!proposalSuccess ? (
                           <form
@@ -4006,13 +4039,13 @@ export default function TutorDashboard() {
                                 setIsSendingProposal(false);
                               }
                             }}
-                            className="space-y-6"
+                            className="space-y-5"
                           >
                             <div className="space-y-2">
                               <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block">
                                 Tuition Proposal Pipeline
                               </span>
-                              <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
+                              <h3 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
                                 Offer tuition to {selectedStudentForProposal.name}
                               </h3>
                               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
@@ -4026,8 +4059,9 @@ export default function TutorDashboard() {
                               </label>
                               <select
                                 value={proposalSubject}
+                                onFocus={scrollFieldIntoView}
                                 onChange={e => setProposalSubject(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                                className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-3.5 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                               >
                                 {selectedStudentForProposal.subjects && selectedStudentForProposal.subjects.length > 0 ? (
                                   selectedStudentForProposal.subjects.map(sub => (
@@ -4041,7 +4075,7 @@ export default function TutorDashboard() {
                               </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
                                   Proposed Date
@@ -4050,8 +4084,9 @@ export default function TutorDashboard() {
                                   type="date"
                                   value={proposalDate}
                                   min={new Date().toISOString().split("T")[0]}
+                                  onFocus={scrollFieldIntoView}
                                   onChange={e => setProposalDate(e.target.value)}
-                                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                                  className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-3.5 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                                 />
                               </div>
 
@@ -4061,8 +4096,9 @@ export default function TutorDashboard() {
                                 </label>
                                 <select
                                   value={proposalSlot}
+                                  onFocus={scrollFieldIntoView}
                                   onChange={e => setProposalSlot(e.target.value)}
-                                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
+                                  className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl py-3.5 px-4 text-xs font-bold text-[#0B132B] dark:text-white focus:outline-none focus:border-[#0D5BFF]"
                                 >
                                   {[
                                     "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -4092,6 +4128,7 @@ export default function TutorDashboard() {
                               </label>
                               <textarea
                                 value={proposalNotes}
+                                onFocus={scrollFieldIntoView}
                                 onChange={e => setProposalNotes(e.target.value)}
                                 placeholder="Introduce yourself, outline credentials, or propose specific rates..."
                                 rows={3}
@@ -4099,18 +4136,18 @@ export default function TutorDashboard() {
                               />
                             </div>
 
-                            <div className="flex gap-4 pt-4">
+                            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
                               <button
                                 type="button"
                                 onClick={() => setSelectedStudentForProposal(null)}
-                                className="flex-1 py-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                className="flex-1 min-h-[44px] py-3.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
                               >
                                 Cancel
                               </button>
                               <button
                                 type="submit"
                                 disabled={isSendingProposal}
-                                className="flex-1 py-4 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
+                                className="flex-1 min-h-[44px] py-3.5 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2 cursor-pointer"
                               >
                                 {isSendingProposal ? (
                                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -4181,22 +4218,30 @@ export default function TutorDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-[#0B132B]/60 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewingProfileUser(null);
+                setViewingProfileSession(null);
+              }
+            }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[3rem] w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden shadow-3xl text-left border border-slate-100 dark:border-slate-800"
             >
-              <div className="bg-gradient-to-r from-[#0C1B33] to-[#0B132B] p-6 sm:p-10 text-white relative shrink-0">
+              <div className="bg-gradient-to-r from-[#0C1B33] to-[#0B132B] p-5 sm:p-10 text-white relative shrink-0">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <button
+                  type="button"
                   onClick={() => {
                     setViewingProfileUser(null);
                     setViewingProfileSession(null);
                   }}
-                  className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10"
+                  aria-label="Close student profile modal"
+                  className="absolute top-3.5 right-3.5 sm:top-6 sm:right-6 min-w-[44px] min-h-[44px] w-11 h-11 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/10 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4604,6 +4649,7 @@ const ProfileField = memo(
     onChange,
     placeholder,
     type = "text",
+    inputMode,
   }: {
     id?: string;
     label: string;
@@ -4611,6 +4657,7 @@ const ProfileField = memo(
     onChange: (v: string) => void;
     placeholder?: string;
     type?: string;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   }) => {
     return (
       <div className="space-y-2">
@@ -4620,10 +4667,12 @@ const ProfileField = memo(
         <input
           id={id}
           type={type}
+          inputMode={inputMode || (type === "tel" ? "tel" : undefined)}
           value={value}
+          onFocus={scrollFieldIntoView}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all"
+          className="w-full min-h-[44px] bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-[#0D5BFF] transition-all"
         />
       </div>
     );

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePersistentInput } from '../hooks/usePersistentInput';
 import UserAvatar from './UserAvatar';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { scrollFieldIntoView } from '../utils/mobileWebView';
 
 interface ChatWindowProps {
   recipientId: string;
@@ -153,18 +154,19 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
   if (!recipient) return null;
 
   return (
-    <div className="flex flex-col h-[500px] sm:h-[600px] bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-[min(540px,calc(100dvh-13rem))] sm:h-[600px] bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="p-3 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
         <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
           {onBack && (
             <button
               onClick={onBack}
               type="button"
-              className="lg:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+              className="lg:hidden min-w-[44px] min-h-[44px] -ml-1 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
               title="Back to contacts"
+              aria-label="Back to contacts"
             >
-              <ArrowLeft className="w-4.5 h-4.5" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
           )}
           {(() => {
@@ -303,17 +305,19 @@ export default function ChatWindow({ recipientId, onBack }: ChatWindowProps) {
             rows={1}
             value={content}
             onChange={handleContentChange}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message (Press Enter for new line)..."
-            className="flex-1 bg-transparent py-1.5 text-sm font-normal text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0 resize-none max-h-32 min-h-[36px] leading-normal custom-scrollbar"
+            className="flex-1 bg-transparent py-2 text-sm font-normal text-[#0B132B] dark:text-[#F8F9FA] placeholder-slate-400 focus:outline-none focus:ring-0 resize-none max-h-32 min-h-[40px] leading-normal custom-scrollbar"
           />
           <button 
             type="submit"
             disabled={!content.trim()}
-            className="bg-[#0D5BFF] text-white h-8.5 w-8.5 rounded-full flex items-center justify-center shadow-md shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 shrink-0 cursor-pointer mb-0.5"
+            className="bg-[#0D5BFF] text-white min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center shadow-md shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 shrink-0 cursor-pointer"
             title="Send message (or press Ctrl+Enter)"
+            aria-label="Send message"
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </form>

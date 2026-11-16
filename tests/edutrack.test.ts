@@ -3052,6 +3052,69 @@ async function runTests() {
           assert.equal(homeSrc.includes("transform rotate-1"), false);
           assert.equal(homeSrc.includes("transform -rotate-1"), false);
         });
+
+        // =========================================================================
+        // 23. Complete Mobile UX, Smart OTP AutoFill & Android WebView Compatibility
+        // =========================================================================
+        console.log("\n--- SECTION 23: Complete Mobile UX, Smart OTP AutoFill & Android WebView Compatibility ---");
+
+        await test("Smart OTP AutoFill uses single unified input overlaid on 6 visual boxes with clipboard Paste Code support", () => {
+          const otpSrc = fs.readFileSync(path.resolve("src/components/OtpVerificationModal.tsx"), "utf-8");
+          const indexCss = fs.readFileSync(path.resolve("src/index.css"), "utf-8");
+
+          assert.equal(otpSrc.includes('id="unified-otp-input"'), true);
+          assert.equal(otpSrc.includes('autoComplete="one-time-code"'), true);
+          assert.equal(otpSrc.includes('inputMode="numeric"'), true);
+          assert.equal(otpSrc.includes("otp-unified-input"), true);
+          assert.equal(otpSrc.includes("Paste Code"), true);
+          assert.equal(otpSrc.includes("useBackHandler"), true);
+          assert.equal(otpSrc.includes("maxLength={1}"), false);
+
+          assert.equal(indexCss.includes(".otp-unified-input"), true);
+          assert.equal(indexCss.includes(":not(.otp-unified-input)"), true);
+        });
+
+        await test("Mobile viewport, Android WebView keyboard awareness, MIME fallback, and native dialog replacement are enforced", () => {
+          const indexHtml = fs.readFileSync(path.resolve("index.html"), "utf-8");
+          const mobileUtils = fs.readFileSync(path.resolve("src/utils/mobileWebView.ts"), "utf-8");
+          const layoutSrc = fs.readFileSync(path.resolve("src/components/DashboardLayout.tsx"), "utf-8");
+          const navbarSrc = fs.readFileSync(path.resolve("src/components/Navbar.tsx"), "utf-8");
+          const resetSrc = fs.readFileSync(path.resolve("src/pages/ResetPassword.tsx"), "utf-8");
+          const fileUploadSrc = fs.readFileSync(path.resolve("src/components/FileUpload.tsx"), "utf-8");
+          const homeworkSrc = fs.readFileSync(path.resolve("src/components/HomeworkDashboard.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+
+          assert.equal(indexHtml.includes("interactive-widget=resizes-content"), true);
+          assert.equal(indexHtml.includes("viewport-fit=cover"), true);
+
+          assert.equal(mobileUtils.includes("export function useVirtualKeyboardOpen"), true);
+          assert.equal(mobileUtils.includes("export function useBackHandler"), true);
+          assert.equal(mobileUtils.includes("export function scrollFieldIntoView"), true);
+
+          assert.equal(layoutSrc.includes("useVirtualKeyboardOpen"), true);
+          assert.equal(navbarSrc.includes("min-[380px]:inline"), true);
+
+          assert.equal(resetSrc.includes("w-auto sm:w-full"), true);
+          assert.equal(resetSrc.includes('autoComplete="new-password"'), true);
+
+          assert.equal(fileUploadSrc.includes("resolveEffectiveFileType"), true);
+
+          assert.equal(/\b(alert|confirm)\(/.test(homeworkSrc), false);
+          assert.equal(/\b(alert|confirm)\(/.test(studentDashSrc), false);
+          assert.equal(studentDashSrc.includes("confirmEndSessionId"), true);
+          assert.equal(studentDashSrc.includes("useBackHandler"), true);
+          assert.equal(studentDashSrc.includes("scrollFieldIntoView"), true);
+
+          assert.equal(tutorDashSrc.includes("useBackHandler"), true);
+          assert.equal(tutorDashSrc.includes("scrollFieldIntoView"), true);
+          assert.equal(tutorDashSrc.includes('inputMode="numeric"'), true);
+
+          assert.equal(hubSrc.includes("useBackHandler"), true);
+          assert.equal(hubSrc.includes("scrollFieldIntoView"), true);
+          assert.equal(hubSrc.includes("max-h-[90dvh]"), true);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

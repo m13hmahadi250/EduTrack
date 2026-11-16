@@ -235,7 +235,7 @@ export default function ResetPassword() {
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             id="password-reset-success-toast"
-            className="fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[9999] sm:max-w-md w-full bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-md border-2 border-emerald-500/80 dark:border-emerald-500/60 rounded-2xl shadow-[0_12px_40px_-8px_rgba(16,185,129,0.3)] p-4 sm:p-5 overflow-hidden"
+            className="fixed top-4 sm:top-6 left-3 right-3 sm:left-auto sm:right-6 z-[9999] w-auto sm:w-full sm:max-w-md bg-white/95 dark:bg-[#0B132B]/95 backdrop-blur-md border-2 border-emerald-500/80 dark:border-emerald-500/60 rounded-2xl shadow-[0_12px_40px_-8px_rgba(16,185,129,0.3)] p-4 sm:p-5 overflow-hidden"
           >
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
@@ -292,10 +292,10 @@ export default function ResetPassword() {
         initial={{ opacity: 0, scale: 0.98, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-[460px] bg-white dark:bg-[#111A2E] rounded-3xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800/85 p-8 relative overflow-hidden"
+        className="w-full max-w-[460px] bg-white dark:bg-[#111A2E] rounded-3xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] border border-slate-100 dark:border-slate-800/85 p-5 sm:p-8 relative overflow-hidden"
       >
         {/* Header Branding */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100 dark:border-slate-800/60">
+        <div className="flex items-center justify-between mb-6 pb-4 sm:mb-8 sm:pb-6 border-b border-slate-100 dark:border-slate-800/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#0D5BFF]/10 text-[#0D5BFF] flex items-center justify-center border border-[#0D5BFF]/20">
               <GraduationCap className="w-5 h-5" />
@@ -441,6 +441,7 @@ export default function ResetPassword() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => {
                       setNewPassword(e.target.value);
@@ -454,7 +455,8 @@ export default function ResetPassword() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full cursor-pointer"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -486,7 +488,7 @@ export default function ResetPassword() {
                   </div>
 
                   {/* Real-time Criteria Checklist */}
-                  <div className="pt-2 grid grid-cols-2 gap-1.5">
+                  <div className="pt-2 grid grid-cols-1 min-[360px]:grid-cols-2 gap-1.5">
                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
                       criteria.minLength
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
@@ -552,6 +554,7 @@ export default function ResetPassword() {
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
@@ -565,7 +568,8 @@ export default function ResetPassword() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full cursor-pointer"
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

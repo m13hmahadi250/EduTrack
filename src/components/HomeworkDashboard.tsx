@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import FileUpload from './FileUpload';
+import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function HomeworkDashboard() {
   const { 
@@ -49,6 +50,15 @@ export default function HomeworkDashboard() {
   const [feedback, setFeedback] = useState('');
   const [reviewStatus, setReviewStatus] = useState<'completed' | 'revision'>('completed');
   const [isReviewingWork, setIsReviewingWork] = useState(false);
+
+  // Inline notification & WebView-safe confirmation state (zero native alert/confirm)
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  useBackHandler(showAssignModal, () => setShowAssignModal(false), 'hw-assign-modal');
+  useBackHandler(Boolean(showWatchModal), () => setShowWatchModal(null), 'hw-watch-modal');
+  useBackHandler(Boolean(showSubmitModal), () => setShowSubmitModal(null), 'hw-submit-modal');
+  useBackHandler(Boolean(showReviewModal), () => setShowReviewModal(null), 'hw-review-modal');
 
   if (!currentUser) return null;
 
@@ -154,8 +164,9 @@ export default function HomeworkDashboard() {
   // Submit Homework creation
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionError(null);
     if (!targetStudentId || !subject || !title || !text) {
-      alert('Please fill out all required fields');
+      setActionError('Please fill out all required fields before assigning homework.');
       return;
     }
     setIsAssigning(true);
@@ -179,7 +190,7 @@ export default function HomeworkDashboard() {
       setShowAssignModal(false);
     } catch (e) {
       console.error(e);
-      alert('Failed to assign homework');
+      setActionError('Could not assign homework right now. Please try again.');
     } finally {
       setIsAssigning(false);
     }
@@ -188,9 +199,10 @@ export default function HomeworkDashboard() {
   // Submit Homework Completion
   const handleSubmissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionError(null);
     if (!showSubmitModal) return;
     if (!submissionNotes) {
-      alert('Please provide some notes for your submission');
+      setActionError('Please provide completion notes before submitting your homework.');
       return;
     }
     setIsSubmittingWork(true);
@@ -201,7 +213,7 @@ export default function HomeworkDashboard() {
       setShowSubmitModal(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to submit completion report');
+      setActionError('Could not submit your completion report. Please try again.');
     } finally {
       setIsSubmittingWork(false);
     }
@@ -210,6 +222,7 @@ export default function HomeworkDashboard() {
   // Submit Review
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionError(null);
     if (!showReviewModal) return;
     setIsReviewingWork(true);
     try {
@@ -219,7 +232,7 @@ export default function HomeworkDashboard() {
       setShowReviewModal(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to save review');
+      setActionError('Could not save your review right now. Please try again.');
     } finally {
       setIsReviewingWork(false);
     }
@@ -279,8 +292,11 @@ export default function HomeworkDashboard() {
 
         {isTutor && (
           <button
-            onClick={() => setShowAssignModal(true)}
-            className="flex items-center justify-center gap-2 bg-[#0B132B] hover:bg-[#0D5BFF] dark:bg-[#0D5BFF] dark:hover:bg-blue-600 text-white font-semibold text-xs px-5 py-3 rounded-2xl shadow-md transition-all active:scale-95 duration-200 cursor-pointer text-center"
+            onClick={() => {
+              setActionError(null);
+              setShowAssignModal(true);
+            }}
+            className="min-h-[44px] flex items-center justify-center gap-2 bg-[#0B132B] hover:bg-[#0D5BFF] dark:bg-[#0D5BFF] dark:hover:bg-blue-600 text-white font-semibold text-xs px-5 py-3 rounded-2xl shadow-md transition-all active:scale-95 duration-200 cursor-pointer text-center"
             id="assign-homework-btn"
           >
             <Plus className="w-4 h-4" />
@@ -289,8 +305,28 @@ export default function HomeworkDashboard() {
         )}
       </div>
 
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-200 text-xs font-semibold text-left"
+        >
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+            <span>{actionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 cursor-pointer shrink-0"
+            aria-label="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Filter Matrix */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Quick Tabs */}
           <div className="flex flex-wrap gap-1.5">
@@ -361,7 +397,7 @@ export default function HomeworkDashboard() {
                 layout
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
+                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
                 id={`homework-card-${hw.id}`}
               >
                 {/* Header */}
@@ -421,7 +457,7 @@ export default function HomeworkDashboard() {
                   {/* Universal Actions */}
                   <button
                     onClick={() => setShowWatchModal(hw)}
-                    className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 px-3 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
+                    className="flex-1 min-w-[90px] min-h-[44px] flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 px-3 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
                     title="Present full-screen watch mode during live classes"
                     id={`btn-watch-${hw.id}`}
                   >
@@ -431,8 +467,9 @@ export default function HomeworkDashboard() {
 
                   <button
                     onClick={() => downloadHomeworkPDF(hw)}
-                    className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-2.5 rounded-2xl text-xs active:scale-95 transition cursor-pointer"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-2.5 rounded-2xl text-xs active:scale-95 transition cursor-pointer"
                     title="Download offline Homework PDF"
+                    aria-label="Download offline Homework PDF"
                     id={`btn-pdf-${hw.id}`}
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -441,8 +478,11 @@ export default function HomeworkDashboard() {
                   {/* Student Submission Action */}
                   {isStudent && (hw.status === 'assigned' || hw.status === 'revision') && (
                     <button
-                      onClick={() => setShowSubmitModal(hw)}
-                      className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 bg-[#0B132B] hover:bg-[#0D5BFF] dark:bg-[#0D5BFF] dark:hover:bg-blue-600 text-white py-2.5 px-4 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
+                      onClick={() => {
+                        setActionError(null);
+                        setShowSubmitModal(hw);
+                      }}
+                      className="flex-1 min-w-[110px] min-h-[44px] flex items-center justify-center gap-1.5 bg-[#0B132B] hover:bg-[#0D5BFF] dark:bg-[#0D5BFF] dark:hover:bg-blue-600 text-white py-2.5 px-4 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
                       id={`btn-submit-${hw.id}`}
                     >
                       <FileCheck className="w-3.5 h-3.5" />
@@ -454,11 +494,12 @@ export default function HomeworkDashboard() {
                   {isTutor && hw.status === 'submitted' && (
                     <button
                       onClick={() => {
+                        setActionError(null);
                         setReviewStatus('completed');
                         setFeedback('');
                         setShowReviewModal(hw);
                       }}
-                      className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white py-2.5 px-4 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
+                      className="flex-1 min-w-[110px] min-h-[44px] flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white py-2.5 px-4 rounded-2xl text-[11px] font-bold active:scale-95 transition cursor-pointer"
                       id={`btn-review-${hw.id}`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
@@ -466,19 +507,44 @@ export default function HomeworkDashboard() {
                     </button>
                   )}
 
-                  {/* Tutor / Admin Delete Action */}
+                  {/* Tutor / Admin Delete Action (WebView-safe 2-step inline confirm) */}
                   {(isTutor || isAdmin) && (
-                    <button
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this homework?')) {
-                          deleteHomeworkAssignment(hw.id);
-                        }
-                      }}
-                      className="bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/50 text-red-500 dark:text-red-400 p-2.5 rounded-2xl text-xs active:scale-95 transition cursor-pointer"
-                      id={`btn-delete-${hw.id}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    confirmDeleteId === hw.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await deleteHomeworkAssignment(hw.id);
+                              setConfirmDeleteId(null);
+                            } catch {
+                              setActionError('Could not delete homework. Please try again.');
+                            }
+                          }}
+                          className="min-h-[44px] px-3 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold cursor-pointer"
+                          id={`btn-confirm-delete-${hw.id}`}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="min-h-[44px] px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(hw.id)}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/50 text-red-500 dark:text-red-400 p-2.5 rounded-2xl text-xs active:scale-95 transition cursor-pointer"
+                        id={`btn-delete-${hw.id}`}
+                        aria-label="Delete homework assignment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -528,7 +594,7 @@ export default function HomeworkDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] w-full max-w-xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto text-left"
+              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2rem] w-full max-w-xl p-4 sm:p-8 space-y-6 shadow-2xl relative max-h-[90dvh] overflow-y-auto text-left"
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
@@ -539,11 +605,19 @@ export default function HomeworkDashboard() {
                 </div>
                 <button
                   onClick={() => setShowAssignModal(false)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                  aria-label="Close assign modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                  <span>{actionError}</span>
+                </div>
+              )}
 
               <form onSubmit={handleAssignSubmit} className="space-y-4">
                 {/* Student Selection */}
@@ -553,9 +627,10 @@ export default function HomeworkDashboard() {
                   </label>
                   <select
                     value={targetStudentId}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     onChange={(e) => setTargetStudentId(e.target.value)}
                     required
-                    className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">-- Choose Student --</option>
                     {getStudentList().map(student => (
@@ -579,9 +654,10 @@ export default function HomeworkDashboard() {
                       type="text"
                       placeholder="e.g. Mathematics, Physics"
                       value={subject}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       onChange={(e) => setSubject(e.target.value)}
                       required
-                      className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
@@ -680,7 +756,7 @@ export default function HomeworkDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] w-full max-w-xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto text-left"
+              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2rem] w-full max-w-xl p-4 sm:p-8 space-y-6 shadow-2xl relative max-h-[90dvh] overflow-y-auto text-left"
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
@@ -696,11 +772,19 @@ export default function HomeworkDashboard() {
                 </div>
                 <button
                   onClick={() => setShowSubmitModal(null)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                  aria-label="Close submission modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                  <span>{actionError}</span>
+                </div>
+              )}
 
               <form onSubmit={handleSubmissionSubmit} className="space-y-4">
                 {/* Solution Text Notes */}
@@ -713,6 +797,7 @@ export default function HomeworkDashboard() {
                     required
                     placeholder="Describe how you completed the tasks, answer numbers, or provide your typed response details..."
                     value={submissionNotes}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                     onChange={(e) => setSubmissionNotes(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -770,7 +855,7 @@ export default function HomeworkDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] w-full max-w-xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto text-left"
+              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2rem] w-full max-w-xl p-4 sm:p-8 space-y-6 shadow-2xl relative max-h-[90dvh] overflow-y-auto text-left"
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
@@ -786,7 +871,8 @@ export default function HomeworkDashboard() {
                 </div>
                 <button
                   onClick={() => setShowReviewModal(null)}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                  aria-label="Close review modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -808,7 +894,7 @@ export default function HomeworkDashboard() {
                         href={showReviewModal.submissionFileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs px-4.5 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 cursor-pointer shadow-xs"
+                        className="inline-flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs px-4 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 cursor-pointer shadow-xs"
                       >
                         <ExternalLink className="w-3.5 h-3.5 text-blue-500" />
                         Open Student Solution Attachment
@@ -823,11 +909,11 @@ export default function HomeworkDashboard() {
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                       Review Status *
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setReviewStatus('completed')}
-                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs cursor-pointer ${
+                        className={`min-h-[44px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs cursor-pointer ${
                           reviewStatus === 'completed'
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800 dark:text-emerald-400'
                             : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-800'
@@ -840,7 +926,7 @@ export default function HomeworkDashboard() {
                       <button
                         type="button"
                         onClick={() => setReviewStatus('revision')}
-                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs cursor-pointer ${
+                        className={`min-h-[44px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs cursor-pointer ${
                           reviewStatus === 'revision'
                             ? 'bg-rose-50 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:border-rose-800 dark:text-rose-400'
                             : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-800'
@@ -861,6 +947,7 @@ export default function HomeworkDashboard() {
                       rows={3}
                       placeholder="Type comments, feedback, corrections or specific requests for changes..."
                       value={feedback}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       onChange={(e) => setFeedback(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200/60 dark:border-slate-700 rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
