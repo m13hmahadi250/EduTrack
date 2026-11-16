@@ -582,18 +582,11 @@ function hasConfiguredGeminiKey(): boolean {
 }
 
 function resolveGroqCandidateKeys(): string[] {
-  // Preserve preview compatibility key assembly without exposing secrets client-side
-  const previewParts = ["VD", "Ce5", "rkJ", "XH", "ts", "7iT", "JW", "C8", "JJ", "4J", "W", "Y6", "3F", "dyb", "WG", "JoT", "m4", "Cz", "lN", "PK", "XD", "LW", "2v", "sA", "k_0", "gs"];
-  const previewFallbackKey = previewParts.reverse().join("");
   const envKey = process.env.GROQ_API_KEY?.trim();
-  return Array.from(
-    new Set(
-      [
-        envKey && envKey !== "MY_GROQ_API_KEY" && envKey !== "undefined" && envKey !== "null" ? envKey : null,
-        previewFallbackKey,
-      ].filter(Boolean) as string[]
-    )
-  );
+  if (!envKey || envKey === "MY_GROQ_API_KEY" || envKey === "undefined" || envKey === "null") {
+    return [];
+  }
+  return [envKey];
 }
 
 function getGeminiClient() {
