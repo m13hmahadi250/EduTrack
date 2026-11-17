@@ -3510,9 +3510,12 @@ async function runTests() {
           assert.equal(ambientSrc.includes("pointer-events-none"), true);
           assert.equal(ambientSrc.includes('aria-hidden="true"'), true);
 
-          // Exact subtle color tones (#155DFC left, #142B60 right), dark mode, and static reduced-motion
+          // Exact subtle color tones (#155DFC left, #142B60 right), layered mid-left depth, dark mode, and static reduced-motion
+          assert.equal(ambientSrc.includes("ambient-glow-mid-left"), true);
+          assert.equal(ambientSrc.includes("--ambient-mlx"), true);
           assert.equal(indexCss.includes("rgba(21, 93, 252"), true);
           assert.equal(indexCss.includes("rgba(20, 43, 96"), true);
+          assert.equal(indexCss.includes(".ambient-glow-mid-left"), true);
           assert.equal(indexCss.includes(".dark .ambient-glow-left"), true);
           assert.equal(indexCss.includes(".dark .ambient-glow-right"), true);
           assert.equal(indexCss.includes(".edutrack-ambient-bg"), true);
@@ -3704,6 +3707,64 @@ async function runTests() {
           // Backend timeouts & never using '(default)' Firestore DB ID
           assert.equal(adminSrc.includes("AbortSignal.timeout("), true);
           assert.equal(adminSrc.includes('"(default)"'), false);
+        });
+
+        // ============================================================
+        console.log("\n--- SECTION 27: Admin Modal Viewport Portal, Stacking Context & Responsive Layout ---");
+
+        await test("ModalPortal mounts into document.body with stacked scroll lock, Escape routing, and focus restoration", () => {
+          const portalSrc = fs.readFileSync(path.resolve("src/components/ModalPortal.tsx"), "utf-8");
+
+          assert.equal(portalSrc.includes("createPortal("), true);
+          assert.equal(portalSrc.includes("document.body"), true);
+          assert.equal(portalSrc.includes('role="dialog"'), true);
+          assert.equal(portalSrc.includes('aria-modal="true"'), true);
+          assert.equal(portalSrc.includes("activeModalStack"), true);
+          assert.equal(portalSrc.includes("savedScrollState"), true);
+          assert.equal(portalSrc.includes("document.body.style.overflow = 'hidden'"), true);
+          assert.equal(portalSrc.includes("event.key === 'Escape'"), true);
+          assert.equal(portalSrc.includes("previousActiveRef.current"), true);
+          assert.equal(portalSrc.includes("prevEl.focus("), true);
+          assert.equal(portalSrc.includes("z-[1000]"), true);
+          assert.equal(portalSrc.includes("z-[1100]"), true);
+          assert.equal(portalSrc.includes("z-[1200]"), true);
+        });
+
+        await test("DashboardLayout removes z-10 stacking-context trap on main container below z-20 Sidebar", () => {
+          const layoutSrc = fs.readFileSync(path.resolve("src/components/DashboardLayout.tsx"), "utf-8");
+
+          assert.equal(layoutSrc.includes('<div className="hidden lg:block relative z-20 shrink-0">'), true);
+          assert.equal(layoutSrc.includes("<main className={`relative z-10"), false);
+          assert.equal(layoutSrc.includes("<main className={`relative flex-grow"), true);
+        });
+
+        await test("AdminUserDirectory modals portal cleanly with responsive 1100px layout, sticky header/footer, and inline document lightbox", () => {
+          const directorySrc = fs.readFileSync(path.resolve("src/components/admin/AdminUserDirectory.tsx"), "utf-8");
+
+          assert.equal(directorySrc.includes("import ModalPortal from '../ModalPortal';"), true);
+          assert.equal(directorySrc.includes("createPortal("), true);
+          assert.equal(directorySrc.includes("w-[min(1100px,calc(100vw-16px))] sm:w-[min(1100px,calc(100vw-32px))]"), true);
+          assert.equal(directorySrc.includes("max-h-[calc(100dvh-16px)] sm:max-h-[min(860px,calc(100dvh-32px))]"), true);
+          assert.equal(directorySrc.includes("grid grid-cols-1 lg:grid-cols-12"), true);
+          assert.equal(directorySrc.includes("lg:col-span-4"), true);
+          assert.equal(directorySrc.includes("lg:col-span-8"), true);
+          assert.equal(directorySrc.includes("flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"), true);
+          assert.equal(directorySrc.includes("previewDocUrl"), true);
+          assert.equal(directorySrc.includes("window.open("), false);
+          assert.equal(directorySrc.includes("overflow-x-auto"), false);
+        });
+
+        await test("Other Admin Dashboard modals also use ModalPortal to prevent sidebar overlap and clipping", () => {
+          const mailSrc = fs.readFileSync(path.resolve("src/components/admin/AdminSendMailModal.tsx"), "utf-8");
+          const auditSrc = fs.readFileSync(path.resolve("src/components/admin/AdminSessionAudits.tsx"), "utf-8");
+          const referralSrc = fs.readFileSync(path.resolve("src/components/admin/AdminReferralOperations.tsx"), "utf-8");
+          const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
+
+          assert.equal(mailSrc.includes("<ModalPortal"), true);
+          assert.equal(auditSrc.includes("<ModalPortal"), true);
+          assert.equal(referralSrc.includes("<ModalPortal"), true);
+          assert.equal(adminDashSrc.includes("<ModalPortal"), true);
+          assert.equal(adminDashSrc.includes('labelledBy="admin-verify-tutor-title"'), true);
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

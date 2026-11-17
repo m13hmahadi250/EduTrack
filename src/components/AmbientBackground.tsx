@@ -27,6 +27,8 @@ const AmbientBackground = memo(function AmbientBackground({
       el.style.setProperty('--ambient-p', '0');
       el.style.setProperty('--ambient-lx', '0px');
       el.style.setProperty('--ambient-ly', '0px');
+      el.style.setProperty('--ambient-mlx', '0px');
+      el.style.setProperty('--ambient-mly', '0px');
       el.style.setProperty('--ambient-rx', '0px');
       el.style.setProperty('--ambient-ry', '0px');
       el.style.setProperty('--ambient-mx', '0px');
@@ -45,35 +47,44 @@ const AmbientBackground = memo(function AmbientBackground({
     const updateAmbientOrbit = () => {
       rafId = null;
       const doc = document.documentElement;
-      const scrollTop =
-        window.scrollY ||
-        window.pageYOffset ||
-        doc.scrollTop ||
-        document.body.scrollTop ||
-        0;
-      const scrollable = Math.max(1, doc.scrollHeight - window.innerHeight);
+      const scrollTop = Math.max(
+        window.scrollY || 0,
+        window.pageYOffset || 0,
+        doc.scrollTop || 0,
+        document.body?.scrollTop || 0
+      );
+      const docHeight = Math.max(
+        doc.scrollHeight || 0,
+        document.body?.scrollHeight || 0
+      );
+      const scrollable = Math.max(1, docHeight - window.innerHeight);
       const progress = Math.min(1, Math.max(0, scrollTop / scrollable));
 
       const scrollKey = `${scrollTop.toFixed(1)}:${scrollable}`;
       if (scrollKey === lastScrollKey) return;
       lastScrollKey = scrollKey;
 
-      // Smooth multi-turn orbital angle across full page scroll (idle = static)
-      const angle = progress * Math.PI * 2.4;
-      const lx = Math.sin(angle) * 44;
-      const ly = (1 - Math.cos(angle)) * 48;
+      // Smooth multi-turn orbital drift across full page scroll (idle = static)
+      const angle = progress * Math.PI * 2.5;
+      const lx = Math.sin(angle) * 68;
+      const ly = (1 - Math.cos(angle)) * 84;
 
-      const rx = -Math.sin(angle + 0.65) * 46;
-      const ry = (1 - Math.cos(angle + 0.65)) * 52;
+      const mlx = Math.cos(angle * 0.85 + 0.9) * 56;
+      const mly = Math.sin(angle * 0.85 + 0.9) * 72;
 
-      const mx = Math.cos(angle * 0.9 + 1.3) * 40;
-      const my = Math.sin(angle * 0.9 + 1.3) * 48;
+      const rx = -Math.sin(angle + 0.7) * 72;
+      const ry = (1 - Math.cos(angle + 0.7)) * 88;
 
-      const by = -progress * 32;
+      const mx = Math.cos(angle * 0.9 + 1.3) * 62;
+      const my = Math.sin(angle * 0.9 + 1.3) * 76;
+
+      const by = -progress * 44;
 
       el.style.setProperty('--ambient-p', progress.toFixed(4));
       el.style.setProperty('--ambient-lx', `${lx.toFixed(2)}px`);
       el.style.setProperty('--ambient-ly', `${ly.toFixed(2)}px`);
+      el.style.setProperty('--ambient-mlx', `${mlx.toFixed(2)}px`);
+      el.style.setProperty('--ambient-mly', `${mly.toFixed(2)}px`);
       el.style.setProperty('--ambient-rx', `${rx.toFixed(2)}px`);
       el.style.setProperty('--ambient-ry', `${ry.toFixed(2)}px`);
       el.style.setProperty('--ambient-mx', `${mx.toFixed(2)}px`);
@@ -124,16 +135,19 @@ const AmbientBackground = memo(function AmbientBackground({
       className="edutrack-ambient-bg fixed inset-0 z-0 pointer-events-none overflow-hidden select-none"
     >
       {/* Left edge: soft EduTrack blue (#155DFC) diffused atmospheric shading */}
-      <div className="ambient-glow-left absolute -left-[12vw] -top-[8vh] w-[62vw] max-w-[920px] h-[78vh] max-h-[840px]" />
+      <div className="ambient-glow-left absolute -left-[18vw] sm:-left-[10vw] -top-[6vh] w-[88vw] sm:w-[64vw] max-w-[960px] h-[64vh] sm:h-[82vh] max-h-[880px]" />
+
+      {/* Mid-left layered depth: subtle secondary blue + navy orbital wash */}
+      <div className="ambient-glow-mid-left absolute -left-[16vw] sm:-left-[9vw] top-[36vh] w-[80vw] sm:w-[56vw] max-w-[840px] h-[58vh] sm:h-[74vh] max-h-[800px]" />
 
       {/* Right / upper-right edge: deep navy (#142B60) diffused atmospheric shading */}
-      <div className="ambient-glow-right absolute -right-[8vw] -top-[10vh] w-[64vw] max-w-[960px] h-[82vh] max-h-[880px]" />
+      <div className="ambient-glow-right absolute -right-[16vw] sm:-right-[8vw] -top-[8vh] w-[90vw] sm:w-[66vw] max-w-[1000px] h-[66vh] sm:h-[84vh] max-h-[900px]" />
 
       {/* Mid-right / lower-right edge: secondary diffused deep navy radial layer */}
-      <div className="ambient-glow-mid-right absolute -right-[6vw] top-[34vh] w-[58vw] max-w-[880px] h-[74vh] max-h-[800px]" />
+      <div className="ambient-glow-mid-right absolute -right-[14vw] sm:-right-[6vw] top-[34vh] w-[84vw] sm:w-[60vw] max-w-[900px] h-[62vh] sm:h-[76vh] max-h-[820px]" />
 
-      {/* Lower canvas: gentle blue-gray to white scroll transition */}
-      <div className="ambient-glow-lower absolute inset-x-0 -bottom-[14vh] h-[66vh] max-h-[680px]" />
+      {/* Lower canvas: gentle blue-navy to white scroll transition */}
+      <div className="ambient-glow-lower absolute inset-x-0 -bottom-[12vh] h-[64vh] max-h-[680px]" />
     </div>
   );
 });

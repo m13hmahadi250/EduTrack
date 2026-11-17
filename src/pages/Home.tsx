@@ -169,7 +169,6 @@ export default function Home() {
   const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
   const [showAllTutors, setShowAllTutors] = React.useState(false);
-  const [showAllDistricts, setShowAllDistricts] = React.useState(false);
   const [howItWorksRole, setHowItWorksRole] = React.useState<'student' | 'tutor'>('student');
 
   const [localFavorites, setLocalFavorites] = React.useState<string[]>(() => {
@@ -1321,7 +1320,7 @@ export default function Home() {
           </div>
 
           {/* Curriculum Categories Bento Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#0D5BFF] flex items-center justify-center mb-4">
@@ -1391,52 +1390,6 @@ export default function Home() {
               </div>
             </div>
 
-          </div>
-
-          {/* Quick District Directory Navigation for Local SEO */}
-          <div className="bg-white dark:bg-[#1E293B] p-8 md:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-lg font-black text-[#0B132B] dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-[#0D5BFF]" />
-                  <span>Explore Verified Tutors by District</span>
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider mt-1">
-                  Click any district to filter teachers in real-time
-                </p>
-                <p lang="bn" className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1">
-                  আপনার জেলা নির্বাচন করে কাছাকাছি থাকা যাচাইকৃত শিক্ষক খুঁজুন।
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAllDistricts((prev) => !prev)}
-                className="text-xs font-black uppercase text-[#0D5BFF] hover:underline cursor-pointer self-start md:self-auto"
-              >
-                {showAllDistricts ? 'Show Top 24 Districts ↑' : 'View All Districts (64) →'}
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(showAllDistricts ? BANGLADESH_DISTRICTS : BANGLADESH_DISTRICTS.slice(0, 24)).map((dist) => (
-                <button
-                  key={dist}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDistrict(dist);
-                    const el = document.getElementById('tutor-results');
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedDistrict === dist
-                      ? 'bg-[#0D5BFF] text-white shadow-sm'
-                      : 'bg-slate-50 dark:bg-[#0B132B] text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-[#0D5BFF] border border-slate-100 dark:border-slate-800'
-                  }`}
-                >
-                  Tutors in {dist}
-                </button>
-              ))}
-            </div>
           </div>
 
         </div>

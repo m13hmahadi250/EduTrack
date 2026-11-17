@@ -77,7 +77,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       <AmbientBackground variant="dashboard" />
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block relative z-20">
+      <div className="hidden lg:block relative z-20 shrink-0">
         <Sidebar />
       </div>
 
@@ -181,7 +181,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       )}
 
       {/* Main App Content View Container */}
-      <main className={`relative z-10 flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip ${isKeyboardOpen ? 'pb-4' : 'pb-24'} lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0`}>
+      <main className={`relative flex-grow p-3.5 sm:p-5 lg:p-7 overflow-x-clip ${isKeyboardOpen ? 'pb-4' : 'pb-24'} lg:pb-8 max-w-[1400px] mx-auto w-full min-w-0`}>
         {children}
       </main>
 

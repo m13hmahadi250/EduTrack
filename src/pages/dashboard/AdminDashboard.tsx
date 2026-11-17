@@ -36,6 +36,7 @@ import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatJoinDate } from "../../components/admin/AdminUserDirectory";
 import UserAvatar from "../../components/UserAvatar";
+import ModalPortal from "../../components/ModalPortal";
 import { lazyWithRetry } from "../../utils/lazyWithRetry";
 
 const AdminAnalytics = lazyWithRetry(() => import("../../components/admin/AdminAnalytics"), "AdminAnalytics");
@@ -1844,24 +1845,22 @@ export default function AdminDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Verification Modal */}
-      <AnimatePresence>
+      {/* Verification Modal (Viewport-Level Portal) */}
+      <ModalPortal
+        isOpen={Boolean(selectedTutor)}
+        onClose={() => setSelectedTutor(null)}
+        level="base"
+        labelledBy="admin-verify-tutor-title"
+        overlayClassName="bg-[#0B132B]/80 backdrop-blur-md p-2 sm:p-4 lg:p-6"
+      >
         {selectedTutor && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 md:px-0">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedTutor(null)}
-              className="absolute inset-0 bg-[#0B132B]/80 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-4xl bg-white dark:bg-[#111A2E] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[90vh] lg:h-auto max-h-[85vh] md:max-h-[90vh]"
-            >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-[min(1024px,calc(100vw-16px))] sm:w-[min(1024px,calc(100vw-32px))] bg-white dark:bg-[#111A2E] rounded-2xl md:rounded-3xl shadow-2xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row max-h-[calc(100dvh-16px)] sm:max-h-[90dvh] my-auto"
+          >
               <AnimatePresence>
                 {approvedAnim.type && (
                   <motion.div
@@ -1898,7 +1897,7 @@ export default function AdminDashboard() {
               </AnimatePresence>
 
               {/* Left Column: Info */}
-              <div className="flex-1 p-6 sm:p-10 md:p-12 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-slate-100 h-1/2 md:h-auto">
+              <div className="md:flex-1 min-w-0 min-h-0 p-5 sm:p-8 lg:p-10 md:overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800">
                 <div className="flex items-start sm:items-center gap-4 sm:gap-6 mb-8">
                   <UserAvatar
                     src={selectedTutor.profileImage}
@@ -1908,7 +1907,7 @@ export default function AdminDashboard() {
                     textClassName="text-2xl font-black"
                   />
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white leading-snug break-words mb-1.5">
+                    <h3 id="admin-verify-tutor-title" className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white leading-snug break-words mb-1.5">
                       {selectedTutor.name}
                     </h3>
                     <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 break-words leading-snug">
@@ -2217,7 +2216,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Right Column: Visual Evidence */}
-              <div className="flex-1 bg-slate-100 p-5 sm:p-8 flex flex-col h-1/2 md:h-auto overflow-y-auto custom-scrollbar">
+              <div className="md:flex-1 min-w-0 min-h-0 bg-slate-100 p-5 sm:p-8 flex flex-col md:overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-6">
                   <h4 className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
                     Document Evidence
@@ -2425,53 +2424,50 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </motion.div>
-          </div>
         )}
-      </AnimatePresence>
+      </ModalPortal>
 
       {/* Lightbox High Definition Zoom Overlay */}
-      <AnimatePresence>
+      <ModalPortal
+        isOpen={Boolean(zoomImage)}
+        onClose={() => setZoomImage(null)}
+        level="top"
+        ariaLabel="High definition document magnifier"
+        overlayClassName="bg-black/95 backdrop-blur-md p-3 sm:p-6"
+      >
         {zoomImage && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setZoomImage(null)}
-              className="absolute inset-0 cursor-zoom-out"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative max-w-4xl max-h-[90vh] w-full flex flex-col z-[210] pointer-events-none"
-            >
-              <div className="flex justify-between items-center mb-4 text-white pointer-events-auto">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-                  Secure Document Magnifier (High Definition)
-                </span>
-                <button
-                  onClick={() => setZoomImage(null)}
-                  className="px-4 py-2 bg-white/10 hover:bg-rose-500 text-white rounded-xl text-[9px] font-black uppercase transition-all"
-                >
-                  Close Zoom
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0B132B]/50 flex items-center justify-center p-4">
-                <img
-                  src={zoomImage}
-                  alt="High Definition Magnification"
-                  className="max-w-full max-h-[75vh] object-contain rounded-xl select-none shadow-2xl"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="mt-4 flex justify-center text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase italic">
-                Verified cryptographic ledger node security
-              </div>
-            </motion.div>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-[min(960px,calc(100vw-24px))] max-h-[90dvh] flex flex-col my-auto"
+          >
+            <div className="flex justify-between items-center mb-4 text-white">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                Secure Document Magnifier (High Definition)
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoomImage(null)}
+                className="min-h-[40px] px-4 py-2 bg-white/10 hover:bg-rose-500 text-white rounded-xl text-[9px] font-black uppercase transition-all cursor-pointer"
+              >
+                Close Zoom
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B132B]/50 flex items-center justify-center p-4">
+              <img
+                src={zoomImage}
+                alt="High Definition Magnification"
+                className="max-w-full max-h-[75dvh] object-contain rounded-xl select-none shadow-2xl"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="mt-4 flex justify-center text-[9px] font-black tracking-widest text-[#0D5BFF] uppercase italic">
+              Verified cryptographic ledger node security
+            </div>
+          </motion.div>
         )}
-      </AnimatePresence>
+      </ModalPortal>
 
       <div className="bg-slate-50 dark:bg-[#0D1526] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">

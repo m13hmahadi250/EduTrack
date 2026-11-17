@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, useAppStore } from '../../store';
 import {
   Search,
@@ -25,8 +26,11 @@ import {
   MoreVertical,
   UserCog,
   RotateCcw,
+  ZoomIn,
+  ExternalLink,
 } from 'lucide-react';
 import AdminSendMailModal from './AdminSendMailModal';
+import ModalPortal from '../ModalPortal';
 import { useBackHandler } from '../../utils/mobileWebView';
 import UserAvatar from '../UserAvatar';
 import { getTutorVerificationStatus } from '../../../shared/profileCompletion';
@@ -107,6 +111,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   // Inspection Modal & Sub-modals
   const [inspectingUser, setInspectingUser] = useState<User | null>(null);
   const [emailModalUser, setEmailModalUser] = useState<User | null>(null);
+  const [previewDocUrl, setPreviewDocUrl] = useState<{ url: string; label: string } | null>(null);
 
   // Inline editors inside Inspect modal
   const [editingBalance, setEditingBalance] = useState(false);
@@ -184,7 +189,8 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
   }, [openActionMenuId]);
 
   useBackHandler(Boolean(confirmModal?.isOpen), () => setConfirmModal(null), 'admin-directory-confirm');
-  useBackHandler(Boolean(inspectingUser) && !confirmModal?.isOpen, () => setInspectingUser(null), 'admin-directory-inspect');
+  useBackHandler(Boolean(previewDocUrl) && !confirmModal?.isOpen, () => setPreviewDocUrl(null), 'admin-directory-doc-preview');
+  useBackHandler(Boolean(inspectingUser) && !confirmModal?.isOpen && !previewDocUrl, () => setInspectingUser(null), 'admin-directory-inspect');
   useBackHandler(Boolean(emailModalUser) && !confirmModal?.isOpen, () => setEmailModalUser(null), 'admin-directory-email');
 
   const isSuperAdminEmail =
@@ -1235,18 +1241,24 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         )}
       </div>
 
-      {/* Confirmation Modal */}
-      {confirmModal && confirmModal.isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-          onClick={() => setConfirmModal(null)}
-        >
+      {/* Confirmation Modal (Portaled above all dashboard/modal layers) */}
+      <ModalPortal
+        isOpen={Boolean(confirmModal && confirmModal.isOpen)}
+        onClose={() => setConfirmModal(null)}
+        level="elevated"
+        labelledBy="admin-confirm-modal-title"
+        overlayClassName="bg-slate-900/65 backdrop-blur-xs p-3 sm:p-4"
+      >
+        {confirmModal && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-5 animate-fade-in"
+            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-6 w-[min(420px,calc(100vw-24px))] space-y-5 my-auto"
           >
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3
+                id="admin-confirm-modal-title"
+                className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2"
+              >
                 {confirmModal.isDanger ? (
                   <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
                 ) : (
@@ -1254,22 +1266,22 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 )}
                 <span>{confirmModal.title}</span>
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed break-words">
                 {confirmModal.message}
               </p>
             </div>
-            <div className="flex items-center gap-2.5 justify-end pt-1">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2.5 sm:justify-end pt-1">
               <button
                 type="button"
                 onClick={() => setConfirmModal(null)}
-                className="min-h-[40px] px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                className="min-h-[44px] sm:min-h-[40px] px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmModal.onConfirm}
-                className={`min-h-[40px] px-4 py-2 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                className={`min-h-[44px] sm:min-h-[40px] px-4 py-2 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                   confirmModal.isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0D5BFF] hover:bg-blue-700'
                 }`}
               >
@@ -1277,35 +1289,41 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
 
-      {/* User Details & Moderation Modal */}
-      {inspectingUser && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto"
-          onClick={() => setInspectingUser(null)}
-        >
+      {/* User Details & Moderation Modal (Viewport-Level Portal) */}
+      <ModalPortal
+        isOpen={Boolean(inspectingUser)}
+        onClose={() => setInspectingUser(null)}
+        level="base"
+        labelledBy="admin-user-details-title"
+        overlayClassName="bg-slate-950/75 backdrop-blur-xs p-2 sm:p-4 lg:p-6"
+      >
+        {inspectingUser && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-7 max-w-4xl w-full my-auto space-y-6 relative overflow-hidden font-sans"
+            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl w-[min(1100px,calc(100vw-16px))] sm:w-[min(1100px,calc(100vw-32px))] max-h-[calc(100dvh-16px)] sm:max-h-[min(860px,calc(100dvh-32px))] my-auto flex flex-col overflow-hidden relative font-sans"
           >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-start gap-3.5 min-w-0">
+            {/* Header (Sticky / Fixed inside Modal Flex Column) */}
+            <div className="shrink-0 flex items-start justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#111A2E]">
+              <div className="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
                 <UserAvatar
                   src={inspectingUser.profileImage}
                   name={inspectingUser.name}
-                  className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl border border-slate-200 dark:border-slate-700 shrink-0"
                   fallbackClassName="bg-[#0D5BFF]/10 text-[#0D5BFF]"
                   textClassName="text-base font-black"
                 />
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex flex-wrap items-center gap-2 break-words leading-snug">
-                    <span>{inspectingUser.name || 'Anonymous User'}</span>
-                    {inspectingUser.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+                <div className="min-w-0 flex-1">
+                  <h3
+                    id="admin-user-details-title"
+                    className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex flex-wrap items-center gap-2 break-words leading-snug"
+                  >
+                    <span className="break-words">{inspectingUser.name || 'Anonymous User'}</span>
+                    {inspectingUser.isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
                     <span
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase shrink-0 ${
                         inspectingUser.isBlocked
                           ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                           : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -1314,13 +1332,13 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                       {inspectingUser.isBlocked ? 'Suspended' : 'Active'}
                     </span>
                   </h3>
-                  <div className="flex items-center gap-2.5 flex-wrap mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="font-mono text-[#0D5BFF] font-semibold">
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-1 text-xs text-slate-500 dark:text-slate-400 min-w-0">
+                    <span className="font-mono text-[#0D5BFF] font-semibold break-all">
                       ID: {inspectingUser.id} • {inspectingUser.role.toUpperCase()}
                     </span>
                     <span className="inline-flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                      Joined: {formatJoinDate(inspectingUser.createdAt).full}
+                      <Clock className="w-3.5 h-3.5 text-[#0D5BFF] shrink-0" />
+                      <span>Joined: {formatJoinDate(inspectingUser.createdAt).full}</span>
                     </span>
                   </div>
                 </div>
@@ -1329,579 +1347,619 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                 type="button"
                 onClick={() => setInspectingUser(null)}
                 aria-label="Close details"
-                className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
+                title="Close"
+                className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Scrollable Body */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto max-h-[62vh] pr-1 custom-scrollbar">
-              {/* Left Column: Wallet, Status, Role, Moderation */}
-              <div className="md:col-span-1 space-y-4">
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Wallet Balance
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 sm:px-6 sm:py-5 custom-scrollbar">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+                {/* Left Column: Wallet, Status, Role, Moderation */}
+                <div className="lg:col-span-4 space-y-4 min-w-0">
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Wallet Balance
+                      </span>
+                      {!editingBalance && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBalanceInput((inspectingUser.balance || 0).toString());
+                            setEditingBalance(true);
+                          }}
+                          className="text-xs font-bold text-[#0D5BFF] hover:underline inline-flex items-center gap-1 cursor-pointer min-h-[32px] px-1"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {editingBalance ? (
+                      <div className="space-y-2">
+                        <input
+                          type="number"
+                          value={balanceInput}
+                          onChange={(e) => setBalanceInput(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-[#0D5BFF] rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none"
+                          placeholder="0"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveBalance(inspectingUser.id)}
+                            disabled={savingBalance}
+                            className="flex-1 min-h-[38px] py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+                          >
+                            {savingBalance ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingBalance(false)}
+                            className="min-h-[38px] px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-1 text-slate-900 dark:text-white tabular-nums">
+                        <span className="text-lg font-bold">৳</span>
+                        <span className="text-2xl font-black">{(inspectingUser.balance || 0).toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">NID Check</span>
+                        <span
+                          className={`font-bold uppercase ${
+                            inspectingUser.nidStatus === 'approved'
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : inspectingUser.nidStatus === 'rejected'
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {inspectingUser.nidStatus || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Academic Check</span>
+                        <span
+                          className={`font-bold uppercase ${
+                            inspectingUser.academicStatus === 'approved'
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : inspectingUser.academicStatus === 'rejected'
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {inspectingUser.academicStatus || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Role & Gender quick selectors */}
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+                    <div>
+                      <label
+                        htmlFor="admin-inspect-role"
+                        className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1"
+                      >
+                        Account Role
+                      </label>
+                      <select
+                        id="admin-inspect-role"
+                        value={inspectingUser.role}
+                        disabled={inspectingUser.id === currentUser.id || updatingUserId === inspectingUser.id}
+                        onChange={(e) => handleChangeRole(inspectingUser.id, e.target.value as any)}
+                        className="w-full min-h-[42px] px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer disabled:opacity-60"
+                      >
+                        <option value="student">Student</option>
+                        <option value="tutor">Tutor</option>
+                        {(isSuperAdminEmail || inspectingUser.role === 'admin') && (
+                          <option value="admin">Admin</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="admin-inspect-gender"
+                        className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1"
+                      >
+                        Gender Profile
+                      </label>
+                      <select
+                        id="admin-inspect-gender"
+                        value={inspectingUser.gender || ''}
+                        disabled={updatingUserId === inspectingUser.id}
+                        onChange={(e) => {
+                          const newGender = e.target.value;
+                          setUpdatingUserId(inspectingUser.id);
+                          updateUser(inspectingUser.id, { gender: newGender })
+                            .then(() => {
+                              setInspectingUser((prev) => (prev ? { ...prev, gender: newGender } : null));
+                              showToast(`Gender changed to ${newGender || 'Not Specified'}`);
+                            })
+                            .catch(() => showToast('Failed to update gender', 'error'))
+                            .finally(() => setUpdatingUserId(null));
+                        }}
+                        className="w-full min-h-[42px] px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
+                      >
+                        <option value="">Not Specified</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Moderation Actions */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block px-1">
+                      Moderation Controls
                     </span>
-                    {!editingBalance && (
+
+                    {inspectingUser.id !== currentUser.id && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBlock(inspectingUser)}
+                        className="w-full min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
+                      >
+                        <span>{inspectingUser.isBlocked ? 'Activate Account' : 'Suspend Account'}</span>
+                        <span className={inspectingUser.isBlocked ? 'text-emerald-600' : 'text-rose-600'}>
+                          {inspectingUser.isBlocked ? 'UNBLOCK' : 'SUSPEND'}
+                        </span>
+                      </button>
+                    )}
+
+                    {inspectingUser.role === 'tutor' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVerification(inspectingUser)}
+                          className="w-full min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
+                        >
+                          <span>Verification Badge</span>
+                          <span className="text-[#0D5BFF]">{inspectingUser.isVerified ? 'REVOKE' : 'GRANT'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleHomeVisibility(inspectingUser)}
+                          className="w-full min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 cursor-pointer transition-colors"
+                        >
+                          <span>Homepage Display</span>
+                          <span className="text-indigo-600 dark:text-indigo-400">
+                            {inspectingUser.showOnHomePage !== false ? 'VISIBLE' : 'HIDDEN'}
+                          </span>
+                        </button>
+                      </>
+                    )}
+
+                    {inspectingUser.id !== currentUser.id && onMessageUser && (
                       <button
                         type="button"
                         onClick={() => {
-                          setBalanceInput((inspectingUser.balance || 0).toString());
-                          setEditingBalance(true);
+                          onMessageUser(inspectingUser.id);
+                          setInspectingUser(null);
                         }}
-                        className="text-xs font-bold text-[#0D5BFF] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        className="w-full min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] hover:bg-[#0D5BFF] hover:text-white border border-blue-200/70 dark:border-blue-900/50 cursor-pointer transition-colors"
                       >
-                        <Pencil className="w-3 h-3" />
-                        <span>Edit</span>
+                        <span>Open Direct Chat</span>
+                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                      </button>
+                    )}
+
+                    {inspectingUser.id !== currentUser.id && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveUser(inspectingUser)}
+                        className="w-full min-h-[44px] py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-200/70 dark:border-rose-900/40 cursor-pointer transition-colors"
+                      >
+                        <span>Permanently Delete User</span>
+                        <UserMinus className="w-3.5 h-3.5 shrink-0" />
                       </button>
                     )}
                   </div>
+                </div>
 
-                  {editingBalance ? (
-                    <div className="space-y-2">
-                      <input
-                        type="number"
-                        value={balanceInput}
-                        onChange={(e) => setBalanceInput(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-[#0D5BFF] rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none"
-                        placeholder="0"
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveBalance(inspectingUser.id)}
-                          disabled={savingBalance}
-                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
-                        >
-                          {savingBalance ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingBalance(false)}
-                          className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer"
-                        >
-                          Cancel
-                        </button>
+                {/* Right 8 Columns: Full User Metadata */}
+                <div className="lg:col-span-8 space-y-5 min-w-0">
+                  {/* Contact & Registration */}
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      Contact & Account Credentials
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Phone Number</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono break-all">
+                          {inspectingUser.phone || 'Not configured'}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Email Address</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-all font-mono">
+                          {inspectingUser.email || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Date of Birth</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                          {inspectingUser.birthDate || 'Not configured'}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Joined Date</span>
+                        <p className="text-xs font-bold text-[#0D5BFF] mt-0.5 font-mono flex items-center gap-1.5 break-words">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          <span>{formatJoinDate(inspectingUser.createdAt).full}</span>
+                        </p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-baseline gap-1 text-slate-900 dark:text-white tabular-nums">
-                      <span className="text-lg font-bold">৳</span>
-                      <span className="text-2xl font-black">{(inspectingUser.balance || 0).toLocaleString()}</span>
-                    </div>
-                  )}
-
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">NID Check</span>
-                      <span
-                        className={`font-bold uppercase ${
-                          inspectingUser.nidStatus === 'approved'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : inspectingUser.nidStatus === 'rejected'
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-amber-600 dark:text-amber-400'
-                        }`}
-                      >
-                        {inspectingUser.nidStatus || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Academic Check</span>
-                      <span
-                        className={`font-bold uppercase ${
-                          inspectingUser.academicStatus === 'approved'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : inspectingUser.academicStatus === 'rejected'
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-amber-600 dark:text-amber-400'
-                        }`}
-                      >
-                        {inspectingUser.academicStatus || 'N/A'}
-                      </span>
-                    </div>
                   </div>
-                </div>
 
-                {/* Role & Gender quick selectors */}
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+                  {/* Geography */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                      Account Role
-                    </label>
-                    <select
-                      value={inspectingUser.role}
-                      disabled={inspectingUser.id === currentUser.id || updatingUserId === inspectingUser.id}
-                      onChange={(e) => handleChangeRole(inspectingUser.id, e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer disabled:opacity-60"
-                    >
-                      <option value="student">Student</option>
-                      <option value="tutor">Tutor</option>
-                      {(isSuperAdminEmail || inspectingUser.role === 'admin') && (
-                        <option value="admin">Admin</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                      Gender Profile
-                    </label>
-                    <select
-                      value={inspectingUser.gender || ''}
-                      disabled={updatingUserId === inspectingUser.id}
-                      onChange={(e) => {
-                        const newGender = e.target.value;
-                        setUpdatingUserId(inspectingUser.id);
-                        updateUser(inspectingUser.id, { gender: newGender })
-                          .then(() => {
-                            setInspectingUser((prev) => (prev ? { ...prev, gender: newGender } : null));
-                            showToast(`Gender changed to ${newGender || 'Not Specified'}`);
-                          })
-                          .catch(() => showToast('Failed to update gender', 'error'))
-                          .finally(() => setUpdatingUserId(null));
-                      }}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
-                    >
-                      <option value="">Not Specified</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Moderation Actions */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block px-1">
-                    Moderation Controls
-                  </span>
-
-                  {inspectingUser.id !== currentUser.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleBlock(inspectingUser)}
-                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
-                    >
-                      <span>{inspectingUser.isBlocked ? 'Activate Account' : 'Suspend Account'}</span>
-                      <span className={inspectingUser.isBlocked ? 'text-emerald-600' : 'text-rose-600'}>
-                        {inspectingUser.isBlocked ? 'UNBLOCK' : 'SUSPEND'}
-                      </span>
-                    </button>
-                  )}
-
-                  {inspectingUser.role === 'tutor' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleVerification(inspectingUser)}
-                        className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#0D5BFF] cursor-pointer transition-colors"
-                      >
-                        <span>Verification Badge</span>
-                        <span className="text-[#0D5BFF]">{inspectingUser.isVerified ? 'REVOKE' : 'GRANT'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHomeVisibility(inspectingUser)}
-                        className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 cursor-pointer transition-colors"
-                      >
-                        <span>Homepage Display</span>
-                        <span className="text-indigo-600 dark:text-indigo-400">
-                          {inspectingUser.showOnHomePage !== false ? 'VISIBLE' : 'HIDDEN'}
-                        </span>
-                      </button>
-                    </>
-                  )}
-
-                  {inspectingUser.id !== currentUser.id && onMessageUser && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onMessageUser(inspectingUser.id);
-                        setInspectingUser(null);
-                      }}
-                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 text-[#0D5BFF] hover:bg-[#0D5BFF] hover:text-white border border-blue-200/70 dark:border-blue-900/50 cursor-pointer transition-colors"
-                    >
-                      <span>Open Direct Chat</span>
-                      <Mail className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
-                  {inspectingUser.id !== currentUser.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveUser(inspectingUser)}
-                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-200/70 dark:border-rose-900/40 cursor-pointer transition-colors"
-                    >
-                      <span>Permanently Delete User</span>
-                      <UserMinus className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Right 2 Columns: Full User Metadata */}
-              <div className="md:col-span-2 space-y-5">
-                {/* Contact & Registration */}
-                <div>
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Contact & Account Credentials
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Phone Number</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono">
-                        {inspectingUser.phone || 'Not configured'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Email Address</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-all font-mono">
-                        {inspectingUser.email || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Date of Birth</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                        {inspectingUser.birthDate || 'Not configured'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Joined Date</span>
-                      <p className="text-xs font-bold text-[#0D5BFF] mt-0.5 font-mono flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        <span>{formatJoinDate(inspectingUser.createdAt).full}</span>
-                      </p>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      Location Details
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">District</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                          {inspectingUser.district || 'Not specified'}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Area</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                          {inspectingUser.area || 'Not specified'}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Thana</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                          {inspectingUser.thana || 'Not specified'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Geography */}
-                <div>
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Location Details
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">District</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                        {inspectingUser.district || 'Not specified'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Area</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                        {inspectingUser.area || 'Not specified'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Thana</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                        {inspectingUser.thana || 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Role-Specific Section */}
-                {inspectingUser.role === 'tutor' ? (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                        Tutor Profile & Compensation
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">University</span>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                            {inspectingUser.university || 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Department / Subject</span>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                            {inspectingUser.course || 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Academic Tenure</span>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                            {inspectingUser.year ? `${inspectingUser.year} Year` : ''}
-                            {inspectingUser.semester ? ` • Semester ${inspectingUser.semester}` : ''}
-                            {!inspectingUser.year && !inspectingUser.semester ? 'Standard / Graduated' : ''}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">National ID (NID)</span>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono">
-                            {inspectingUser.nidNumber || 'Not submitted'}
-                          </p>
-                        </div>
-
-                        {/* Expected Monthly Salary Editor */}
-                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                              <DollarSign className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                              Expected Monthly Salary
-                            </span>
-                            {!editingRate && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRateInput((inspectingUser.hourlyRate || 0).toString());
-                                  setEditingRate(true);
-                                }}
-                                className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                            )}
-                          </div>
-                          {!editingRate ? (
-                            <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
-                              ৳{(inspectingUser.hourlyRate || 0).toLocaleString()}{' '}
-                              <span className="text-xs font-semibold text-slate-500">/ month</span>
+                  {/* Role-Specific Section */}
+                  {inspectingUser.role === 'tutor' ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                          Tutor Profile & Compensation
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">University</span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                              {inspectingUser.university || 'N/A'}
                             </p>
-                          ) : (
-                            <div className="space-y-2 mt-1">
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="text"
-                                  value={rateInput}
-                                  onChange={(e) => setRateInput(e.target.value.replace(/[^0-9]/g, ''))}
-                                  className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
-                                  autoFocus
-                                />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Department / Subject</span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                              {inspectingUser.course || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Academic Tenure</span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                              {inspectingUser.year ? `${inspectingUser.year} Year` : ''}
+                              {inspectingUser.semester ? ` • Semester ${inspectingUser.semester}` : ''}
+                              {!inspectingUser.year && !inspectingUser.semester ? 'Standard / Graduated' : ''}
+                            </p>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">National ID (NID)</span>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 font-mono break-all">
+                              {inspectingUser.nidNumber || 'Not submitted'}
+                            </p>
+                          </div>
+
+                          {/* Expected Monthly Salary Editor */}
+                          <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <DollarSign className="w-3.5 h-3.5 text-[#0D5BFF] shrink-0" />
+                                <span>Expected Monthly Salary</span>
+                              </span>
+                              {!editingRate && (
                                 <button
                                   type="button"
-                                  onClick={handleSaveRate}
-                                  disabled={savingRate}
-                                  className="p-1.5 bg-emerald-600 text-white rounded-lg cursor-pointer"
+                                  onClick={() => {
+                                    setRateInput((inspectingUser.hourlyRate || 0).toString());
+                                    setEditingRate(true);
+                                  }}
+                                  className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer shrink-0"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                            {!editingRate ? (
+                              <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                                ৳{(inspectingUser.hourlyRate || 0).toLocaleString()}{' '}
+                                <span className="text-xs font-semibold text-slate-500">/ month</span>
+                              </p>
+                            ) : (
+                              <div className="space-y-2 mt-1">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={rateInput}
+                                    onChange={(e) => setRateInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                    className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveRate}
+                                    disabled={savingRate}
+                                    aria-label="Save monthly salary"
+                                    className="p-2 bg-emerald-600 text-white rounded-lg cursor-pointer shrink-0"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingRate(false)}
+                                    aria-label="Cancel salary edit"
+                                    className="p-2 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer shrink-0"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Days per week editor */}
+                          <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-[#0D5BFF] shrink-0" />
+                                <span>Days / Week</span>
+                              </span>
+                              {!editingAvailability && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
+                                    setEditingAvailability(true);
+                                  }}
+                                  className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer shrink-0"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                            {!editingAvailability ? (
+                              <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                                {inspectingUser.daysPerWeek || 0}{' '}
+                                <span className="text-xs font-semibold text-slate-500">Days / Week</span>
+                              </p>
+                            ) : (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <select
+                                  value={availabilityInput}
+                                  onChange={(e) => setAvailabilityInput(e.target.value)}
+                                  className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
+                                >
+                                  {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                                    <option key={num} value={num}>
+                                      {num} Days / Week
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveAvailability}
+                                  disabled={savingAvailability}
+                                  aria-label="Save days per week"
+                                  className="p-2 bg-emerald-600 text-white rounded-lg cursor-pointer shrink-0"
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setEditingRate(false)}
-                                  className="p-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
+                                  onClick={() => setEditingAvailability(false)}
+                                  aria-label="Cancel days per week edit"
+                                  className="p-2 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer shrink-0"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Days per week editor */}
-                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5 text-[#0D5BFF]" />
-                              Days / Week
-                            </span>
-                            {!editingAvailability && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAvailabilityInput((inspectingUser.daysPerWeek || 3).toString());
-                                  setEditingAvailability(true);
-                                }}
-                                className="text-xs font-bold text-[#0D5BFF] hover:underline cursor-pointer"
-                              >
-                                Edit
-                              </button>
                             )}
                           </div>
-                          {!editingAvailability ? (
-                            <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
-                              {inspectingUser.daysPerWeek || 0}{' '}
-                              <span className="text-xs font-semibold text-slate-500">Days / Week</span>
-                            </p>
-                          ) : (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <select
-                                value={availabilityInput}
-                                onChange={(e) => setAvailabilityInput(e.target.value)}
-                                className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-[#0D5BFF] rounded-lg text-xs font-bold outline-none"
-                              >
-                                {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-                                  <option key={num} value={num}>
-                                    {num} Days / Week
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={handleSaveAvailability}
-                                disabled={savingAvailability}
-                                className="p-1.5 bg-emerald-600 text-white rounded-lg cursor-pointer"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingAvailability(false)}
-                                className="p-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                        </div>
+                      </div>
+
+                      {inspectingUser.bio && (
+                        <div>
+                          <p className="text-[11px] font-bold text-[#0D5BFF] uppercase tracking-wider mb-1.5">Tutor Bio</p>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800 p-3.5 rounded-xl leading-relaxed break-words">
+                            "{inspectingUser.bio}"
+                          </p>
+                        </div>
+                      )}
+
+                      {(inspectingUser.subjects?.length || inspectingUser.classes?.length) ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                              Subjects
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {inspectingUser.subjects?.map((subj, idx) => (
+                                <span
+                                  key={idx}
+                                  className="bg-blue-50 dark:bg-blue-900/30 text-[#0D5BFF] dark:text-blue-300 px-2.5 py-1 text-xs font-semibold rounded-lg break-words"
+                                >
+                                  {subj}
+                                </span>
+                              ))}
                             </div>
-                          )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                              Classes
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {inspectingUser.classes?.map((cls, idx) => (
+                                <span
+                                  key={idx}
+                                  className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2.5 py-1 text-xs font-semibold rounded-lg break-words"
+                                >
+                                  {cls}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {(inspectingUser.nidFrontImg ||
+                        inspectingUser.nidBackImg ||
+                        (inspectingUser.documents && inspectingUser.documents.length > 0)) && (
+                        <div className="space-y-3">
+                          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1">
+                            Verification Documents
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {inspectingUser.nidFrontImg && (
+                              <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
+                                <span className="text-[11px] font-bold text-slate-500 block">NID Front</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDocUrl({ url: inspectingUser.nidFrontImg!, label: 'NID Front' })
+                                  }
+                                  className="w-full h-32 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-zoom-in block"
+                                >
+                                  <img
+                                    src={inspectingUser.nidFrontImg}
+                                    alt="NID Front"
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <span className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                    <ZoomIn className="w-4 h-4" />
+                                    Inspect
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                            {inspectingUser.nidBackImg && (
+                              <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
+                                <span className="text-[11px] font-bold text-slate-500 block">NID Back</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDocUrl({ url: inspectingUser.nidBackImg!, label: 'NID Back' })
+                                  }
+                                  className="w-full h-32 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-zoom-in block"
+                                >
+                                  <img
+                                    src={inspectingUser.nidBackImg}
+                                    alt="NID Back"
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <span className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                    <ZoomIn className="w-4 h-4" />
+                                    Inspect
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                            {inspectingUser.documents && inspectingUser.documents.length > 0 && (
+                              <div className="sm:col-span-2 border border-slate-200 dark:border-slate-800 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-2">
+                                <span className="text-[11px] font-bold text-slate-500 block">
+                                  University / College ID & Certificates
+                                </span>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {inspectingUser.documents.map((docUrl, dIdx) => (
+                                    <button
+                                      key={dIdx}
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewDocUrl({ url: docUrl, label: `Document ${dIdx + 1}` })
+                                      }
+                                      className="h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-zoom-in hover:border-[#0D5BFF] transition-colors block w-full"
+                                    >
+                                      <img
+                                        src={docUrl}
+                                        alt={`Document ${dIdx + 1}`}
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <span className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                                        <ZoomIn className="w-3.5 h-3.5" />
+                                        View
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                        Student / Guardian Details
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">School / College</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">{inspectingUser.school || 'N/A'}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Class Grade</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">{inspectingUser.studentClass || 'N/A'}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Group</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">{inspectingUser.group || 'General'}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Desired Subject</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">{inspectingUser.subject || 'All Subjects'}</p>
+                        </div>
+                        <div className="sm:col-span-2 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Address</span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
+                            {inspectingUser.address || 'Not configured'}
+                          </p>
                         </div>
                       </div>
                     </div>
-
-                    {inspectingUser.bio && (
-                      <div>
-                        <p className="text-[11px] font-bold text-[#0D5BFF] uppercase tracking-wider mb-1.5">Tutor Bio</p>
-                        <p className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800 p-3.5 rounded-xl leading-relaxed">
-                          "{inspectingUser.bio}"
-                        </p>
-                      </div>
-                    )}
-
-                    {(inspectingUser.subjects?.length || inspectingUser.classes?.length) ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                            Subjects
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {inspectingUser.subjects?.map((subj, idx) => (
-                              <span
-                                key={idx}
-                                className="bg-blue-50 dark:bg-blue-900/30 text-[#0D5BFF] dark:text-blue-300 px-2.5 py-1 text-xs font-semibold rounded-lg"
-                              >
-                                {subj}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                            Classes
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {inspectingUser.classes?.map((cls, idx) => (
-                              <span
-                                key={idx}
-                                className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2.5 py-1 text-xs font-semibold rounded-lg"
-                              >
-                                {cls}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {(inspectingUser.nidFrontImg ||
-                      inspectingUser.nidBackImg ||
-                      (inspectingUser.documents && inspectingUser.documents.length > 0)) && (
-                      <div className="space-y-3">
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1">
-                          Verification Documents
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {inspectingUser.nidFrontImg && (
-                            <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
-                              <span className="text-[11px] font-bold text-slate-500 block">NID Front</span>
-                              <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                <img
-                                  src={inspectingUser.nidFrontImg}
-                                  alt="NID Front"
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-full h-full object-cover cursor-zoom-in"
-                                  onClick={() => window.open(inspectingUser.nidFrontImg, '_blank')}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          {inspectingUser.nidBackImg && (
-                            <div className="border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-1.5">
-                              <span className="text-[11px] font-bold text-slate-500 block">NID Back</span>
-                              <div className="h-28 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                <img
-                                  src={inspectingUser.nidBackImg}
-                                  alt="NID Back"
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-full h-full object-cover cursor-zoom-in"
-                                  onClick={() => window.open(inspectingUser.nidBackImg, '_blank')}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          {inspectingUser.documents && inspectingUser.documents.length > 0 && (
-                            <div className="sm:col-span-2 border border-slate-200 dark:border-slate-800 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 space-y-2">
-                              <span className="text-[11px] font-bold text-slate-500 block">
-                                University / College ID & Certificates
-                              </span>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                {inspectingUser.documents.map((docUrl, dIdx) => (
-                                  <div
-                                    key={dIdx}
-                                    className="h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 relative group cursor-pointer hover:border-[#0D5BFF] transition-colors"
-                                    onClick={() => window.open(docUrl, '_blank')}
-                                  >
-                                    <img
-                                      src={docUrl}
-                                      alt={`Document ${dIdx + 1}`}
-                                      loading="lazy"
-                                      decoding="async"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                      Student / Guardian Details
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">School / College</span>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.school || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Class Grade</span>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.studentClass || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Group</span>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.group || 'General'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Desired Subject</span>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">{inspectingUser.subject || 'All Subjects'}</p>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Address</span>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 break-words">
-                          {inspectingUser.address || 'Not configured'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            {/* Footer (Sticky / Fixed inside Modal Flex Column) */}
+            <div className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 px-4 py-3.5 sm:px-6 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
               <button
                 type="button"
                 onClick={() => {
@@ -1909,7 +1967,7 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
                   setInspectingUser(null);
                   setEmailModalUser(target);
                 }}
-                className="min-h-[40px] px-4 py-2 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-2"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 py-2 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send Email</span>
@@ -1917,14 +1975,62 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
               <button
                 type="button"
                 onClick={() => setInspectingUser(null)}
-                className="min-h-[40px] px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer inline-flex items-center justify-center"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
+
+      {/* Inline High-Resolution Document Lightbox */}
+      <ModalPortal
+        isOpen={Boolean(previewDocUrl)}
+        onClose={() => setPreviewDocUrl(null)}
+        level="top"
+        labelledBy="admin-doc-preview-title"
+        overlayClassName="bg-slate-950/90 backdrop-blur-md p-3 sm:p-6"
+      >
+        {previewDocUrl && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-[min(900px,calc(100vw-24px))] max-h-[calc(100dvh-24px)] flex flex-col gap-3 my-auto"
+          >
+            <div className="flex items-center justify-between gap-3 text-white">
+              <span id="admin-doc-preview-title" className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                {previewDocUrl.label}
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewDocUrl.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[40px] px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Original</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocUrl(null)}
+                  className="min-h-[40px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 rounded-2xl border border-white/10 bg-[#0B132B]/70 p-3 flex items-center justify-center overflow-auto">
+              <img
+                src={previewDocUrl.url}
+                alt={previewDocUrl.label}
+                className="max-w-full max-h-[75dvh] object-contain rounded-xl select-none shadow-2xl"
+              />
+            </div>
+          </div>
+        )}
+      </ModalPortal>
 
       {/* Email Modal */}
       {emailModalUser && (
@@ -1935,12 +2041,13 @@ export default function AdminUserDirectory({ users, updateUser, currentUser, onM
         />
       )}
 
-      {/* Toast Alert */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 border text-xs font-bold bg-white dark:bg-[#111A2E] border-slate-200 dark:border-slate-800">
-          <div className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-          <span className="text-slate-800 dark:text-slate-200">{toast.message}</span>
-        </div>
+      {/* Toast Alert (Portaled above modals) */}
+      {toast && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-6 right-6 z-[1300] px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 border text-xs font-bold bg-white dark:bg-[#111A2E] border-slate-200 dark:border-slate-800 max-w-[calc(100vw-32px)]">
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span className="text-slate-800 dark:text-slate-200 break-words">{toast.message}</span>
+        </div>,
+        document.body
       )}
     </div>
   );

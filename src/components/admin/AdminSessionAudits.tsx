@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { useBackHandler } from '../../utils/mobileWebView';
+import ModalPortal from '../ModalPortal';
 
 interface AdminSessionAuditsProps {
   sessions: Session[];
@@ -511,25 +512,28 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
       </div>
 
       {/* Confirmation Modal for Admin Cancellation */}
-      {pendingCancelTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm"
-          onClick={() => setPendingCancelTarget(null)}
-        >
+      <ModalPortal
+        isOpen={Boolean(pendingCancelTarget)}
+        onClose={() => setPendingCancelTarget(null)}
+        level="elevated"
+        labelledBy="admin-cancel-session-title"
+        overlayClassName="bg-slate-950/65 backdrop-blur-sm p-3 sm:p-4"
+      >
+        {pendingCancelTarget && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 max-w-sm w-full space-y-5"
+            className="bg-white dark:bg-[#111A2E] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 w-[min(420px,calc(100vw-24px))] space-y-5 my-auto"
           >
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 id="admin-cancel-session-title" className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
-                Cancel Tuition Session?
+                <span>Cancel Tuition Session?</span>
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed break-words">
                 Are you sure you want to forcibly cancel <strong className="text-slate-900 dark:text-white">{pendingCancelTarget.subject || 'this session'}</strong> as an administrator? Both student and tutor will be notified.
               </p>
             </div>
-            <div className="flex items-center gap-3 justify-end">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2.5 sm:justify-end">
               <button
                 type="button"
                 onClick={() => setPendingCancelTarget(null)}
@@ -547,8 +551,8 @@ export default function AdminSessionAudits({ sessions, users, cancelSession, sen
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
 
     </div>
   );

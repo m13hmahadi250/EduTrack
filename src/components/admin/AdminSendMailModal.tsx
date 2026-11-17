@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User } from '../../store';
 import { Send, X, Mail, CheckCircle2, AlertCircle, Info, FileCheck, RefreshCw, Copy, Check } from 'lucide-react';
 import { sendWelcomeMail, sendCustomAdminMail } from '../../services/mailService';
+import ModalPortal from '../ModalPortal';
 
 interface AdminSendMailModalProps {
   user: User;
@@ -177,35 +178,48 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-xl bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <ModalPortal
+      isOpen={true}
+      onClose={() => {
+        if (!isSending) onClose();
+      }}
+      level="elevated"
+      labelledBy="admin-send-mail-title"
+      overlayClassName="bg-slate-900/80 backdrop-blur-md p-2 sm:p-4 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-[min(580px,calc(100vw-16px))] sm:w-[min(580px,calc(100vw-32px))] bg-white dark:bg-[#111A2E] border border-slate-100 dark:border-slate-800 rounded-3xl sm:rounded-[2.25rem] shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-16px)] sm:max-h-[92dvh] my-auto"
+      >
         
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-[#0B132B] via-[#111A2E] to-[#0D5BFF] text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
+        <div className="shrink-0 p-4 sm:p-6 bg-gradient-to-r from-[#0B132B] via-[#111A2E] to-[#0D5BFF] text-white flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm shrink-0">
               <Mail className="w-5 h-5 text-blue-300" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-black uppercase tracking-widest text-blue-300">Admin Email Dispatcher</span>
                 <span className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">Manual Trigger</span>
               </div>
-              <h3 className="text-base font-extrabold text-white mt-0.5">
+              <h3 id="admin-send-mail-title" className="text-sm sm:text-base font-extrabold text-white mt-0.5 truncate">
                 Send Notification to {user.name}
               </h3>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Close email dialog"
+            className="min-w-[44px] min-h-[44px] p-2 text-slate-300 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSend} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <form onSubmit={handleSend} className="flex-1 min-h-0 p-4 sm:p-6 space-y-4 overflow-y-auto overscroll-contain custom-scrollbar">
           
           {/* Target Recipient Card */}
           <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -237,7 +251,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">
               Select Email Template Type
             </label>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               
               {/* Reminder Template Button */}
               <button
@@ -389,7 +403,7 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
           )}
 
           {/* Submit Action */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
             <a
               href={`mailto:${user.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(customMessage)}`}
               className="text-[10px] font-black text-slate-500 hover:text-[#0D5BFF] uppercase tracking-wider underline cursor-pointer"
@@ -397,19 +411,19 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
               Open in Mail App (mailto) ↗
             </a>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 justify-end">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSending}
-                className="px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
+                className="min-h-[42px] px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSending}
-                className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#0D5BFF] to-[#0040C9] text-white text-xs font-black uppercase tracking-wider hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="min-h-[42px] px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#0D5BFF] to-[#0040C9] text-white text-xs font-black uppercase tracking-wider hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isSending ? (
                   <>
@@ -428,6 +442,6 @@ export default function AdminSendMailModal({ user, onClose, onSuccess }: AdminSe
 
         </form>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
