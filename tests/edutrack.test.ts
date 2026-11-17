@@ -49,7 +49,10 @@ import {
 } from "../shared/availabilityUtils";
 import {
   buildQuickStartTourPersistencePatch,
+  computeMobileSheetPlacement,
   computePopoverPosition,
+  computeSafeViewportInsets,
+  computeScrollAdjustment,
   getLocalTourStatusStorageKey,
   getQuickStartTourRole,
   getQuickStartTourSteps,
@@ -4624,6 +4627,163 @@ async function runTests() {
           assert.equal(tutorDashSrc.includes("tutor-profile-completion-card"), true);
           assert.equal(tutorDashSrc.includes("tutor-verification-card"), true);
           assert.equal(tutorDashSrc.includes("tutor-tuition-pipeline"), true);
+        });
+
+        await test("Quick Start Tour safe-viewport scroll math, mobile anti-overlap sheet, async fallback separation, and drawer/Class Cal wiring work across all viewports", () => {
+          // 1. Safe viewport insets across Mobile (320-430), Tablet (768-1024), Desktop (1366-1440)
+          for (const mobileVp of [
+            { width: 320, height: 568 },
+            { width: 375, height: 667 },
+            { width: 390, height: 844 },
+            { width: 430, height: 932 },
+          ]) {
+            const insets = computeSafeViewportInsets(mobileVp, {
+              mobileHeaderHeight: 64,
+              mobileBottomDockHeight: 72,
+              mobileTourCardHeight: 224,
+            });
+            assert.equal(insets.top >= 76, true);
+            assert.equal(insets.bottom >= 84, true);
+            assert.equal(insets.left, 12);
+            assert.equal(insets.right, 12);
+          }
+
+          const tabletInsets = computeSafeViewportInsets(
+            { width: 768, height: 1024 },
+            { mobileHeaderHeight: 64, mobileBottomDockHeight: 72 }
+          );
+          assert.equal(tabletInsets.top, 84);
+          assert.equal(tabletInsets.bottom, 92);
+
+          const desktopInsets = computeSafeViewportInsets(
+            { width: 1366, height: 768 },
+            { mobileHeaderHeight: 64, mobileBottomDockHeight: 72 }
+          );
+          assert.equal(desktopInsets.top, 20);
+          assert.equal(desktopInsets.bottom, 20);
+
+          // 2. computeScrollAdjustment scrolls off-screen / sticky-covered targets and avoids unnecessary scroll
+          const mobileSafe = computeSafeViewportInsets(
+            { width: 390, height: 844 },
+            { mobileHeaderHeight: 64, mobileBottomDockHeight: 72, mobileTourCardHeight: 224 }
+          );
+          // Target below fold -> positive deltaY
+          const belowFold = computeScrollAdjustment(
+            { top: 1120, left: 16, width: 358, height: 64 },
+            { top: 0, left: 0, width: 390, height: 844 },
+            mobileSafe
+          );
+          assert.equal(belowFold.isAlreadyComfortablyVisible, false);
+          assert.equal(belowFold.deltaY > 600, true);
+
+          // Target hidden under mobile sticky header -> negative deltaY
+          const underHeader = computeScrollAdjustment(
+            { top: 20, left: 16, width: 358, height: 48 },
+            { top: 0, left: 0, width: 390, height: 844 },
+            mobileSafe
+          );
+          assert.equal(underHeader.isAlreadyComfortablyVisible, false);
+          assert.equal(underHeader.deltaY < 0, true);
+
+          // Target scrolled inside a horizontal container -> horizontal deltaX needed
+          const horizHidden = computeScrollAdjustment(
+            { top: 240, left: 520, width: 120, height: 40 },
+            { top: 200, left: 0, width: 390, height: 120 },
+            { top: 12, right: 12, bottom: 12, left: 12 }
+          );
+          assert.equal(horizHidden.isAlreadyComfortablyVisible, false);
+          assert.equal(horizHidden.deltaX > 200, true);
+
+          // Comfortably centered target -> zero scroll jitter
+          const centeredTarget = computeScrollAdjustment(
+            { top: 280, left: 24, width: 340, height: 80 },
+            { top: 0, left: 0, width: 390, height: 844 },
+            mobileSafe
+          );
+          assert.equal(centeredTarget.isAlreadyComfortablyVisible, true);
+          assert.equal(centeredTarget.deltaX, 0);
+          assert.equal(centeredTarget.deltaY, 0);
+
+          // 3. computeMobileSheetPlacement flips to top below mobile header when target is near bottom
+          const highTargetPlacement = computeMobileSheetPlacement(
+            { top: 120, left: 16, width: 340, height: 80 },
+            { width: 390, height: 844 },
+            220,
+            64
+          );
+          assert.equal(highTargetPlacement.dock, "bottom");
+
+          const bottomTargetPlacement = computeMobileSheetPlacement(
+            { top: 690, left: 16, width: 340, height: 90 },
+            { width: 390, height: 844 },
+            220,
+            64
+          );
+          assert.equal(bottomTargetPlacement.dock, "top");
+          assert.equal(bottomTargetPlacement.topOffset, 74);
+
+          // 4. Desktop/Tablet computePopoverPosition with safeInsets & large targets avoids overlap
+          const desktopWithInsets = computePopoverPosition(
+            { top: 120, left: 40, width: 320, height: 80 },
+            { width: 1440, height: 900 },
+            { width: 344, height: 224 },
+            16,
+            desktopInsets
+          );
+          assert.equal(desktopWithInsets.top >= 120 + 80, true);
+
+          const largeTargetPopover = computePopoverPosition(
+            { top: 100, left: 260, width: 760, height: 600 },
+            { width: 1440, height: 900 },
+            { width: 344, height: 224 },
+            16,
+            desktopInsets
+          );
+          assert.equal(largeTargetPopover.left >= desktopInsets.left, true);
+          assert.equal(largeTargetPopover.left + largeTargetPopover.width <= 1440 - desktopInsets.right, true);
+
+          // 5. Primary targetSelectors are decoupled from sidebar fallbackSelectors across all roles
+          for (const role of ["student", "guardian", "tutor"] as const) {
+            const roleSteps = getQuickStartTourSteps(role);
+            for (const step of roleSteps) {
+              assert.equal(
+                step.targetSelectors.some((sel) => sel.includes("sidebar-")),
+                false,
+                `Step ${step.id} must not put sidebar links inside primary targetSelectors`
+              );
+              assert.equal((step.fallbackSelectors?.length || 0) >= 1, true);
+            }
+          }
+
+          // 6. Wiring checks across GuidedTour, DashboardLayout, StudentDashboard & TutorDashboard
+          const guidedTourSrc = fs.readFileSync(path.resolve("src/components/GuidedTour.tsx"), "utf-8");
+          const layoutSrc = fs.readFileSync(path.resolve("src/components/DashboardLayout.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+
+          assert.equal(guidedTourSrc.includes("scrollTargetIntoSafeViewport"), true);
+          assert.equal(guidedTourSrc.includes("computeSafeViewportInsets"), true);
+          assert.equal(guidedTourSrc.includes("computeMobileSheetPlacement"), true);
+          assert.equal(guidedTourSrc.includes("visualViewport"), true);
+          assert.equal(guidedTourSrc.includes("translate3d("), true);
+          assert.equal(guidedTourSrc.includes("edutrackTourActive"), true);
+          assert.equal(guidedTourSrc.includes("edutrack-tour-drawer"), true);
+          assert.equal(guidedTourSrc.includes("edutrack-tour-student-ui"), true);
+          assert.equal(guidedTourSrc.includes("ArrowRight"), true);
+          assert.equal(guidedTourSrc.includes("ArrowLeft"), true);
+
+          assert.equal(layoutSrc.includes("edutrack-tour-drawer"), true);
+          assert.equal(layoutSrc.includes('data-dashboard-mobile-header="true"'), true);
+          assert.equal(layoutSrc.includes('data-dashboard-mobile-drawer="true"'), true);
+          assert.equal(layoutSrc.includes('data-dashboard-bottom-dock="true"'), true);
+
+          assert.equal(studentDashSrc.includes("edutrackTourActive"), true);
+          assert.equal(studentDashSrc.includes("edutrack-tour-student-ui"), true);
+          assert.equal(studentDashSrc.includes('data-tour-id="student-find-tutor-controls"'), true);
+          assert.equal(studentDashSrc.includes('data-tour-id="student-find-tutor-filters"'), true);
+
+          assert.equal(tutorDashSrc.includes("edutrackTourActive"), true);
+          assert.equal(tutorDashSrc.includes("fromTour"), true);
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

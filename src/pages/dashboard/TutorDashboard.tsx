@@ -239,10 +239,13 @@ export default function TutorDashboard() {
   // Redirect to pinned Class Calculator if enabled and they land on the root dashboard page
   useEffect(() => {
     const isPinned = localStorage.getItem('edutrack_pin_class_cal') === 'true';
-    if (isPinned && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
+    const isTourActive =
+      Boolean((location.state as { fromTour?: boolean } | null)?.fromTour) ||
+      (typeof document !== 'undefined' && document.body.dataset.edutrackTourActive === 'true');
+    if (isPinned && !isTourActive && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
       navigate('/dashboard/class-logs', { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, location.state, navigate]);
 
   // Synchronize badges in the database when new milestones are achieved
   useEffect(() => {

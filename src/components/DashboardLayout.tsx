@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, useEffect, memo } from 'react';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -33,6 +33,17 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isKeyboardOpen = useVirtualKeyboardOpen();
   useBackHandler(isMobileMenuOpen, () => setIsMobileMenuOpen(false), 'dashboard-drawer');
+
+  useEffect(() => {
+    const handleTourDrawer = (event: Event) => {
+      const custom = event as CustomEvent<{ open?: boolean }>;
+      if (typeof custom.detail?.open === 'boolean') {
+        setIsMobileMenuOpen(custom.detail.open);
+      }
+    };
+    window.addEventListener('edutrack-tour-drawer', handleTourDrawer);
+    return () => window.removeEventListener('edutrack-tour-drawer', handleTourDrawer);
+  }, []);
 
   const isTutor = currentUser?.role === 'tutor';
   const isStudent = currentUser?.role === 'student';
@@ -82,7 +93,10 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
       </div>
 
       {/* Native Mobile App Header Bar */}
-      <div className="lg:hidden bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80 px-4 py-2.5 sticky top-0 z-40 flex items-center justify-between shadow-xs transition-colors pt-safe">
+      <div
+        data-dashboard-mobile-header="true"
+        className="lg:hidden bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80 px-4 py-2.5 sticky top-0 z-40 flex items-center justify-between shadow-xs transition-colors pt-safe"
+      >
         <div 
           onClick={() => navigate('/')}
           className="flex items-center space-x-2.5 cursor-pointer group active:scale-95 transition-transform duration-150"
@@ -147,6 +161,7 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <div 
+            data-dashboard-mobile-drawer="true"
             className="w-full max-h-[85dvh] pb-safe bg-white dark:bg-[#111A2E] rounded-t-3xl shadow-2xl transition-transform duration-200 overflow-hidden flex flex-col border-t border-slate-100 dark:border-slate-800" 
             onClick={e => e.stopPropagation()}
           >
@@ -187,7 +202,10 @@ const DashboardLayout = memo(function DashboardLayout({ children }: { children: 
 
       {/* Native Mobile App Bottom Dock Tab Bar (hidden while typing to avoid covering forms) */}
       {!isKeyboardOpen && (
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800/80 p-1.5 pb-safe pt-2 px-3 z-40 flex justify-around items-center shadow-[0_-8px_24px_rgba(0,0,0,0.08)] transition-colors duration-200">
+      <div
+        data-dashboard-bottom-dock="true"
+        className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#111A2E]/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800/80 p-1.5 pb-safe pt-2 px-3 z-40 flex justify-around items-center shadow-[0_-8px_24px_rgba(0,0,0,0.08)] transition-colors duration-200"
+      >
         {navItems.map((item) => {
           const active = isActive(item.path);
           return (

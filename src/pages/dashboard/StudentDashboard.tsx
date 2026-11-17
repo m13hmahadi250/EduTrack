@@ -456,10 +456,24 @@ export default function StudentDashboard() {
   // Redirect to pinned Class Calculator if enabled and they land on the root dashboard page
   useEffect(() => {
     const isPinned = localStorage.getItem('edutrack_pin_class_cal') === 'true';
-    if (isPinned && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
+    const isTourActive =
+      Boolean((location.state as { fromTour?: boolean } | null)?.fromTour) ||
+      (typeof document !== 'undefined' && document.body.dataset.edutrackTourActive === 'true');
+    if (isPinned && !isTourActive && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
       navigate('/dashboard/class-logs', { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    const handleTourStudentUi = (event: Event) => {
+      const custom = event as CustomEvent<{ closeFilters?: boolean }>;
+      if (custom.detail?.closeFilters) {
+        setShowFilters(false);
+      }
+    };
+    window.addEventListener('edutrack-tour-student-ui', handleTourStudentUi);
+    return () => window.removeEventListener('edutrack-tour-student-ui', handleTourStudentUi);
+  }, []);
 
   const activeTab = useMemo<'overview' | 'find' | 'activity' | 'account' | 'transit' | 'messages' | 'class-verification' | 'homework' | 'referrals'>(() => {
     const path = location.pathname;
@@ -2239,6 +2253,7 @@ export default function StudentDashboard() {
               onClick={windowWidth <= 1024 ? () => setShowFilters(false) : undefined}
             >
               <div
+                data-tour-id="student-find-tutor-filters"
                 onClick={(e) => e.stopPropagation()}
                 className={`bg-white dark:bg-[#111A2E] border border-slate-200/80 dark:border-slate-800 shadow-xs relative ${
                   windowWidth <= 1024
@@ -2624,7 +2639,7 @@ export default function StudentDashboard() {
             </div>
 
             <div className="lg:col-span-3 space-y-6 sm:space-y-8">
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div data-tour-id="student-find-tutor-controls" className="flex flex-wrap items-center gap-2.5">
                 {windowWidth <= 1024 && !showFilters && !selectedTutor && (
                   <button
                     type="button"
