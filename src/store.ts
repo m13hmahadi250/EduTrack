@@ -678,11 +678,63 @@ function cleanupListeners() {
   });
 }
 
+const PENDING_SIGNUP_STORAGE_KEY = 'edutrack_pending_signup';
+
+interface PendingSignupState {
+  uid?: string;
+  email: string;
+  role: string;
+}
+
+function getPendingSignupState(): PendingSignupState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_SIGNUP_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.email === 'string' && parsed.email.trim()) {
+        return {
+          uid: typeof parsed.uid === 'string' ? parsed.uid : undefined,
+          email: parsed.email.trim().toLowerCase(),
+          role: typeof parsed.role === 'string' ? parsed.role : 'student',
+        };
+      }
+    }
+    const googleRequested = localStorage.getItem('google_auth_requested_role');
+    if (!googleRequested) {
+      const draftRaw = sessionStorage.getItem('edutrack_signup_draft');
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        const draftEmail = String(draft?.formData?.email || '').trim().toLowerCase();
+        if (draftEmail) {
+          return {
+            email: draftEmail,
+            role: draft?.role === 'tutor' ? 'tutor' : 'student',
+          };
+        }
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function setPendingSignupState(state: PendingSignupState | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!state) {
+      sessionStorage.removeItem(PENDING_SIGNUP_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(PENDING_SIGNUP_STORAGE_KEY, JSON.stringify(state));
+    }
+  } catch {}
+}
+
 function clearEphemeralAuthStorage() {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.removeItem('edutrack_signup_draft');
     sessionStorage.removeItem('edutrack_otp_challenge');
+    sessionStorage.removeItem(PENDING_SIGNUP_STORAGE_KEY);
     localStorage.removeItem('google_auth_requested_role');
     localStorage.removeItem('google_auth_additional_user_data');
   } catch {}
@@ -872,8 +924,17 @@ export const useAppStore = create<AppState>((set, get) => {
           // Setup real-time listeners for data
           setupListeners(firebaseUser.uid, userData.role, set, get);
         } else {
-          // Fallback / Self-Healing: Create profile for signed-in Firebase user
+          const lowerGEmail = (firebaseUser.email || '').toLowerCase();
+          const pendingSignup = getPendingSignupState();
           const requestedRoleStr = localStorage.getItem('google_auth_requested_role') as Role | null;
+          // Guard: If an email+password signup created an Auth user before Firestore profile persistence finished,
+          // do NOT auto-create a fallback 'student' document or grant premature dashboard access.
+          if (pendingSignup && pendingSignup.email === lowerGEmail && !requestedRoleStr) {
+            set({ currentUser: null, isLoading: false, isInitialized: true });
+            return;
+          }
+
+          // Fallback / Self-Healing: Create profile for signed-in Firebase user (Google OAuth / existing auth)
           let additionalUserData: any = {};
           try {
             const storedData = localStorage.getItem('google_auth_additional_user_data');
@@ -888,7 +949,6 @@ export const useAppStore = create<AppState>((set, get) => {
           localStorage.removeItem('google_auth_requested_role');
           localStorage.removeItem('google_auth_additional_user_data');
 
-          const lowerGEmail = (firebaseUser.email || '').toLowerCase();
           const isMainAdmin = lowerGEmail === 'edutrackbangladesh@gmail.com' || lowerGEmail === 'm13hmahadi.personal@gmail.com';
           const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
           const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
@@ -1583,60 +1643,111 @@ export const useAppStore = create<AppState>((set, get) => {
     signup: async (userData, password, referredByCode) => {
       return runWithAuthFlowGuard({ isSignup: true }, async () => {
         set({ isLoading: true });
-        let newlyCreatedAuthUser: FirebaseUser | null = null;
         try {
           const cleanEmail = String(userData.email || '').trim().toLowerCase().slice(0, 128);
-          let uid = '';
-          try {
-            // Create auth user
-            const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-            uid = result.user.uid;
-            newlyCreatedAuthUser = result.user;
-          } catch (authErr: any) {
-            const code = authErr?.code || '';
-            const errStr = String(authErr).toLowerCase();
-            if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
-              // Self-heal only if Firestore profile is missing; never overwrite an existing registered account
-              let existingProfileExists = false;
-              try {
-                const signinRes = await signInWithEmailAndPassword(auth, cleanEmail, password);
-                uid = signinRes.user.uid;
-                const existingDoc = await getDoc(doc(db, 'users', uid));
-                if (existingDoc.exists() && existingDoc.data()?.role) {
-                  existingProfileExists = true;
-                  await signOut(auth).catch(() => {});
-                }
-              } catch {
-                throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
-                  code: 'auth/email-already-in-use',
-                  isFormattedUserMessage: true,
-                });
-              }
-              if (existingProfileExists) {
-                throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
-                  code: 'auth/email-already-in-use',
-                  isFormattedUserMessage: true,
-                });
-              }
-            } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
-              throw new AuthApiError('Please choose a stronger password with at least 8 characters.', {
-                code: 'auth/weak-password',
-                isFormattedUserMessage: true,
-              });
-            } else if (code === 'auth/invalid-email' || errStr.includes('invalid-email')) {
-              throw new AuthApiError('Please enter a valid email address.', {
-                code: 'auth/invalid-email',
-                isFormattedUserMessage: true,
-              });
-            } else {
-              throw authErr;
-            }
-          }
 
-          // Determine role - handle the requested admin email
+          // Determine authorized role before Auth/Firestore operations
           let finalRole: Role = userData.role === 'tutor' ? 'tutor' : 'student';
           if (cleanEmail === 'admin@gmail.com' || cleanEmail === 'edutrackbangladesh@gmail.com' || cleanEmail === 'm13hmahadi.personal@gmail.com') {
             finalRole = 'admin';
+          }
+
+          setPendingSignupState({ email: cleanEmail, role: finalRole });
+
+          let uid = '';
+          let existingUserDocData: Record<string, any> | null = null;
+          let signedInForRecovery = false;
+
+          // 1. Reuse already-authenticated session if this browser is recovering an incomplete signup for the same email
+          if (auth.currentUser && auth.currentUser.email?.toLowerCase() === cleanEmail) {
+            uid = auth.currentUser.uid;
+            signedInForRecovery = true;
+          } else {
+            try {
+              const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+              uid = result.user.uid;
+              setPendingSignupState({ uid, email: cleanEmail, role: finalRole });
+            } catch (authErr: any) {
+              const code = authErr?.code || '';
+              const errStr = String(authErr).toLowerCase();
+              if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
+                try {
+                  const signinRes = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                  uid = signinRes.user.uid;
+                  signedInForRecovery = true;
+                  setPendingSignupState({ uid, email: cleanEmail, role: finalRole });
+                } catch (signinErr: any) {
+                  const signinCode = signinErr?.code || '';
+                  if (
+                    signinCode === 'auth/wrong-password' ||
+                    signinCode === 'auth/invalid-credential' ||
+                    signinCode === 'auth/user-disabled' ||
+                    signinCode === 'auth/too-many-requests'
+                  ) {
+                    throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
+                      code: 'auth/email-already-in-use',
+                      isFormattedUserMessage: true,
+                    });
+                  }
+                  throw signinErr;
+                }
+              } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
+                throw new AuthApiError('Please choose a stronger password with at least 8 characters.', {
+                  code: 'auth/weak-password',
+                  isFormattedUserMessage: true,
+                });
+              } else if (code === 'auth/invalid-email' || errStr.includes('invalid-email')) {
+                throw new AuthApiError('Please enter a valid email address.', {
+                  code: 'auth/invalid-email',
+                  isFormattedUserMessage: true,
+                });
+              } else {
+                throw authErr;
+              }
+            }
+          }
+
+          // 2. Check existing Firestore profile outside credential-check catch so real Firestore errors surface cleanly
+          if (signedInForRecovery && uid) {
+            const existingDoc = await retryOnTransientFirestoreError(() => getDoc(doc(db, 'users', uid)));
+            if (existingDoc.exists()) {
+              const existingData = existingDoc.data();
+              existingUserDocData = existingData;
+              const existingRole = existingData?.role;
+              const existingProfileExists = Boolean(
+                existingRole &&
+                  cleanMeaningfulString(existingData?.name) &&
+                  cleanMeaningfulString(existingData?.phone)
+              );
+
+              if (existingRole && existingRole !== finalRole) {
+                await signOut(auth).catch(() => {});
+                throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
+                  code: 'auth/email-already-in-use',
+                  isFormattedUserMessage: true,
+                });
+              }
+
+              if (existingProfileExists) {
+                let needsSubdocRecovery = false;
+                if (finalRole === 'tutor') {
+                  const privMedia = await getDoc(doc(db, 'users', uid, 'private', 'media')).catch(() => null);
+                  if (!privMedia?.exists()) {
+                    needsSubdocRecovery = true;
+                  }
+                } else if (finalRole === 'student' && userData.accountType === 'guardian' && !existingData?.activeStudentProfileId) {
+                  needsSubdocRecovery = true;
+                }
+
+                if (!needsSubdocRecovery) {
+                  await signOut(auth).catch(() => {});
+                  throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
+                    code: 'auth/email-already-in-use',
+                    isFormattedUserMessage: true,
+                  });
+                }
+              }
+            }
           }
 
           // Strip protected server-controlled and role-mismatched fields so Firestore security rules never reject signup
@@ -1662,24 +1773,29 @@ export const useAppStore = create<AppState>((set, get) => {
 
           const cleanName = (cleanMeaningfulString(sanitizedInput.name) || String(sanitizedInput.name || '').trim() || cleanEmail.split('@')[0]).slice(0, 128);
           const referralPrefix = cleanName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'USER';
-          const referralCode = `EDU-${referralPrefix.slice(0, 12)}-${uid.substring(0, 4).toUpperCase()}`;
+          const referralCode =
+            (existingUserDocData?.referralCode && String(existingUserDocData.referralCode)) ||
+            `EDU-${referralPrefix.slice(0, 12)}-${uid.substring(0, 4).toUpperCase()}`;
 
           const rawNewUser: User = {
             ...sanitizedInput,
             id: uid,
-            email: cleanEmail,
+            email: existingUserDocData?.email || cleanEmail,
             name: cleanName,
-            role: finalRole,
-            balance: 0,
-            isVerified: finalRole === 'admin' || finalRole === 'student',
-            isTrackingOn: false,
-            rating: 0,
-            showTour: true,
-            createdAt: new Date().toISOString(),
+            role: (existingUserDocData?.role as Role) || finalRole,
+            balance: typeof existingUserDocData?.balance === 'number' ? existingUserDocData.balance : 0,
+            isVerified:
+              typeof existingUserDocData?.isVerified === 'boolean'
+                ? existingUserDocData.isVerified
+                : finalRole === 'admin' || finalRole === 'student',
+            isTrackingOn: typeof existingUserDocData?.isTrackingOn === 'boolean' ? existingUserDocData.isTrackingOn : false,
+            rating: typeof existingUserDocData?.rating === 'number' ? existingUserDocData.rating : 0,
+            showTour: typeof existingUserDocData?.showTour === 'boolean' ? existingUserDocData.showTour : true,
+            createdAt: existingUserDocData?.createdAt || new Date().toISOString(),
             profileImage: finalRole === 'admin' ? '/admin_profile.png' : (sanitizedInput.profileImage || ''),
             referralCode,
-            referralPoints: 0,
-            serviceDiscounts: 0,
+            referralPoints: typeof existingUserDocData?.referralPoints === 'number' ? existingUserDocData.referralPoints : 0,
+            serviceDiscounts: typeof existingUserDocData?.serviceDiscounts === 'number' ? existingUserDocData.serviceDiscounts : 0,
           } as User;
 
           const newUser = normalizeUserProfileFields(rawNewUser);
@@ -1692,7 +1808,10 @@ export const useAppStore = create<AppState>((set, get) => {
               cleanMeaningfulString(newUser.studentClass) ||
               cleanMeaningfulString(newUser.school))
           ) {
-            const spId = `sp_${uid}_${Date.now()}`;
+            const spId =
+              (typeof existingUserDocData?.activeStudentProfileId === 'string' &&
+                existingUserDocData.activeStudentProfileId.trim()) ||
+              `sp_${uid}_primary`;
             const nowIso = new Date().toISOString();
             const initialStudentProfile: StudentProfileRecord = cleanUndefined({
               id: spId,
@@ -1751,12 +1870,9 @@ export const useAppStore = create<AppState>((set, get) => {
 
           if (initialStudentProfiles.length > 0) {
             await retryOnTransientFirestoreError(() =>
-              setDoc(doc(db, 'student_profiles', initialStudentProfiles[0].id), initialStudentProfiles[0])
+              setDoc(doc(db, 'student_profiles', initialStudentProfiles[0].id), initialStudentProfiles[0], { merge: true })
             );
           }
-
-          // Profile persisted successfully; clear rollback handle
-          newlyCreatedAuthUser = null;
 
           clearEphemeralAuthStorage();
           set({
@@ -1795,15 +1911,7 @@ export const useAppStore = create<AppState>((set, get) => {
             }
           }
         } catch (error: any) {
-          // If Firestore persistence failed immediately after creating a brand-new auth account,
-          // roll back the orphan auth user so the user can retry registration cleanly without false "email-already-in-use".
-          if (newlyCreatedAuthUser) {
-            try {
-              await newlyCreatedAuthUser.delete();
-            } catch {
-              await signOut(auth).catch(() => {});
-            }
-          }
+          // Do not delete partially created Auth accounts — preserve recovery markers for idempotent retry
           set({ isLoading: false });
           const errMsg = error?.message || String(error);
           if (errMsg.startsWith('{') && errMsg.includes('"error"')) {

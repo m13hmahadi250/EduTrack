@@ -106,66 +106,92 @@ export function inspectServiceAccountEnv(): {
   reason: "ok" | "missing" | "invalid_format";
   account: ParsedServiceAccount | null;
 } {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
-  if (!raw || raw === "undefined" || raw === "null") {
-    return { configured: false, reason: "missing", account: null };
-  }
-
-  const attempts: string[] = [raw];
-  if (
-    (raw.startsWith('"') && raw.endsWith('"')) ||
-    (raw.startsWith("'") && raw.endsWith("'"))
-  ) {
-    attempts.push(raw.slice(1, -1));
-  }
-  if (!raw.startsWith("{")) {
-    try {
-      attempts.push(Buffer.from(raw, "base64").toString("utf-8"));
-    } catch {
-      // Ignore base64 decode failure
-    }
-  }
+  const jsonCandidates = [
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    process.env.FIREBASE_SERVICE_ACCOUNT,
+    process.env.FIREBASE_ADMIN_KEY,
+    process.env.FIREBASE_ADMIN_CREDENTIALS,
+    process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
+  ]
+    .map((v) => v?.trim())
+    .filter((v): v is string => Boolean(v && v !== "undefined" && v !== "null"));
 
   const fallbackProjectId = getFirebasePublicConfig().projectId;
 
-  for (const candidate of attempts) {
-    try {
-      let parsed: any = JSON.parse(candidate);
-      if (typeof parsed === "string") {
-        parsed = JSON.parse(parsed);
-      }
-      if (parsed && typeof parsed === "object" && parsed.client_email && parsed.private_key) {
-        const normalizedKey = String(parsed.private_key).replace(/\\n/g, "\n");
-        return {
-          configured: true,
-          reason: "ok",
-          account: {
-            project_id: String(parsed.project_id || fallbackProjectId).trim(),
-            private_key: normalizedKey,
-            client_email: String(parsed.client_email).trim(),
-            token_uri: String(parsed.token_uri || "https://oauth2.googleapis.com/token").trim(),
-          },
-        };
-      }
-    } catch {
-      // Try sanitized control characters variant if env UI injected raw line breaks inside JSON string
+  if (jsonCandidates.length === 0) {
+    const splitEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+    const splitKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
+    if (splitEmail && splitKey && splitEmail !== "undefined" && splitKey !== "undefined") {
+      return {
+        configured: true,
+        reason: "ok",
+        account: {
+          project_id: process.env.FIREBASE_PROJECT_ID?.trim() || fallbackProjectId,
+          private_key: splitKey.replace(/\\n/g, "\n"),
+          client_email: splitEmail,
+          token_uri: "https://oauth2.googleapis.com/token",
+        },
+      };
+    }
+    return { configured: false, reason: "missing", account: null };
+  }
+
+  for (const raw of jsonCandidates) {
+    const attempts: string[] = [raw];
+    if (
+      (raw.startsWith('"') && raw.endsWith('"')) ||
+      (raw.startsWith("'") && raw.endsWith("'"))
+    ) {
+      attempts.push(raw.slice(1, -1));
+    }
+    if (!raw.startsWith("{")) {
       try {
-        const sanitizedNewlines = candidate.replace(/\r?\n/g, "\\n");
-        const parsed = JSON.parse(sanitizedNewlines);
+        attempts.push(Buffer.from(raw, "base64").toString("utf-8"));
+      } catch {
+        // Ignore base64 decode failure
+      }
+    }
+
+    for (const candidate of attempts) {
+      try {
+        let parsed: any = JSON.parse(candidate);
+        if (typeof parsed === "string") {
+          parsed = JSON.parse(parsed);
+        }
         if (parsed && typeof parsed === "object" && parsed.client_email && parsed.private_key) {
+          const normalizedKey = String(parsed.private_key).replace(/\\n/g, "\n");
           return {
             configured: true,
             reason: "ok",
             account: {
               project_id: String(parsed.project_id || fallbackProjectId).trim(),
-              private_key: String(parsed.private_key).replace(/\\n/g, "\n"),
+              private_key: normalizedKey,
               client_email: String(parsed.client_email).trim(),
               token_uri: String(parsed.token_uri || "https://oauth2.googleapis.com/token").trim(),
             },
           };
         }
       } catch {
-        // Continue checking remaining candidates
+        // Try sanitized control characters variant if env UI injected raw line breaks inside JSON string
+        try {
+          const sanitizedNewlines = candidate.replace(/\r?\n/g, "\\n");
+          const parsed = JSON.parse(sanitizedNewlines);
+          if (parsed && typeof parsed === "object" && parsed.client_email && parsed.private_key) {
+            return {
+              configured: true,
+              reason: "ok",
+              account: {
+                project_id: String(parsed.project_id || fallbackProjectId).trim(),
+                private_key: String(parsed.private_key).replace(/\\n/g, "\n"),
+                client_email: String(parsed.client_email).trim(),
+                token_uri: String(parsed.token_uri || "https://oauth2.googleapis.com/token").trim(),
+              },
+            };
+          }
+        } catch {
+          // Continue checking remaining candidates
+        }
       }
     }
   }
@@ -188,6 +214,47 @@ export function isConfiguredEnvValue(val: string | undefined): boolean {
   return true;
 }
 
+/**
+ * Derives a server-only HMAC signing key for stateless OTP challenge verification.
+ * Uses OTP_HMAC_SECRET first, then private server-only env secrets (never client-public VITE_* keys).
+ * Returns null if zero server-side secrets are present in the environment.
+ */
+export function getServerOtpSigningSecret(): string | null {
+  if (isConfiguredEnvValue(process.env.OTP_HMAC_SECRET)) {
+    return crypto
+      .createHash("sha256")
+      .update(`edutrack-bd-otp-hmac-v2:${process.env.OTP_HMAC_SECRET!.trim()}`)
+      .digest("hex");
+  }
+
+  const secretParts: string[] = [];
+  const sa = inspectServiceAccountEnv();
+  if (sa.configured && sa.account?.private_key) {
+    secretParts.push(`sa:${sa.account.private_key}`);
+  }
+  if (isConfiguredEnvValue(process.env.BREVO_API_KEY)) {
+    secretParts.push(`brevo:${process.env.BREVO_API_KEY!.trim()}`);
+  }
+  if (isConfiguredEnvValue(process.env.R2_SECRET_ACCESS_KEY)) {
+    secretParts.push(`r2:${process.env.R2_SECRET_ACCESS_KEY!.trim()}`);
+  }
+  if (isConfiguredEnvValue(process.env.GROQ_API_KEY)) {
+    secretParts.push(`groq:${process.env.GROQ_API_KEY!.trim()}`);
+  }
+  if (isConfiguredEnvValue(process.env.GEMINI_API_KEY)) {
+    secretParts.push(`gemini:${process.env.GEMINI_API_KEY!.trim()}`);
+  }
+
+  if (secretParts.length === 0) {
+    return null;
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(`edutrack-bd-server-otp-derived-v2:${secretParts.join("|")}`)
+    .digest("hex");
+}
+
 export interface BackendReadinessSummary {
   firebaseAdminConfigured: boolean;
   firebaseAdminStatus: "ok" | "missing" | "invalid_format";
@@ -197,6 +264,8 @@ export interface BackendReadinessSummary {
   r2Configured: boolean;
   aiConfigured: boolean;
   otpHmacConfigured: boolean;
+  statelessOtpReady: boolean;
+  otpVerificationMode: "firestore" | "signed-stateless" | "local-file" | "unavailable";
   isVercelRuntime: boolean;
 }
 
@@ -213,6 +282,16 @@ export function validateBackendRuntimeEnv(): BackendReadinessSummary {
     isConfiguredEnvValue(process.env.GROQ_API_KEY) ||
     isConfiguredEnvValue(process.env.GEMINI_API_KEY);
   const otpHmacConfigured = isConfiguredEnvValue(process.env.OTP_HMAC_SECRET);
+  const statelessOtpReady = Boolean(getServerOtpSigningSecret());
+  const isVercelRuntime = Boolean(process.env.VERCEL);
+
+  const otpVerificationMode: BackendReadinessSummary["otpVerificationMode"] = saCheck.configured
+    ? "firestore"
+    : isVercelRuntime
+    ? statelessOtpReady
+      ? "signed-stateless"
+      : "unavailable"
+    : "local-file";
 
   return {
     firebaseAdminConfigured: saCheck.configured,
@@ -224,7 +303,9 @@ export function validateBackendRuntimeEnv(): BackendReadinessSummary {
     r2Configured,
     aiConfigured,
     otpHmacConfigured,
-    isVercelRuntime: Boolean(process.env.VERCEL),
+    statelessOtpReady,
+    otpVerificationMode,
+    isVercelRuntime,
   };
 }
 
@@ -311,7 +392,7 @@ export function getSafeHealthStatus(requestId: string) {
   const readiness = validateBackendRuntimeEnv();
   const authTelemetry = getAuthFailureTelemetry();
   const vercelCriticalMissing =
-    readiness.isVercelRuntime && !readiness.firebaseAdminConfigured;
+    readiness.isVercelRuntime && !readiness.firebaseAdminConfigured && !readiness.statelessOtpReady;
 
   return {
     status: vercelCriticalMissing ? "degraded" : "ok",
@@ -326,6 +407,8 @@ export function getSafeHealthStatus(requestId: string) {
       r2Configured: readiness.r2Configured,
       aiConfigured: readiness.aiConfigured,
       otpHmacConfigured: readiness.otpHmacConfigured,
+      statelessOtpReady: readiness.statelessOtpReady,
+      otpVerificationMode: readiness.otpVerificationMode,
     },
     authTelemetry,
   };

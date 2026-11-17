@@ -852,14 +852,32 @@ async function runTests() {
           assert.equal((await res.json()).success, true);
         });
 
-        await test("Vercel production mode without Firebase Admin credentials fails explicitly with HTTP 503 STORAGE_UNAVAILABLE", async () => {
-          const prevVercel = process.env.VERCEL;
-          const prevSa = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        await test("Vercel production mode without Firebase Admin AND without server secrets fails explicitly with HTTP 503 STORAGE_UNAVAILABLE", async () => {
+          const envKeys = [
+            "VERCEL",
+            "FIREBASE_SERVICE_ACCOUNT_KEY",
+            "FIREBASE_SERVICE_ACCOUNT",
+            "FIREBASE_ADMIN_KEY",
+            "FIREBASE_ADMIN_CREDENTIALS",
+            "GOOGLE_SERVICE_ACCOUNT_KEY",
+            "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+            "FIREBASE_CLIENT_EMAIL",
+            "FIREBASE_PRIVATE_KEY",
+            "OTP_HMAC_SECRET",
+            "BREVO_API_KEY",
+            "R2_SECRET_ACCESS_KEY",
+            "GROQ_API_KEY",
+            "GEMINI_API_KEY",
+          ] as const;
+          const prevEnv: Record<string, string | undefined> = {};
+          for (const k of envKeys) {
+            prevEnv[k] = process.env[k];
+            delete process.env[k];
+          }
           process.env.VERCEL = "1";
-          delete process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-          const prodNoDbApp = createApp({ now: () => virtualNow, emailSender: emailSenderStub });
-          const prodSrv = await startTestServer(prodNoDbApp);
+          const prodNoSecretApp = createApp({ now: () => virtualNow, emailSender: emailSenderStub });
+          const prodSrv = await startTestServer(prodNoSecretApp);
           try {
             const res = await fetch(`${prodSrv.baseUrl}/api/auth/send-otp`, {
               method: "POST",
@@ -870,9 +888,171 @@ async function runTests() {
             assert.equal((await res.json()).code, "STORAGE_UNAVAILABLE");
           } finally {
             await new Promise<void>((resolve) => prodSrv.server.close(() => resolve()));
-            if (prevVercel === undefined) delete process.env.VERCEL;
-            else process.env.VERCEL = prevVercel;
-            if (prevSa !== undefined) process.env.FIREBASE_SERVICE_ACCOUNT_KEY = prevSa;
+            for (const k of envKeys) {
+              if (prevEnv[k] === undefined) delete process.env[k];
+              else process.env[k] = prevEnv[k];
+            }
+          }
+        });
+
+        await test("Vercel production mode WITHOUT Firebase Admin recovers cleanly via SignedStatelessAuthChallengeStore across separate instances (srvA -> srvB)", async () => {
+          const envKeys = [
+            "VERCEL",
+            "FIREBASE_SERVICE_ACCOUNT_KEY",
+            "FIREBASE_SERVICE_ACCOUNT",
+            "FIREBASE_ADMIN_KEY",
+            "FIREBASE_ADMIN_CREDENTIALS",
+            "GOOGLE_SERVICE_ACCOUNT_KEY",
+            "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+            "FIREBASE_CLIENT_EMAIL",
+            "FIREBASE_PRIVATE_KEY",
+            "OTP_HMAC_SECRET",
+            "BREVO_API_KEY",
+          ] as const;
+          const prevEnv: Record<string, string | undefined> = {};
+          for (const k of envKeys) {
+            prevEnv[k] = process.env[k];
+            delete process.env[k];
+          }
+          process.env.VERCEL = "1";
+          process.env.BREVO_API_KEY = "xkeysib-stateless-prod-test-secret";
+
+          const appA = createApp({ now: () => virtualNow, emailSender: emailSenderStub });
+          const appB = createApp({ now: () => virtualNow, emailSender: emailSenderStub });
+          const pSrvA = await startTestServer(appA);
+          const pSrvB = await startTestServer(appB);
+          try {
+            const healthRes = await fetch(`${pSrvA.baseUrl}/api/health`);
+            assert.equal(healthRes.status, 200);
+            const healthData = await healthRes.json();
+            assert.equal(healthData.readiness.firebaseAdminConfigured, false);
+            assert.equal(healthData.readiness.statelessOtpReady, true);
+            assert.equal(healthData.readiness.otpVerificationMode, "signed-stateless");
+
+            virtualNow = 1_750_004_500_000;
+            const email = "stateless_tutor@edutrackbd.test";
+            const sendRes = await fetch(`${pSrvA.baseUrl}/api/auth/send-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, name: "Stateless Tutor" }),
+            });
+            assert.equal(sendRes.status, 200);
+            const sendData = await sendRes.json();
+            assert.equal(sendData.success, true);
+            assert.equal(typeof sendData.challengeToken, "string");
+            const issuedOtp = extractOtpFromHtml(sentEmails[sentEmails.length - 1].htmlContent);
+
+            // Tampered challengeToken must be rejected on srvB
+            const tamperedRes = await fetch(`${pSrvB.baseUrl}/api/auth/verify-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email,
+                otp: issuedOtp,
+                challengeId: sendData.challengeId,
+                challengeToken: sendData.challengeToken.slice(0, -4) + "abcd",
+              }),
+            });
+            assert.equal(tamperedRes.status, 400);
+            assert.equal((await tamperedRes.json()).code, "OTP_NOT_FOUND");
+
+            // Wrong OTP attempt tracked via state cookie across retries
+            let cookieHeader = "";
+            for (let attempt = 1; attempt <= 5; attempt++) {
+              const wrongRes = await fetch(`${pSrvA.baseUrl}/api/auth/verify-otp`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+                },
+                body: JSON.stringify({
+                  email,
+                  otp: "000000" === issuedOtp ? "999999" : "000000",
+                  challengeId: sendData.challengeId,
+                  challengeToken: sendData.challengeToken,
+                }),
+              });
+              assert.equal(wrongRes.status, 400);
+              const setCookie = wrongRes.headers.get("set-cookie");
+              if (setCookie) {
+                const match = setCookie.match(/edutrack_otp_state=([^;]+)/);
+                if (match) cookieHeader = `edutrack_otp_state=${match[1]}`;
+              }
+              const wrongJson = await wrongRes.json();
+              assert.equal(wrongJson.code, attempt === 5 ? "OTP_MAX_ATTEMPTS" : "OTP_INVALID");
+            }
+
+            // Fresh challenge verifies cleanly on separate serverless instance srvB without needing srvA memory
+            virtualNow += 60_000;
+            const sendRes2 = await fetch(`${pSrvA.baseUrl}/api/auth/send-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: "stateless_student@edutrackbd.test", name: "Stateless Student" }),
+            });
+            assert.equal(sendRes2.status, 200);
+            const sendData2 = await sendRes2.json();
+            const issuedOtp2 = extractOtpFromHtml(sentEmails[sentEmails.length - 1].htmlContent);
+
+            const verifyB = await fetch(`${pSrvB.baseUrl}/api/auth/verify-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: "stateless_student@edutrackbd.test",
+                otp: issuedOtp2,
+                challengeId: sendData2.challengeId,
+                challengeToken: sendData2.challengeToken,
+              }),
+            });
+            assert.equal(verifyB.status, 200);
+            const verifyBJson = await verifyB.json();
+            assert.equal(verifyBJson.verified, true);
+            assert.equal(typeof verifyBJson.verificationToken, "string");
+
+            // Replaying already-verified challenge returns OTP_ALREADY_USED
+            const replayVerify = await fetch(`${pSrvB.baseUrl}/api/auth/verify-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: "stateless_student@edutrackbd.test",
+                otp: issuedOtp2,
+                challengeId: sendData2.challengeId,
+                challengeToken: sendData2.challengeToken,
+              }),
+            });
+            assert.equal(replayVerify.status, 400);
+            assert.equal((await replayVerify.json()).code, "OTP_ALREADY_USED");
+
+            // Fresh challenge expired (>5m) rejected cleanly on srvB with OTP_EXPIRED
+            virtualNow += 60_000;
+            const sendRes3 = await fetch(`${pSrvA.baseUrl}/api/auth/send-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: "stateless_expiry@edutrackbd.test", name: "Expiry Check" }),
+            });
+            assert.equal(sendRes3.status, 200);
+            const sendData3 = await sendRes3.json();
+            const issuedOtp3 = extractOtpFromHtml(sentEmails[sentEmails.length - 1].htmlContent);
+
+            virtualNow += 305_000;
+            const expiredVerify = await fetch(`${pSrvB.baseUrl}/api/auth/verify-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: "stateless_expiry@edutrackbd.test",
+                otp: issuedOtp3,
+                challengeId: sendData3.challengeId,
+                challengeToken: sendData3.challengeToken,
+              }),
+            });
+            assert.equal(expiredVerify.status, 400);
+            assert.equal((await expiredVerify.json()).code, "OTP_EXPIRED");
+          } finally {
+            await new Promise<void>((resolve) => pSrvA.server.close(() => resolve()));
+            await new Promise<void>((resolve) => pSrvB.server.close(() => resolve()));
+            for (const k of envKeys) {
+              if (prevEnv[k] === undefined) delete process.env[k];
+              else process.env[k] = prevEnv[k];
+            }
           }
         });
 
@@ -3477,6 +3657,9 @@ async function runTests() {
             { err: createApiError({ code: "OTP_MAX_ATTEMPTS", error: "Maximum verification attempts reached" }, 429), ctx: "otp", mustContain: "Resend code" },
             { err: createApiError({ code: "FIREBASE_PASSWORD_UPDATE_FAILED", error: "Internal Firebase failure" }, 502), ctx: "reset", mustContain: "temporarily unavailable" },
             { err: { code: "permission-denied", message: "Missing or insufficient permissions." }, ctx: "signup", mustContain: "temporary account permission issue" },
+            { err: { code: "auth/unauthorized-domain", message: "Firebase: Error (auth/unauthorized-domain)." }, ctx: "signup", mustContain: "official domain" },
+            { err: { code: "auth/api-key-not-valid", message: "Firebase: Error (auth/api-key-not-valid)." }, ctx: "signup", mustContain: "configuration is temporarily unavailable" },
+            { err: { code: "invalid-argument", message: "Unsupported field value" }, ctx: "signup", mustContain: "could not be validated" },
             { err: { code: "auth/weak-password", message: "Firebase: Password should be at least 6 characters" }, ctx: "signup", mustContain: "at least 8 characters" },
             { err: new Error("TypeError: Cannot read properties of undefined (reading 'role')"), ctx: "signup", mustContain: "temporary service issue" },
           ];
@@ -3489,7 +3672,7 @@ async function runTests() {
           }
         });
 
-        await test("Signup, Login, OtpVerificationModal & Store enforce race guards, protected-field stripping & auth rollback", () => {
+        await test("Signup, Login, OtpVerificationModal & Store enforce race guards, protected-field stripping & idempotent partial recovery", () => {
           const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
           const loginSrc = fs.readFileSync(path.resolve("src/pages/Login.tsx"), "utf-8");
           const otpSrc = fs.readFileSync(path.resolve("src/components/OtpVerificationModal.tsx"), "utf-8");
@@ -3503,11 +3686,14 @@ async function runTests() {
           assert.equal(signupSrc.includes("signupSubmitInFlightRef"), true);
           assert.equal(signupSrc.includes("verifySubmitInFlightRef"), true);
           assert.equal(signupSrc.includes("parseApiResponse"), true);
+          assert.equal(signupSrc.includes("challengeToken"), true);
 
-          // Store awaits active signup/login flow before onAuthStateChanged reads role + rolls back orphan Auth user
+          // Store awaits active signup/login flow before reading role and uses idempotent recovery without deleting Auth accounts
           assert.equal(storeSrc.includes("runWithAuthFlowGuard"), true);
           assert.equal(storeSrc.includes("activeAuthFlowDepth"), true);
-          assert.equal(storeSrc.includes("newlyCreatedAuthUser.delete()"), true);
+          assert.equal(storeSrc.includes("newlyCreatedAuthUser.delete()"), false);
+          assert.equal(storeSrc.includes("edutrack_pending_signup"), true);
+          assert.equal(storeSrc.includes("existingProfileExists"), true);
           assert.equal(storeSrc.includes("retryOnTransientFirestoreError"), true);
 
           // Login & OTP modal single-flight guards + full error object classification

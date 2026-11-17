@@ -47,20 +47,16 @@ All environment variables are documented in `.env.example` without any hardcoded
 | `GEMINI_API_KEY` | Server | Optional Gemini API key for server-side study/analytics helpers |
 | `GROQ_API_KEY` | Server | Optional Groq API key for AI tutor assistant endpoint (`/api/ai/chat`) |
 | `BREVO_API_KEY` | Server | Brevo transactional email API key (`xkeysib-...`) |
-| `BREVO_SMTP_KEY` | Server | Brevo SMTP relay password |
-| `BREVO_SMTP_LOGIN` | Server | Brevo SMTP login email |
 | `BREVO_SENDER_EMAIL` | Server | Verified sender address for OTP and transactional emails |
-| `BREVO_SENDER_NAME` | Server | Display name for transactional emails (`EduTrack BD`) |
-| `OTP_HMAC_SECRET` | Server | Secret key used to HMAC-sign email verification tokens and hash OTPs |
-| `FIREBASE_WEB_API_KEY` | Server | Firebase Web API key used by server-side password update proxy |
+| `BREVO_SENDER_NAME` | Server | Display name for transactional emails (`EduTrack Bangladesh`) |
 | `R2_ACCESS_KEY_ID` | Server | Cloudflare R2 S3 Access Key ID |
 | `R2_SECRET_ACCESS_KEY` | Server | Cloudflare R2 S3 Secret Access Key |
 | `R2_BUCKET_NAME` | Server | Cloudflare R2 bucket name (`edutrack`) |
 | `R2_ENDPOINT` | Server | Cloudflare R2 S3 endpoint URL |
 | `R2_PUBLIC_URL` | Server | Public CDN URL for uploaded assets |
-| `MONGODB_URI` | Server | Optional MongoDB connection string for secondary admin audit mirroring |
-| `VITE_GOOGLE_MAPS_API_KEY` | Client | Optional Google Maps API key |
 | `VITE_CARTO_API_KEY` | Client | Optional Carto basemap key |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Server | Optional Firebase Admin JSON (stateless HMAC OTP runs automatically on Vercel when omitted) |
+| `OTP_HMAC_SECRET` | Server | Optional dedicated HMAC signing secret (auto-derived from server secrets when omitted) |
 
 ---
 

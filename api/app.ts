@@ -49,6 +49,7 @@ import {
   generateRequestId,
   getFirebasePublicConfig,
   getSafeHealthStatus,
+  getServerOtpSigningSecret,
   recordAuthFailureEvent,
 } from "./config.js";
 
@@ -129,6 +130,59 @@ function maskEmailForLog(email: string): string {
   const local = parts[0];
   const prefix = local.slice(0, Math.min(2, local.length));
   return `${prefix}***@${parts[1]}`;
+}
+
+function parseRequestCookies(req: express.Request): Record<string, string> {
+  const header = req.headers?.cookie;
+  const out: Record<string, string> = {};
+  if (!header || typeof header !== "string") return out;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (!key) continue;
+    try {
+      out[key] = decodeURIComponent(val);
+    } catch {
+      out[key] = val;
+    }
+  }
+  return out;
+}
+
+function setOtpChallengeCookies(
+  res: express.Response,
+  req: express.Request,
+  opts: { challengeToken?: string; stateToken?: string; clear?: boolean }
+) {
+  const protoHeader = String(req.headers?.["x-forwarded-proto"] || "").toLowerCase();
+  const isHttps = req.secure || protoHeader.includes("https");
+  const baseAttrs = [
+    "Path=/api/auth",
+    "HttpOnly",
+    "SameSite=Lax",
+    ...(isHttps ? ["Secure"] : []),
+  ];
+  const cookies: string[] = [];
+  if (opts.clear) {
+    cookies.push(`edutrack_otp_token=; Max-Age=0; ${baseAttrs.join("; ")}`);
+    cookies.push(`edutrack_otp_state=; Max-Age=0; ${baseAttrs.join("; ")}`);
+  } else {
+    if (opts.challengeToken) {
+      cookies.push(
+        `edutrack_otp_token=${encodeURIComponent(opts.challengeToken)}; Max-Age=360; ${baseAttrs.join("; ")}`
+      );
+    }
+    if (opts.stateToken) {
+      cookies.push(
+        `edutrack_otp_state=${encodeURIComponent(opts.stateToken)}; Max-Age=360; ${baseAttrs.join("; ")}`
+      );
+    }
+  }
+  if (cookies.length > 0) {
+    res.setHeader("Set-Cookie", cookies);
+  }
 }
 
 function isSensitiveStorageKeyOrUrl(candidate: string): boolean {
@@ -841,8 +895,13 @@ app.post("/api/auth/send-otp", async (req, res) => {
     }
 
     const store = await getAuthChallengeStore(deps?.authStore);
+    const reqCookies = parseRequestCookies(req);
     const nowMs = getNow();
-    const existingOtp = await store.getActiveCooldownChallenge(normalizedEmail, nowMs);
+    const existingOtp = await store.getActiveCooldownChallenge(
+      normalizedEmail,
+      nowMs,
+      reqCookies.edutrack_otp_state
+    );
 
     if (existingOtp && existingOtp.resendAvailableAtMs > nowMs) {
       const waitSec = Math.max(1, Math.ceil((existingOtp.resendAvailableAtMs - nowMs) / 1000));
@@ -868,7 +927,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const expiresAtMs = nowMs + OTP_CONFIG.expiresInSeconds * 1000;
     const resendAvailableAtMs = nowMs + OTP_CONFIG.resendCooldownSeconds * 1000;
 
-    await store.createOtpChallenge({
+    const createdChallenge = await store.createOtpChallenge({
       challengeId,
       email: normalizedEmail,
       otpCode,
@@ -905,10 +964,15 @@ app.post("/api/auth/send-otp", async (req, res) => {
         `[OTP Auth] Delivery failed on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (req=${requestId}, challenge=${challengeId}, code=${failureCode}): ${emailResult.error}`
       );
       if ((emailResult as any).simulated) {
+        setOtpChallengeCookies(res, req, {
+          challengeToken: createdChallenge?.challengeToken,
+          stateToken: createdChallenge?.stateToken,
+        });
         return res.json({
           success: true,
           emailSent: true,
           challengeId,
+          ...(createdChallenge?.challengeToken ? { challengeToken: createdChallenge.challengeToken } : {}),
           requestId,
           email: normalizedEmail,
           otpLength: OTP_CONFIG.length,
@@ -922,6 +986,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       }
 
       await store.markOtpDeliveryFailed(challengeId);
+      setOtpChallengeCookies(res, req, { clear: true });
       recordAuthFailureEvent({
         route: "/api/auth/send-otp",
         code: failureCode,
@@ -949,6 +1014,11 @@ app.post("/api/auth/send-otp", async (req, res) => {
       await store.updateOtpProviderMessageId(challengeId, String((emailResult as any).messageId));
     }
 
+    setOtpChallengeCookies(res, req, {
+      challengeToken: createdChallenge?.challengeToken,
+      stateToken: createdChallenge?.stateToken,
+    });
+
     const requestId = String((req as any).requestId || generateRequestId());
     console.info(
       `[OTP Auth] Issued 6-digit challenge on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (req=${requestId}, challenge=${challengeId}, expiresAt=${new Date(expiresAtMs).toISOString()})`
@@ -958,6 +1028,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       success: true,
       emailSent: true,
       challengeId,
+      ...(createdChallenge?.challengeToken ? { challengeToken: createdChallenge.challengeToken } : {}),
       requestId,
       email: normalizedEmail,
       otpLength: OTP_CONFIG.length,
@@ -1006,7 +1077,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
 app.post("/api/auth/verify-otp", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   try {
-    const { email, otp, challengeId } = req.body;
+    const { email, otp, challengeId, challengeToken } = req.body;
 
     if (!email || !otp) {
       return res.status(400).json({
@@ -1020,6 +1091,8 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     const cleanOtp = String(otp).trim().replace(/\D/g, "");
     const cleanChallengeId =
       typeof challengeId === "string" && challengeId.trim() ? challengeId.trim() : undefined;
+    const cleanChallengeToken =
+      typeof challengeToken === "string" && challengeToken.trim() ? challengeToken.trim() : undefined;
 
     if (cleanOtp.length !== OTP_CONFIG.length) {
       return res.status(400).json({
@@ -1030,13 +1103,21 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     }
 
     const store = await getAuthChallengeStore(deps?.authStore);
+    const reqCookies = parseRequestCookies(req);
     const nowMs = getNow();
     const result = await store.verifyOtpChallenge({
       email: normalizedEmail,
       otpCode: cleanOtp,
       challengeId: cleanChallengeId,
+      challengeToken: cleanChallengeToken,
+      cookieChallengeToken: reqCookies.edutrack_otp_token,
+      cookieStateToken: reqCookies.edutrack_otp_state,
       nowMs,
     });
+
+    if (result.nextStateToken) {
+      setOtpChallengeCookies(res, req, { stateToken: result.nextStateToken });
+    }
 
     if (!result.ok) {
       console.info(
@@ -1052,7 +1133,11 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     }
 
     const issuedAt = nowMs;
-    const hmacSecret = process.env.OTP_HMAC_SECRET || FIREBASE_WEB_API_KEY || "edutrack-bd-otp-hmac";
+    const hmacSecret =
+      getServerOtpSigningSecret() ||
+      process.env.OTP_HMAC_SECRET ||
+      FIREBASE_WEB_API_KEY ||
+      "edutrack-bd-otp-hmac";
     const signature = crypto
       .createHmac("sha256", hmacSecret)
       .update(`${normalizedEmail}:${result.challengeId}:${issuedAt}:verified`)

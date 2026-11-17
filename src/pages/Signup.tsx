@@ -172,12 +172,15 @@ const OTP_CHALLENGE_STORAGE_KEY = 'edutrack_otp_challenge';
 
 interface PersistedOtpChallenge {
   challengeId: string;
+  challengeToken?: string;
   email: string;
   otpLength: number;
   expiresAtMs: number;
   resendAvailableAtMs: number;
   serverOffsetMs: number;
   isOpen: boolean;
+  verified?: boolean;
+  verificationToken?: string;
 }
 
 function readPersistedOtpChallenge(): PersistedOtpChallenge | null {
@@ -200,12 +203,15 @@ function readPersistedOtpChallenge(): PersistedOtpChallenge | null {
     }
     return {
       challengeId: parsed.challengeId,
+      challengeToken: typeof parsed.challengeToken === 'string' ? parsed.challengeToken : undefined,
       email: parsed.email,
       otpLength: typeof parsed.otpLength === 'number' ? parsed.otpLength : 6,
       expiresAtMs: parsed.expiresAtMs,
       resendAvailableAtMs: typeof parsed.resendAvailableAtMs === 'number' ? parsed.resendAvailableAtMs : 0,
       serverOffsetMs,
       isOpen: Boolean(parsed.isOpen),
+      verified: Boolean(parsed.verified),
+      verificationToken: typeof parsed.verificationToken === 'string' ? parsed.verificationToken : undefined,
     };
   } catch {
     return null;
@@ -322,6 +328,7 @@ export default function Signup() {
   const restoredOtpChallenge = React.useMemo(() => readPersistedOtpChallenge(), []);
   const [showOtpModal, setShowOtpModal] = useState(() => Boolean(restoredOtpChallenge?.isOpen));
   const [otpChallengeId, setOtpChallengeId] = useState<string>(() => restoredOtpChallenge?.challengeId || '');
+  const [otpChallengeToken, setOtpChallengeToken] = useState<string>(() => restoredOtpChallenge?.challengeToken || '');
   const [otpLength, setOtpLength] = useState<number>(() => restoredOtpChallenge?.otpLength || 6);
   const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(300);
   const [otpExpiresAtMs, setOtpExpiresAtMs] = useState<number | undefined>(() => restoredOtpChallenge?.expiresAtMs);
@@ -336,7 +343,11 @@ export default function Signup() {
   });
   const [resendSuccessMsg, setResendSuccessMsg] = useState('');
   const [ipNoticeMsg, setIpNoticeMsg] = useState('');
-  const verifiedChallengeRef = React.useRef<{ email: string; challengeId: string } | null>(null);
+  const verifiedChallengeRef = React.useRef<{ email: string; challengeId: string } | null>(
+    restoredOtpChallenge?.verified
+      ? { email: restoredOtpChallenge.email, challengeId: restoredOtpChallenge.challengeId }
+      : null
+  );
   const signupSubmitInFlightRef = React.useRef<boolean>(false);
   const verifySubmitInFlightRef = React.useRef<boolean>(false);
 
@@ -593,6 +604,7 @@ export default function Signup() {
       const serverNow = Date.now() + existingChallenge.serverOffsetMs;
       if (existingChallenge.expiresAtMs > serverNow) {
         setOtpChallengeId(existingChallenge.challengeId);
+        setOtpChallengeToken(existingChallenge.challengeToken || '');
         setOtpLength(existingChallenge.otpLength);
         setOtpExpiresAtMs(existingChallenge.expiresAtMs);
         setResendAvailableAtMs(existingChallenge.resendAvailableAtMs);
@@ -628,9 +640,16 @@ export default function Signup() {
         const activeExpiresAt = data.expiresAt;
         const activeResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + 55_000;
         const waitSec = Math.max(1, Math.ceil((activeResendAt - (clientNow + nextOffset)) / 1000));
+        const restoredToken =
+          typeof data.challengeToken === 'string'
+            ? data.challengeToken
+            : existingChallenge?.challengeId === data.challengeId
+            ? existingChallenge?.challengeToken || ''
+            : '';
 
         verifiedChallengeRef.current = null;
         setOtpChallengeId(data.challengeId);
+        setOtpChallengeToken(restoredToken);
         setOtpLength(6);
         setServerOffsetMs(nextOffset);
         setOtpExpiresAtMs(activeExpiresAt);
@@ -642,12 +661,14 @@ export default function Signup() {
         );
         writePersistedOtpChallenge({
           challengeId: data.challengeId,
+          challengeToken: restoredToken || undefined,
           email: normalizedEmail,
           otpLength: 6,
           expiresAtMs: activeExpiresAt,
           resendAvailableAtMs: activeResendAt,
           serverOffsetMs: nextOffset,
           isOpen: true,
+          verified: false,
         });
         setShowOtpModal(true);
         setLoading(false);
@@ -664,9 +685,11 @@ export default function Signup() {
       const nextExpiresAt = typeof data.expiresAt === 'number' ? data.expiresAt : clientNow + nextOffset + serverExpiry * 1000;
       const nextResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + serverCooldown * 1000;
       const nextChallengeId = typeof data.challengeId === 'string' ? data.challengeId : '';
+      const nextChallengeToken = typeof data.challengeToken === 'string' ? data.challengeToken : '';
 
       verifiedChallengeRef.current = null;
       setOtpChallengeId(nextChallengeId);
+      setOtpChallengeToken(nextChallengeToken);
       setOtpLength(serverOtpLen);
       setOtpExpirySeconds(serverExpiry);
       setServerOffsetMs(nextOffset);
@@ -680,18 +703,20 @@ export default function Signup() {
       setResendTimer(serverCooldown);
       writePersistedOtpChallenge({
         challengeId: nextChallengeId,
+        challengeToken: nextChallengeToken || undefined,
         email: normalizedEmail,
         otpLength: serverOtpLen,
         expiresAtMs: nextExpiresAt,
         resendAvailableAtMs: nextResendAt,
         serverOffsetMs: nextOffset,
         isOpen: true,
+        verified: false,
       });
       setShowOtpModal(true);
       setLoading(false);
     } catch (err: any) {
       console.error('OTP trigger error:', err);
-      const msg = formatUserFriendlyError(err, 'signup');
+      const msg = formatUserFriendlyError(err, 'otp');
       setError(msg);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -743,9 +768,11 @@ export default function Signup() {
       const nextExpiresAt = typeof data.expiresAt === 'number' ? data.expiresAt : clientNow + nextOffset + serverExpiry * 1000;
       const nextResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + serverCooldown * 1000;
       const nextChallengeId = typeof data.challengeId === 'string' ? data.challengeId : '';
+      const nextChallengeToken = typeof data.challengeToken === 'string' ? data.challengeToken : '';
 
       verifiedChallengeRef.current = null;
       setOtpChallengeId(nextChallengeId);
+      setOtpChallengeToken(nextChallengeToken);
       setOtpLength(serverOtpLen);
       setOtpExpirySeconds(serverExpiry);
       setServerOffsetMs(nextOffset);
@@ -758,12 +785,14 @@ export default function Signup() {
       setResendTimer(serverCooldown);
       writePersistedOtpChallenge({
         challengeId: nextChallengeId,
+        challengeToken: nextChallengeToken || undefined,
         email: normalizedEmail,
         otpLength: serverOtpLen,
         expiresAtMs: nextExpiresAt,
         resendAvailableAtMs: nextResendAt,
         serverOffsetMs: nextOffset,
         isOpen: true,
+        verified: false,
       });
     } catch (err: any) {
       setOtpError(formatUserFriendlyError(err, 'otp'));
@@ -790,10 +819,18 @@ export default function Signup() {
 
     let activeStage: 'otp' | 'signup' = 'otp';
     try {
-      const alreadyVerifiedForThisChallenge =
-        verifiedChallengeRef.current &&
-        verifiedChallengeRef.current.email === normalizedEmail &&
-        (!otpChallengeId || verifiedChallengeRef.current.challengeId === otpChallengeId);
+      const persistedChallenge = readPersistedOtpChallenge();
+      const activeChallengeId = otpChallengeId || persistedChallenge?.challengeId || undefined;
+      const activeChallengeToken = otpChallengeToken || persistedChallenge?.challengeToken || undefined;
+
+      const alreadyVerifiedForThisChallenge = Boolean(
+        (verifiedChallengeRef.current &&
+          verifiedChallengeRef.current.email === normalizedEmail &&
+          (!activeChallengeId || verifiedChallengeRef.current.challengeId === activeChallengeId)) ||
+          (persistedChallenge?.verified &&
+            persistedChallenge.email === normalizedEmail &&
+            (!activeChallengeId || persistedChallenge.challengeId === activeChallengeId))
+      );
 
       if (!alreadyVerifiedForThisChallenge) {
         const verifyRes = await fetch('/api/auth/verify-otp', {
@@ -802,7 +839,8 @@ export default function Signup() {
           body: JSON.stringify({
             email: trimmedEmail,
             otp: cleanCode,
-            challengeId: otpChallengeId || undefined,
+            challengeId: activeChallengeId,
+            ...(activeChallengeToken ? { challengeToken: activeChallengeToken } : {}),
           }),
         });
 
@@ -812,17 +850,28 @@ export default function Signup() {
           if (
             verifyData.code === 'OTP_EXPIRED' ||
             verifyData.code === 'OTP_MAX_ATTEMPTS' ||
-            verifyData.code === 'OTP_NOT_FOUND'
+            verifyData.code === 'OTP_NOT_FOUND' ||
+            verifyData.code === 'OTP_REPLACED'
           ) {
             writePersistedOtpChallenge(null);
           }
           throw createApiError(verifyData, verifyStatus, 'Invalid or expired 6-digit OTP code.');
         }
 
+        const resolvedChallengeId = verifyData.challengeId || activeChallengeId || 'verified';
         verifiedChallengeRef.current = {
           email: normalizedEmail,
-          challengeId: verifyData.challengeId || otpChallengeId || 'verified',
+          challengeId: resolvedChallengeId,
         };
+        if (persistedChallenge && persistedChallenge.email === normalizedEmail) {
+          writePersistedOtpChallenge({
+            ...persistedChallenge,
+            challengeId: resolvedChallengeId,
+            verified: true,
+            verificationToken:
+              typeof verifyData.verificationToken === 'string' ? verifyData.verificationToken : undefined,
+          });
+        }
       }
 
       activeStage = 'signup';

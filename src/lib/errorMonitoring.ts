@@ -558,6 +558,16 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
   if (code === 'auth/operation-not-allowed' || combined.includes('operation-not-allowed')) {
     return 'Account registration with email and password is temporarily unavailable. Please try again later.';
   }
+  if (code === 'auth/unauthorized-domain' || combined.includes('unauthorized-domain')) {
+    return 'This web address is not currently authorized for sign-in. Please access EduTrack Bangladesh from the official domain.';
+  }
+  if (
+    code === 'auth/api-key-not-valid' ||
+    code === 'auth/invalid-api-key' ||
+    combined.includes('api-key-not-valid')
+  ) {
+    return 'Our authentication configuration is temporarily unavailable. Please try again in a few moments.';
+  }
   if (
     code === 'auth/too-many-requests' ||
     code === 'otp_rate_limited' ||
@@ -631,6 +641,9 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
       return 'We could not finish saving your profile right now due to a temporary account permission issue. Please try submitting again.';
     }
     return 'You do not have permission to perform this action. Please make sure you are signed in to the right account.';
+  }
+  if (code === 'invalid-argument' || code === 'firestore/invalid-argument') {
+    return 'Some profile fields could not be validated. Please review your entered details and try again.';
   }
   if (
     code === 'resource-exhausted' ||
