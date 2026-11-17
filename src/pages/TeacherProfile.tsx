@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import BadgeDisplay from '../components/BadgeDisplay';
 import TutorNotifyMeCard from '../components/TutorNotifyMeCard';
+import ApplicationStatusTracker from '../components/ApplicationStatusTracker';
 import SEOHead from '../components/SEOHead';
 import UserAvatar from '../components/UserAvatar';
 import AmbientBackground from '../components/AmbientBackground';
@@ -14,6 +15,12 @@ import {
   hasActiveOrPendingBooking,
   sanitizeTutorProfileForViewer,
 } from '../../shared/tutorPrivacy';
+import {
+  formatDhakaDateTime,
+  isFutureDhakaSchedule,
+  normalizeBangladeshScheduleIso,
+  resolveSessionTrackerState,
+} from '../../shared/tuitionLifecycle';
 import {
   ArrowLeft,
   Mail,
@@ -86,6 +93,7 @@ export default function TeacherProfile() {
   const [bookingDate, setBookingDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [bookingSlot, setBookingSlot] = useState('05:00 PM');
   const [bookingSubjects, setBookingSubjects] = useState<string[]>([]);
+  const [bookingIsTrial, setBookingIsTrial] = useState(false);
   const [bookingNote, setBookingNote] = useState('');
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
@@ -346,10 +354,15 @@ export default function TeacherProfile() {
         ? bookingSubjects.join(', ')
         : tutor.subjects?.[0] || 'General Tuition';
 
+    const scheduledIso = normalizeBangladeshScheduleIso(bookingDate, bookingSlot);
+    if (!scheduledIso || !isFutureDhakaSchedule(scheduledIso)) {
+      setBookingError('Please select a future date and valid time in Bangladesh Standard Time.');
+      return;
+    }
+
     setIsSubmittingBooking(true);
     setBookingError('');
     try {
-      const scheduledIso = `${bookingDate}T${bookingSlot}`;
       await bookSession({
         studentId: currentUser.id,
         tutorId: id,
@@ -357,21 +370,30 @@ export default function TeacherProfile() {
         scheduledTime: scheduledIso,
         status: 'requested_by_student',
         duration: 60,
+        isTrial: bookingIsTrial,
+        ...(bookingIsTrial ? { trialStatus: 'proposed_by_student' as const } : {}),
+        trialProposedBy: currentUser.id,
+        ...(bookingNote.trim() ? { note: bookingNote.trim() } : {}),
       });
       if (bookingNote.trim()) {
         try {
           await useAppStore.getState().sendMessage({
             senderId: currentUser.id,
             receiverId: id,
-            content: `[Booking Request - ${chosenSubject}]: ${bookingNote.trim()}`,
+            content: `[${bookingIsTrial ? 'Trial Class Request' : 'Booking Request'} - ${chosenSubject}]: ${bookingNote.trim()}`,
           });
         } catch {
           // Non-blocking note message
         }
       }
       setBookingNote('');
+      setBookingIsTrial(false);
       setShowBookingModal(false);
-      setBookingSuccessMsg('Your tuition request has been sent to the tutor.');
+      setBookingSuccessMsg(
+        bookingIsTrial
+          ? 'Your trial class request has been sent to the tutor.'
+          : 'Your tuition request has been sent to the tutor.'
+      );
       setTimeout(() => setBookingSuccessMsg(''), 5000);
     } catch (err: any) {
       setBookingError(formatUserFriendlyError(err, 'booking'));
@@ -747,6 +769,17 @@ export default function TeacherProfile() {
             </div>
           </div>
         </section>
+
+        {activeOrPendingBooking && (
+          <ApplicationStatusTracker
+            state={resolveSessionTrackerState(
+              activeOrPendingBooking,
+              currentUser?.role === 'tutor' ? 'tutor' : 'student'
+            )}
+            scheduleLabel={formatDhakaDateTime(activeOrPendingBooking.scheduledTime)}
+            compact
+          />
+        )}
 
         {/* Main 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
@@ -1362,6 +1395,24 @@ export default function TeacherProfile() {
                     </select>
                   </div>
                 </div>
+
+                {/* Trial class option */}
+                <label className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bookingIsTrial}
+                    onChange={(e) => setBookingIsTrial(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF]"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-[#0B132B] dark:text-white block">
+                      Schedule as a Demo / Trial Class first
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tutor contact details stay protected until the trial or tuition is confirmed.
+                    </span>
+                  </div>
+                </label>
 
                 {/* Optional Message */}
                 <div>

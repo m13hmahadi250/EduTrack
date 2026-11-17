@@ -17,6 +17,13 @@ import {
   WeeklyAvailabilityCalendar,
   WeeklyScheduleOverview,
 } from '../../components/WeeklyAvailabilityCalendar';
+import ApplicationStatusTracker from '../../components/ApplicationStatusTracker';
+import {
+  formatDhakaDateTime,
+  isFutureDhakaSchedule,
+  normalizeBangladeshScheduleIso,
+  resolveSessionTrackerState,
+} from '../../../shared/tuitionLifecycle';
 import { formatUserFriendlyError } from '../../lib/errorMonitoring';
 import {
   Bell,
@@ -153,6 +160,11 @@ export default function TutorDashboard() {
     logout,
     requestEndPermission,
     submitPayment,
+    acceptSession,
+    rejectSession,
+    confirmTrialSession,
+    proposeSessionReschedule,
+    updateNotificationPreferences,
   } = useAppStore(
     useShallow((state) => ({
       currentUser: state.currentUser,
@@ -172,6 +184,11 @@ export default function TutorDashboard() {
       logout: state.logout,
       requestEndPermission: state.requestEndPermission,
       submitPayment: state.submitPayment,
+      acceptSession: state.acceptSession,
+      rejectSession: state.rejectSession,
+      confirmTrialSession: state.confirmTrialSession,
+      proposeSessionReschedule: state.proposeSessionReschedule,
+      updateNotificationPreferences: state.updateNotificationPreferences,
     })),
   );
 
@@ -412,8 +429,12 @@ export default function TutorDashboard() {
   const [proposalNotes, setProposalNotes] = useState("");
   const [isSendingProposal, setIsSendingProposal] = useState(false);
   const [proposalSuccess, setProposalSuccess] = useState(false);
+  const [proposalError, setProposalError] = useState("");
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [viewingProfileSession, setViewingProfileSession] = useState<Session | null>(null);
+  const [pipelineRescheduleId, setPipelineRescheduleId] = useState<string | null>(null);
+  const [pipelineRescheduleDateTime, setPipelineRescheduleDateTime] = useState("");
+  const [savingNotifPref, setSavingNotifPref] = useState(false);
 
   useBackHandler(
     Boolean(selectedStudentForProposal),
@@ -903,11 +924,14 @@ export default function TutorDashboard() {
             )}
 
             <button
-              onClick={() => window.dispatchEvent(new Event('start-edutrack-tour'))}
-              className="w-11 h-11 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('start-edutrack-tour', { detail: { replay: true } }))}
+              className="min-h-[44px] px-3.5 sm:px-4 bg-white dark:bg-[#111A2E] hover:bg-blue-50 dark:hover:bg-slate-800 text-[#0D5BFF] dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer shadow-xs active:scale-95 shrink-0"
               title="Quick Start Tour"
+              aria-label="Quick Start Tour"
             >
-              <Compass className="w-4 h-4 text-white" />
+              <Compass className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline text-xs font-bold">Quick Start</span>
             </button>
 
             <button
@@ -1296,7 +1320,7 @@ export default function TutorDashboard() {
 
                 {/* Tuition Pipeline Tracker */}
                 {activeSessions.some(s => s.status === 'requested_by_student' || s.status === 'proposed_by_tutor') && (
-                  <div id="tutor-tuition-pipeline" className="bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden space-y-6">
+                  <div id="tutor-tuition-pipeline" data-tour-id="tutor-tuition-pipeline" className="bg-gradient-to-br from-[#0B132B] to-[#1C2541] rounded-[2.5rem] p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden space-y-6">
                     <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full -mr-40 -mt-40 blur-3xl" />
                     
                     <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -1316,21 +1340,23 @@ export default function TutorDashboard() {
                       {activeSessions.filter(s => s.status === 'requested_by_student' || s.status === 'proposed_by_tutor').map(sess => {
                         const isProposal = sess.status === 'proposed_by_tutor';
                         const student = users.find(u => u.id === sess.studentId);
-                        
+                        const trackerState = resolveSessionTrackerState(sess, 'tutor');
+                        const isRescheduling = pipelineRescheduleId === sess.id;
+
                         return (
                           <div 
                             key={sess.id} 
                             className="bg-white/5 rounded-2xl p-6 border border-white/10 flex flex-col justify-between hover:bg-white/10 transition-colors"
                           >
                             <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
-                                  !isProposal ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-300'
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded ${
+                                  !isProposal ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-200'
                                 }`}>
-                                  {!isProposal ? 'Incoming Request' : 'Proposal Sent'}
+                                  {sess.isTrial ? 'Trial / Demo Request' : !isProposal ? 'Incoming Request' : 'Proposal Sent'}
                                 </span>
-                                <span className="text-[9px] font-black text-slate-400">
-                                  {new Date(sess.scheduledTime).toLocaleDateString()}
+                                <span className="text-[11px] font-semibold text-slate-300 tabular-nums">
+                                  {formatDhakaDateTime(sess.scheduledTime)}
                                 </span>
                               </div>
 
@@ -1340,27 +1366,103 @@ export default function TutorDashboard() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <h4 className="text-sm font-black italic uppercase text-white truncate">{student?.name || 'Academic Student'}</h4>
-                                  <p className="text-[10px] text-slate-400 truncate">{student?.university || student?.studentClass ? `Class ${student.studentClass}` : 'Verified Student'}</p>
+                                  <p className="text-[11px] text-slate-300 truncate">{student?.university || (student?.studentClass ? `Class ${student.studentClass}` : 'Verified Student')}</p>
                                 </div>
                               </div>
 
                               <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject / Focus</div>
+                                <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">Subject / Focus</div>
                                 <div className="text-xs font-black italic text-[#0D5BFF]">{sess.subject}</div>
-                                <div className="text-[10px] text-slate-350 font-medium mt-1.5 leading-relaxed">
-                                  Time Slot: <span className="font-extrabold text-white">{new Date(sess.scheduledTime).toLocaleString()}</span>
+                                <div className="text-[11px] text-slate-300 font-medium mt-1.5 leading-relaxed tabular-nums">
+                                  Time Slot: <span className="font-extrabold text-white">{formatDhakaDateTime(sess.scheduledTime)}</span>
                                 </div>
                               </div>
+
+                              <ApplicationStatusTracker
+                                state={trackerState}
+                                scheduleLabel={formatDhakaDateTime(sess.scheduledTime)}
+                                compact
+                              />
                             </div>
 
-                            <div className="mt-5">
+                            <div className="mt-4 space-y-2.5">
+                              {!isProposal && (
+                                <div className="flex flex-wrap gap-2">
+                                  {sess.trialStatus !== 'confirmed' && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (sess.isTrial) {
+                                          await confirmTrialSession(sess.id);
+                                        } else {
+                                          await acceptSession(sess.id);
+                                        }
+                                      }}
+                                      className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                                    >
+                                      {sess.isTrial ? 'Confirm Trial Time' : 'Accept Request'}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPipelineRescheduleId(isRescheduling ? null : sess.id);
+                                      setPipelineRescheduleDateTime(
+                                        new Date(Date.now() + 86400000).toISOString().slice(0, 16)
+                                      );
+                                    }}
+                                    className="py-2.5 px-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                                  >
+                                    {isRescheduling ? 'Close' : 'Suggest Time'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => rejectSession(sess.id)}
+                                    className="py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              )}
+
+                              {isRescheduling && (
+                                <div className="p-2.5 rounded-xl bg-white/10 border border-white/10 flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="datetime-local"
+                                    value={pipelineRescheduleDateTime}
+                                    onChange={(e) => setPipelineRescheduleDateTime(e.target.value)}
+                                    className="flex-1 px-2.5 py-2 rounded-lg bg-[#0B132B] border border-white/20 text-xs text-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const nextIso = normalizeBangladeshScheduleIso(pipelineRescheduleDateTime);
+                                      if (!nextIso || !isFutureDhakaSchedule(nextIso)) {
+                                        useAppStore.getState().sendNotification(
+                                          currentUser.id,
+                                          "Invalid Time",
+                                          "Please select a future date and time in Bangladesh Standard Time.",
+                                          "warning"
+                                        );
+                                        return;
+                                      }
+                                      await proposeSessionReschedule(sess.id, nextIso);
+                                      setPipelineRescheduleId(null);
+                                    }}
+                                    className="px-3 py-2 rounded-lg bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                                  >
+                                    Send Time
+                                  </button>
+                                </div>
+                              )}
+
                               <button
                                 id={`view-student-pro-btn-${sess.id}`}
                                 onClick={() => {
                                   setViewingProfileUser(student || null);
                                   setViewingProfileSession(sess);
                                 }}
-                                className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[9px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                                className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
                               >
                                 View Profile & Credentials
                               </button>
@@ -2166,7 +2268,7 @@ export default function TutorDashboard() {
                   )}
 
                   {/* Profile Completion Meter (Independent of Verification Status) */}
-                  <div className="w-full p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-3 mb-6">
+                  <div data-tour-id="tutor-profile-completion-card" className="w-full p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-3 mb-6">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                         Profile Completion
@@ -2212,7 +2314,7 @@ export default function TutorDashboard() {
                   </div>
 
                   {/* Independent Verification Status Summary */}
-                  <div className="w-full space-y-3 mb-8">
+                  <div data-tour-id="tutor-verification-card" className="w-full space-y-3 mb-8">
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
@@ -3430,6 +3532,59 @@ export default function TutorDashboard() {
                         onManageClick={() => handleTabChange("availability")}
                       />
                     </div>
+
+                    <div className="bg-white dark:bg-[#111A2E] rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800/80 shadow-sm transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-black text-[#0B132B] dark:text-white uppercase italic">
+                          Smart Email Alerts & Tuition Digest
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Control email updates for matching tuition circulars, shortlists, and trial class confirmations.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 shrink-0">
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            disabled={savingNotifPref}
+                            checked={currentUser.notificationPreferences?.emailAlertsEnabled ?? true}
+                            onChange={async (e) => {
+                              setSavingNotifPref(true);
+                              try {
+                                await updateNotificationPreferences({
+                                  emailAlertsEnabled: e.target.checked,
+                                });
+                              } finally {
+                                setSavingNotifPref(false);
+                              }
+                            }}
+                            className="w-4 h-4 accent-[#0D5BFF] rounded cursor-pointer"
+                          />
+                          <span className="text-xs font-bold text-[#0B132B] dark:text-white">
+                            Workflow Emails
+                          </span>
+                        </label>
+                        <select
+                          aria-label="Matching Tuition Alert Frequency"
+                          disabled={savingNotifPref}
+                          value={currentUser.notificationPreferences?.tuitionAlertFrequency || "instant"}
+                          onChange={async (e) => {
+                            const freq = e.target.value as "instant" | "daily_digest" | "off";
+                            setSavingNotifPref(true);
+                            try {
+                              await updateNotificationPreferences({ tuitionAlertFrequency: freq });
+                            } finally {
+                              setSavingNotifPref(false);
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                        >
+                          <option value="instant">Instant Job Matches</option>
+                          <option value="daily_digest">Daily Summary</option>
+                          <option value="off">Job Alerts Off</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -4001,31 +4156,30 @@ export default function TutorDashboard() {
                               if (!proposalSubject || !proposalDate || !proposalSlot) {
                                 return;
                               }
+                              setProposalError("");
+                              const scheduledTime = normalizeBangladeshScheduleIso(proposalDate, proposalSlot);
+                              if (!scheduledTime || !isFutureDhakaSchedule(scheduledTime)) {
+                                setProposalError("Please select a future date and valid time slot in Bangladesh Standard Time.");
+                                return;
+                              }
+
                               setIsSendingProposal(true);
                               try {
-                                const scheduledTime = `${proposalDate}T${proposalSlot}:00`;
-                                
-                                // Initialize lazy store acts
                                 await useAppStore.getState().bookSession({
                                   studentId: selectedStudentForProposal.id,
                                   tutorId: currentUser.id,
-                                  subject: proposalSubject, status: "proposed_by_tutor",
-                                  scheduledTime
+                                  subject: proposalSubject,
+                                  status: "proposed_by_tutor",
+                                  scheduledTime,
+                                  note: proposalNotes.trim() || undefined,
                                 });
 
                                 triggerConfetti();
 
-                                await useAppStore.getState().sendNotification(
-                                  selectedStudentForProposal.id,
-                                  "New Tuition Proposal",
-                                  `${currentUser.name} has sent a tuition invitation on ${proposalSubject} for ${new Date(scheduledTime).toLocaleString()}.`,
-                                  "success"
-                                );
-
                                 await useAppStore.getState().sendMessage({
                                   senderId: currentUser.id,
                                   receiverId: selectedStudentForProposal.id,
-                                  content: `Hello ${selectedStudentForProposal.name}! I reviewed your academic level and study interest. I have issued a live lesson offer for ${proposalSubject} scheduled on ${new Date(proposalDate).toLocaleDateString()} at ${proposalSlot}. Introduction: ${proposalNotes || "Ready to guide you through your academic curriculum!"}`
+                                  content: `Hello ${selectedStudentForProposal.name}! I reviewed your academic level and study interest. I have issued a live lesson offer for ${proposalSubject} scheduled on ${formatDhakaDateTime(scheduledTime)}. Introduction: ${proposalNotes || "Ready to guide you through your academic curriculum!"}`
                                 });
 
                                 setProposalSuccess(true);
@@ -4033,14 +4187,21 @@ export default function TutorDashboard() {
                                   setProposalSuccess(false);
                                   setSelectedStudentForProposal(null);
                                 }, 2500);
-                              } catch (error) {
-                                console.error(error);
+                              } catch (error: any) {
+                                setProposalError(
+                                  formatUserFriendlyError(error, "booking")
+                                );
                               } finally {
                                 setIsSendingProposal(false);
                               }
                             }}
                             className="space-y-5"
                           >
+                            {proposalError && (
+                              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs font-semibold">
+                                {proposalError}
+                              </div>
+                            )}
                             <div className="space-y-2">
                               <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.2em] block">
                                 Tuition Proposal Pipeline
@@ -4370,17 +4531,22 @@ export default function TutorDashboard() {
 
                 {viewingProfileSession && (
                   <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
-                    <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Requested Tuition Session</span>
+                    <span className="text-[10px] font-bold text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Requested Tuition Session</span>
                     <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
                       <div>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans mr-2">Topic / Subject</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans mr-2">Topic / Subject</span>
                         <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
                       </div>
                       <div>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Requested Schedule Slot</span>
-                        <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Requested Schedule Slot</span>
+                        <span className="text-slate-800 dark:text-slate-200 mt-1 block tabular-nums">{formatDhakaDateTime(viewingProfileSession.scheduledTime)}</span>
                       </div>
                     </div>
+                    <ApplicationStatusTracker
+                      state={resolveSessionTrackerState(viewingProfileSession, 'tutor')}
+                      scheduleLabel={formatDhakaDateTime(viewingProfileSession.scheduledTime)}
+                      compact
+                    />
                   </div>
                 )}
               </div>
@@ -4391,17 +4557,21 @@ export default function TutorDashboard() {
                     <>
                       <button
                         onClick={async () => {
-                          await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                          if (viewingProfileSession.isTrial) {
+                            await confirmTrialSession(viewingProfileSession.id);
+                          } else {
+                            await acceptSession(viewingProfileSession.id);
+                          }
                           setViewingProfileUser(null);
                           setViewingProfileSession(null);
                         }}
                         className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
                       >
-                        Accept Tuition Request
+                        {viewingProfileSession.isTrial ? 'Confirm Trial Time' : 'Accept Tuition Request'}
                       </button>
                       <button
                         onClick={async () => {
-                          await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                          await rejectSession(viewingProfileSession.id);
                           setViewingProfileUser(null);
                           setViewingProfileSession(null);
                         }}

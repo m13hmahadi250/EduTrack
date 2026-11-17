@@ -1034,7 +1034,398 @@ export async function sendBrevoEmail({
   }
 }
 
+export type WorkflowNotificationEventType =
+  | "tutor_request_created"
+  | "tuition_application_received"
+  | "tutor_shortlisted"
+  | "request_accepted"
+  | "request_declined"
+  | "trial_scheduled"
+  | "trial_rescheduled"
+  | "trial_confirmed"
+  | "trial_cancelled"
+  | "tuition_confirmed"
+  | "booking_cancelled"
+  | "schedule_changed"
+  | "tuition_alert_digest";
+
+export interface WorkflowEmailParams {
+  eventType: WorkflowNotificationEventType;
+  recipientEmail: string;
+  recipientName?: string;
+  actorName?: string;
+  actorInstitution?: string;
+  tuitionTitle?: string;
+  subjectLabel?: string;
+  classLabel?: string;
+  areaDistrictLabel?: string;
+  scheduleLabel?: string;
+  proposedSalaryLabel?: string;
+  summaryNote?: string;
+  actionUrl?: string;
+  baseUrl?: string;
+}
+
+export function redactSensitiveContactText(input: unknown): string {
+  const cleaned = stripDecorativeSymbols(String(input || ""));
+  if (!cleaned) return "";
+  return cleaned
+    // Redact Bangladesh mobile numbers (+8801..., 8801..., 01XXXXXXXXX with optional dashes/spaces)
+    .replace(/(?:\+?88[\s-]?)?0?1[3-9](?:[\s-]?\d){8}/g, "[contact hidden]")
+    // Redact other long numeric identifiers (e.g. NID / phone)
+    .replace(/\b\d{8,17}\b/g, "[number hidden]")
+    // Redact email addresses
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[email hidden]")
+    .trim();
+}
+
+interface WorkflowTemplateCopy {
+  emailSubject: string;
+  preheader: string;
+  categoryLabel: string;
+  heading: string;
+  introEnglish: string;
+  bengaliNotice: string;
+  ctaLabel: string;
+}
+
+function getWorkflowTemplateCopy(params: WorkflowEmailParams): WorkflowTemplateCopy {
+  const actor = stripDecorativeSymbols(params.actorName || "an EduTrack member");
+  const title = stripDecorativeSymbols(params.tuitionTitle || params.subjectLabel || "your tuition");
+
+  switch (params.eventType) {
+    case "tutor_request_created":
+      return {
+        emailSubject: "New Tutor Request | EduTrack Bangladesh",
+        preheader: `${actor} sent you a new tutoring request on EduTrack Bangladesh.`,
+        categoryLabel: "NEW TUTOR REQUEST",
+        heading: "You Have a New Tutoring Request!",
+        introEnglish: `${actor} has sent you a tutoring request${params.subjectLabel ? ` for ${stripDecorativeSymbols(params.subjectLabel)}` : ""}. Review the summary below and respond from your EduTrack Dashboard.`,
+        bengaliNotice: "আপনার কাছে একটি নতুন টিউশনের অনুরোধ এসেছে। বিস্তারিত দেখতে EduTrack Dashboard-এ প্রবেশ করুন।",
+        ctaLabel: "View Request",
+      };
+    case "tuition_application_received":
+      return {
+        emailSubject: "New Tutor Application Received | EduTrack Bangladesh",
+        preheader: `${actor} applied to ${title} on EduTrack Bangladesh.`,
+        categoryLabel: "NEW TUTOR APPLICATION",
+        heading: "A Tutor Has Applied to Your Tuition!",
+        introEnglish: `${actor}${params.actorInstitution ? ` (${stripDecorativeSymbols(params.actorInstitution)})` : ""} has applied to your tuition post${params.tuitionTitle ? ` "${stripDecorativeSymbols(params.tuitionTitle)}"` : ""}. Review their verified qualifications in your dashboard.`,
+        bengaliNotice: "আপনার টিউশন পোস্টে একজন শিক্ষক আবেদন করেছেন। তাঁর প্রোফাইল ও যোগ্যতা দেখে পরবর্তী সিদ্ধান্ত নিতে পারেন।",
+        ctaLabel: "Review Application",
+      };
+    case "tutor_shortlisted":
+      return {
+        emailSubject: "Application Shortlisted | EduTrack Bangladesh",
+        preheader: `Your application for ${title} has been shortlisted.`,
+        categoryLabel: "APPLICATION UPDATE",
+        heading: "You Have Been Shortlisted!",
+        introEnglish: `${actor} has shortlisted your application for ${title}. Watch for a message or trial class invitation in your dashboard.`,
+        bengaliNotice: "অভিনন্দন! আপনার টিউশন আবেদনটি শর্টলিস্ট করা হয়েছে। বিস্তারিত দেখতে EduTrack Dashboard-এ প্রবেশ করুন।",
+        ctaLabel: "View Application",
+      };
+    case "request_accepted":
+      return {
+        emailSubject: "Tutoring Request Accepted | EduTrack Bangladesh",
+        preheader: `${actor} accepted your tutoring request.`,
+        categoryLabel: "REQUEST ACCEPTED",
+        heading: "Your Tutoring Request Was Accepted!",
+        introEnglish: `${actor} has accepted your tutoring request for ${title}. You can now view full coordination details inside your EduTrack Dashboard.`,
+        bengaliNotice: "আপনার টিউশন অনুরোধটি গৃহীত হয়েছে। পরবর্তী ক্লাসের সময়সূচি ও সমন্বয়ের জন্য ড্যাশবোর্ড দেখুন।",
+        ctaLabel: "View Schedule",
+      };
+    case "request_declined":
+      return {
+        emailSubject: "Tutoring Request Update | EduTrack Bangladesh",
+        preheader: `Update regarding your tutoring request for ${title}.`,
+        categoryLabel: "REQUEST UPDATE",
+        heading: "Tutoring Request Update",
+        introEnglish: `Thank you for your interest in ${title}. The other party is unable to proceed with this request at the moment. You can explore other matching options in your dashboard.`,
+        bengaliNotice: "এই মুহূর্তে অনুরোধটি গৃহীত হয়নি। ড্যাশবোর্ড থেকে অন্যান্য উপযুক্ত শিক্ষক বা টিউশন সার্কুলার দেখতে পারেন।",
+        ctaLabel: "Open Dashboard",
+      };
+    case "trial_scheduled":
+      return {
+        emailSubject: "Trial Class Scheduled | EduTrack Bangladesh",
+        preheader: `A trial class has been proposed for ${title}.`,
+        categoryLabel: "TRIAL CLASS SCHEDULE",
+        heading: "Trial Class Scheduled!",
+        introEnglish: `${actor} has proposed a trial / demo class for ${title}${params.scheduleLabel ? ` on ${stripDecorativeSymbols(params.scheduleLabel)}` : ""}. Please confirm or suggest an alternate time in your dashboard.`,
+        bengaliNotice: "একটি ট্রায়াল বা ডেমো ক্লাসের সময় নির্ধারণ করা হয়েছে। বিস্তারিত দেখতে ও সময় নিশ্চিত করতে ড্যাশবোর্ডে প্রবেশ করুন।",
+        ctaLabel: "Review Trial Schedule",
+      };
+    case "trial_rescheduled":
+      return {
+        emailSubject: "Trial Schedule Updated | EduTrack Bangladesh",
+        preheader: `${actor} suggested an alternate trial class time.`,
+        categoryLabel: "TRIAL RESCHEDULED",
+        heading: "Alternate Trial Time Suggested",
+        introEnglish: `${actor} suggested a new trial class time for ${title}${params.scheduleLabel ? `: ${stripDecorativeSymbols(params.scheduleLabel)}` : ""}. Open your dashboard to confirm or adjust the slot.`,
+        bengaliNotice: "ট্রায়াল ক্লাসের একটি নতুন সময় প্রস্তাব করা হয়েছে। অনুগ্রহ করে ড্যাশবোর্ডে গিয়ে যাচাই ও নিশ্চিত করুন।",
+        ctaLabel: "Confirm Trial Time",
+      };
+    case "trial_confirmed":
+      return {
+        emailSubject: "Trial Class Confirmed | EduTrack Bangladesh",
+        preheader: `Your trial class for ${title} is confirmed.`,
+        categoryLabel: "TRIAL CONFIRMED",
+        heading: "Trial Class Schedule Confirmed!",
+        introEnglish: `Both parties have agreed on the trial class schedule for ${title}${params.scheduleLabel ? ` (${stripDecorativeSymbols(params.scheduleLabel)})` : ""}.`,
+        bengaliNotice: "উভয় পক্ষের সম্মতিতে ট্রায়াল ক্লাসের সময়সূচি নিশ্চিত হয়েছে। নির্ধারিত সময়ে অংশগ্রহণের জন্য ড্যাশবোর্ড দেখুন।",
+        ctaLabel: "View Trial Details",
+      };
+    case "trial_cancelled":
+      return {
+        emailSubject: "Trial Class Cancelled | EduTrack Bangladesh",
+        preheader: `The trial class for ${title} was cancelled.`,
+        categoryLabel: "TRIAL CANCELLED",
+        heading: "Trial Class Cancelled",
+        introEnglish: `${actor} has cancelled the scheduled trial class for ${title}. Visit your dashboard to view other options or reschedule.`,
+        bengaliNotice: "নির্ধারিত ট্রায়াল ক্লাসটি বাতিল করা হয়েছে। বিস্তারিত তথ্য আপনার ড্যাশবোর্ডে দেখতে পারেন।",
+        ctaLabel: "Open Dashboard",
+      };
+    case "tuition_confirmed":
+      return {
+        emailSubject: "Tuition Confirmed | EduTrack Bangladesh",
+        preheader: `Your tuition connection for ${title} is confirmed.`,
+        categoryLabel: "TUITION CONFIRMED",
+        heading: "Your Tuition Connection Is Confirmed!",
+        introEnglish: `${actor} has confirmed the tuition engagement for ${title}. You can now manage classes, schedules, and logs in your EduTrack Dashboard.`,
+        bengaliNotice: "অভিনন্দন! আপনার টিউশন নিয়োগ চূড়ান্ত হয়েছে। নিয়মিত ক্লাস ও সময়সূচি পরিচালনা করতে ড্যাশবোর্ডে প্রবেশ করুন।",
+        ctaLabel: "Go to Dashboard",
+      };
+    case "booking_cancelled":
+      return {
+        emailSubject: "Booking Cancelled | EduTrack Bangladesh",
+        preheader: `A tuition booking for ${title} was cancelled.`,
+        categoryLabel: "BOOKING CANCELLED",
+        heading: "Tutoring Booking Cancelled",
+        introEnglish: `${actor} has cancelled the tutoring booking for ${title}. Open your dashboard to review your current schedule.`,
+        bengaliNotice: "একটি টিউশন বুকিং বাতিল করা হয়েছে। সর্বশেষ অবস্থা দেখতে আপনার ড্যাশবোর্ডে প্রবেশ করুন।",
+        ctaLabel: "View Dashboard",
+      };
+    case "schedule_changed":
+      return {
+        emailSubject: "Important Schedule Update | EduTrack Bangladesh",
+        preheader: `Schedule update for ${title}.`,
+        categoryLabel: "SCHEDULE UPDATE",
+        heading: "Tutoring Schedule Updated",
+        introEnglish: `${actor} updated the schedule details for ${title}${params.scheduleLabel ? ` to ${stripDecorativeSymbols(params.scheduleLabel)}` : ""}. Please check your dashboard to stay synchronized.`,
+        bengaliNotice: "আপনার টিউশনের সময়সূচিতে একটি পরিবর্তন করা হয়েছে। আপডেট দেখতে ড্যাশবোর্ডে প্রবেশ করুন।",
+        ctaLabel: "View Schedule",
+      };
+    case "tuition_alert_digest":
+    default:
+      return {
+        emailSubject: "Matching Tuition Opportunity | EduTrack Bangladesh",
+        preheader: `A new tuition matches your profile on EduTrack Bangladesh.`,
+        categoryLabel: "SMART TUITION ALERT",
+        heading: "New Tuition Matches Your Profile!",
+        introEnglish: `A new tuition requirement${params.tuitionTitle ? ` (${stripDecorativeSymbols(params.tuitionTitle)})` : ""} matches your subjects, class level, and location preferences on EduTrack Bangladesh.`,
+        bengaliNotice: "আপনার বিষয় ও এলাকার সাথে সামঞ্জস্যপূর্ণ একটি নতুন টিউশন সার্কুলার প্রকাশিত হয়েছে। বিস্তারিত দেখে আবেদন করুন।",
+        ctaLabel: "Explore Tuition",
+      };
+  }
+}
+
+export function generateWorkflowNotificationEmailHtml(params: WorkflowEmailParams): string {
+  const copy = getWorkflowTemplateCopy(params);
+  const cleanRecipientName = stripDecorativeSymbols(params.recipientName || "").trim() || "there";
+  const cleanBaseUrl = String(params.baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
+  const actionUrl = params.actionUrl && params.actionUrl.startsWith("https://")
+    ? params.actionUrl
+    : `${cleanBaseUrl}/dashboard`;
+
+  const detailRows: Array<{ label: string; value: string }> = [];
+  if (params.tuitionTitle) {
+    detailRows.push({ label: "Tuition", value: escapeHtml(stripDecorativeSymbols(params.tuitionTitle)) });
+  }
+  if (params.subjectLabel) {
+    detailRows.push({ label: "Subject", value: escapeHtml(stripDecorativeSymbols(params.subjectLabel)) });
+  }
+  if (params.classLabel) {
+    detailRows.push({ label: "Class / Level", value: escapeHtml(stripDecorativeSymbols(params.classLabel)) });
+  }
+  if (params.areaDistrictLabel) {
+    detailRows.push({ label: "General Area", value: escapeHtml(stripDecorativeSymbols(params.areaDistrictLabel)) });
+  }
+  if (params.scheduleLabel) {
+    detailRows.push({ label: "Schedule (BDT)", value: escapeHtml(stripDecorativeSymbols(params.scheduleLabel)) });
+  }
+  if (params.proposedSalaryLabel) {
+    detailRows.push({ label: "Monthly Honorarium", value: escapeHtml(stripDecorativeSymbols(params.proposedSalaryLabel)) });
+  }
+  if (params.actorInstitution) {
+    detailRows.push({ label: "Institution", value: escapeHtml(stripDecorativeSymbols(params.actorInstitution)) });
+  }
+
+  const safeNote = redactSensitiveContactText(params.summaryNote || "").slice(0, 320);
+
+  const detailsTableHtml = detailRows.length > 0
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 20px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="info-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                      ${detailRows
+                        .map(
+                          (row, idx) => `<tr>
+                        <td style="padding: 10px 16px; font-size: 13px; color: #64748B; font-weight: 600; width: 38%; ${idx > 0 ? "border-top: 1px solid #E2E8F0;" : ""}">
+                          ${row.label}
+                        </td>
+                        <td class="text-primary" style="padding: 10px 16px; font-size: 13px; color: #101828; font-weight: 600; ${idx > 0 ? "border-top: 1px solid #E2E8F0;" : ""}">
+                          ${row.value}
+                        </td>
+                      </tr>`
+                        )
+                        .join("")}
+                    </table>
+                  </td>
+                </tr>
+              </table>`
+    : "";
+
+  const noteHtml = safeNote
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 20px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="info-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                      <tr>
+                        <td style="padding: 14px 16px;">
+                          <div style="font-size: 11px; font-weight: 700; color: #64748B; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
+                            NOTE SUMMARY
+                          </div>
+                          <p class="text-secondary" style="margin: 0; font-size: 14px; line-height: 1.55; color: #475569;">
+                            ${escapeHtml(safeNote)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>`
+    : "";
+
+  const bodyHtml = `
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 10px;">
+                    <div class="accent-label" style="font-size: 11px; font-weight: 700; color: #155DFC; letter-spacing: 1.4px; text-transform: uppercase;">
+                      ${escapeHtml(copy.categoryLabel)}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="left" style="padding-bottom: 18px;">
+                    <p class="text-primary" style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #101828;">
+                      Hello ${escapeHtml(cleanRecipientName)},
+                    </p>
+                    <p class="text-secondary" style="margin: 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                      ${escapeHtml(copy.introEnglish)}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding-bottom: 20px;">
+                <tr>
+                  <td>
+                    <table role="presentation" class="accent-box" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;">
+                      <tr>
+                        <td style="padding: 16px 18px;">
+                          <p class="text-primary" style="margin: 0; font-size: 14px; line-height: 1.7; color: #101828; font-weight: 500;">
+                            ${escapeHtml(copy.bengaliNotice)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              ${detailsTableHtml}
+              ${noteHtml}
+
+              ${renderEmailPrimaryButton(copy.ctaLabel, actionUrl)}
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom: 18px;">
+                    <p class="text-muted" style="margin: 0; font-size: 12px; line-height: 1.5; color: #64748B;">
+                      For your privacy and safety, direct phone numbers, NID documents, and exact home addresses are never included in notification emails.
+                    </p>
+                  </td>
+                </tr>
+              </table>`;
+
+  return renderEduTrackEmailLayout({
+    title: copy.emailSubject,
+    preheader: copy.preheader,
+    recipientEmail: params.recipientEmail,
+    heading: copy.heading,
+    bodyHtml,
+  });
+}
+
+export function generateWorkflowNotificationEmailText(params: WorkflowEmailParams): {
+  subject: string;
+  textContent: string;
+} {
+  const copy = getWorkflowTemplateCopy(params);
+  const cleanRecipientName = stripDecorativeSymbols(params.recipientName || "").trim() || "there";
+  const cleanBaseUrl = String(params.baseUrl || "https://edutrackbd.vercel.app").replace(/\/+$/, "");
+  const actionUrl = params.actionUrl && params.actionUrl.startsWith("https://")
+    ? params.actionUrl
+    : `${cleanBaseUrl}/dashboard`;
+  const currentYear = new Date().getFullYear();
+
+  const lines: string[] = [
+    "EduTrack BANGLADESH",
+    "",
+    copy.heading,
+    "",
+    `Hello ${cleanRecipientName},`,
+    "",
+    copy.introEnglish,
+    "",
+    copy.bengaliNotice,
+    "",
+  ];
+
+  if (params.tuitionTitle) lines.push(`Tuition: ${stripDecorativeSymbols(params.tuitionTitle)}`);
+  if (params.subjectLabel) lines.push(`Subject: ${stripDecorativeSymbols(params.subjectLabel)}`);
+  if (params.classLabel) lines.push(`Class / Level: ${stripDecorativeSymbols(params.classLabel)}`);
+  if (params.areaDistrictLabel) lines.push(`General Area: ${stripDecorativeSymbols(params.areaDistrictLabel)}`);
+  if (params.scheduleLabel) lines.push(`Schedule (BDT): ${stripDecorativeSymbols(params.scheduleLabel)}`);
+  if (params.proposedSalaryLabel) lines.push(`Monthly Honorarium: ${stripDecorativeSymbols(params.proposedSalaryLabel)}`);
+  if (params.actorInstitution) lines.push(`Institution: ${stripDecorativeSymbols(params.actorInstitution)}`);
+
+  const safeNote = redactSensitiveContactText(params.summaryNote || "").slice(0, 320);
+  if (safeNote) {
+    lines.push("", `Note Summary: ${safeNote}`);
+  }
+
+  lines.push(
+    "",
+    `${copy.ctaLabel}: ${actionUrl}`,
+    "",
+    "For your privacy and safety, direct phone numbers, NID documents, and exact home addresses are never included in notification emails.",
+    "",
+    "EduTrack Bangladesh",
+    `Contact Support: edutrackbangladesh@gmail.com (${params.recipientEmail})`,
+    `© ${currentYear} EduTrack Bangladesh`
+  );
+
+  return {
+    subject: copy.emailSubject,
+    textContent: lines.join("\n"),
+  };
+}
+
 export default function mailModuleHandler(_req: any, res: any) {
   res.status(200).json({ status: "EduTrack Mail Service Module Active" });
 }
+
 

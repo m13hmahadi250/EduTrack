@@ -23,6 +23,20 @@ import {
   isTutorVerified,
 } from '../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { matchTuitionsForTutor, matchTutorsForStudentNeed } from '../../shared/matching';
+import {
+  formatDhakaDateTime,
+  hasScheduleConflict,
+  isFutureDhakaSchedule,
+  normalizeBangladeshScheduleIso,
+  resolveApplicationTrackerState,
+  TrialScheduleStatus,
+} from '../../shared/tuitionLifecycle';
+import {
+  dispatchMatchingTuitionAlerts,
+  sendWorkflowEmailNotification,
+} from '../services/mailService';
+import ApplicationStatusTracker from './ApplicationStatusTracker';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 import {
   BookOpen,
@@ -60,6 +74,7 @@ export interface TuitionApplicationItem {
   message: string;
   status: 'submitted' | 'shortlisted' | 'trial_scheduled' | 'selected' | 'rejected';
   trialDate?: string;
+  trialStatus?: TrialScheduleStatus;
   createdAt: string;
   updatedAt?: string;
 }
@@ -97,7 +112,20 @@ const SAVED_TUITIONS_KEY = 'edutrack_saved_tuitions_v1';
 
 export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMarketplaceHubProps) {
   const navigate = useNavigate();
-  const { currentUser, users, studentProfiles, sendNotification, bookSession } = useAppStore();
+  const {
+    currentUser,
+    users,
+    sessions,
+    studentProfiles,
+    sendNotification,
+    bookSession,
+    acceptSession,
+    confirmTrialSession,
+    proposeSessionReschedule,
+    cancelSession,
+    toggleSavedTuition,
+    updateNotificationPreferences,
+  } = useAppStore();
 
   const [tuitions, setTuitions] = useState<TuitionCircularRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +134,21 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   const [activeSubTab, setActiveSubTab] = useState<'browse' | 'post' | 'my_posts' | 'my_applications' | 'recommended'>(
     mode === 'student' ? 'my_posts' : mode === 'tutor' ? 'browse' : 'browse'
   );
+
+  useEffect(() => {
+    const handleTourSubTab = (event: Event) => {
+      const custom = event as CustomEvent<{
+        mode?: 'student' | 'tutor' | 'admin' | 'public';
+        subTab?: 'browse' | 'post' | 'my_posts' | 'my_applications' | 'recommended';
+      }>;
+      const targetSubTab = custom.detail?.subTab;
+      if (!targetSubTab) return;
+      if (custom.detail?.mode && custom.detail.mode !== mode) return;
+      setActiveSubTab(targetSubTab);
+    };
+    window.addEventListener('edutrack-tour-marketplace-subtab', handleTourSubTab);
+    return () => window.removeEventListener('edutrack-tour-marketplace-subtab', handleTourSubTab);
+  }, [mode]);
 
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,14 +169,19 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     }
   });
 
-  const toggleSaveTuition = (id: string) => {
-    setSavedTuitionIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
-      try {
-        localStorage.setItem(SAVED_TUITIONS_KEY, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+  const effectiveSavedTuitionIds = currentUser?.savedTuitions ?? savedTuitionIds;
+
+  const toggleSaveTuition = async (id: string) => {
+    await toggleSavedTuition(id);
+    if (!currentUser) {
+      setSavedTuitionIds((prev) => {
+        const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+        try {
+          localStorage.setItem(SAVED_TUITIONS_KEY, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    }
   };
 
   // Student 5-Step Guided Posting Form State (with safe draft persistence)
@@ -196,6 +244,9 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     applicant: TuitionApplicationItem;
   } | null>(null);
   const [trialDateTime, setTrialDateTime] = useState('');
+  const [rescheduleTargetKey, setRescheduleTargetKey] = useState<string | null>(null);
+  const [rescheduleDateTime, setRescheduleDateTime] = useState('');
+  const [savingAlertPref, setSavingAlertPref] = useState(false);
 
   useBackHandler(Boolean(applyingTuition), () => setApplyingTuition(null), 'marketplace-apply-modal');
   useBackHandler(Boolean(trialModalState), () => setTrialModalState(null), 'marketplace-trial-modal');
@@ -301,7 +352,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     return (Array.isArray(tuitions) ? tuitions : []).filter((t) => {
       if (!t) return false;
       if (mode !== 'admin' && t.status === 'closed') return false;
-      if (showSavedOnly && !savedTuitionIds.includes(t.id)) return false;
+      if (showSavedOnly && !effectiveSavedTuitionIds.includes(t.id)) return false;
 
       const titleStr = (t.title || '').toLowerCase();
       const subjectStr = (t.subject || '').toLowerCase();
@@ -351,7 +402,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     tuitions,
     mode,
     showSavedOnly,
-    savedTuitionIds,
+    effectiveSavedTuitionIds,
     searchQuery,
     filterSubject,
     filterClass,
@@ -364,83 +415,45 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   // Explainable Rule-Based Recommendations for Tutors
   const recommendedTuitionsForTutor = useMemo(() => {
     if (!currentUser || currentUser.role !== 'tutor') return [];
-    const tutorSubjects = (currentUser.subjects || []).map((s) => s.toLowerCase());
-    const tutorDistrict = (currentUser.district || '').toLowerCase();
-    const tutorArea = (currentUser.area || '').toLowerCase();
-
-    return tuitions
-      .filter((t) => t.status === 'active')
-      .map((t) => {
-        const reasons: string[] = [];
-        const reqSubjects = t.subject.toLowerCase();
-
-        // Check subject compatibility
-        const matchedSubj = (currentUser.subjects || []).find((s) =>
-          reqSubjects.includes(s.toLowerCase())
-        );
-        if (matchedSubj) {
-          reasons.push(`Subject Match: ${matchedSubj}`);
-        } else if (tutorSubjects.length > 0 && tutorSubjects.some((s) => reqSubjects.includes(s))) {
-          reasons.push('Matches Your Teaching Subjects');
-        }
-
-        // Check location compatibility
-        if (tutorDistrict && t.district.toLowerCase() === tutorDistrict) {
-          reasons.push(`Same District (${t.district})`);
-        }
-        if (tutorArea && t.area && t.area.toLowerCase().includes(tutorArea)) {
-          reasons.push(`Nearby Area (${t.area})`);
-        }
-
-        // Check online compatibility
-        if (t.mode && t.mode.toLowerCase().includes('online')) {
-          reasons.push('Online Compatible');
-        }
-
-        // Check budget compatibility
-        if (currentUser.hourlyRate && t.salary >= currentUser.hourlyRate) {
-          reasons.push(`Meets Expected Salary (৳${t.salary.toLocaleString()})`);
-        }
-
-        return { tuition: t, reasons, matchCount: reasons.length };
-      })
-      .filter((item) => item.matchCount > 0)
-      .sort((a, b) => b.matchCount - a.matchCount);
+    return matchTuitionsForTutor(tuitions, currentUser).map((match) => ({
+      tuition: match.item,
+      reasons: match.reasons,
+      score: match.score,
+    }));
   }, [tuitions, currentUser]);
 
   // Explainable Rule-Based Tutor Recommendations for Students
   const recommendedTutorsForStudent = useMemo(() => {
     if (!currentUser) return [];
     const latestPost = myStudentPosts[0];
-    const targetSubject = (latestPost?.subject || currentUser.subject || '').toLowerCase();
-    const targetDistrict = (latestPost?.district || currentUser.district || '').toLowerCase();
-    const targetBudget = latestPost?.salary || 0;
+    const activeChild =
+      studentProfiles.find((p) => p.id === currentUser.activeStudentProfileId) ||
+      studentProfiles[0];
 
-    return users
-      .filter((u) => u.role === 'tutor' && u.isVerified && !u.isBlocked)
-      .map((tutor) => {
-        const reasons: string[] = ['Verified Educator'];
-        if (
-          targetSubject &&
-          tutor.subjects?.some(
-            (s) =>
-              targetSubject.includes(s.toLowerCase()) || s.toLowerCase().includes(targetSubject)
-          )
-        ) {
-          reasons.push('Teaches Required Subject');
-        }
-        if (targetDistrict && tutor.district?.toLowerCase() === targetDistrict) {
-          reasons.push(`Located in ${tutor.district}`);
-        }
-        if (targetBudget > 0 && tutor.hourlyRate && tutor.hourlyRate <= targetBudget) {
-          reasons.push(`Within Budget (৳${tutor.hourlyRate.toLocaleString()}/mo)`);
-        }
-        return { tutor, reasons, score: reasons.length };
-      })
-      .filter((item) => item.score >= 2)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
-  }, [users, currentUser, myStudentPosts]);
+    return matchTutorsForStudentNeed(
+      users,
+      {
+        subject:
+          latestPost?.subject ||
+          activeChild?.subjects?.join(', ') ||
+          currentUser.subject ||
+          currentUser.subjects?.join(', '),
+        studentClass:
+          latestPost?.studentClass || activeChild?.studentClass || currentUser.studentClass,
+        curriculum: latestPost?.curriculum || activeChild?.curriculum || currentUser.curriculum,
+        district: latestPost?.district || activeChild?.district || currentUser.district,
+        area: latestPost?.area || activeChild?.area || currentUser.area,
+        mode: latestPost?.mode,
+        budget: latestPost?.salary,
+        genderPreference: latestPost?.genderPreference,
+      },
+      6
+    ).map((match) => ({
+      tutor: match.item,
+      reasons: match.reasons,
+      score: match.score,
+    }));
+  }, [users, currentUser, myStudentPosts, studentProfiles]);
 
   // Publish new Student Tuition Requirement
   const handlePublishTuition = async () => {
@@ -464,7 +477,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       }`;
 
       const selectedChild = studentProfiles.find((p) => p.id === selectedChildProfileId);
-      await addDoc(collection(db, 'tuitions'), {
+      const createdTuitionDoc = await addDoc(collection(db, 'tuitions'), {
         studentId: currentUser.id,
         studentName: selectedChild?.studentName || currentUser.studentName || currentUser.name || 'Guardian',
         ...(selectedChild ? { studentProfileId: selectedChild.id } : {}),
@@ -485,13 +498,34 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
         createdAt: new Date().toISOString(),
       });
 
+      const matchedTutors = matchTutorsForStudentNeed(
+        users,
+        {
+          subject: postForm.subject.trim(),
+          studentClass: postForm.studentClass.trim(),
+          curriculum: postForm.curriculum,
+          district: postForm.district,
+          area: postForm.area.trim(),
+          mode: postForm.tutoringMode,
+          budget: Number(postForm.salary) || 5000,
+          genderPreference: postForm.genderPreference,
+        },
+        15
+      );
+      if (matchedTutors.length > 0) {
+        dispatchMatchingTuitionAlerts(
+          createdTuitionDoc.id,
+          matchedTutors.map((m) => m.item.id)
+        ).catch(() => {});
+      }
+
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       hasDirtyDraftRef.current = false;
       setPostStep(1);
       setActiveSubTab('my_posts');
       setFeedbackBanner({
         type: 'success',
-        text: 'Your tuition requirement has been published! Verified tutors can now apply.',
+        text: 'Your tuition requirement has been published! Matching verified tutors have been alerted.',
       });
     } catch (err: any) {
       setFeedbackBanner({
@@ -541,6 +575,13 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
         applications: arrayUnion(newApp),
       });
 
+      sendWorkflowEmailNotification({
+        eventType: 'tuition_application_received',
+        tuitionId: applyingTuition.id,
+        idempotencyKey: `app:${applyingTuition.id}:${currentUser.id}`,
+        summaryNote: newApp.message,
+      }).catch(() => {});
+
       if (applyingTuition.studentId) {
         await sendNotification(
           applyingTuition.studentId,
@@ -579,16 +620,48 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       const targetApp = tuition.applications.find((a) => a.tutorId === targetTutorId);
       if (!targetApp) return;
 
+      let normalizedTrialIso: string | undefined;
+      if (newStatus === 'trial_scheduled') {
+        const candidateIso = extraTrialDate
+          ? normalizeBangladeshScheduleIso(extraTrialDate)
+          : new Date(Date.now() + 86400000).toISOString();
+        if (!candidateIso || !isFutureDhakaSchedule(candidateIso)) {
+          setFeedbackBanner({
+            type: 'error',
+            text: 'Please choose a future date and valid time in Bangladesh Standard Time for the trial class.',
+          });
+          return;
+        }
+        const conflictCheck = hasScheduleConflict(candidateIso, sessions, {
+          tutorId: targetTutorId,
+          studentId: currentUser.id,
+        });
+        if (conflictCheck.conflict) {
+          setFeedbackBanner({
+            type: 'error',
+            text:
+              conflictCheck.reason ||
+              'That time slot conflicts with an existing booking or trial session.',
+          });
+          return;
+        }
+        normalizedTrialIso = candidateIso;
+      }
+
       const updatedApps = tuition.applications.map((app) => {
         if (app.tutorId === targetTutorId) {
           return {
             ...app,
             status: newStatus,
-            ...(extraTrialDate ? { trialDate: extraTrialDate } : {}),
+            ...(normalizedTrialIso
+              ? {
+                  trialDate: normalizedTrialIso,
+                  trialStatus: 'proposed_by_student' as TrialScheduleStatus,
+                }
+              : {}),
             updatedAt: new Date().toISOString(),
           };
         }
-        // If hiring one tutor, leave other non-rejected applications as-is or closed
         return app;
       });
 
@@ -604,7 +677,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
       await updateDoc(doc(db, 'tuitions', tuition.id), docPayload);
 
-      // If Student confirms hiring or schedules trial class, also create/sync a Session record and notify Tutor
+      // Sync Session record & dispatch smart email notifications
       if (newStatus === 'shortlisted') {
         await sendNotification(
           targetTutorId,
@@ -612,41 +685,58 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           `${currentUser.name} shortlisted your application for "${tuition.title}".`,
           'info'
         );
-      } else if (newStatus === 'trial_scheduled') {
-        const scheduledIso = extraTrialDate
-          ? new Date(extraTrialDate).toISOString()
-          : new Date(Date.now() + 86400000).toISOString();
+        sendWorkflowEmailNotification({
+          eventType: 'tutor_shortlisted',
+          tuitionId: tuition.id,
+          targetTutorId,
+          idempotencyKey: `shortlist:${tuition.id}:${targetTutorId}`,
+        }).catch(() => {});
+      } else if (newStatus === 'trial_scheduled' && normalizedTrialIso) {
+        // Privacy lock: Keep status at requested_by_student until tutor confirms trial
         await bookSession({
           studentId: currentUser.id,
           tutorId: targetTutorId,
           subject: `${tuition.subject} (Trial Class)`,
-          scheduledTime: scheduledIso,
+          scheduledTime: normalizedTrialIso,
           duration: 60,
-          status: 'scheduled',
+          status: 'requested_by_student',
+          isTrial: true,
+          trialStatus: 'proposed_by_student',
+          trialProposedBy: currentUser.id,
+          tuitionId: tuition.id,
         });
-        await sendNotification(
-          targetTutorId,
-          'Trial Class Scheduled!',
-          `${currentUser.name} scheduled a trial class for "${tuition.title}" on ${new Date(
-            scheduledIso
-          ).toLocaleString()}.`,
-          'success'
-        );
       } else if (newStatus === 'selected') {
-        await bookSession({
-          studentId: currentUser.id,
-          tutorId: targetTutorId,
-          subject: tuition.subject,
-          scheduledTime: new Date(Date.now() + 86400000).toISOString(),
-          duration: 60,
-          status: 'scheduled',
-        });
+        const existingPendingOrActive = sessions.find(
+          (s) =>
+            s.studentId === currentUser.id &&
+            s.tutorId === targetTutorId &&
+            !['cancelled', 'rejected', 'completed'].includes(s.status)
+        );
+        if (existingPendingOrActive && existingPendingOrActive.status !== 'scheduled' && existingPendingOrActive.status !== 'active') {
+          await acceptSession(existingPendingOrActive.id);
+        } else if (!existingPendingOrActive) {
+          await bookSession({
+            studentId: currentUser.id,
+            tutorId: targetTutorId,
+            subject: tuition.subject,
+            scheduledTime: new Date(Date.now() + 86400000).toISOString(),
+            duration: 60,
+            status: 'scheduled',
+            tuitionId: tuition.id,
+          });
+        }
         await sendNotification(
           targetTutorId,
           'Congratulations! Tuition Confirmed',
           `${currentUser.name} confirmed you as the selected tutor for "${tuition.title}".`,
           'success'
         );
+        sendWorkflowEmailNotification({
+          eventType: 'tuition_confirmed',
+          tuitionId: tuition.id,
+          targetTutorId,
+          idempotencyKey: `confirm:${tuition.id}:${targetTutorId}`,
+        }).catch(() => {});
       } else if (newStatus === 'rejected') {
         await sendNotification(
           targetTutorId,
@@ -654,6 +744,12 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           `The guardian has updated the status of "${tuition.title}". Thank you for applying.`,
           'info'
         );
+        sendWorkflowEmailNotification({
+          eventType: 'request_declined',
+          tuitionId: tuition.id,
+          targetTutorId,
+          idempotencyKey: `reject:${tuition.id}:${targetTutorId}`,
+        }).catch(() => {});
       }
 
       setFeedbackBanner({
@@ -662,7 +758,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           newStatus === 'selected'
             ? `Confirmed ${targetApp.tutorName} for this tuition! A scheduled session has been created.`
             : newStatus === 'trial_scheduled'
-            ? `Trial class scheduled with ${targetApp.tutorName}!`
+            ? `Trial class invitation sent to ${targetApp.tutorName} for ${formatDhakaDateTime(normalizedTrialIso)}.`
             : newStatus === 'shortlisted'
             ? `${targetApp.tutorName} added to your shortlist.`
             : `Updated application status for ${targetApp.tutorName}.`,
@@ -672,6 +768,108 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       setFeedbackBanner({
         type: 'error',
         text: err?.message || 'Could not update application status.',
+      });
+    }
+  };
+
+  // Tutor or Guardian responds to a proposed trial schedule (Confirm / Suggest Alternate Time / Cancel)
+  const handleTrialResponse = async (
+    tuition: TuitionCircularRecord,
+    targetTutorId: string,
+    action: 'confirm' | 'reschedule' | 'cancel',
+    alternateDateTime?: string
+  ) => {
+    if (!currentUser || !tuition.applications) return;
+    try {
+      let nextTrialIso: string | undefined;
+      if (action === 'reschedule') {
+        const parsedIso = alternateDateTime ? normalizeBangladeshScheduleIso(alternateDateTime) : null;
+        if (!parsedIso || !isFutureDhakaSchedule(parsedIso)) {
+          setFeedbackBanner({
+            type: 'error',
+            text: 'Please choose a valid future date & time in Bangladesh Standard Time.',
+          });
+          return;
+        }
+        const conflictCheck = hasScheduleConflict(parsedIso, sessions, {
+          tutorId: targetTutorId,
+          studentId: tuition.studentId,
+        });
+        if (conflictCheck.conflict) {
+          setFeedbackBanner({
+            type: 'error',
+            text: conflictCheck.reason || 'Requested alternate time overlaps with another scheduled class.',
+          });
+          return;
+        }
+        nextTrialIso = parsedIso;
+      }
+
+      const nextTrialStatus: TrialScheduleStatus =
+        action === 'confirm'
+          ? 'confirmed'
+          : action === 'reschedule'
+            ? 'rescheduled_by_tutor'
+            : 'cancelled';
+
+      const updatedApps = tuition.applications.map((app) => {
+        if (app.tutorId !== targetTutorId) return app;
+        return {
+          ...app,
+          trialStatus: nextTrialStatus,
+          ...(nextTrialIso ? { trialDate: nextTrialIso } : {}),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      await updateDoc(doc(db, 'tuitions', tuition.id), {
+        applications: updatedApps,
+      });
+
+      const linkedSession = sessions.find(
+        (s) =>
+          (s.tuitionId === tuition.id || (s.studentId === tuition.studentId && s.tutorId === targetTutorId)) &&
+          !['cancelled', 'rejected', 'completed'].includes(s.status)
+      );
+
+      if (linkedSession) {
+        if (action === 'confirm') {
+          await confirmTrialSession(linkedSession.id);
+        } else if (action === 'reschedule' && nextTrialIso) {
+          await proposeSessionReschedule(linkedSession.id, nextTrialIso);
+        } else if (action === 'cancel') {
+          await cancelSession(linkedSession.id);
+        }
+      } else {
+        const eventType =
+          action === 'confirm'
+            ? 'trial_confirmed'
+            : action === 'reschedule'
+              ? 'trial_rescheduled'
+              : 'trial_cancelled';
+        sendWorkflowEmailNotification({
+          eventType,
+          tuitionId: tuition.id,
+          targetTutorId,
+          scheduleIso: nextTrialIso,
+        }).catch(() => {});
+      }
+
+      setRescheduleTargetKey(null);
+      setRescheduleDateTime('');
+      setFeedbackBanner({
+        type: 'success',
+        text:
+          action === 'confirm'
+            ? 'Trial class schedule confirmed!'
+            : action === 'reschedule'
+              ? `Alternate trial time proposed: ${formatDhakaDateTime(nextTrialIso)}.`
+              : 'Trial class cancelled.',
+      });
+    } catch (err: any) {
+      setFeedbackBanner({
+        type: 'error',
+        text: err?.message || 'Could not update trial class schedule.',
       });
     }
   };
@@ -708,7 +906,16 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   };
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6"
+      data-tour-id={
+        mode === 'student'
+          ? 'student-marketplace-hub'
+          : mode === 'tutor'
+          ? 'tutor-marketplace-hub'
+          : undefined
+      }
+    >
       {/* Header & Sub-Navigation Tabs */}
       {mode !== 'public' && (
         <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -758,6 +965,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <>
                 <button
                   type="button"
+                  data-tour-id="student-my-posts-btn"
                   onClick={() => setActiveSubTab('my_posts')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeSubTab === 'my_posts'
@@ -769,6 +977,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </button>
                 <button
                   type="button"
+                  data-tour-id="student-post-tuition-btn"
                   onClick={() => setActiveSubTab('post')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                     activeSubTab === 'post'
@@ -797,6 +1006,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
               <>
                 <button
                   type="button"
+                  data-tour-id="tutor-browse-tuitions-btn"
                   onClick={() => setActiveSubTab('browse')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeSubTab === 'browse'
@@ -819,6 +1029,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                 </button>
                 <button
                   type="button"
+                  data-tour-id="tutor-my-applications-btn"
                   onClick={() => setActiveSubTab('my_applications')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeSubTab === 'my_applications'
@@ -829,6 +1040,33 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                   My Applications ({myTutorApplications.length})
                 </button>
               </>
+            )}
+
+            {mode === 'tutor' && currentUser && (
+              <div className="flex items-center gap-1.5 pl-2 sm:border-l border-slate-200 dark:border-slate-700">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  Job Alerts:
+                </span>
+                <select
+                  aria-label="Tuition Alert Email Frequency"
+                  disabled={savingAlertPref}
+                  value={currentUser.notificationPreferences?.tuitionAlertFrequency || 'instant'}
+                  onChange={async (e) => {
+                    const freq = e.target.value as 'instant' | 'daily_digest' | 'off';
+                    setSavingAlertPref(true);
+                    try {
+                      await updateNotificationPreferences({ tuitionAlertFrequency: freq });
+                    } finally {
+                      setSavingAlertPref(false);
+                    }
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0B132B] text-xs font-bold text-[#0B132B] dark:text-white outline-none focus:border-[#0D5BFF]"
+                >
+                  <option value="instant">Instant Email</option>
+                  <option value="daily_digest">Daily Summary</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
             )}
           </div>
         </div>
@@ -1385,114 +1623,137 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                       {post.applications.map((app) => (
                         <div
                           key={app.tutorId}
-                          className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200/70 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                          className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200/70 dark:border-slate-800 space-y-3"
                         >
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Link
-                                to={`/teachers/${app.tutorId}`}
-                                className="text-sm font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] flex items-center gap-1"
-                              >
-                                <span>{app.tutorName}</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
-                              <span className="text-xs text-slate-500">·</span>
-                              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                {app.tutorInstitution || 'Verified Educator'}
-                              </span>
-                              <span className="text-xs text-slate-500">·</span>
-                              <span className="text-xs font-bold text-[#0D5BFF] tabular-nums">
-                                Proposed: ৳{Number(app.proposedRate || post.salary).toLocaleString()}/mo
-                              </span>
-                              <span className="text-xs text-slate-500">·</span>
-                              <span
-                                className={`text-xs font-bold uppercase ${
-                                  app.status === 'selected'
-                                    ? 'text-emerald-600'
-                                    : app.status === 'shortlisted' || app.status === 'trial_scheduled'
-                                    ? 'text-[#0D5BFF]'
-                                    : app.status === 'rejected'
-                                    ? 'text-rose-500'
-                                    : 'text-amber-600'
-                                }`}
-                              >
-                                {app.status.replace('_', ' ')}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                              "{app.message}"
-                            </p>
-                            {app.trialDate && (
-                              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                Trial Class Scheduled: {new Date(app.trialDate).toLocaleString()}
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Link
+                                  to={`/teachers/${app.tutorId}`}
+                                  className="text-sm font-extrabold text-[#0B132B] dark:text-white hover:text-[#0D5BFF] flex items-center gap-1"
+                                >
+                                  <span>{app.tutorName}</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </Link>
+                                <span className="text-xs text-slate-500">·</span>
+                                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  {app.tutorInstitution || 'Verified Educator'}
+                                </span>
+                                <span className="text-xs text-slate-500">·</span>
+                                <span className="text-xs font-bold text-[#0D5BFF] tabular-nums">
+                                  Proposed: ৳{Number(app.proposedRate || post.salary).toLocaleString()}/mo
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                "{app.message}"
                               </p>
-                            )}
+                              {app.trialDate && (
+                                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                  Trial Class: {formatDhakaDateTime(app.trialDate)}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Student Action Controls on Applicant */}
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                              {onMessageUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => onMessageUser(app.tutorId)}
+                                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                  <span>Message</span>
+                                </button>
+                              )}
+
+                              {app.status === 'submitted' && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateApplicantStatus(post, app.tutorId, 'shortlisted')
+                                  }
+                                  className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 text-xs font-bold hover:bg-blue-100 cursor-pointer"
+                                >
+                                  Shortlist
+                                </button>
+                              )}
+
+                              {(app.status === 'submitted' || app.status === 'shortlisted') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTrialModalState({ tuition: post, applicant: app });
+                                    setTrialDateTime(
+                                      new Date(Date.now() + 86400000).toISOString().slice(0, 16)
+                                    );
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 cursor-pointer"
+                                >
+                                  Schedule Trial
+                                </button>
+                              )}
+
+                              {app.status === 'trial_scheduled' &&
+                                app.trialStatus === 'rescheduled_by_tutor' && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleTrialResponse(post, app.tutorId, 'confirm')
+                                    }
+                                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                                  >
+                                    Confirm Tutor's Proposed Time
+                                  </button>
+                                )}
+
+                              {app.status === 'trial_scheduled' &&
+                                app.trialStatus !== 'cancelled' && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleTrialResponse(post, app.tutorId, 'cancel')
+                                    }
+                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 cursor-pointer"
+                                  >
+                                    Cancel Trial
+                                  </button>
+                                )}
+
+                              {app.status !== 'selected' && app.status !== 'rejected' && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateApplicantStatus(post, app.tutorId, 'selected')
+                                  }
+                                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                                >
+                                  Confirm Hiring
+                                </button>
+                              )}
+
+                              {app.status !== 'rejected' && app.status !== 'selected' && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateApplicantStatus(post, app.tutorId, 'rejected')
+                                  }
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Student Action Controls on Applicant */}
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            {onMessageUser && (
-                              <button
-                                type="button"
-                                onClick={() => onMessageUser(app.tutorId)}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#0D5BFF] flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <MessageSquare className="w-3.5 h-3.5" />
-                                <span>Message</span>
-                              </button>
-                            )}
-
-                            {app.status === 'submitted' && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateApplicantStatus(post, app.tutorId, 'shortlisted')
-                                }
-                                className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0D5BFF] dark:text-blue-300 text-xs font-bold hover:bg-blue-100 cursor-pointer"
-                              >
-                                Shortlist
-                              </button>
-                            )}
-
-                            {(app.status === 'submitted' || app.status === 'shortlisted') && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTrialModalState({ tuition: post, applicant: app });
-                                  setTrialDateTime(
-                                    new Date(Date.now() + 86400000).toISOString().slice(0, 16)
-                                  );
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 cursor-pointer"
-                              >
-                                Schedule Trial
-                              </button>
-                            )}
-
-                            {app.status !== 'selected' && app.status !== 'rejected' && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateApplicantStatus(post, app.tutorId, 'selected')
-                                }
-                                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
-                              >
-                                Confirm Hiring
-                              </button>
-                            )}
-
-                            {app.status !== 'rejected' && app.status !== 'selected' && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateApplicantStatus(post, app.tutorId, 'rejected')
-                                }
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                              >
-                                Reject
-                              </button>
-                            )}
-                          </div>
+                          <ApplicationStatusTracker
+                            state={resolveApplicationTrackerState(app, {
+                              viewerRole: 'student',
+                              tuitionStatus: post.status,
+                            })}
+                            scheduleLabel={app.trialDate ? formatDhakaDateTime(app.trialDate) : undefined}
+                            compact
+                          />
                         </div>
                       ))}
                     </div>
@@ -1620,20 +1881,12 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
             </div>
           ) : (
             myTutorApplications.map(({ tuition, myApp }) => {
-              const stages = [
-                { key: 'submitted', label: 'Submitted' },
-                { key: 'shortlisted', label: 'Shortlisted' },
-                { key: 'trial_scheduled', label: 'Trial Scheduled' },
-                { key: 'selected', label: 'Hired / Confirmed' },
-              ];
-              const currentIdx =
-                myApp.status === 'selected'
-                  ? 3
-                  : myApp.status === 'trial_scheduled'
-                  ? 2
-                  : myApp.status === 'shortlisted'
-                  ? 1
-                  : 0;
+              const targetKey = `${tuition.id}:${myApp.tutorId}`;
+              const isRescheduling = rescheduleTargetKey === targetKey;
+              const trackerState = resolveApplicationTrackerState(myApp, {
+                viewerRole: 'tutor',
+                tuitionStatus: tuition.status,
+              });
 
               return (
                 <div
@@ -1658,46 +1911,77 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                         {tuition.title}
                       </Link>
                     </div>
-                    <span
-                      className={`text-xs font-extrabold uppercase ${
-                        myApp.status === 'selected'
-                          ? 'text-emerald-600'
-                          : myApp.status === 'rejected'
-                          ? 'text-rose-600'
-                          : 'text-[#0D5BFF]'
-                      }`}
-                    >
-                      {myApp.status === 'selected'
-                        ? '✓ Selected / Hired'
-                        : myApp.status === 'rejected'
-                        ? 'Not Selected'
-                        : myApp.status.replace('_', ' ')}
-                    </span>
                   </div>
 
-                  {/* Visual Application Status Timeline */}
-                  {myApp.status !== 'rejected' && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-                      {stages.map((st, idx) => (
-                        <div
-                          key={st.key}
-                          className={`p-2.5 rounded-xl border text-center text-xs font-bold ${
-                            idx <= currentIdx
-                              ? 'border-[#0D5BFF] bg-blue-50/60 dark:bg-blue-950/40 text-[#0D5BFF] dark:text-blue-300'
-                              : 'border-slate-200 dark:border-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {idx + 1}. {st.label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <ApplicationStatusTracker
+                    state={trackerState}
+                    scheduleLabel={myApp.trialDate ? formatDhakaDateTime(myApp.trialDate) : undefined}
+                  />
 
-                  {myApp.trialDate && (
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      Scheduled Trial Class: {new Date(myApp.trialDate).toLocaleString()}
-                    </p>
-                  )}
+                  {myApp.status === 'trial_scheduled' &&
+                    myApp.trialStatus !== 'cancelled' && (
+                      <div className="pt-2 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {myApp.trialStatus !== 'confirmed' && myApp.trialStatus !== 'rescheduled_by_tutor' && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTrialResponse(tuition, myApp.tutorId, 'confirm')
+                              }
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Confirm Trial Time
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRescheduleTargetKey(isRescheduling ? null : targetKey);
+                              setRescheduleDateTime(
+                                new Date(Date.now() + 86400000).toISOString().slice(0, 16)
+                              );
+                            }}
+                            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-[#0B132B] dark:text-white hover:border-[#0D5BFF] cursor-pointer"
+                          >
+                            {isRescheduling ? 'Close Reschedule' : 'Suggest Alternate Time'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleTrialResponse(tuition, myApp.tutorId, 'cancel')
+                            }
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                          >
+                            Cancel Trial
+                          </button>
+                        </div>
+
+                        {isRescheduling && (
+                          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                            <input
+                              type="datetime-local"
+                              value={rescheduleDateTime}
+                              onChange={(e) => setRescheduleDateTime(e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111A2E] text-xs font-semibold text-[#0B132B] dark:text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTrialResponse(
+                                  tuition,
+                                  myApp.tutorId,
+                                  'reschedule',
+                                  rescheduleDateTime
+                                )
+                              }
+                              className="px-4 py-2 rounded-lg bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Send Proposed Time
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
               );
             })
@@ -1869,7 +2153,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
                   }`}
                 >
                   <Bookmark className="w-3.5 h-3.5" />
-                  <span>Saved Circulars ({savedTuitionIds.length})</span>
+                  <span>Saved Circulars ({effectiveSavedTuitionIds.length})</span>
                 </button>
               </div>
 
@@ -1924,7 +2208,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {filteredTuitions.map((t) => {
-                const isSaved = savedTuitionIds.includes(t.id);
+                const isSaved = effectiveSavedTuitionIds.includes(t.id);
                 const myApp = t.applications?.find((a) => a.tutorId === currentUser?.id);
 
                 return (

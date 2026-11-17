@@ -56,7 +56,17 @@
         "profileCompletionPercentage": { "type": "number" },
         "hasProfilePhoto": { "type": "boolean" },
         "photoVersion": { "type": "number" },
-        "privacySettings": { "type": "object" }
+        "privacySettings": { "type": "object" },
+        "savedTuitions": { "type": "array", "items": { "type": "string" } },
+        "notificationPreferences": {
+          "type": "object",
+          "properties": {
+            "emailAlertsEnabled": { "type": "boolean" },
+            "tuitionAlertFrequency": { "type": "string", "enum": ["instant", "daily_digest", "off"] },
+            "inAppAlertsEnabled": { "type": "boolean" }
+          }
+        },
+        "onboarding": { "type": "object" }
       },
       "required": ["id", "role", "name", "email"]
     },
@@ -123,7 +133,7 @@
         "studentId": { "type": "string" },
         "tutorId": { "type": "string" },
         "subject": { "type": "string" },
-        "status": { "type": "string", "enum": ["scheduled", "active", "completed", "cancelled"] },
+        "status": { "type": "string", "enum": ["scheduled", "active", "completed", "cancelled", "proposed_by_tutor", "requested_by_student", "rejected"] },
         "startTime": { "type": "string" },
         "endTime": { "type": "string" },
         "scheduledTime": { "type": "string" },
@@ -131,7 +141,14 @@
         "meetingLink": { "type": "string" },
         "rating": { "type": "number" },
         "feedback": { "type": "string" },
-        "studentDisplayName": { "type": "string" }
+        "studentDisplayName": { "type": "string" },
+        "isTrial": { "type": "boolean" },
+        "trialStatus": { "type": "string", "enum": ["proposed_by_student", "rescheduled_by_tutor", "confirmed", "cancelled"] },
+        "trialProposedBy": { "type": "string" },
+        "tuitionId": { "type": "string" },
+        "note": { "type": "string" },
+        "rescheduleCount": { "type": "number" },
+        "statusUpdatedAt": { "type": "string" }
       },
       "required": ["id", "studentId", "tutorId", "subject", "status", "scheduledTime"]
     },
@@ -288,6 +305,25 @@
         "documents": { "type": "array", "items": { "type": "string" } },
         "updatedAt": { "type": "string" }
       }
+    },
+    "NotificationEvent": {
+      "title": "NotificationEvent",
+      "description": "Server-tracked idempotency ledger for transactional workflow email notifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventKey": { "type": "string" },
+        "eventType": { "type": "string" },
+        "actorId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "tuitionId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "sent", "failed"] },
+        "messageId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "eventKey", "eventType", "actorId", "recipientId", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -334,6 +370,10 @@
     "/notifications/{notificationId}": {
       "schema": "Notification",
       "description": "User notifications"
+    },
+    "/notification_events/{eventId}": {
+      "schema": "NotificationEvent",
+      "description": "Transactional email idempotency events"
     },
     "/class_logs/{classLogId}": {
       "schema": "ClassLog",

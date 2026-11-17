@@ -589,3 +589,71 @@ export async function firestoreHasConfirmedSession(
     return CONFIRMED_SESSION_STATUS_SET.has(String(decoded.status || ""));
   });
 }
+
+export async function firestoreCreateDocIfAbsentWithToken(
+  collection: string,
+  docId: string,
+  data: Record<string, any>,
+  callerIdToken?: string
+): Promise<{ created: boolean; alreadyExists?: boolean; unavailable?: boolean }> {
+  try {
+    const { headers, projectId, databaseId } = await loadFirestoreAuthHeaders(callerIdToken);
+    const params = new URLSearchParams({ "currentDocument.exists": "false" });
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}?${params.toString()}`;
+
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: JSON.stringify({ fields: encodeFirestoreFields(data) }),
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
+
+    if (res.status === 409 || res.status === 412) {
+      return { created: false, alreadyExists: true };
+    }
+    if (res.status === 403 || res.status === 401) {
+      return { created: false, unavailable: true };
+    }
+    if (!res.ok) {
+      return { created: false, unavailable: true };
+    }
+    return { created: true };
+  } catch {
+    return { created: false, unavailable: true };
+  }
+}
+
+export async function firestorePatchDocWithToken(
+  collection: string,
+  docId: string,
+  data: Record<string, any>,
+  callerIdToken?: string
+): Promise<boolean> {
+  try {
+    const { headers, projectId, databaseId } = await loadFirestoreAuthHeaders(callerIdToken);
+    const updateMaskParams = Object.keys(data)
+      .filter((k) => data[k] !== undefined)
+      .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
+      .join("&");
+    const qs = updateMaskParams ? `?${updateMaskParams}` : "";
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}${qs}`;
+
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: JSON.stringify({ fields: encodeFirestoreFields(data) }),
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
+
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

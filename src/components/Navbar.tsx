@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   ChevronDown,
   ShieldCheck,
+  Compass,
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Logo } from './Logo';
@@ -331,6 +332,28 @@ const Navbar = memo(() => {
                               </span>
                             )}
                           </Link>
+                          {currentUser.role !== 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProfileMenuOpen(false);
+                                const triggerTour = () =>
+                                  window.dispatchEvent(
+                                    new CustomEvent('start-edutrack-tour', { detail: { replay: true } })
+                                  );
+                                if (!location.pathname.startsWith('/dashboard')) {
+                                  navigate('/dashboard');
+                                  window.setTimeout(triggerTour, 120);
+                                } else {
+                                  triggerTour();
+                                }
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-left"
+                            >
+                              <Compass className="w-4 h-4 text-[#0D5BFF]" />
+                              <span>Quick Start Tour</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="border-t border-slate-100 dark:border-slate-800 pt-1">

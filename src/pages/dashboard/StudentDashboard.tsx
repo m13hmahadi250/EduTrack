@@ -12,6 +12,13 @@ import {
   getWeekdayFromDateString,
   normalizeAvailabilitySlots,
 } from '../../../shared/availabilityUtils';
+import {
+  formatDhakaDateTime,
+  isFutureDhakaSchedule,
+  normalizeBangladeshScheduleIso,
+  resolveSessionTrackerState,
+} from '../../../shared/tuitionLifecycle';
+import ApplicationStatusTracker from '../../components/ApplicationStatusTracker';
 import { formatUserFriendlyError } from '../../lib/errorMonitoring';
 import { 
   Search, 
@@ -320,6 +327,12 @@ export default function StudentDashboard() {
     updateStudentProfile,
     deleteStudentProfile,
     setActiveStudentProfile,
+    acceptSession,
+    rejectSession,
+    cancelSession,
+    confirmTrialSession,
+    proposeSessionReschedule,
+    updateNotificationPreferences,
   } = useAppStore(useShallow((state) => ({
     currentUser: state.currentUser,
     users: state.users,
@@ -338,6 +351,12 @@ export default function StudentDashboard() {
     updateStudentProfile: state.updateStudentProfile,
     deleteStudentProfile: state.deleteStudentProfile,
     setActiveStudentProfile: state.setActiveStudentProfile,
+    acceptSession: state.acceptSession,
+    rejectSession: state.rejectSession,
+    cancelSession: state.cancelSession,
+    confirmTrialSession: state.confirmTrialSession,
+    proposeSessionReschedule: state.proposeSessionReschedule,
+    updateNotificationPreferences: state.updateNotificationPreferences,
   })));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -1022,8 +1041,12 @@ export default function StudentDashboard() {
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookingSlot, setBookingSlot] = useState('');
   const [bookingSubject, setBookingSubject] = useState<string[]>([]);
+  const [bookingIsTrial, setBookingIsTrial] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [pipelineRescheduleId, setPipelineRescheduleId] = useState<string | null>(null);
+  const [pipelineRescheduleDateTime, setPipelineRescheduleDateTime] = useState('');
+  const [savingNotifPref, setSavingNotifPref] = useState(false);
 
   // Custom interactive subject system states
   const [activeSubjectTab, setActiveSubjectTab] = useState<'Bangla Version' | 'English Version' | 'Madrasha'>('Bangla Version');
@@ -1122,16 +1145,28 @@ export default function StudentDashboard() {
       return;
     }
 
+    const scheduledTime = normalizeBangladeshScheduleIso(bookingDate, bookingSlot);
+    if (!scheduledTime || !isFutureDhakaSchedule(scheduledTime)) {
+      useAppStore.getState().sendNotification(
+        currentUser.id,
+        'Invalid Date or Time',
+        'Please pick a future date and valid time slot in Bangladesh Standard Time.',
+        'warning'
+      );
+      return;
+    }
+
     setIsBooking(true);
     try {
-      const scheduledTime = `${bookingDate}T${bookingSlot}:00`;
-
       await bookSession({
         studentId: currentUser.id,
         tutorId: selectedTutor.id,
         subject: bookingSubject.join(', '),
         scheduledTime,
-        status: 'requested_by_student'
+        status: 'requested_by_student',
+        isTrial: bookingIsTrial,
+        ...(bookingIsTrial ? { trialStatus: 'proposed_by_student' as const } : {}),
+        trialProposedBy: currentUser.id,
       });
 
       triggerConfetti();
@@ -1140,6 +1175,7 @@ export default function StudentDashboard() {
         setBookingSuccess(false);
         setBookingSlot('');
         setBookingSubject([]);
+        setBookingIsTrial(false);
       }, 3000);
     } catch (error: any) {
       console.error(error);
@@ -1354,11 +1390,14 @@ export default function StudentDashboard() {
              </motion.div>
            )}
            <button 
-             onClick={() => window.dispatchEvent(new Event('start-edutrack-tour'))}
-             className="w-12 h-12 bg-gradient-to-r from-blue-500 to-[#0D5BFF] hover:from-[#0D5BFF] hover:to-indigo-600 text-white border border-transparent rounded-2xl hover:shadow-lg hover:shadow-blue-500/15 transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 shrink-0"
+             type="button"
+             onClick={() => window.dispatchEvent(new CustomEvent('start-edutrack-tour', { detail: { replay: true } }))}
+             className="min-h-[44px] px-3.5 sm:px-4 bg-white dark:bg-[#111A2E] hover:bg-blue-50 dark:hover:bg-slate-800 text-[#0D5BFF] dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition-colors duration-150 flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
              title="Quick Start Tour"
+             aria-label="Quick Start Tour"
            >
-             <Compass className="w-5 h-5 text-white" />
+             <Compass className="w-4 h-4 shrink-0" />
+             <span className="hidden sm:inline text-xs font-bold">Quick Start</span>
            </button>
            <button className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-[#0B132B] hover:shadow-lg transition-all">
               <Bell className="w-5 h-5" />
@@ -1440,6 +1479,13 @@ export default function StudentDashboard() {
         ].map((tab) => (
           <button
             key={tab.id}
+            data-tour-id={
+              tab.id === 'find'
+                ? 'student-find-tutor-tab'
+                : tab.id === 'overview'
+                ? 'student-overview-tab'
+                : undefined
+            }
             onClick={() => handleTabChange(tab.id as any)}
             className={`text-xs font-black font-heading uppercase tracking-[0.2em] italic pb-4 transition-all relative cursor-pointer z-30 pointer-events-auto ${
               activeTab === tab.id ? 'text-[#0B132B] dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:text-[#0B132B] dark:hover:text-white'
@@ -1636,7 +1682,7 @@ export default function StudentDashboard() {
             transition={{ duration: 0.04, ease: "easeOut" }}
             className="space-y-12"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div data-tour-id="student-overview-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <MetricCard label="Sessions" value={mySessions.length.toString()} />
               <MetricCard label="Active Tutors" value={Array.from(new Set(mySessions.filter(s => s.status !== 'cancelled').map(s => s.tutorId))).length.toString()} />
               <MetricCard label="Completed Lessons" value={mySessions.filter(s => s.status === 'completed').length.toString()} />
@@ -1813,21 +1859,24 @@ export default function StudentDashboard() {
                   {mySessions.filter(s => s.status === 'proposed_by_tutor' || s.status === 'requested_by_student').map(sess => {
                     const isProposal = sess.status === 'proposed_by_tutor';
                     const party = users.find(u => u.id === sess.tutorId);
-                    
+                    const trackerState = resolveSessionTrackerState(sess, 'student');
+                    const isRescheduling = pipelineRescheduleId === sess.id;
+                    const canConfirmNow = isProposal || sess.trialStatus === 'rescheduled_by_tutor';
+
                     return (
                       <div 
                         key={sess.id} 
                         className="bg-white/5 rounded-2xl p-6 border border-white/10 flex flex-col justify-between hover:bg-white/10 transition-colors"
                       >
                         <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded ${
-                              isProposal ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-300'
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded ${
+                              canConfirmNow ? 'bg-indigo-600/80 text-white border border-indigo-500/35' : 'bg-slate-700/80 text-slate-200'
                             }`}>
-                              {isProposal ? 'Offer Received' : 'Request Pending'}
+                              {sess.isTrial ? 'Trial / Demo Class' : isProposal ? 'Offer Received' : 'Request Pending'}
                             </span>
-                            <span className="text-[9px] font-black text-slate-300">
-                              {new Date(sess.scheduledTime).toLocaleDateString()}
+                            <span className="text-[11px] font-semibold text-slate-300 tabular-nums">
+                              {formatDhakaDateTime(sess.scheduledTime)}
                             </span>
                           </div>
 
@@ -1847,22 +1896,102 @@ export default function StudentDashboard() {
                           </div>
 
                           <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                            <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wider mb-1">Subject / Focus</div>
+                            <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1">Subject / Focus</div>
                             <div className="text-xs font-black italic text-[#0D5BFF]">{sess.subject}</div>
-                            <div className="text-[10px] text-slate-300 font-medium mt-1.5 leading-relaxed">
-                              Time Slot: <span className="font-extrabold text-white">{new Date(sess.scheduledTime).toLocaleString()}</span>
+                            <div className="text-[11px] text-slate-300 font-medium mt-1.5 leading-relaxed tabular-nums">
+                              Time Slot: <span className="font-extrabold text-white">{formatDhakaDateTime(sess.scheduledTime)}</span>
                             </div>
                           </div>
+
+                          <ApplicationStatusTracker
+                            state={trackerState}
+                            scheduleLabel={formatDhakaDateTime(sess.scheduledTime)}
+                            compact
+                          />
                         </div>
 
-                        <div className="mt-5">
+                        <div className="mt-4 space-y-2.5">
+                          <div className="flex flex-wrap gap-2">
+                            {canConfirmNow && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (sess.isTrial) {
+                                    await confirmTrialSession(sess.id);
+                                  } else {
+                                    await acceptSession(sess.id);
+                                  }
+                                }}
+                                className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                              >
+                                {sess.isTrial ? 'Confirm Schedule' : 'Accept Offer'}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPipelineRescheduleId(isRescheduling ? null : sess.id);
+                                setPipelineRescheduleDateTime(
+                                  new Date(Date.now() + 86400000).toISOString().slice(0, 16)
+                                );
+                              }}
+                              className="py-2.5 px-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                            >
+                              {isRescheduling ? 'Close' : 'Reschedule'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (isProposal) {
+                                  await rejectSession(sess.id);
+                                } else {
+                                  await cancelSession(sess.id);
+                                }
+                              }}
+                              className="py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                            >
+                              {isProposal ? 'Decline' : 'Cancel'}
+                            </button>
+                          </div>
+
+                          {isRescheduling && (
+                            <div className="p-2.5 rounded-xl bg-white/10 border border-white/10 flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="datetime-local"
+                                value={pipelineRescheduleDateTime}
+                                onChange={(e) => setPipelineRescheduleDateTime(e.target.value)}
+                                className="flex-1 px-2.5 py-2 rounded-lg bg-[#0B132B] border border-white/20 text-xs text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const nextIso = normalizeBangladeshScheduleIso(pipelineRescheduleDateTime);
+                                  if (!nextIso || !isFutureDhakaSchedule(nextIso)) {
+                                    useAppStore.getState().sendNotification(
+                                      currentUser.id,
+                                      'Invalid Time',
+                                      'Please select a future date and time in Bangladesh Standard Time.',
+                                      'warning'
+                                    );
+                                    return;
+                                  }
+                                  await proposeSessionReschedule(sess.id, nextIso);
+                                  setPipelineRescheduleId(null);
+                                }}
+                                className="px-3 py-2 rounded-lg bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                              >
+                                Send Time
+                              </button>
+                            </div>
+                          )}
+
                           <button
                             id={`view-proposed-tutor-btn-${sess.id}`}
                             onClick={() => {
                               setViewingProfileUser(party || null);
                               setViewingProfileSession(sess);
                             }}
-                            className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[9px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
+                            className="w-full py-3 bg-white/10 hover:bg-[#0D5BFF] text-white border border-white/10 hover:border-transparent rounded-xl text-[10px] font-black uppercase tracking-widest text-center transition-all cursor-pointer"
                           >
                             View Credentials & Profile
                           </button>
@@ -3248,6 +3377,23 @@ export default function StudentDashboard() {
                                 </div>
                               </div>
 
+                              <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={bookingIsTrial}
+                                  onChange={(e) => setBookingIsTrial(e.target.checked)}
+                                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-[#0D5BFF] focus:ring-[#0D5BFF]"
+                                />
+                                <div>
+                                  <span className="text-xs font-bold text-[#0B132B] dark:text-white block">
+                                    Request as a Demo / Trial Class first
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    Contact details remain protected until the tutor accepts and confirms your class.
+                                  </span>
+                                </div>
+                              </label>
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button 
                                   type="button"
@@ -4441,6 +4587,40 @@ export default function StudentDashboard() {
                   </div>
                 )}
 
+                <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+                  <div className="p-5 sm:p-6 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#0B132B] dark:text-white">
+                        Smart Email Notifications
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Receive instant email updates for tutor applications, trial class schedules, and tuition confirmations.
+                      </p>
+                    </div>
+                    <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        disabled={savingNotifPref}
+                        checked={currentUser.notificationPreferences?.emailAlertsEnabled ?? true}
+                        onChange={async (e) => {
+                          setSavingNotifPref(true);
+                          try {
+                            await updateNotificationPreferences({
+                              emailAlertsEnabled: e.target.checked,
+                            });
+                          } finally {
+                            setSavingNotifPref(false);
+                          }
+                        }}
+                        className="w-4 h-4 accent-[#0D5BFF] rounded cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-[#0B132B] dark:text-white">
+                        {(currentUser.notificationPreferences?.emailAlertsEnabled ?? true) ? 'Enabled' : 'Paused'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
                 <div className="pt-10 border-t border-slate-100 dark:border-slate-800">
                   <h3 className="text-xl font-black text-[#0B132B] dark:text-white uppercase italic mb-6">
                     Payment History
@@ -4849,36 +5029,46 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="bg-blue-500/5 p-5 rounded-2xl border border-blue-500/10 space-y-3">
-                  <span className="text-[9px] font-black text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Proposed Tuition Details</span>
+                  <span className="text-[10px] font-bold text-[#0D5BFF] uppercase tracking-[0.1em] block font-sans">Proposed Tuition Details</span>
                   <div className="grid sm:grid-cols-2 gap-4 text-xs font-bold">
                     <div>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Core Subject</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Core Subject</span>
                       <span className="text-slate-800 dark:text-slate-200 mt-1 block">{viewingProfileSession.subject}</span>
                     </div>
                     <div>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">Proposed Schedule Slot</span>
-                      <span className="text-slate-800 dark:text-slate-200 mt-1 block">{new Date(viewingProfileSession.scheduledTime).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Proposed Schedule Slot</span>
+                      <span className="text-slate-800 dark:text-slate-200 mt-1 block tabular-nums">{formatDhakaDateTime(viewingProfileSession.scheduledTime)}</span>
                     </div>
                   </div>
+                  <ApplicationStatusTracker
+                    state={resolveSessionTrackerState(viewingProfileSession, 'student')}
+                    scheduleLabel={formatDhakaDateTime(viewingProfileSession.scheduledTime)}
+                    compact
+                  />
                 </div>
               </div>
 
               <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-50 dark:bg-slate-950 shrink-0">
-                {viewingProfileSession.status === 'proposed_by_tutor' ? (
+                {viewingProfileSession.status === 'proposed_by_tutor' ||
+                viewingProfileSession.trialStatus === 'rescheduled_by_tutor' ? (
                   <>
                     <button
                       onClick={async () => {
-                        await useAppStore.getState().acceptSession(viewingProfileSession.id);
+                        if (viewingProfileSession.isTrial) {
+                          await confirmTrialSession(viewingProfileSession.id);
+                        } else {
+                          await acceptSession(viewingProfileSession.id);
+                        }
                         setViewingProfileUser(null);
                         setViewingProfileSession(null);
                       }}
                       className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all shadow-md shadow-emerald-100 dark:shadow-none cursor-pointer"
                     >
-                      Accept Tuition Proposal
+                      {viewingProfileSession.isTrial ? 'Confirm Proposed Trial' : 'Accept Tuition Proposal'}
                     </button>
                     <button
                       onClick={async () => {
-                        await useAppStore.getState().rejectSession(viewingProfileSession.id);
+                        await rejectSession(viewingProfileSession.id);
                         setViewingProfileUser(null);
                         setViewingProfileSession(null);
                       }}

@@ -47,6 +47,15 @@ import {
   getWeekdayFromDateString,
   formatMonthlySalary,
 } from "../shared/availabilityUtils";
+import {
+  buildQuickStartTourPersistencePatch,
+  computePopoverPosition,
+  getLocalTourStatusStorageKey,
+  getQuickStartTourRole,
+  getQuickStartTourSteps,
+  resolveQuickStartTourStatus,
+  shouldAutoStartQuickStartTour,
+} from "../src/utils/onboardingTour";
 
 const OTP_CACHE_FILE = path.join(os.tmpdir(), "edutrack_otp_cache.json");
 const RESET_CACHE_FILE = path.join(os.tmpdir(), "edutrack_reset_tokens_cache.json");
@@ -3765,6 +3774,856 @@ async function runTests() {
           assert.equal(referralSrc.includes("<ModalPortal"), true);
           assert.equal(adminDashSrc.includes("<ModalPortal"), true);
           assert.equal(adminDashSrc.includes('labelledBy="admin-verify-tutor-title"'), true);
+        });
+
+        // ============================================================
+        console.log("\n--- SECTION 28: Tuition Lifecycle, Trial Scheduling, Explainable Matching & Smart Email Notifications ---");
+
+        await test("Bangladesh (Asia/Dhaka UTC+6) schedule normalization, 12h/24h parsing, conflict detection & zero auto-complete", async () => {
+          const {
+            parseTimeSlotTo24Hour,
+            normalizeBangladeshScheduleIso,
+            formatDhakaDateTime,
+            formatDhakaDateInputValue,
+            formatDhakaTimeInputValue,
+            isFutureDhakaSchedule,
+            hasScheduleConflict,
+            canAutoCompleteOnElapsedTime,
+            resolveSessionTrackerState,
+            resolveApplicationTrackerState,
+          } = await import("../shared/tuitionLifecycle.ts");
+
+          assert.deepEqual(parseTimeSlotTo24Hour("05:00 PM"), { hour24: 17, minute: 0, hhmm: "17:00" });
+          assert.deepEqual(parseTimeSlotTo24Hour("17:30"), { hour24: 17, minute: 30, hhmm: "17:30" });
+          assert.equal(parseTimeSlotTo24Hour("25:99"), null);
+
+          // 17:00 Dhaka (UTC+6) MUST equal 11:00:00.000Z
+          const isoFromSlot = normalizeBangladeshScheduleIso("2030-11-20", "05:00 PM");
+          assert.equal(isoFromSlot, "2030-11-20T11:00:00.000Z");
+          assert.equal(normalizeBangladeshScheduleIso("2030-11-20T17:00"), "2030-11-20T11:00:00.000Z");
+          assert.equal(formatDhakaDateInputValue(isoFromSlot!), "2030-11-20");
+          assert.equal(formatDhakaTimeInputValue(isoFromSlot!), "17:00");
+          assert.equal(formatDhakaDateTime(isoFromSlot!).includes("5:00 PM (BDT)"), true);
+          assert.equal(normalizeBangladeshScheduleIso("invalid-date"), null);
+
+          const fixedNow = new Date("2030-11-19T12:00:00.000Z").getTime();
+          assert.equal(isFutureDhakaSchedule("2030-11-20T11:00:00.000Z", fixedNow), true);
+          assert.equal(isFutureDhakaSchedule("2030-11-18T11:00:00.000Z", fixedNow), false);
+
+          const existingSessions = [
+            {
+              id: "sess_existing_1",
+              studentId: "stu_1",
+              tutorId: "tut_1",
+              subject: "Physics",
+              status: "scheduled",
+              scheduledTime: "2030-11-20T11:00:00.000Z",
+            },
+            {
+              id: "sess_cancelled_1",
+              studentId: "stu_1",
+              tutorId: "tut_1",
+              subject: "Math",
+              status: "cancelled",
+              scheduledTime: "2030-11-20T13:00:00.000Z",
+            },
+          ];
+
+          // Overlap within 60-minute window triggers conflict
+          const overlap = hasScheduleConflict("2030-11-20T11:30:00.000Z", existingSessions, { tutorId: "tut_1" });
+          assert.equal(overlap.conflict, true);
+          assert.equal(overlap.conflictingSession?.id, "sess_existing_1");
+
+          // Non-overlapping time and cancelled sessions do NOT block
+          assert.equal(
+            hasScheduleConflict("2030-11-20T13:00:00.000Z", existingSessions, { tutorId: "tut_1" }).conflict,
+            false
+          );
+          assert.equal(
+            hasScheduleConflict("2030-11-20T11:00:00.000Z", existingSessions, {
+              tutorId: "tut_1",
+              ignoreSessionId: "sess_existing_1",
+            }).conflict,
+            false
+          );
+
+          // Elapsed time alone never auto-completes classes/trials
+          assert.equal(canAutoCompleteOnElapsedTime(), false);
+
+          // Trial progression tracker states
+          const proposedTrial = resolveSessionTrackerState(
+            { status: "requested_by_student", isTrial: true, trialStatus: "proposed_by_student" },
+            "tutor"
+          );
+          assert.equal(proposedTrial.stageKey, "trial_scheduled");
+          assert.equal(proposedTrial.stageLabel, "Trial Proposed");
+
+          const confirmedTrial = resolveSessionTrackerState(
+            { status: "scheduled", isTrial: true, trialStatus: "confirmed" },
+            "student"
+          );
+          assert.equal(confirmedTrial.stageLabel, "Trial Confirmed");
+
+          const shortlistedApp = resolveApplicationTrackerState(
+            { status: "shortlisted" },
+            { viewerRole: "tutor" }
+          );
+          assert.equal(shortlistedApp.stageKey, "shortlisted");
+          assert.equal(shortlistedApp.stageLabel, "Shortlisted");
+        });
+
+        await test("Trial booking proposals never unlock tutor contact info or private photo prior to confirmation", async () => {
+          const { canUnlockTutorContact, canViewTutorPhoto } = await import("../shared/tutorPrivacy.ts");
+
+          const studentViewer = { id: "stu_privacy_1", role: "student" as const };
+          const proposedTrialSession = [
+            {
+              id: "trial_req_1",
+              studentId: "stu_privacy_1",
+              tutorId: "tut_privacy_1",
+              status: "requested_by_student",
+              isTrial: true,
+              trialStatus: "proposed_by_student",
+            },
+          ];
+
+          assert.equal(canUnlockTutorContact(studentViewer, "tut_privacy_1", proposedTrialSession), false);
+          assert.equal(canViewTutorPhoto(studentViewer, "tut_privacy_1", proposedTrialSession), false);
+
+          const confirmedSession = [{ ...proposedTrialSession[0], status: "scheduled", trialStatus: "confirmed" }];
+          assert.equal(canUnlockTutorContact(studentViewer, "tut_privacy_1", confirmedSession), true);
+          assert.equal(canViewTutorPhoto(studentViewer, "tut_privacy_1", confirmedSession), true);
+        });
+
+        await test("Explainable tutor-student and tuition-circular matching produces plain-language reasons without fake percentage scores", async () => {
+          const { matchTutorsForStudentNeed, matchTuitionsForTutor } = await import("../shared/matching.ts");
+
+          const tutors = [
+            {
+              id: "tut_match_1",
+              name: "Verified Physics Tutor",
+              role: "tutor",
+              isVerified: true,
+              nidStatus: "verified",
+              academicStatus: "verified",
+              subjects: ["Physics", "Higher Math"],
+              classes: ["HSC (Class 11-12)", "Class 10"],
+              curriculum: "National Curriculum (Bangla)",
+              district: "Dhaka",
+              area: "Dhanmondi",
+              mode: "Both",
+              hourlyRate: 7000,
+              availabilitySlots: { Monday: ["17:00", "18:00"], Wednesday: ["17:00"] },
+            },
+            {
+              id: "tut_unverified_2",
+              name: "Unverified Tutor",
+              role: "tutor",
+              isVerified: false,
+              subjects: ["Physics"],
+              district: "Dhaka",
+              area: "Dhanmondi",
+            },
+          ];
+
+          const tutorMatches = matchTutorsForStudentNeed(tutors, {
+            subject: "Physics",
+            studentClass: "HSC (Class 11-12)",
+            district: "Dhaka",
+            area: "Dhanmondi",
+            mode: "Home Tutoring",
+            budget: 8000,
+            preferredTime: "Evening",
+          });
+
+          assert.equal(tutorMatches.length, 1);
+          assert.equal(tutorMatches[0].item.id, "tut_match_1");
+          assert.equal(tutorMatches[0].reasons.length >= 2, true);
+          assert.equal(
+            tutorMatches[0].reasons.some((r) => r.includes("%")),
+            false,
+            "Explainable match reasons must never use fake percentage scores"
+          );
+
+          const tuitions = [
+            {
+              id: "tui_match_1",
+              title: "HSC Physics & Math in Dhanmondi",
+              subject: "Physics",
+              studentClass: "HSC (Class 11-12)",
+              district: "Dhaka",
+              area: "Dhanmondi",
+              mode: "Home Tutoring",
+              salary: 7500,
+              preferredTime: "Evening",
+              status: "active",
+            },
+            {
+              id: "tui_closed_2",
+              title: "Closed Tuition",
+              subject: "Physics",
+              district: "Dhaka",
+              status: "assigned",
+            },
+          ];
+
+          const tuitionMatches = matchTuitionsForTutor(tuitions, tutors[0]);
+          assert.equal(tuitionMatches.length, 1);
+          assert.equal(tuitionMatches[0].item.id, "tui_match_1");
+          assert.equal(tuitionMatches[0].reasons.some((r) => r.includes("Physics")), true);
+          assert.equal(tuitionMatches[0].reasons.some((r) => r.includes("%")), false);
+        });
+
+        await test("mailService redacts BD phone numbers & emails in workflow notes and builds clean bilingual templates", async () => {
+          const {
+            redactSensitiveContactText,
+            generateWorkflowNotificationEmailHtml,
+            generateWorkflowNotificationEmailText,
+          } = await import("../api/mailService.ts");
+
+          const dirtyNote = "Call me on +880 1711-223344 or 01812345678 and email secret@example.com ASAP 🚀✨";
+          const cleaned = redactSensitiveContactText(dirtyNote);
+          assert.equal(cleaned.includes("1711"), false);
+          assert.equal(cleaned.includes("01812345678"), false);
+          assert.equal(cleaned.includes("secret@example.com"), false);
+          assert.equal(/[\u{1F300}-\u{1FAFF}]/u.test(cleaned), false);
+
+          const emailParams = {
+            eventType: "trial_scheduled" as const,
+            recipientEmail: "tutor@edutrackbd.test",
+            recipientName: "Farhan Ahmed",
+            actorName: "Nusrat Guardian",
+            tuitionTitle: "HSC Physics in Dhanmondi",
+            subjectLabel: "Physics",
+            classLabel: "HSC",
+            areaDistrictLabel: "Dhanmondi, Dhaka",
+            scheduleLabel: "Wed, Nov 20, 2030 at 5:00 PM (BDT)",
+            proposedSalaryLabel: "BDT 8,000/month",
+            summaryNote: dirtyNote,
+            actionUrl: "https://edutrackbd.vercel.app/dashboard",
+          };
+
+          const html = generateWorkflowNotificationEmailHtml(emailParams);
+          const text = generateWorkflowNotificationEmailText(emailParams);
+
+          assert.equal(html.includes("Trial Class Scheduled!"), true);
+          assert.equal(html.includes("ট্রায়াল"), true);
+          assert.equal(html.includes("01812345678"), false);
+          assert.equal(html.includes("secret@example.com"), false);
+          assert.equal(text.subject, "Trial Class Scheduled | EduTrack Bangladesh");
+          assert.equal(text.textContent.includes("01812345678"), false);
+          assert.equal(/[\u{1F300}-\u{1FAFF}]/u.test(html), false);
+        });
+
+        await test("POST /api/notifications/workflow enforces auth, ownership, idempotency, preference opt-out & resilient fallback", async () => {
+          const sentEmails: Array<{ toEmail: string; subject: string; htmlContent: string }> = [];
+          const claimedKeys = new Set<string>();
+          let failProvider = false;
+
+          const usersDb: Record<string, any> = {
+            stu_1: { id: "stu_1", name: "Student One", email: "stu1@edutrack.test", role: "student" },
+            tut_1: {
+              id: "tut_1",
+              name: "Tutor One",
+              email: "tut1@edutrack.test",
+              role: "tutor",
+              university: "BUET",
+              isVerified: true,
+              notificationPreferences: { emailAlertsEnabled: true, tuitionAlertFrequency: "instant" },
+            },
+            tut_muted: {
+              id: "tut_muted",
+              name: "Muted Tutor",
+              email: "muted@edutrack.test",
+              role: "tutor",
+              isVerified: true,
+              notificationPreferences: { emailAlertsEnabled: false, tuitionAlertFrequency: "off" },
+            },
+            intruder_1: { id: "intruder_1", name: "Intruder", email: "x@edutrack.test", role: "student" },
+          };
+
+          const sessionsDb: Record<string, any> = {
+            sess_1: {
+              id: "sess_1",
+              studentId: "stu_1",
+              tutorId: "tut_1",
+              subject: "Physics",
+              scheduledTime: "2030-11-20T11:00:00.000Z",
+              note: "Reach me at 01711000000",
+            },
+            sess_muted: {
+              id: "sess_muted",
+              studentId: "stu_1",
+              tutorId: "tut_muted",
+              subject: "Chemistry",
+              scheduledTime: "2030-11-21T11:00:00.000Z",
+            },
+          };
+
+          const notifApp = createApp({
+            verifyIdToken: async (token: string) => ({
+              uid: token.replace("tok_", ""),
+              email: `${token.replace("tok_", "")}@edutrack.test`,
+              emailVerified: true,
+            }),
+            emailSender: async (params) => {
+              if (failProvider) {
+                return { success: false, isNetworkError: true, error: "Temporary Brevo outage" };
+              }
+              sentEmails.push({
+                toEmail: params.toEmail,
+                subject: params.subject,
+                htmlContent: params.htmlContent,
+              });
+              return { success: true, messageId: `msg_${sentEmails.length}` };
+            },
+            notificationStore: {
+              getSessionDoc: async (id) => sessionsDb[id] || null,
+              getTuitionDoc: async () => null,
+              getUserDoc: async (id) => usersDb[id] || null,
+              claimIdempotencyKey: async (key) => {
+                if (claimedKeys.has(key)) return "already_exists";
+                claimedKeys.add(key);
+                return "claimed";
+              },
+            },
+          });
+
+          const notifSrv = await startTestServer(notifApp);
+          try {
+            // 1. Unauthenticated -> 401
+            const unauthRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ eventType: "tutor_request_created", sessionId: "sess_1" }),
+            });
+            assert.equal(unauthRes.status, 401);
+
+            // 2. Non-participant -> 403
+            const forbiddenRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_intruder_1",
+              },
+              body: JSON.stringify({ eventType: "tutor_request_created", sessionId: "sess_1" }),
+            });
+            assert.equal(forbiddenRes.status, 403);
+
+            // 3. Valid participant sends workflow email with PII redacted
+            const okRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_stu_1",
+              },
+              body: JSON.stringify({
+                eventType: "tutor_request_created",
+                sessionId: "sess_1",
+                idempotencyKey: "req_1",
+              }),
+            });
+            assert.equal(okRes.status, 200);
+            const okBody = await okRes.json();
+            assert.equal(okBody.dispatched, true);
+            assert.equal(sentEmails.length, 1);
+            assert.equal(sentEmails[0].toEmail, "tut1@edutrack.test");
+            assert.equal(sentEmails[0].htmlContent.includes("01711000000"), false);
+
+            // 4. Duplicate idempotencyKey -> skipped with alreadySent: true
+            const dupRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_stu_1",
+              },
+              body: JSON.stringify({
+                eventType: "tutor_request_created",
+                sessionId: "sess_1",
+                idempotencyKey: "req_1",
+              }),
+            });
+            assert.equal(dupRes.status, 200);
+            const dupBody = await dupRes.json();
+            assert.equal(dupBody.alreadySent, true);
+            assert.equal(sentEmails.length, 1);
+
+            // 5. Recipient with emailAlertsEnabled: false -> skipped
+            const mutedRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_stu_1",
+              },
+              body: JSON.stringify({
+                eventType: "tutor_request_created",
+                sessionId: "sess_muted",
+                idempotencyKey: "req_muted",
+              }),
+            });
+            assert.equal(mutedRes.status, 200);
+            const mutedBody = await mutedRes.json();
+            assert.equal(mutedBody.dispatched, false);
+            assert.equal(mutedBody.code, "RECIPIENT_ALERTS_DISABLED");
+            assert.equal(sentEmails.length, 1);
+
+            // 6. Email provider outage -> HTTP 200 non-blocking fallback
+            failProvider = true;
+            const failRes = await fetch(`${notifSrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_stu_1",
+              },
+              body: JSON.stringify({
+                eventType: "request_accepted",
+                sessionId: "sess_1",
+                idempotencyKey: "req_fail_graceful",
+              }),
+            });
+            assert.equal(failRes.status, 200);
+            const failBody = await failRes.json();
+            assert.equal(failBody.success, false);
+            assert.equal(failBody.dispatched, false);
+          } finally {
+            await new Promise<void>((resolve) => notifSrv.server.close(() => resolve()));
+          }
+        });
+
+        await test("POST /api/notifications/tuition-alert filters by tutor frequency preferences & enforces post ownership", async () => {
+          const sentTo: string[] = [];
+          const claimed = new Set<string>();
+
+          const alertApp = createApp({
+            verifyIdToken: async (token: string) => ({
+              uid: token.replace("tok_", ""),
+              email: `${token.replace("tok_", "")}@edutrack.test`,
+              emailVerified: true,
+            }),
+            emailSender: async (params) => {
+              sentTo.push(params.toEmail);
+              return { success: true, messageId: `msg_alert_${sentTo.length}` };
+            },
+            notificationStore: {
+              getSessionDoc: async () => null,
+              getTuitionDoc: async (id) =>
+                id === "tui_alert_1"
+                  ? {
+                      id: "tui_alert_1",
+                      studentId: "stu_owner",
+                      title: "HSC Physics Tutor Needed",
+                      subject: "Physics",
+                      studentClass: "HSC",
+                      area: "Dhanmondi",
+                      district: "Dhaka",
+                      salary: 8000,
+                    }
+                  : null,
+              getUserDoc: async (id) => {
+                if (id === "tut_instant") {
+                  return {
+                    id,
+                    name: "Instant Tutor",
+                    email: "instant@edutrack.test",
+                    role: "tutor",
+                    isVerified: true,
+                    notificationPreferences: { emailAlertsEnabled: true, tuitionAlertFrequency: "instant" },
+                  };
+                }
+                if (id === "tut_digest") {
+                  return {
+                    id,
+                    name: "Digest Tutor",
+                    email: "digest@edutrack.test",
+                    role: "tutor",
+                    isVerified: true,
+                    notificationPreferences: { emailAlertsEnabled: true, tuitionAlertFrequency: "daily_digest" },
+                  };
+                }
+                if (id === "tut_off") {
+                  return {
+                    id,
+                    name: "Off Tutor",
+                    email: "off@edutrack.test",
+                    role: "tutor",
+                    isVerified: true,
+                    notificationPreferences: { emailAlertsEnabled: true, tuitionAlertFrequency: "off" },
+                  };
+                }
+                return null;
+              },
+              claimIdempotencyKey: async (key) => {
+                if (claimed.has(key)) return "already_exists";
+                claimed.add(key);
+                return "claimed";
+              },
+            },
+          });
+
+          const alertSrv = await startTestServer(alertApp);
+          try {
+            const forbiddenRes = await fetch(`${alertSrv.baseUrl}/api/notifications/tuition-alert`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_other_user",
+              },
+              body: JSON.stringify({
+                tuitionId: "tui_alert_1",
+                recipientTutorIds: ["tut_instant"],
+              }),
+            });
+            assert.equal(forbiddenRes.status, 403);
+
+            const okRes = await fetch(`${alertSrv.baseUrl}/api/notifications/tuition-alert`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_stu_owner",
+              },
+              body: JSON.stringify({
+                tuitionId: "tui_alert_1",
+                recipientTutorIds: ["tut_instant", "tut_digest", "tut_off"],
+              }),
+            });
+            assert.equal(okRes.status, 200);
+            const body = await okRes.json();
+            assert.equal(body.notifiedCount, 1);
+            assert.equal(body.skippedCount, 2);
+            assert.deepEqual(sentTo, ["instant@edutrack.test"]);
+          } finally {
+            await new Promise<void>((resolve) => alertSrv.server.close(() => resolve()));
+          }
+        });
+
+        await test("Store, Firestore rules, and React UI wire lifecycle tracker, explainable matching, trial flow, and email preferences safely", () => {
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const trackerSrc = fs.readFileSync(path.resolve("src/components/ApplicationStatusTracker.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const tuitionDetailSrc = fs.readFileSync(path.resolve("src/pages/TuitionDetail.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+
+          // Firestore rules support savedTuitions, notificationPreferences, trial fields & notification_events
+          assert.equal(rulesSrc.includes("notification_events"), true);
+          assert.equal(rulesSrc.includes("savedTuitions"), true);
+          assert.equal(rulesSrc.includes("notificationPreferences"), true);
+          assert.equal(rulesSrc.includes("trialStatus"), true);
+
+          // Store exports lifecycle & saved tuition actions
+          assert.equal(storeSrc.includes("confirmTrialSession"), true);
+          assert.equal(storeSrc.includes("proposeSessionReschedule"), true);
+          assert.equal(storeSrc.includes("toggleSavedTuition"), true);
+          assert.equal(storeSrc.includes("updateNotificationPreferences"), true);
+          assert.equal(storeSrc.includes("syncGuestSavedTuitionsOnAuth"), true);
+
+          // UI wiring across public pages, hub & dashboards
+          assert.equal(trackerSrc.includes("LifecycleTrackerState"), true);
+          assert.equal(trackerSrc.includes("state.stageLabel"), true);
+          assert.equal(teacherProfileSrc.includes("bookingIsTrial"), true);
+          assert.equal(teacherProfileSrc.includes("<ApplicationStatusTracker"), true);
+          assert.equal(teacherProfileSrc.includes("resolveSessionTrackerState"), true);
+          assert.equal(tuitionDetailSrc.includes("toggleSavedTuition"), true);
+          assert.equal(tuitionDetailSrc.includes("tuition_application_received"), true);
+          assert.equal(tuitionDetailSrc.includes("resolveApplicationTrackerState"), true);
+          assert.equal(hubSrc.includes("matchTuitionsForTutor"), true);
+          assert.equal(hubSrc.includes("matchTutorsForStudentNeed"), true);
+          assert.equal(hubSrc.includes("dispatchMatchingTuitionAlerts"), true);
+          assert.equal(studentDashSrc.includes("Smart Email Notifications"), true);
+          assert.equal(studentDashSrc.includes("student-tuition-pipeline"), true);
+          assert.equal(studentDashSrc.includes("resolveSessionTrackerState"), true);
+          assert.equal(tutorDashSrc.includes("Smart Email Alerts"), true);
+          assert.equal(tutorDashSrc.includes("tutor-tuition-pipeline"), true);
+          assert.equal(tutorDashSrc.includes("resolveSessionTrackerState"), true);
+
+          // React Hooks Order-of-Hooks Guard: no hooks after early `if (!currentUser) return null;`
+          const studentGuardIdx = studentDashSrc.indexOf("if (!currentUser) return null;");
+          assert.equal(studentGuardIdx > 0, true);
+          const afterStudentGuard = studentDashSrc.slice(studentGuardIdx, studentGuardIdx + 800);
+          assert.equal(/\buse(State|Effect|Memo|Callback|Ref)\s*\(/.test(afterStudentGuard), false);
+
+          const tutorGuardIdx = tutorDashSrc.lastIndexOf("if (!currentUser) return null;");
+          assert.equal(tutorGuardIdx > 0, true);
+          const afterTutorGuard = tutorDashSrc.slice(tutorGuardIdx, tutorGuardIdx + 800);
+          assert.equal(/\buse(State|Effect|Memo|Callback|Ref)\s*\(/.test(afterTutorGuard), false);
+
+          // Vercel serverless constraint: api/* must never import from ../shared/*
+          const apiAppSrc = fs.readFileSync(path.resolve("api/app.ts"), "utf-8");
+          const apiMailSrc = fs.readFileSync(path.resolve("api/mailService.ts"), "utf-8");
+          assert.equal(apiAppSrc.includes("../shared/"), false);
+          assert.equal(apiMailSrc.includes("../shared/"), false);
+        });
+
+        // ---------------------------------------------------------------------
+        // 29. Quick Start Tour & Smart User Onboarding Redesign
+        // ---------------------------------------------------------------------
+        await test("Quick Start Tour returns tailored 4-step workflows for Student, Guardian, and Tutor while excluding Admin", () => {
+          const studentRole = getQuickStartTourRole({ id: "stu_1", role: "student", accountType: "student" });
+          const guardianRole = getQuickStartTourRole({ id: "grd_1", role: "student", accountType: "guardian" });
+          const tutorRole = getQuickStartTourRole({ id: "tut_1", role: "tutor" });
+          const adminRole = getQuickStartTourRole({ id: "adm_1", role: "admin" });
+          const blockedRole = getQuickStartTourRole({ id: "blk_1", role: "student", isBlocked: true });
+
+          assert.equal(studentRole, "student");
+          assert.equal(guardianRole, "guardian");
+          assert.equal(tutorRole, "tutor");
+          assert.equal(adminRole, null);
+          assert.equal(blockedRole, null);
+
+          const studentSteps = getQuickStartTourSteps("student");
+          const guardianSteps = getQuickStartTourSteps("guardian");
+          const tutorSteps = getQuickStartTourSteps("tutor");
+
+          assert.deepEqual(
+            studentSteps.map((s) => s.title),
+            ["Find a Tutor", "Post Tuition", "Applications & Requests", "My Tuition"]
+          );
+          assert.deepEqual(
+            guardianSteps.map((s) => s.title),
+            ["Find a Tutor", "Post Tuition", "Applications & Requests", "My Tuition"]
+          );
+          assert.equal(guardianSteps[0].descriptionBn.includes("সন্তানের"), true);
+          assert.equal(studentSteps[0].descriptionBn.includes("সন্তানের"), false);
+
+          assert.deepEqual(
+            tutorSteps.map((s) => s.title),
+            ["Complete Your Profile", "Identity Verification", "Find Tuition", "My Applications"]
+          );
+          for (const step of [...studentSteps, ...guardianSteps, ...tutorSteps]) {
+            assert.equal(step.targetSelectors.length >= 2, true);
+            assert.equal(step.descriptionBn.trim().length > 20, true);
+          }
+        });
+
+        await test("Quick Start Tour auto-triggers strictly once on first dashboard visit and never re-opens after skip, close, or completion", () => {
+          const freshStudent = {
+            id: "stu_new",
+            role: "student",
+            showTour: true,
+            onboarding: { quickStartTour: { status: "not_started" as const } },
+          };
+          const freshTutor = {
+            id: "tut_new",
+            role: "tutor",
+            showTour: true,
+            onboarding: { quickStartTour: { status: "not_started" as const } },
+          };
+          const legacyUserEligible = {
+            id: "stu_legacy",
+            role: "student",
+            showTour: true,
+          };
+
+          // Eligible on /dashboard once initialized without open blocking modal
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: freshStudent,
+              pathname: "/dashboard",
+              hasOpenModal: false,
+              alreadyAutoPromptedForUid: null,
+              localStatusOverride: null,
+            }),
+            true
+          );
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: freshTutor,
+              pathname: "/dashboard/profile",
+              hasOpenModal: false,
+              alreadyAutoPromptedForUid: null,
+              localStatusOverride: null,
+            }),
+            true
+          );
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: legacyUserEligible,
+              pathname: "/dashboard",
+              hasOpenModal: false,
+              alreadyAutoPromptedForUid: null,
+              localStatusOverride: null,
+            }),
+            true
+          );
+
+          // Never auto-starts outside dashboard, before auth init, during active modal, or twice in same session
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: freshStudent,
+              pathname: "/",
+              localStatusOverride: null,
+            }),
+            false
+          );
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: false,
+              user: freshStudent,
+              pathname: "/dashboard",
+              localStatusOverride: null,
+            }),
+            false
+          );
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: freshStudent,
+              pathname: "/dashboard",
+              hasOpenModal: true,
+              localStatusOverride: null,
+            }),
+            false
+          );
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: freshStudent,
+              pathname: "/dashboard",
+              alreadyAutoPromptedForUid: "stu_new",
+              localStatusOverride: null,
+            }),
+            false
+          );
+
+          // Admin never auto-starts
+          assert.equal(
+            shouldAutoStartQuickStartTour({
+              isInitialized: true,
+              user: { id: "adm_1", role: "admin", showTour: true },
+              pathname: "/dashboard",
+              localStatusOverride: null,
+            }),
+            false
+          );
+
+          // Skip / Close -> dismissed patch persists showTour: false & status: 'dismissed'
+          const dismissedPatch = buildQuickStartTourPersistencePatch(
+            freshStudent,
+            "dismissed",
+            "2026-06-01T10:00:00.000Z"
+          );
+          assert.equal(dismissedPatch.showTour, false);
+          assert.equal(dismissedPatch.onboarding.quickStartTour?.status, "dismissed");
+          assert.equal(dismissedPatch.onboarding.quickStartTour?.dismissedAt, "2026-06-01T10:00:00.000Z");
+
+          // Cross-device re-login (null localStorage) with Firestore dismissed/completed/in_progress stays suppressed
+          for (const terminalPatch of [
+            dismissedPatch,
+            buildQuickStartTourPersistencePatch(freshStudent, "completed", "2026-06-01T10:05:00.000Z"),
+            buildQuickStartTourPersistencePatch(freshStudent, "in_progress", "2026-06-01T10:01:00.000Z"),
+          ]) {
+            const hydratedUser = { ...freshStudent, ...terminalPatch };
+            assert.equal(
+              shouldAutoStartQuickStartTour({
+                isInitialized: true,
+                user: hydratedUser,
+                pathname: "/dashboard",
+                localStatusOverride: null,
+              }),
+              false
+            );
+          }
+
+          // Local storage dismissal overrides even if stale Firestore snapshot still says not_started
+          assert.equal(
+            resolveQuickStartTourStatus(freshStudent, "dismissed").isEligibleForAutoStart,
+            false
+          );
+          assert.equal(
+            resolveQuickStartTourStatus(freshStudent, "completed").isEligibleForAutoStart,
+            false
+          );
+
+          // Per-user storage key isolation between Account A and Account B
+          assert.notEqual(
+            getLocalTourStatusStorageKey("uid_A"),
+            getLocalTourStatusStorageKey("uid_B")
+          );
+        });
+
+        await test("computePopoverPosition clamps tooltip inside desktop/tablet viewports and centers gracefully on mobile or missing target", () => {
+          const desktopPos = computePopoverPosition(
+            { top: 120, left: 20, width: 220, height: 48 },
+            { width: 1280, height: 800 },
+            { width: 344, height: 224 },
+            16
+          );
+          assert.equal(desktopPos.placement, "bottom");
+          assert.equal(desktopPos.left >= 16, true);
+          assert.equal(desktopPos.left + desktopPos.width <= 1280 - 16, true);
+
+          // Near bottom-right corner -> flips cleanly above or left without viewport clipping
+          const bottomCornerPos = computePopoverPosition(
+            { top: 720, left: 1000, width: 240, height: 50 },
+            { width: 1280, height: 800 },
+            { width: 344, height: 224 },
+            16
+          );
+          assert.equal(bottomCornerPos.top >= 16, true);
+          assert.equal(bottomCornerPos.top + 224 <= 800 - 16, true);
+          assert.equal(bottomCornerPos.left + bottomCornerPos.width <= 1280 - 16, true);
+
+          // Mobile narrow screen or missing target -> safe centered placement
+          const mobilePos = computePopoverPosition(
+            { top: 120, left: 16, width: 300, height: 50 },
+            { width: 375, height: 667 }
+          );
+          assert.equal(mobilePos.placement, "center");
+          assert.equal(mobilePos.left >= 14, true);
+
+          const missingTargetPos = computePopoverPosition(null, { width: 1280, height: 800 });
+          assert.equal(missingTargetPos.placement, "center");
+        });
+
+        await test("GuidedTour UI, Firestore schema/rules, Store, Navbar, and Dashboard target anchors are wired cleanly without emojis or Rules-of-Hooks regressions", () => {
+          const guidedTourSrc = fs.readFileSync(path.resolve("src/components/GuidedTour.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+          const blueprintSrc = fs.readFileSync(path.resolve("firebase-blueprint.json"), "utf-8");
+          const navbarSrc = fs.readFileSync(path.resolve("src/components/Navbar.tsx"), "utf-8");
+          const sidebarSrc = fs.readFileSync(path.resolve("src/components/Sidebar.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+
+          // Clean redesigned Welcome & Spotlight implementation (no outdated emojis or animate-ping/pulse slop)
+          assert.equal(guidedTourSrc.includes("Welcome to EduTrack"), true);
+          assert.equal(guidedTourSrc.includes("EduTrack-এ স্বাগতম!"), true);
+          assert.equal(guidedTourSrc.includes("Start Tour"), true);
+          assert.equal(guidedTourSrc.includes("Skip for Now"), true);
+          assert.equal(guidedTourSrc.includes("animate-ping"), false);
+          assert.equal(guidedTourSrc.includes("animate-pulse"), false);
+          assert.equal(guidedTourSrc.includes("🔥"), false);
+          assert.equal(guidedTourSrc.includes("THE LEDGER ADVANTAGE"), false);
+          assert.equal(guidedTourSrc.includes("createPortal"), true);
+          assert.equal(guidedTourSrc.includes("ModalPortal"), true);
+          assert.equal(guidedTourSrc.includes("prefers-reduced-motion"), true);
+
+          // Persistence & schema alignment
+          assert.equal(rulesSrc.includes("data.onboarding is map"), true);
+          assert.equal(blueprintSrc.includes('"onboarding": { "type": "object" }'), true);
+          assert.equal(storeSrc.includes("updateQuickStartTourState"), true);
+          assert.equal(storeSrc.includes("'onboarding',"), true);
+
+          // Target anchors & replay triggers across UI
+          assert.equal(navbarSrc.includes("start-edutrack-tour"), true);
+          assert.equal(navbarSrc.includes("Quick Start Tour"), true);
+          assert.equal(sidebarSrc.includes("data-tour-id={`sidebar-${item.id}`}"), true);
+          assert.equal(hubSrc.includes("edutrack-tour-marketplace-subtab"), true);
+          assert.equal(hubSrc.includes("student-post-tuition-btn"), true);
+          assert.equal(hubSrc.includes("tutor-browse-tuitions-btn"), true);
+          assert.equal(hubSrc.includes("tutor-my-applications-btn"), true);
+          assert.equal(studentDashSrc.includes("student-find-tutor-tab"), true);
+          assert.equal(studentDashSrc.includes("student-overview-metrics"), true);
+          assert.equal(tutorDashSrc.includes("tutor-profile-completion-card"), true);
+          assert.equal(tutorDashSrc.includes("tutor-verification-card"), true);
+          assert.equal(tutorDashSrc.includes("tutor-tuition-pipeline"), true);
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

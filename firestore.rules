@@ -85,6 +85,9 @@ service cloud.firestore {
                (data.get('hasProfilePhoto', null) == null || data.hasProfilePhoto is bool) &&
                (data.get('photoVersion', null) == null || data.photoVersion is number || data.photoVersion is string) &&
                (data.get('privacySettings', null) == null || data.privacySettings is map) &&
+               (data.get('savedTuitions', null) == null || (data.savedTuitions is list && data.savedTuitions.size() <= 200)) &&
+               (data.get('notificationPreferences', null) == null || data.notificationPreferences is map) &&
+               (data.get('onboarding', null) == null || data.onboarding is map) &&
                (data.get('location', null) == null || (data.location is map && data.location.lat is number && data.location.lng is number));
       }
 
@@ -185,7 +188,14 @@ service cloud.firestore {
                isValidId(data.studentId) && isValidId(data.tutorId) &&
                data.subject is string && data.subject.size() <= 200 &&
                data.status in ['scheduled', 'active', 'completed', 'cancelled', 'proposed_by_tutor', 'requested_by_student', 'rejected'] &&
-               data.scheduledTime is string;
+               data.scheduledTime is string &&
+               (data.get('isTrial', null) == null || data.isTrial is bool) &&
+               (data.get('trialStatus', null) == null || data.trialStatus in ['proposed_by_student', 'rescheduled_by_tutor', 'confirmed', 'cancelled']) &&
+               (data.get('trialProposedBy', null) == null || isValidId(data.trialProposedBy)) &&
+               (data.get('tuitionId', null) == null || isValidId(data.tuitionId)) &&
+               (data.get('note', null) == null || (data.note is string && data.note.size() <= 1000)) &&
+               (data.get('rescheduleCount', null) == null || data.rescheduleCount is number) &&
+               (data.get('statusUpdatedAt', null) == null || data.statusUpdatedAt is string);
       }
 
       allow list: if isAdmin() || (isSignedIn() && resource.data.tutorId == request.auth.uid) || (isSignedIn() && resource.data.studentId == request.auth.uid) || (resource.data.get('rating', 0) > 0);
@@ -256,6 +266,31 @@ service cloud.firestore {
       );
       
       allow delete: if isAdmin();
+    }
+
+    // --- Workflow Notification Idempotency Events Collection ---
+    match /notification_events/{eventId} {
+      function isValidNotificationEvent(data) {
+        return data.keys().hasAll(['id', 'eventKey', 'eventType', 'actorId', 'recipientId', 'status', 'createdAt']) &&
+               data.keys().hasOnly(['id', 'eventKey', 'eventType', 'actorId', 'recipientId', 'sessionId', 'tuitionId', 'status', 'messageId', 'createdAt', 'updatedAt']) &&
+               isValidId(data.id) &&
+               data.eventKey is string && data.eventKey.size() <= 200 &&
+               data.eventType is string && data.eventType.size() <= 64 &&
+               isValidId(data.actorId) &&
+               isValidId(data.recipientId) &&
+               data.status in ['pending', 'sent', 'failed'] &&
+               data.createdAt is string && data.createdAt.size() <= 64 &&
+               (data.get('updatedAt', null) == null || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+               (data.get('messageId', null) == null || (data.messageId is string && data.messageId.size() <= 256)) &&
+               (data.get('sessionId', null) == null || isValidId(data.sessionId)) &&
+               (data.get('tuitionId', null) == null || isValidId(data.tuitionId));
+      }
+
+      allow get: if isAdmin() || (isSignedIn() && resource.data.actorId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.actorId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(eventId) && incoming().id == eventId && isValidNotificationEvent(incoming()) && incoming().actorId == request.auth.uid;
+      allow update: if isSignedIn() && isValidNotificationEvent(incoming()) && resource.data.actorId == request.auth.uid && incoming().actorId == resource.data.actorId;
+      allow delete: if false;
     }
 
     // --- Class Logs Collection ---

@@ -89,6 +89,7 @@ const Sidebar = memo(({ onClose }: SidebarProps) => {
           {navItems.map((item: any) => (
             <button
               key={item.id}
+              data-tour-id={`sidebar-${item.id}`}
               onClick={() => {
                 navigate(item.path);
                 onClose?.();

@@ -28,7 +28,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
-import { sendWelcomeMail } from './services/mailService';
+import { sendWelcomeMail, sendWorkflowEmailNotification } from './services/mailService';
 import { reverseGeocodeLocation } from './utils/geocoding';
 import {
   CONFIRMED_PHOTO_STATUSES,
@@ -47,9 +47,27 @@ import {
   cleanMeaningfulString,
   normalizeUserProfileFields,
 } from '../shared/profileCompletion';
+import {
+  normalizeBangladeshScheduleIso,
+  hasScheduleConflict,
+  formatDhakaDateTime,
+  TrialScheduleStatus,
+} from '../shared/tuitionLifecycle';
+import {
+  QuickStartTourStatus,
+  UserOnboardingState,
+  buildQuickStartTourPersistencePatch,
+  writeLocalQuickStartTourStatus,
+} from './utils/onboardingTour';
 
-export type { AccountType, StudentProfileRecord };
+export type { AccountType, StudentProfileRecord, TrialScheduleStatus, QuickStartTourStatus, UserOnboardingState };
 export type Role = 'student' | 'tutor' | 'admin';
+
+export interface NotificationPreferences {
+  emailAlertsEnabled: boolean;
+  tuitionAlertFrequency: 'instant' | 'daily_digest' | 'off';
+  inAppAlertsEnabled?: boolean;
+}
 
 // Coordinates explicit auth flows (signup, login, Google sign-in) with Firebase's async onAuthStateChanged
 // so onAuthStateChanged never overwrites a Tutor/Guardian profile with a 'student' fallback mid-registration.
@@ -185,12 +203,15 @@ export interface User {
   gender?: 'Male' | 'Female' | 'Other' | string;
   showOnHomePage?: boolean;
   showTour?: boolean;
+  onboarding?: UserOnboardingState;
   isOnline?: boolean;
   lastLocation?: { lat: number; lng: number };
   lastLocationUpdatedAt?: string;
   lastActiveAt?: string;
   createdAt?: string;
   savedTutors?: string[];
+  savedTuitions?: string[];
+  notificationPreferences?: NotificationPreferences;
   referralCode?: string;
   referralPoints?: number;
   serviceDiscounts?: number;
@@ -235,6 +256,13 @@ export interface Session {
   studentPermissionGranted?: boolean;
   tutorRequestedEnd?: boolean;
   studentDisplayName?: string;
+  isTrial?: boolean;
+  trialStatus?: TrialScheduleStatus;
+  trialProposedBy?: string;
+  tuitionId?: string;
+  note?: string;
+  rescheduleCount?: number;
+  statusUpdatedAt?: string;
 }
 
 export interface Withdrawal {
@@ -368,9 +396,11 @@ interface AppState {
   
   // Student actions
   submitPayment: (payment: Omit<Payment, 'id' | 'status' | 'date'>) => Promise<void>;
-  bookSession: (session: Omit<Session, 'id'> & { status?: Session['status'] }) => Promise<void>;
+  bookSession: (session: Omit<Session, 'id'> & { status?: Session['status'] }) => Promise<string>;
   acceptSession: (sessionId: string) => Promise<void>;
   rejectSession: (sessionId: string) => Promise<void>;
+  confirmTrialSession: (sessionId: string) => Promise<void>;
+  proposeSessionReschedule: (sessionId: string, newScheduledIso: string, isTrial?: boolean) => Promise<void>;
   grantEndPermission: (sessionId: string, granted: boolean) => Promise<void>;
   
   // Tutor actions
@@ -390,6 +420,8 @@ interface AppState {
   markAsRead: (id: string) => Promise<void>;
   toggleNotifyTutor: (tutorId: string) => Promise<boolean>;
   toggleSavedTutor: (tutorId: string) => Promise<boolean>;
+  toggleSavedTuition: (tuitionId: string) => Promise<boolean>;
+  updateNotificationPreferences: (prefs: Partial<NotificationPreferences>) => Promise<void>;
   
   // Typing
   setTyping: (targetId: string, isTyping: boolean) => Promise<void>;
@@ -409,6 +441,9 @@ interface AppState {
   createReferralInvite: (name: string, email: string, refereeRole: 'student' | 'tutor') => Promise<void>;
   processReferralSignUp: (refereeId: string, refereeName: string, refereeEmail: string, refereeRole: 'student' | 'tutor', referrerCodeOrId: string) => Promise<void>;
   
+  // Onboarding Quick Start Tour
+  updateQuickStartTourState: (status: QuickStartTourStatus) => Promise<void>;
+
   // Internal sync
   setLoading: (loading: boolean) => void;
 }
@@ -729,6 +764,32 @@ function setPendingSignupState(state: PendingSignupState | null) {
   } catch {}
 }
 
+export const GUEST_SAVED_TUITIONS_KEY = 'edutrack_saved_tuitions_v1';
+
+async function syncGuestSavedTuitionsOnAuth(uid: string, userData: User): Promise<User> {
+  if (typeof window === 'undefined' || !uid) return userData;
+  try {
+    const rawGuest = localStorage.getItem(GUEST_SAVED_TUITIONS_KEY);
+    if (!rawGuest) return userData;
+    const parsedGuest = JSON.parse(rawGuest);
+    if (!Array.isArray(parsedGuest) || parsedGuest.length === 0) {
+      localStorage.removeItem(GUEST_SAVED_TUITIONS_KEY);
+      return userData;
+    }
+    const existingSaved = Array.isArray(userData.savedTuitions) ? userData.savedTuitions : [];
+    const guestClean = parsedGuest
+      .map((id) => String(id || '').trim())
+      .filter((id) => id.length > 0 && id.length <= 128);
+    const merged = Array.from(new Set([...existingSaved, ...guestClean])).slice(0, 200);
+    localStorage.removeItem(GUEST_SAVED_TUITIONS_KEY);
+    if (merged.length > existingSaved.length) {
+      updateDoc(doc(db, 'users', uid), { savedTuitions: merged }).catch(() => {});
+      return { ...userData, savedTuitions: merged };
+    }
+  } catch {}
+  return userData;
+}
+
 function clearEphemeralAuthStorage() {
   if (typeof window === 'undefined') return;
   try {
@@ -916,6 +977,7 @@ export const useAppStore = create<AppState>((set, get) => {
               }
             } catch {}
           }
+          userData = await syncGuestSavedTuitionsOnAuth(firebaseUser.uid, userData);
           set({ currentUser: userData, isLoading: false, isInitialized: true });
           try {
             localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
@@ -964,7 +1026,14 @@ export const useAppStore = create<AppState>((set, get) => {
             isTrackingOn: false,
             rating: isMainAdmin ? 5 : 0,
             profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
-            showTour: true,
+            showTour: finalRole !== 'admin',
+            onboarding: {
+              quickStartTour: {
+                status: finalRole === 'admin' ? 'dismissed' : 'not_started',
+                role: finalRole === 'student' && additionalUserData?.accountType === 'guardian' ? 'guardian' : finalRole,
+                updatedAt: new Date().toISOString(),
+              },
+            },
             createdAt: new Date().toISOString(),
             referralCode,
             referralPoints: 0,
@@ -1319,6 +1388,7 @@ export const useAppStore = create<AppState>((set, get) => {
                 }
               } catch {}
             }
+            userData = await syncGuestSavedTuitionsOnAuth(firebaseUser.uid, userData);
           } else {
             // Self-heal user document if user authenticated in Firebase Auth
             const lowerEmail = trimmedEmail.toLowerCase();
@@ -1337,7 +1407,14 @@ export const useAppStore = create<AppState>((set, get) => {
               isTrackingOn: false,
               rating: isMainAdmin ? 5 : 0,
               profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
-              showTour: true,
+              showTour: finalRole !== 'admin',
+              onboarding: {
+                quickStartTour: {
+                  status: finalRole === 'admin' ? 'dismissed' : 'not_started',
+                  role: finalRole,
+                  updatedAt: new Date().toISOString(),
+                },
+              },
               createdAt: new Date().toISOString(),
               referralCode,
               referralPoints: 0,
@@ -1479,7 +1556,14 @@ export const useAppStore = create<AppState>((set, get) => {
               isTrackingOn: false,
               rating: isMainAdmin ? 5 : 0,
               profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
-              showTour: true,
+              showTour: finalRole !== 'admin',
+              onboarding: {
+                quickStartTour: {
+                  status: finalRole === 'admin' ? 'dismissed' : 'not_started',
+                  role: finalRole === 'student' && additionalUserData?.accountType === 'guardian' ? 'guardian' : finalRole,
+                  updatedAt: new Date().toISOString(),
+                },
+              },
               createdAt: new Date().toISOString(),
               referralCode,
               referralPoints: 0,
@@ -1790,7 +1874,14 @@ export const useAppStore = create<AppState>((set, get) => {
                 : finalRole === 'admin' || finalRole === 'student',
             isTrackingOn: typeof existingUserDocData?.isTrackingOn === 'boolean' ? existingUserDocData.isTrackingOn : false,
             rating: typeof existingUserDocData?.rating === 'number' ? existingUserDocData.rating : 0,
-            showTour: typeof existingUserDocData?.showTour === 'boolean' ? existingUserDocData.showTour : true,
+            showTour: typeof existingUserDocData?.showTour === 'boolean' ? existingUserDocData.showTour : finalRole !== 'admin',
+            onboarding: existingUserDocData?.onboarding || {
+              quickStartTour: {
+                status: existingUserDocData?.showTour === false || finalRole === 'admin' ? 'dismissed' : 'not_started',
+                role: finalRole === 'student' && sanitizedInput?.accountType === 'guardian' ? 'guardian' : finalRole,
+                updatedAt: existingUserDocData?.createdAt || new Date().toISOString(),
+              },
+            },
             createdAt: existingUserDocData?.createdAt || new Date().toISOString(),
             profileImage: finalRole === 'admin' ? '/admin_profile.png' : (sanitizedInput.profileImage || ''),
             referralCode,
@@ -1961,6 +2052,7 @@ export const useAppStore = create<AppState>((set, get) => {
                 'lastActiveAt',
                 'isOnline',
                 'showTour',
+                'onboarding',
                 'hasDismissedProfileNotice',
               ].includes(k)
           );
@@ -2087,6 +2179,35 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      }
+    },
+
+    updateQuickStartTourState: async (status) => {
+      const current = get().currentUser;
+      if (!current) return;
+
+      writeLocalQuickStartTourStatus(current.id, status);
+      const patch = buildQuickStartTourPersistencePatch(current, status);
+      const updatedCurrent: User = {
+        ...current,
+        showTour: patch.showTour,
+        onboarding: patch.onboarding,
+      };
+
+      set({
+        currentUser: updatedCurrent,
+        users: get().users.map((u) =>
+          u.id === current.id ? { ...u, showTour: patch.showTour, onboarding: patch.onboarding } : u
+        ),
+      });
+      try {
+        localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedCurrent));
+      } catch {}
+
+      try {
+        await updateDoc(doc(db, 'users', current.id), patch as any);
+      } catch (error) {
+        console.warn('Could not persist onboarding tour state to Firestore:', error);
       }
     },
 
@@ -2580,30 +2701,100 @@ export const useAppStore = create<AppState>((set, get) => {
         );
       }
 
+      const normalizedScheduledIso =
+        normalizeBangladeshScheduleIso(sessionData.scheduledTime) || sessionData.scheduledTime;
+      const conflictCheck = hasScheduleConflict(normalizedScheduledIso, get().sessions, {
+        tutorId: sessionData.tutorId,
+        studentId: sessionData.studentId,
+      });
+      if (conflictCheck.conflict) {
+        throw new Error(
+          conflictCheck.reason ||
+            'Schedule conflict detected. Please choose another available time slot.'
+        );
+      }
+
       const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const nowIso = new Date().toISOString();
+      const targetStatus: Session['status'] = sessionData.status || 'scheduled';
+      const cleanRecord = cleanUndefined({
+        ...sessionData,
+        id,
+        scheduledTime: normalizedScheduledIso,
+        status: targetStatus,
+        statusUpdatedAt: nowIso,
+      });
+
       try {
-        await setDoc(doc(db, 'sessions', id), {
-          ...sessionData,
-          id,
-          status: sessionData.status || 'scheduled'
-        });
-        const recipientId = sessionData.status === 'proposed_by_tutor' ? sessionData.studentId : sessionData.tutorId;
-        const noteMsg = sessionData.status === 'proposed_by_tutor' 
-          ? 'A tutor has sent you a tuition proposal.' 
-          : 'A student has scheduled or requested a new tuition session with you.';
-        await get().sendNotification(recipientId, 'New Booking Request', noteMsg, 'info');
+        await setDoc(doc(db, 'sessions', id), cleanRecord);
+        const recipientId =
+          targetStatus === 'proposed_by_tutor' ? sessionData.studentId : sessionData.tutorId;
+        const scheduleFormatted = formatDhakaDateTime(normalizedScheduledIso);
+        const isTrialBooking = Boolean(sessionData.isTrial);
+        const noteTitle = isTrialBooking ? 'New Trial Class Proposed' : 'New Booking Request';
+        const noteMsg =
+          targetStatus === 'proposed_by_tutor'
+            ? `A tutor sent you a tuition proposal for ${sessionData.subject} (${scheduleFormatted}).`
+            : isTrialBooking
+            ? `A student proposed a trial class for ${sessionData.subject} on ${scheduleFormatted}.`
+            : `A student requested a tuition session for ${sessionData.subject} (${scheduleFormatted}).`;
+        await get().sendNotification(recipientId, noteTitle, noteMsg, 'info');
+
+        if (
+          targetStatus === 'requested_by_student' ||
+          targetStatus === 'proposed_by_tutor' ||
+          targetStatus === 'scheduled'
+        ) {
+          sendWorkflowEmailNotification({
+            eventType: isTrialBooking ? 'trial_scheduled' : 'tutor_request_created',
+            sessionId: id,
+            tuitionId: sessionData.tuitionId,
+            scheduleIso: normalizedScheduledIso,
+            summaryNote: sessionData.note,
+            idempotencyKey: `book:${id}`,
+          }).catch(() => {});
+        }
+        return id;
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `sessions/${id}`);
+        return id;
       }
     },
 
     acceptSession: async (id) => {
       try {
-        await updateDoc(doc(db, 'sessions', id), { status: 'scheduled' });
-        const s = get().sessions.find(x => x.id === id);
+        const s = get().sessions.find((x) => x.id === id);
+        const nowIso = new Date().toISOString();
+        const updates: Partial<Session> = {
+          status: 'scheduled',
+          statusUpdatedAt: nowIso,
+          ...(s?.isTrial ? { trialStatus: 'confirmed' as TrialScheduleStatus } : {}),
+        };
+        await updateDoc(doc(db, 'sessions', id), updates as any);
         if (s) {
-          await get().sendNotification(s.studentId, 'Tuition Accepted', 'The tuition session has been accepted and scheduled.', 'success');
-          await get().sendNotification(s.tutorId, 'Tuition Accepted', 'The tuition session has been accepted and scheduled.', 'success');
+          await get().sendNotification(
+            s.studentId,
+            s.isTrial ? 'Trial Class Confirmed' : 'Tuition Accepted',
+            s.isTrial
+              ? `Your trial class for ${s.subject} is confirmed for ${formatDhakaDateTime(s.scheduledTime)}.`
+              : 'The tuition session has been accepted and scheduled.',
+            'success'
+          );
+          await get().sendNotification(
+            s.tutorId,
+            s.isTrial ? 'Trial Class Confirmed' : 'Tuition Accepted',
+            s.isTrial
+              ? `Trial class confirmed for ${formatDhakaDateTime(s.scheduledTime)}.`
+              : 'The tuition session has been accepted and scheduled.',
+            'success'
+          );
+          sendWorkflowEmailNotification({
+            eventType: s.isTrial ? 'trial_confirmed' : 'request_accepted',
+            sessionId: id,
+            tuitionId: s.tuitionId,
+            scheduleIso: s.scheduledTime,
+            idempotencyKey: `accept:${id}`,
+          }).catch(() => {});
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
@@ -2612,14 +2803,127 @@ export const useAppStore = create<AppState>((set, get) => {
 
     rejectSession: async (id) => {
       try {
-        await updateDoc(doc(db, 'sessions', id), { status: 'rejected' });
-        const s = get().sessions.find(x => x.id === id);
+        const s = get().sessions.find((x) => x.id === id);
+        const nowIso = new Date().toISOString();
+        await updateDoc(doc(db, 'sessions', id), {
+          status: 'rejected',
+          statusUpdatedAt: nowIso,
+          ...(s?.isTrial ? { trialStatus: 'cancelled' } : {}),
+        });
         if (s) {
           await get().sendNotification(s.studentId, 'Tuition Proposal Declined', 'The tuition session was declined.', 'error');
           await get().sendNotification(s.tutorId, 'Tuition Proposal Declined', 'The tuition session was declined.', 'error');
+          sendWorkflowEmailNotification({
+            eventType: 'request_declined',
+            sessionId: id,
+            tuitionId: s.tuitionId,
+            idempotencyKey: `decline:${id}`,
+          }).catch(() => {});
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
+      }
+    },
+
+    confirmTrialSession: async (sessionId) => {
+      const s = get().sessions.find((x) => x.id === sessionId);
+      if (!s) return;
+      const nowIso = new Date().toISOString();
+      try {
+        await updateDoc(doc(db, 'sessions', sessionId), {
+          status: 'scheduled',
+          trialStatus: 'confirmed',
+          statusUpdatedAt: nowIso,
+        });
+        const label = formatDhakaDateTime(s.scheduledTime);
+        await get().sendNotification(
+          s.studentId,
+          'Trial Class Confirmed',
+          `Your trial class for ${s.subject} is confirmed for ${label}.`,
+          'success'
+        );
+        await get().sendNotification(
+          s.tutorId,
+          'Trial Class Confirmed',
+          `Trial class for ${s.subject} is confirmed for ${label}.`,
+          'success'
+        );
+        sendWorkflowEmailNotification({
+          eventType: 'trial_confirmed',
+          sessionId,
+          tuitionId: s.tuitionId,
+          scheduleIso: s.scheduledTime,
+          idempotencyKey: `trial_confirmed:${sessionId}:${s.scheduledTime}`,
+        }).catch(() => {});
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${sessionId}`);
+      }
+    },
+
+    proposeSessionReschedule: async (sessionId, newScheduledIso, isTrial) => {
+      const s = get().sessions.find((x) => x.id === sessionId);
+      const current = get().currentUser;
+      if (!s || !current) return;
+
+      const normalizedIso = normalizeBangladeshScheduleIso(newScheduledIso);
+      if (!normalizedIso) {
+        throw new Error('Please choose a valid date and time in Bangladesh Standard Time.');
+      }
+      const conflictCheck = hasScheduleConflict(normalizedIso, get().sessions, {
+        tutorId: s.tutorId,
+        studentId: s.studentId,
+        ignoreSessionId: sessionId,
+      });
+      if (conflictCheck.conflict) {
+        throw new Error(
+          conflictCheck.reason || 'That date and time overlaps with another active or pending session.'
+        );
+      }
+
+      const actorIsTutor = current.id === s.tutorId;
+      const effectiveIsTrial = isTrial ?? Boolean(s.isTrial);
+      const nextStatus: Session['status'] = actorIsTutor
+        ? 'proposed_by_tutor'
+        : 'requested_by_student';
+      const nextTrialStatus: TrialScheduleStatus | undefined = effectiveIsTrial
+        ? actorIsTutor
+          ? 'rescheduled_by_tutor'
+          : 'proposed_by_student'
+        : undefined;
+      const nowIso = new Date().toISOString();
+
+      try {
+        await updateDoc(
+          doc(db, 'sessions', sessionId),
+          cleanUndefined({
+            scheduledTime: normalizedIso,
+            status: nextStatus,
+            isTrial: effectiveIsTrial,
+            trialStatus: nextTrialStatus,
+            trialProposedBy: current.id,
+            rescheduleCount: increment(1),
+            statusUpdatedAt: nowIso,
+          }) as any
+        );
+
+        const recipientId = actorIsTutor ? s.studentId : s.tutorId;
+        const formatted = formatDhakaDateTime(normalizedIso);
+        await get().sendNotification(
+          recipientId,
+          effectiveIsTrial ? 'Alternate Trial Time Suggested' : 'Schedule Update Proposed',
+          `${current.name} suggested ${formatted} for ${s.subject}. Please review and confirm.`,
+          'info'
+        );
+
+        sendWorkflowEmailNotification({
+          eventType: effectiveIsTrial ? 'trial_rescheduled' : 'schedule_changed',
+          sessionId,
+          tuitionId: s.tuitionId,
+          scheduleIso: normalizedIso,
+          idempotencyKey: `resched:${sessionId}:${normalizedIso}`,
+        }).catch(() => {});
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `sessions/${sessionId}`);
       }
     },
 
@@ -2689,7 +2993,28 @@ export const useAppStore = create<AppState>((set, get) => {
 
     cancelSession: async (id) => {
       try {
-        await updateDoc(doc(db, 'sessions', id), { status: 'cancelled' });
+        const sess = get().sessions.find((s) => s.id === id);
+        const current = get().currentUser;
+        await updateDoc(doc(db, 'sessions', id), {
+          status: 'cancelled',
+          statusUpdatedAt: new Date().toISOString(),
+          ...(sess?.isTrial ? { trialStatus: 'cancelled' } : {}),
+        });
+        if (sess && current) {
+          const otherId = current.id === sess.tutorId ? sess.studentId : sess.tutorId;
+          await get().sendNotification(
+            otherId,
+            sess.isTrial ? 'Trial Class Cancelled' : 'Booking Cancelled',
+            `${current.name} cancelled the ${sess.isTrial ? 'trial class' : 'booking'} for ${sess.subject}.`,
+            'warning'
+          );
+          sendWorkflowEmailNotification({
+            eventType: sess.isTrial ? 'trial_cancelled' : 'booking_cancelled',
+            sessionId: id,
+            tuitionId: sess.tuitionId,
+            idempotencyKey: `cancel:${id}`,
+          }).catch(() => {});
+        }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `sessions/${id}`);
       }
@@ -3085,7 +3410,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const isAlreadySaved = currentSaved.includes(tutorId);
       const updatedSaved = isAlreadySaved
         ? currentSaved.filter((id) => id !== tutorId)
-        : [...currentSaved, tutorId];
+        : Array.from(new Set([...currentSaved, tutorId])).slice(0, 200);
 
       try {
         await updateDoc(doc(db, 'users', currentUser.id), {
@@ -3101,6 +3426,85 @@ export const useAppStore = create<AppState>((set, get) => {
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
         return isAlreadySaved;
+      }
+    },
+
+    toggleSavedTuition: async (tuitionId: string) => {
+      const currentUser = get().currentUser;
+      const cleanId = String(tuitionId || '').trim();
+      if (!cleanId) return false;
+
+      if (!currentUser) {
+        try {
+          const raw = localStorage.getItem(GUEST_SAVED_TUITIONS_KEY);
+          const list: string[] = raw ? JSON.parse(raw) : [];
+          const exists = Array.isArray(list) && list.includes(cleanId);
+          const next = exists ? list.filter((id) => id !== cleanId) : Array.from(new Set([...(list || []), cleanId]));
+          localStorage.setItem(GUEST_SAVED_TUITIONS_KEY, JSON.stringify(next));
+          return !exists;
+        } catch {
+          return false;
+        }
+      }
+
+      const currentSaved = Array.isArray(currentUser.savedTuitions) ? currentUser.savedTuitions : [];
+      const isAlreadySaved = currentSaved.includes(cleanId);
+      const updatedSaved = isAlreadySaved
+        ? currentSaved.filter((id) => id !== cleanId)
+        : Array.from(new Set([...currentSaved, cleanId])).slice(0, 200);
+
+      try {
+        await updateDoc(doc(db, 'users', currentUser.id), {
+          savedTuitions: updatedSaved,
+        });
+
+        const updatedUser = { ...currentUser, savedTuitions: updatedSaved };
+        set({ currentUser: updatedUser });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedUser));
+        } catch {}
+        return !isAlreadySaved;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
+        return isAlreadySaved;
+      }
+    },
+
+    updateNotificationPreferences: async (prefs: Partial<NotificationPreferences>) => {
+      const currentUser = get().currentUser;
+      if (!currentUser) return;
+      const existing = currentUser.notificationPreferences || {
+        emailAlertsEnabled: true,
+        tuitionAlertFrequency: 'instant',
+        inAppAlertsEnabled: true,
+      };
+      const merged: NotificationPreferences = {
+        emailAlertsEnabled:
+          prefs.emailAlertsEnabled !== undefined
+            ? Boolean(prefs.emailAlertsEnabled)
+            : existing.emailAlertsEnabled !== false,
+        tuitionAlertFrequency:
+          prefs.tuitionAlertFrequency === 'instant' ||
+          prefs.tuitionAlertFrequency === 'daily_digest' ||
+          prefs.tuitionAlertFrequency === 'off'
+            ? prefs.tuitionAlertFrequency
+            : existing.tuitionAlertFrequency || 'instant',
+        inAppAlertsEnabled:
+          prefs.inAppAlertsEnabled !== undefined
+            ? Boolean(prefs.inAppAlertsEnabled)
+            : existing.inAppAlertsEnabled !== false,
+      };
+      try {
+        await updateDoc(doc(db, 'users', currentUser.id), {
+          notificationPreferences: merged,
+        });
+        const updatedUser = { ...currentUser, notificationPreferences: merged };
+        set({ currentUser: updatedUser });
+        try {
+          localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedUser));
+        } catch {}
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
       }
     },
 

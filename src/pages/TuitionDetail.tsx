@@ -2,21 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import SEOHead from '../components/SEOHead';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  ShieldCheck, 
-  BookOpen, 
-  DollarSign, 
-  Share2, 
-  CheckCircle, 
-  Briefcase, 
-  GraduationCap, 
+import ApplicationStatusTracker from '../components/ApplicationStatusTracker';
+import { resolveApplicationTrackerState, formatDhakaDateTime } from '../../shared/tuitionLifecycle';
+import { sendWorkflowEmailNotification } from '../services/mailService';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Clock,
+  ShieldCheck,
+  BookOpen,
+  DollarSign,
+  Share2,
+  Bookmark,
+  CheckCircle,
+  Briefcase,
+  GraduationCap,
   UserCheck,
   PhoneCall,
-  Check
+  Check,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -40,9 +44,13 @@ interface TuitionData {
     tutorId: string;
     tutorName: string;
     tutorInstitution?: string;
+    tutorSubjects?: string[];
+    tutorIsVerified?: boolean;
     proposedRate?: number;
     message: string;
     status: string;
+    trialDate?: string;
+    trialStatus?: string;
     createdAt: string;
   }>;
 }
@@ -138,15 +146,40 @@ const SEED_DIRECTORY: Record<string, TuitionData> = {
 export default function TuitionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, sendNotification } = useAppStore();
+  const { currentUser, sendNotification, toggleSavedTuition, bookSession } = useAppStore();
   const [tuition, setTuition] = useState<TuitionData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
+  const [guestSavedIds, setGuestSavedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('edutrack_saved_tuitions_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [applyModalOpen, setApplyModalOpen] = useState<boolean>(false);
   const [applyMessage, setApplyMessage] = useState<string>('');
   const [proposedRate, setProposedRate] = useState<string>('');
   const [submittingApp, setSubmittingApp] = useState<boolean>(false);
   const [appStatusMsg, setAppStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const isTuitionSaved = Boolean(
+    tuition?.id &&
+      (currentUser?.savedTuitions
+        ? currentUser.savedTuitions.includes(tuition.id)
+        : guestSavedIds.includes(tuition.id))
+  );
+
+  const handleToggleBookmark = async () => {
+    if (!tuition?.id) return;
+    await toggleSavedTuition(tuition.id);
+    if (!currentUser) {
+      setGuestSavedIds((prev) =>
+        prev.includes(tuition.id) ? prev.filter((item) => item !== tuition.id) : [...prev, tuition.id]
+      );
+    }
+  };
 
   useEffect(() => {
     async function loadTuition() {
@@ -262,16 +295,26 @@ export default function TuitionDetail() {
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tuition || !currentUser) return;
+    if (tuition.applications?.some((a) => a.tutorId === currentUser.id)) {
+      setAppStatusMsg({
+        type: 'error',
+        text: 'You have already submitted an application for this tuition circular.',
+      });
+      return;
+    }
+
     setSubmittingApp(true);
     setAppStatusMsg(null);
     try {
       const newApp = {
         tutorId: currentUser.id,
         tutorName: currentUser.name,
-        tutorUniversity: currentUser.university || '',
+        tutorInstitution: currentUser.university || 'Verified Educator',
+        tutorSubjects: currentUser.subjects || [],
+        tutorIsVerified: Boolean(currentUser.isVerified),
         proposedRate: Number(proposedRate) || tuition.salary || 0,
         message: applyMessage.trim(),
-        status: 'pending',
+        status: 'submitted',
         createdAt: new Date().toISOString(),
       };
 
@@ -285,6 +328,13 @@ export default function TuitionDetail() {
             applications: arrayUnion(newApp),
           });
         });
+
+        sendWorkflowEmailNotification({
+          eventType: 'tuition_application_received',
+          tuitionId: tuition.id,
+          idempotencyKey: `app:${tuition.id}:${currentUser.id}`,
+          summaryNote: newApp.message,
+        }).catch(() => {});
       }
 
       if (tuition.studentId) {
@@ -323,17 +373,47 @@ export default function TuitionDetail() {
   };
 
   const handleSelectTutorForTuition = async (tuitionId: string, targetTutorId: string) => {
-    if (!tuition) return;
+    if (!tuition || !currentUser) return;
     try {
+      const targetApp = tuition.applications?.find((a) => a.tutorId === targetTutorId);
       const updatedApps = (tuition.applications || []).map((app) =>
         app.tutorId === targetTutorId ? { ...app, status: 'selected' } : app
       );
       if (!SEED_DIRECTORY[tuitionId]) {
         const docRef = doc(db, 'tuitions', tuitionId);
-        await updateDoc(docRef, { applications: updatedApps, status: 'assigned' }).catch(async () => {
+        await updateDoc(docRef, {
+          applications: updatedApps,
+          status: 'assigned',
+          selectedTutorId: targetTutorId,
+          ...(targetApp?.tutorName ? { selectedTutorName: targetApp.tutorName } : {}),
+        }).catch(async () => {
           const postRef = doc(db, 'tuition_posts', tuitionId);
-          await updateDoc(postRef, { applications: updatedApps, status: 'assigned' });
+          await updateDoc(postRef, {
+            applications: updatedApps,
+            status: 'assigned',
+          });
         });
+
+        try {
+          await bookSession({
+            studentId: currentUser.id,
+            tutorId: targetTutorId,
+            subject: tuition.subject,
+            scheduledTime: new Date(Date.now() + 86400000).toISOString(),
+            duration: 60,
+            status: 'scheduled',
+            tuitionId,
+          });
+        } catch {
+          // Non-blocking if a scheduled/pending session already exists
+        }
+
+        sendWorkflowEmailNotification({
+          eventType: 'tuition_confirmed',
+          tuitionId,
+          targetTutorId,
+          idempotencyKey: `hire:${tuitionId}:${targetTutorId}`,
+        }).catch(() => {});
       }
       sendNotification(
         targetTutorId,
@@ -448,6 +528,18 @@ export default function TuitionDetail() {
             <span>Back to Directory</span>
           </Link>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToggleBookmark}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+                isTuitionSaved
+                  ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-[#0D5BFF] dark:text-blue-300'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isTuitionSaved ? 'fill-[#0D5BFF] text-[#0D5BFF]' : ''}`} />
+              <span>{isTuitionSaved ? 'Saved' : 'Save Circular'}</span>
+            </button>
             <button
               type="button"
               onClick={handleShare}
@@ -586,12 +678,39 @@ export default function TuitionDetail() {
             <button
               type="button"
               onClick={handleApply}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 text-white text-xs font-semibold tracking-wide shadow-sm transition-colors cursor-pointer"
+              disabled={Boolean(
+                currentUser?.role === 'tutor' &&
+                  tuition.applications?.some((a) => a.tutorId === currentUser.id)
+              )}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-semibold tracking-wide shadow-sm transition-colors cursor-pointer"
             >
-              {currentUser?.role === 'tutor' ? 'Submit Tutor Application →' : 'Apply as Tutor →'}
+              {currentUser?.role === 'tutor' &&
+              tuition.applications?.some((a) => a.tutorId === currentUser.id)
+                ? 'Application Submitted'
+                : currentUser?.role === 'tutor'
+                  ? 'Submit Tutor Application →'
+                  : 'Apply as Tutor →'}
             </button>
           </div>
         </div>
+
+        {/* Tutor Application Tracker for Logged-in Applicant */}
+        {currentUser?.role === 'tutor' &&
+          (() => {
+            const myApp = tuition.applications?.find((a) => a.tutorId === currentUser.id);
+            if (!myApp) return null;
+            return (
+              <div className="mb-8">
+                <ApplicationStatusTracker
+                  state={resolveApplicationTrackerState(myApp, {
+                    viewerRole: 'tutor',
+                    tuitionStatus: tuition.status,
+                  })}
+                  scheduleLabel={myApp.trialDate ? formatDhakaDateTime(myApp.trialDate) : undefined}
+                />
+              </div>
+            );
+          })()}
 
         {/* Guardian Applicant Review Section (visible to posting guardian or admin) */}
         {tuition.applications && tuition.applications.length > 0 && (currentUser?.id === tuition.studentId || currentUser?.role === 'admin') && (
@@ -599,38 +718,50 @@ export default function TuitionDetail() {
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">
               Tutor Applications ({tuition.applications.length})
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {tuition.applications.map((app: any) => (
-                <div key={app.tutorId} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Link to={`/teachers/${app.tutorId}`} className="text-sm font-bold text-[#0D5BFF] hover:underline">
-                        {app.tutorName}
-                      </Link>
-                      {app.tutorUniversity && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">• {app.tutorUniversity}</span>
+                <div key={app.tutorId} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/teachers/${app.tutorId}`} className="text-sm font-bold text-[#0D5BFF] hover:underline">
+                          {app.tutorName}
+                        </Link>
+                        {(app.tutorInstitution || app.tutorUniversity) && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            • {app.tutorInstitution || app.tutorUniversity}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{app.message}</p>
+                      <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mt-1 tabular-nums">
+                        Proposed Remuneration: ৳{Number(app.proposedRate || tuition.salary || 0).toLocaleString()}/month
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {app.status === 'selected' ? (
+                        <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+                          Selected & Scheduled
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTutorForTuition(tuition.id, app.tutorId)}
+                          className="px-4 py-2 rounded-lg bg-[#0B132B] dark:bg-[#0D5BFF] text-white text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                        >
+                          Select Tutor
+                        </button>
                       )}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{app.message}</p>
-                    <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mt-1 tabular-nums">
-                      Proposed Remuneration: ৳{Number(app.proposedRate || tuition.salary || 0).toLocaleString()}/month
-                    </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {app.status === 'selected' ? (
-                      <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
-                        Selected & Scheduled
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSelectTutorForTuition(tuition.id, app.tutorId)}
-                        className="px-4 py-2 rounded-lg bg-[#0B132B] dark:bg-[#0D5BFF] text-white text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                      >
-                        Select Tutor
-                      </button>
-                    )}
-                  </div>
+                  <ApplicationStatusTracker
+                    state={resolveApplicationTrackerState(app, {
+                      viewerRole: 'student',
+                      tuitionStatus: tuition.status,
+                    })}
+                    scheduleLabel={app.trialDate ? formatDhakaDateTime(app.trialDate) : undefined}
+                    compact
+                  />
                 </div>
               ))}
             </div>

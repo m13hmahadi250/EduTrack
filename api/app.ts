@@ -28,6 +28,10 @@ import {
   generatePasswordResetEmailText,
   generateBulkCampaignEmailHtml,
   generateBulkCampaignEmailText,
+  generateWorkflowNotificationEmailHtml,
+  generateWorkflowNotificationEmailText,
+  WorkflowNotificationEventType,
+  redactSensitiveContactText,
 } from "./mailService.js";
 import {
   AuthChallengeStore,
@@ -43,6 +47,8 @@ import {
   firestoreGetDocWithToken,
   firestoreGetSubdoc,
   firestoreHasConfirmedSession,
+  firestoreCreateDocIfAbsentWithToken,
+  firestorePatchDocWithToken,
   VerifiedFirebaseToken,
 } from "./firebaseAdmin.js";
 import {
@@ -102,6 +108,23 @@ export interface MediaAuthorizationStore {
   ) => Promise<boolean>;
 }
 
+export interface WorkflowNotificationStore {
+  getSessionDoc: (sessionId: string, callerIdToken?: string) => Promise<Record<string, any> | null>;
+  getTuitionDoc: (tuitionId: string, callerIdToken?: string) => Promise<Record<string, any> | null>;
+  getUserDoc: (userId: string, callerIdToken?: string) => Promise<Record<string, any> | null>;
+  claimIdempotencyKey: (
+    eventKey: string,
+    metadata: Record<string, any>,
+    callerIdToken?: string
+  ) => Promise<"claimed" | "already_exists">;
+  updateEventStatus?: (
+    eventKey: string,
+    status: "sent" | "failed" | "skipped",
+    details?: Record<string, any>,
+    callerIdToken?: string
+  ) => Promise<void>;
+}
+
 export interface AppDeps {
   now?: () => number;
   authStore?: AuthChallengeStore;
@@ -109,6 +132,7 @@ export interface AppDeps {
   firebaseResetAdapter?: FirebaseResetAdapter;
   verifyIdToken?: (idToken: string) => Promise<VerifiedFirebaseToken>;
   mediaStore?: MediaAuthorizationStore;
+  notificationStore?: WorkflowNotificationStore;
   r2ObjectFetcher?: (keyOrUrl: string) => Promise<{ buffer: Buffer; contentType: string } | null>;
   storageUploader?: (params: {
     folder: string;
@@ -1955,6 +1979,541 @@ app.post("/api/mail/send-bulk", async (req, res) => {
   } catch (error: any) {
     console.error("[Bulk Mail API Exception]:", error);
     return res.status(500).json({ error: error?.message || "Internal server error during bulk mail dispatch." });
+  }
+});
+
+const WORKFLOW_EVENT_TYPES = new Set<WorkflowNotificationEventType>([
+  "tutor_request_created",
+  "tuition_application_received",
+  "tutor_shortlisted",
+  "request_accepted",
+  "request_declined",
+  "trial_scheduled",
+  "trial_rescheduled",
+  "trial_confirmed",
+  "trial_cancelled",
+  "tuition_confirmed",
+  "booking_cancelled",
+  "schedule_changed",
+  "tuition_alert_digest",
+]);
+
+function formatServerDhakaDateTime(isoOrDate: unknown): string {
+  if (typeof isoOrDate !== "string" || !isoOrDate.trim()) return "";
+  const parsed = new Date(isoOrDate.trim());
+  if (Number.isNaN(parsed.getTime())) return String(isoOrDate).trim();
+  const datePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
+  const timePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(parsed);
+  return `${datePart} at ${timePart} (BDT)`;
+}
+
+function toSafeEventDocId(rawKey: string): string {
+  const hash = crypto.createHash("sha256").update(rawKey).digest("hex").slice(0, 32);
+  return `evt_${hash}`;
+}
+
+const localNotificationEventLocks = new Map<string, number>();
+
+function createDefaultWorkflowStore(getNowFn: () => number): WorkflowNotificationStore {
+  return {
+    getSessionDoc: async (sessionId, callerIdToken) => {
+      const snap = await firestoreGetDocWithToken("sessions", sessionId, callerIdToken);
+      return snap?.data ? { id: sessionId, ...snap.data } : null;
+    },
+    getTuitionDoc: async (tuitionId, callerIdToken) => {
+      const primary = await firestoreGetDocWithToken("tuitions", tuitionId, callerIdToken);
+      if (primary?.data) return { id: tuitionId, ...primary.data };
+      const secondary = await firestoreGetDocWithToken("tuition_posts", tuitionId, callerIdToken);
+      return secondary?.data ? { id: tuitionId, ...secondary.data } : null;
+    },
+    getUserDoc: async (userId, callerIdToken) => {
+      const snap = await firestoreGetDocWithToken("users", userId, callerIdToken);
+      return snap?.data ? { id: userId, ...snap.data } : null;
+    },
+    claimIdempotencyKey: async (eventKey, metadata, callerIdToken) => {
+      const nowMs = getNowFn();
+      // Prune stale local locks older than 24 hours
+      for (const [k, ts] of localNotificationEventLocks.entries()) {
+        if (nowMs - ts > 24 * 60 * 60 * 1000) {
+          localNotificationEventLocks.delete(k);
+        }
+      }
+      const docId = toSafeEventDocId(eventKey);
+      if (localNotificationEventLocks.has(docId)) {
+        return "already_exists";
+      }
+      localNotificationEventLocks.set(docId, nowMs);
+
+      const firestoreClaim = await firestoreCreateDocIfAbsentWithToken(
+        "notification_events",
+        docId,
+        {
+          id: docId,
+          eventKey: eventKey.slice(0, 200),
+          eventType: String(metadata.eventType || "workflow"),
+          actorId: String(metadata.actorId || ""),
+          recipientId: String(metadata.recipientId || ""),
+          status: "pending",
+          createdAt: new Date(nowMs).toISOString(),
+        },
+        callerIdToken
+      );
+
+      if (firestoreClaim.alreadyExists) {
+        return "already_exists";
+      }
+      return "claimed";
+    },
+    updateEventStatus: async (eventKey, status, details, callerIdToken) => {
+      const docId = toSafeEventDocId(eventKey);
+      await firestorePatchDocWithToken(
+        "notification_events",
+        docId,
+        {
+          status,
+          updatedAt: new Date(getNowFn()).toISOString(),
+          ...(details?.messageId ? { messageId: String(details.messageId) } : {}),
+        },
+        callerIdToken
+      );
+    },
+  };
+}
+
+async function sendEmailWithBoundedRetry(
+  sender: EmailSender,
+  payload: {
+    toEmail: string;
+    toName?: string;
+    subject: string;
+    htmlContent: string;
+    textContent?: string;
+  }
+) {
+  let lastResult = await sender(payload);
+  if (lastResult.success || lastResult.isIpError || lastResult.isKeyError) {
+    return lastResult;
+  }
+  if (lastResult.isNetworkError || (lastResult as any).code === "EMAIL_PROVIDER_ERROR") {
+    await new Promise((r) => setTimeout(r, 150));
+    lastResult = await sender(payload);
+  }
+  return lastResult;
+}
+
+app.post("/api/notifications/workflow", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  try {
+    const authCtx = await requireAuthenticatedUser(req);
+    if (!authCtx) {
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHORIZED",
+        error: "Authentication required to dispatch workflow notifications.",
+      });
+    }
+
+    const {
+      eventType,
+      sessionId,
+      tuitionId,
+      targetTutorId,
+      idempotencyKey,
+      summaryNote,
+      scheduleIso,
+      baseUrl,
+    } = req.body || {};
+
+    if (!eventType || !WORKFLOW_EVENT_TYPES.has(eventType)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EVENT_TYPE",
+        error: "Unsupported workflow notification event type.",
+      });
+    }
+
+    const cleanSessionId = typeof sessionId === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(sessionId.trim())
+      ? sessionId.trim()
+      : "";
+    const cleanTuitionId = typeof tuitionId === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(tuitionId.trim())
+      ? tuitionId.trim()
+      : "";
+
+    if (!cleanSessionId && !cleanTuitionId) {
+      return res.status(400).json({
+        success: false,
+        code: "CONTEXT_REQUIRED",
+        error: "A valid sessionId or tuitionId is required.",
+      });
+    }
+
+    const workflowStore = deps?.notificationStore || createDefaultWorkflowStore(getNow);
+    const sessionDoc = cleanSessionId
+      ? await workflowStore.getSessionDoc(cleanSessionId, authCtx.token)
+      : null;
+    const tuitionDoc = cleanTuitionId
+      ? await workflowStore.getTuitionDoc(cleanTuitionId, authCtx.token)
+      : null;
+
+    if (cleanSessionId && !sessionDoc) {
+      return res.status(404).json({
+        success: false,
+        code: "SESSION_NOT_FOUND",
+        error: "Referenced session could not be found.",
+      });
+    }
+    if (cleanTuitionId && !tuitionDoc) {
+      return res.status(404).json({
+        success: false,
+        code: "TUITION_NOT_FOUND",
+        error: "Referenced tuition circular could not be found.",
+      });
+    }
+
+    let derivedRecipientId = "";
+    let authorized = false;
+
+    if (sessionDoc) {
+      const studentId = String(sessionDoc.studentId || "");
+      const tutorId = String(sessionDoc.tutorId || "");
+      if (authCtx.uid === studentId) {
+        authorized = true;
+        derivedRecipientId = tutorId;
+      } else if (authCtx.uid === tutorId) {
+        authorized = true;
+        derivedRecipientId = studentId;
+      }
+    } else if (tuitionDoc) {
+      const ownerStudentId = String(tuitionDoc.studentId || tuitionDoc.userId || "");
+      const applications: any[] = Array.isArray(tuitionDoc.applications) ? tuitionDoc.applications : [];
+
+      if (eventType === "tuition_application_received") {
+        const isApplicantTutor = applications.some((app) => String(app?.tutorId || "") === authCtx.uid);
+        if (isApplicantTutor && ownerStudentId && authCtx.uid !== ownerStudentId) {
+          authorized = true;
+          derivedRecipientId = ownerStudentId;
+        }
+      } else if (authCtx.uid === ownerStudentId) {
+        const cleanTargetTutor = typeof targetTutorId === "string" ? targetTutorId.trim() : "";
+        const applicantMatch = applications.find((app) => String(app?.tutorId || "") === cleanTargetTutor);
+        const selectedTutorId = String(tuitionDoc.selectedTutorId || "");
+        if (cleanTargetTutor && (applicantMatch || cleanTargetTutor === selectedTutorId)) {
+          authorized = true;
+          derivedRecipientId = cleanTargetTutor;
+        }
+      } else {
+        const isApplicantTutor = applications.some((app) => String(app?.tutorId || "") === authCtx.uid);
+        const tutorMutableEvents = new Set<WorkflowNotificationEventType>([
+          "trial_confirmed",
+          "trial_rescheduled",
+          "trial_cancelled",
+          "schedule_changed",
+        ]);
+        if (isApplicantTutor && ownerStudentId && tutorMutableEvents.has(eventType)) {
+          authorized = true;
+          derivedRecipientId = ownerStudentId;
+        }
+      }
+    }
+
+    if (!authorized || !derivedRecipientId) {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        error: "You are not authorized to dispatch notifications for this record.",
+      });
+    }
+
+    const [actorUser, recipientUser] = await Promise.all([
+      workflowStore.getUserDoc(authCtx.uid, authCtx.token).catch(() => null),
+      workflowStore.getUserDoc(derivedRecipientId, authCtx.token).catch(() => null),
+    ]);
+
+    const recipientEmail = String(recipientUser?.email || "").trim().toLowerCase();
+    if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      return res.status(200).json({
+        success: false,
+        dispatched: false,
+        status: "skipped",
+        code: "RECIPIENT_EMAIL_UNAVAILABLE",
+      });
+    }
+
+    if (recipientUser?.notificationPreferences?.emailAlertsEnabled === false) {
+      return res.status(200).json({
+        success: true,
+        dispatched: false,
+        status: "skipped",
+        code: "RECIPIENT_ALERTS_DISABLED",
+      });
+    }
+
+    const rawEventKey =
+      typeof idempotencyKey === "string" && idempotencyKey.trim()
+        ? `${authCtx.uid}:${eventType}:${idempotencyKey.trim()}`
+        : `${eventType}:${cleanSessionId || cleanTuitionId}:${authCtx.uid}:${derivedRecipientId}`;
+
+    const claimResult = await workflowStore.claimIdempotencyKey(
+      rawEventKey,
+      {
+        eventType,
+        actorId: authCtx.uid,
+        recipientId: derivedRecipientId,
+        sessionId: cleanSessionId || undefined,
+        tuitionId: cleanTuitionId || undefined,
+      },
+      authCtx.token
+    );
+
+    if (claimResult === "already_exists") {
+      return res.status(200).json({
+        success: true,
+        dispatched: false,
+        alreadySent: true,
+        status: "already_sent",
+      });
+    }
+
+    const applications: any[] = Array.isArray(tuitionDoc?.applications) ? tuitionDoc.applications : [];
+    const relevantApp =
+      applications.find((a) => a?.tutorId === authCtx.uid || a?.tutorId === derivedRecipientId) || null;
+
+    const actorName = String(actorUser?.name || (tuitionDoc && authCtx.uid === tuitionDoc.studentId ? tuitionDoc.studentName : "") || "EduTrack Member");
+    const actorInstitution =
+      actorUser?.role === "tutor"
+        ? String(actorUser?.university || relevantApp?.tutorInstitution || "")
+        : undefined;
+
+    const areaDistrictLabel = [
+      tuitionDoc?.area || (actorUser?.role === "student" ? actorUser?.area : undefined),
+      tuitionDoc?.district || actorUser?.district,
+    ]
+      .filter(Boolean)
+      .filter((v, idx, arr) => arr.indexOf(v) === idx)
+      .join(", ");
+
+    const rawSchedule = scheduleIso || sessionDoc?.scheduledTime || relevantApp?.trialDate || "";
+    const scheduleLabel = rawSchedule ? formatServerDhakaDateTime(rawSchedule) : "";
+
+    const rawProposedRate = relevantApp?.proposedRate || tuitionDoc?.salary;
+    const proposedSalaryLabel =
+      rawProposedRate && Number(rawProposedRate) > 0
+        ? `BDT ${Number(rawProposedRate).toLocaleString("en-US")}/month`
+        : undefined;
+
+    const safeOrigin =
+      typeof baseUrl === "string" && baseUrl.startsWith("https://")
+        ? baseUrl.replace(/\/+$/, "")
+        : "https://edutrackbd.vercel.app";
+
+    const emailParams = {
+      eventType: eventType as WorkflowNotificationEventType,
+      recipientEmail,
+      recipientName: String(recipientUser?.name || "Member"),
+      actorName,
+      actorInstitution,
+      tuitionTitle: tuitionDoc?.title ? String(tuitionDoc.title) : undefined,
+      subjectLabel: String(sessionDoc?.subject || tuitionDoc?.subject || ""),
+      classLabel: String(
+        tuitionDoc?.studentClass || (actorUser?.role === "student" ? actorUser?.studentClass : "") || ""
+      ) || undefined,
+      areaDistrictLabel: areaDistrictLabel || undefined,
+      scheduleLabel: scheduleLabel || undefined,
+      proposedSalaryLabel,
+      summaryNote: redactSensitiveContactText(
+        typeof summaryNote === "string" && summaryNote.trim()
+          ? summaryNote
+          : relevantApp?.message || sessionDoc?.note || ""
+      ),
+      actionUrl: `${safeOrigin}/dashboard`,
+      baseUrl: safeOrigin,
+    };
+
+    const htmlContent = generateWorkflowNotificationEmailHtml(emailParams);
+    const { subject, textContent } = generateWorkflowNotificationEmailText(emailParams);
+
+    const sendRes = await sendEmailWithBoundedRetry(emailSender, {
+      toEmail: recipientEmail,
+      toName: String(recipientUser?.name || "Member"),
+      subject,
+      htmlContent,
+      textContent,
+    });
+
+    if (workflowStore.updateEventStatus) {
+      await workflowStore
+        .updateEventStatus(
+          rawEventKey,
+          sendRes.success ? "sent" : "failed",
+          { messageId: sendRes.messageId },
+          authCtx.token
+        )
+        .catch(() => {});
+    }
+
+    if (!sendRes.success) {
+      return res.status(200).json({
+        success: false,
+        dispatched: false,
+        status: "failed",
+        code: (sendRes as any).code || "EMAIL_DELIVERY_FAILED",
+        message: "Workflow saved, but transactional email delivery encountered an error.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      dispatched: true,
+      status: "sent",
+      messageId: sendRes.messageId || undefined,
+      simulated: Boolean(sendRes.simulated),
+    });
+  } catch (error: any) {
+    console.error("[Workflow Notification Route Error]:", error?.message || error);
+    return res.status(200).json({
+      success: false,
+      dispatched: false,
+      status: "failed",
+      code: "WORKFLOW_NOTIFICATION_ERROR",
+      message: "Could not dispatch transactional email notification right now.",
+    });
+  }
+});
+
+app.post("/api/notifications/tuition-alert", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  try {
+    const authCtx = await requireAuthenticatedUser(req);
+    if (!authCtx) {
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHORIZED",
+        error: "Authentication required.",
+      });
+    }
+
+    const { tuitionId, recipientTutorIds } = req.body || {};
+    const cleanTuitionId = typeof tuitionId === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(tuitionId.trim())
+      ? tuitionId.trim()
+      : "";
+    if (!cleanTuitionId || !Array.isArray(recipientTutorIds) || recipientTutorIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_ALERT_PAYLOAD",
+        error: "Valid tuitionId and recipientTutorIds are required.",
+      });
+    }
+
+    const workflowStore = deps?.notificationStore || createDefaultWorkflowStore(getNow);
+    const tuitionDoc = await workflowStore.getTuitionDoc(cleanTuitionId, authCtx.token);
+    if (!tuitionDoc) {
+      return res.status(404).json({ success: false, code: "TUITION_NOT_FOUND", error: "Tuition not found." });
+    }
+    const ownerStudentId = String(tuitionDoc.studentId || tuitionDoc.userId || "");
+    if (ownerStudentId !== authCtx.uid) {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Only post owner may trigger alerts." });
+    }
+
+    const uniqueTutorIds = Array.from(
+      new Set(
+        recipientTutorIds
+          .map((id: unknown) => String(id || "").trim())
+          .filter((id) => /^[a-zA-Z0-9_-]{1,128}$/.test(id) && id !== authCtx.uid)
+      )
+    ).slice(0, 12);
+
+    let notifiedCount = 0;
+    let skippedCount = 0;
+
+    for (const tutorId of uniqueTutorIds) {
+      const tutorDoc = await workflowStore.getUserDoc(tutorId, authCtx.token).catch(() => null);
+      if (!tutorDoc || tutorDoc.role !== "tutor" || !tutorDoc.isVerified || tutorDoc.isBlocked) {
+        skippedCount++;
+        continue;
+      }
+      const freq = tutorDoc.notificationPreferences?.tuitionAlertFrequency || "instant";
+      const enabled = tutorDoc.notificationPreferences?.emailAlertsEnabled !== false;
+      if (!enabled || freq === "off" || freq === "daily_digest") {
+        skippedCount++;
+        continue;
+      }
+      const tutorEmail = String(tutorDoc.email || "").trim().toLowerCase();
+      if (!tutorEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tutorEmail)) {
+        skippedCount++;
+        continue;
+      }
+
+      const eventKey = `tuition_alert:${cleanTuitionId}:${tutorId}`;
+      const claimed = await workflowStore.claimIdempotencyKey(
+        eventKey,
+        {
+          eventType: "tuition_alert_digest",
+          actorId: authCtx.uid,
+          recipientId: tutorId,
+          tuitionId: cleanTuitionId,
+        },
+        authCtx.token
+      );
+      if (claimed === "already_exists") {
+        skippedCount++;
+        continue;
+      }
+
+      const areaDistrictLabel = [tuitionDoc.area, tuitionDoc.district].filter(Boolean).join(", ");
+      const emailParams = {
+        eventType: "tuition_alert_digest" as const,
+        recipientEmail: tutorEmail,
+        recipientName: String(tutorDoc.name || "Tutor"),
+        tuitionTitle: tuitionDoc.title ? String(tuitionDoc.title) : undefined,
+        subjectLabel: String(tuitionDoc.subject || ""),
+        classLabel: tuitionDoc.studentClass ? String(tuitionDoc.studentClass) : undefined,
+        areaDistrictLabel: areaDistrictLabel || undefined,
+        proposedSalaryLabel: tuitionDoc.salary ? `BDT ${Number(tuitionDoc.salary).toLocaleString("en-US")}/month` : undefined,
+        actionUrl: "https://edutrackbd.vercel.app/dashboard",
+        baseUrl: "https://edutrackbd.vercel.app",
+      };
+
+      const htmlContent = generateWorkflowNotificationEmailHtml(emailParams);
+      const { subject, textContent } = generateWorkflowNotificationEmailText(emailParams);
+
+      const sendRes = await sendEmailWithBoundedRetry(emailSender, {
+        toEmail: tutorEmail,
+        toName: String(tutorDoc.name || "Tutor"),
+        subject,
+        htmlContent,
+        textContent,
+      });
+
+      if (sendRes.success) {
+        notifiedCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      notifiedCount,
+      skippedCount,
+    });
+  } catch (error: any) {
+    console.error("[Tuition Alert Route Error]:", error?.message || error);
+    return res.status(200).json({
+      success: false,
+      notifiedCount: 0,
+      skippedCount: 0,
+    });
   }
 });
 
