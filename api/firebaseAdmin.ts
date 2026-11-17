@@ -1,84 +1,30 @@
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
+import {
+  getFirebasePublicConfig,
+  inspectServiceAccountEnv,
+  type ParsedServiceAccount,
+} from "./config.js";
 
-interface ServiceAccount {
-  project_id: string;
-  private_key: string;
-  client_email: string;
-  token_uri?: string;
-}
+type ServiceAccount = ParsedServiceAccount;
 
-interface FirebaseAppletConfig {
-  projectId: string;
-  firestoreDatabaseId?: string;
-}
-
-function loadFirebaseConfig(): FirebaseAppletConfig {
-  try {
-    const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      return {
-        projectId: raw.projectId || process.env.FIREBASE_PROJECT_ID || "edutrackbd-233",
-        firestoreDatabaseId: raw.firestoreDatabaseId || process.env.FIREBASE_DATABASE_ID || "(default)",
-      };
-    }
-  } catch (err) {
-    console.warn("[FirebaseAdmin] Could not read firebase-applet-config.json:", err);
-  }
-  return {
-    projectId: process.env.FIREBASE_PROJECT_ID || "edutrackbd-233",
-    firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || "(default)",
-  };
+function loadFirebaseConfig() {
+  return getFirebasePublicConfig();
 }
 
 function parseServiceAccount(): ServiceAccount | null {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
-  if (!raw || raw === "undefined" || raw === "null") {
-    return null;
+  const check = inspectServiceAccountEnv();
+  if (!check.configured && check.reason === "invalid_format") {
+    console.warn("[FirebaseAdmin] FIREBASE_SERVICE_ACCOUNT_KEY is set but could not be parsed as valid service account JSON.");
   }
-
-  const attempts: string[] = [raw];
-  if (
-    (raw.startsWith('"') && raw.endsWith('"')) ||
-    (raw.startsWith("'") && raw.endsWith("'"))
-  ) {
-    attempts.push(raw.slice(1, -1));
-  }
-  if (!raw.trim().startsWith("{")) {
-    try {
-      attempts.push(Buffer.from(raw, "base64").toString("utf-8"));
-    } catch {
-      // ignore base64 failure
-    }
-  }
-
-  for (const candidate of attempts) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && parsed.client_email && parsed.private_key) {
-        return {
-          project_id: parsed.project_id || loadFirebaseConfig().projectId,
-          private_key: String(parsed.private_key).replace(/\\n/g, "\n"),
-          client_email: parsed.client_email,
-          token_uri: parsed.token_uri || "https://oauth2.googleapis.com/token",
-        };
-      }
-    } catch {
-      // try next candidate
-    }
-  }
-
-  console.warn("[FirebaseAdmin] FIREBASE_SERVICE_ACCOUNT_KEY is set but could not be parsed as valid service account JSON.");
-  return null;
+  return check.account;
 }
 
 export function isFirebaseAdminConfigured(): boolean {
-  return parseServiceAccount() !== null;
+  return inspectServiceAccountEnv().configured;
 }
 
 let cachedToken: { accessToken: string; expiresAtMs: number; clientEmail: string } | null = null;
+const EXTERNAL_FETCH_TIMEOUT_MS = 12_000;
 
 function base64UrlEncode(input: string | Buffer): string {
   return Buffer.from(input)
@@ -95,7 +41,7 @@ export async function getGoogleAdminAccessToken(): Promise<{ accessToken: string
   }
   const fbCfg = loadFirebaseConfig();
   const projectId = sa.project_id || fbCfg.projectId;
-  const databaseId = fbCfg.firestoreDatabaseId || "(default)";
+  const databaseId = fbCfg.firestoreDatabaseId;
 
   const nowMs = Date.now();
   if (cachedToken && cachedToken.clientEmail === sa.client_email && cachedToken.expiresAtMs - 60_000 > nowMs) {
@@ -129,14 +75,20 @@ export async function getGoogleAdminAccessToken(): Promise<{ accessToken: string
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion,
     }).toString(),
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
+    cachedToken = null;
     const errText = await res.text().catch(() => "");
     throw new Error(`Failed to obtain Firebase Admin OAuth token (HTTP ${res.status}): ${errText.slice(0, 200)}`);
   }
 
   const data: any = await res.json();
+  if (!data?.access_token) {
+    cachedToken = null;
+    throw new Error("OAuth token response missing access_token.");
+  }
   cachedToken = {
     accessToken: data.access_token,
     expiresAtMs: nowMs + (Number(data.expires_in) || 3600) * 1000,
@@ -167,6 +119,7 @@ export async function lookupFirebaseUserByEmail(email: string): Promise<Firebase
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ email: [normalizedEmail] }),
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     }
   );
 
@@ -209,6 +162,7 @@ export async function updateFirebaseUserPassword(uid: string, newPassword: strin
         localId: uid,
         password: newPassword,
       }),
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     }
   );
 
@@ -288,6 +242,7 @@ export async function firestoreGetDoc(collection: string, docId: string): Promis
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -322,6 +277,7 @@ export async function firestoreSetDoc(
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ fields: encodeFirestoreFields(data) }),
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
 
   if (res.status === 409 || res.status === 412) {
@@ -363,6 +319,7 @@ export async function firestoreQueryByField(
         limit,
       },
     }),
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -404,7 +361,8 @@ async function fetchGoogleSecureTokenCerts(forceRefresh = false): Promise<Record
   }
 
   const res = await fetch(
-    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+    { signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) }
   );
   if (!res.ok) {
     throw new Error(`Failed to fetch Google x509 certs (HTTP ${res.status})`);
@@ -510,14 +468,7 @@ function loadFirestoreAuthHeaders(callerIdToken?: string): Promise<{
     if (!callerIdToken) {
       throw new Error("Neither FIREBASE_SERVICE_ACCOUNT_KEY nor caller Firebase ID token is available.");
     }
-    let apiKey = "";
-    try {
-      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (fs.existsSync(configPath)) {
-        const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-        if (raw.apiKey) apiKey = String(raw.apiKey);
-      }
-    } catch {}
+    const apiKey = fbCfg.apiKey || "";
     const headers: Record<string, string> = {
       Authorization: `Bearer ${callerIdToken}`,
     };
@@ -525,7 +476,7 @@ function loadFirestoreAuthHeaders(callerIdToken?: string): Promise<{
     return {
       headers,
       projectId: fbCfg.projectId,
-      databaseId: fbCfg.firestoreDatabaseId || "(default)",
+      databaseId: fbCfg.firestoreDatabaseId,
     };
   })();
 }
@@ -538,7 +489,10 @@ export async function firestoreGetDocWithToken(
   const { headers, projectId, databaseId } = await loadFirestoreAuthHeaders(callerIdToken);
   const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}`;
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+  });
   if (res.status === 404 || res.status === 403) return null;
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
@@ -561,7 +515,10 @@ export async function firestoreGetSubdoc(
   const { headers, projectId, databaseId } = await loadFirestoreAuthHeaders(callerIdToken);
   const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}/${encodeURIComponent(subcollection)}/${encodeURIComponent(subDocId)}`;
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+  });
   if (res.status === 404 || res.status === 403) return null;
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
@@ -617,6 +574,7 @@ export async function firestoreHasConfirmedSession(
         limit: 50,
       },
     }),
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {

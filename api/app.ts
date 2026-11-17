@@ -45,6 +45,12 @@ import {
   firestoreHasConfirmedSession,
   VerifiedFirebaseToken,
 } from "./firebaseAdmin.js";
+import {
+  generateRequestId,
+  getFirebasePublicConfig,
+  getSafeHealthStatus,
+  recordAuthFailureEvent,
+} from "./config.js";
 
 export interface FirebaseResetAdapter {
   isConfigured: () => boolean;
@@ -195,9 +201,7 @@ export const OTP_CONFIG = {
   maxAttempts: 5,
 } as const;
 
-const FIREBASE_WEB_API_KEY =
-  process.env.VITE_FIREBASE_API_KEY ||
-  ["I", "Z", "Q", "a", "F", "J", "p", "6", "Z", "U", "p", "i", "m", "d", "L", "P", "g", "M", "5", "I", "T", "5", "u", "Z", "h", "3", "e", "h", "P", "R", "k", "G", "B", "y", "S", "a", "z", "I", "A"].reverse().join("");
+const FIREBASE_WEB_API_KEY = getFirebasePublicConfig().apiKey;
 
 const defaultMediaStore: MediaAuthorizationStore = {
   getUserRoleAndStatus: async (uid: string, callerIdToken?: string) => {
@@ -279,8 +283,12 @@ export function createApp(deps?: AppDeps) {
 const ALLOWED_STORAGE_FOLDERS = ["profiles", "documents", "nid", "homework"];
 const ALLOWED_STORAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
-// Security headers and Cache-Control policy middleware
+// Security headers, requestId correlation, and Cache-Control policy middleware
 app.use((req, res, next) => {
+  const incomingReqId = typeof req.headers["x-request-id"] === "string" ? req.headers["x-request-id"].trim() : "";
+  const requestId = incomingReqId && /^[a-zA-Z0-9_-]{6,64}$/.test(incomingReqId) ? incomingReqId : generateRequestId();
+  (req as any).requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -315,7 +323,9 @@ console.log("- R2_ENDPOINT:", process.env.R2_ENDPOINT ? "Set" : "MISSING");
 console.log("- R2_BUCKET_NAME:", process.env.R2_BUCKET_NAME ? "Set" : "MISSING");
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", env: process.env.NODE_ENV, cloud: !!process.env.VERCEL });
+  const requestId = String((req as any).requestId || generateRequestId());
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.json(getSafeHealthStatus(requestId));
 });
 
 app.get("/sitemap.xml", generateSitemap);
@@ -889,14 +899,17 @@ app.post("/api/auth/send-otp", async (req, res) => {
     });
 
     if (!emailResult.success) {
+      const requestId = String((req as any).requestId || generateRequestId());
+      const failureCode = (emailResult as any).code || "EMAIL_DELIVERY_FAILED";
       console.warn(
-        `[OTP Auth] Delivery failed on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${challengeId}): ${emailResult.error}`
+        `[OTP Auth] Delivery failed on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (req=${requestId}, challenge=${challengeId}, code=${failureCode}): ${emailResult.error}`
       );
       if ((emailResult as any).simulated) {
         return res.json({
           success: true,
           emailSent: true,
           challengeId,
+          requestId,
           email: normalizedEmail,
           otpLength: OTP_CONFIG.length,
           expiresInSeconds: OTP_CONFIG.expiresInSeconds,
@@ -909,11 +922,20 @@ app.post("/api/auth/send-otp", async (req, res) => {
       }
 
       await store.markOtpDeliveryFailed(challengeId);
+      recordAuthFailureEvent({
+        route: "/api/auth/send-otp",
+        code: failureCode,
+        status: 502,
+        requestId,
+        nowMs,
+      });
 
       return res.status(400).json({
         success: false,
         emailSent: false,
         code: "EMAIL_DELIVERY_FAILED",
+        providerCode: failureCode,
+        requestId,
         otpLength: OTP_CONFIG.length,
         error: emailResult.error || "Email Delivery Failed",
         message:
@@ -927,14 +949,16 @@ app.post("/api/auth/send-otp", async (req, res) => {
       await store.updateOtpProviderMessageId(challengeId, String((emailResult as any).messageId));
     }
 
+    const requestId = String((req as any).requestId || generateRequestId());
     console.info(
-      `[OTP Auth] Issued 6-digit challenge on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${challengeId}, expiresAt=${new Date(expiresAtMs).toISOString()})`
+      `[OTP Auth] Issued 6-digit challenge on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (req=${requestId}, challenge=${challengeId}, expiresAt=${new Date(expiresAtMs).toISOString()})`
     );
 
     return res.json({
       success: true,
       emailSent: true,
       challengeId,
+      requestId,
       email: normalizedEmail,
       otpLength: OTP_CONFIG.length,
       expiresInSeconds: OTP_CONFIG.expiresInSeconds,
@@ -945,18 +969,35 @@ app.post("/api/auth/send-otp", async (req, res) => {
       message: `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your inbox or spam folder.`,
     });
   } catch (error: any) {
+    const requestId = String((req as any).requestId || generateRequestId());
     if (error instanceof StorageUnavailableError) {
+      recordAuthFailureEvent({
+        route: "/api/auth/send-otp",
+        code: error.code,
+        status: 503,
+        requestId,
+        nowMs: getNow(),
+      });
       return res.status(503).json({
         success: false,
         code: error.code,
+        requestId,
         error: error.message,
       });
     }
-    console.error("[Send OTP API Error]:", error?.message || error);
+    recordAuthFailureEvent({
+      route: "/api/auth/send-otp",
+      code: "OTP_SEND_ERROR",
+      status: 500,
+      requestId,
+      nowMs: getNow(),
+    });
+    console.error(`[Send OTP API Error] (req=${requestId}):`, error?.message || error);
     return res.status(500).json({
       success: false,
       code: "OTP_SEND_ERROR",
-      error: error.message || "Failed to send verification email. Please try again.",
+      requestId,
+      error: "Failed to send verification email right now. Please try again shortly.",
     });
   }
 });
@@ -1018,31 +1059,50 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       .digest("hex");
     const verificationToken = `${Buffer.from(normalizedEmail).toString("base64url")}.${issuedAt}.${signature}`;
 
+    const requestId = String((req as any).requestId || generateRequestId());
     console.info(
-      `[OTP Auth] Verified 6-digit OTP on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (challenge=${result.challengeId})`
+      `[OTP Auth] Verified 6-digit OTP on ${store.backendName} for ${maskEmailForLog(normalizedEmail)} (req=${requestId}, challenge=${result.challengeId})`
     );
 
     return res.json({
       success: true,
       verified: true,
       challengeId: result.challengeId,
+      requestId,
       otpLength: OTP_CONFIG.length,
       verificationToken,
       message: "Email verified successfully! You may now complete your registration.",
     });
   } catch (error: any) {
+    const requestId = String((req as any).requestId || generateRequestId());
     if (error instanceof StorageUnavailableError) {
+      recordAuthFailureEvent({
+        route: "/api/auth/verify-otp",
+        code: error.code,
+        status: 503,
+        requestId,
+        nowMs: getNow(),
+      });
       return res.status(503).json({
         success: false,
         code: error.code,
+        requestId,
         error: error.message,
       });
     }
-    console.error("[Verify OTP API Error]:", error?.message || error);
+    recordAuthFailureEvent({
+      route: "/api/auth/verify-otp",
+      code: "OTP_VERIFY_ERROR",
+      status: 500,
+      requestId,
+      nowMs: getNow(),
+    });
+    console.error(`[Verify OTP API Error] (req=${requestId}):`, error?.message || error);
     return res.status(500).json({
       success: false,
       code: "OTP_VERIFY_ERROR",
-      error: error.message || "Failed to verify OTP code. Please try again.",
+      requestId,
+      error: "Failed to verify OTP code right now. Please try again shortly.",
     });
   }
 });
@@ -1156,6 +1216,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
             email: normalizedEmail,
             continueUrl: `${origin}/login?reset=success`,
           }),
+          signal: AbortSignal.timeout(12_000),
         });
       }
       console.info(`[Password Reset] Dispatched Firebase Identity Toolkit reset email for ${maskEmailForLog(normalizedEmail)}`);
@@ -1168,17 +1229,35 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       message: genericSuccessMessage,
     });
   } catch (error: any) {
+    const requestId = String((req as any).requestId || generateRequestId());
     if (error instanceof StorageUnavailableError) {
+      recordAuthFailureEvent({
+        route: "/api/auth/forgot-password",
+        code: error.code,
+        status: 503,
+        requestId,
+        nowMs: getNow(),
+      });
       return res.status(503).json({
         success: false,
         code: error.code,
+        requestId,
         error: error.message,
       });
     }
-    console.error("[Forgot Password API Error]:", error?.message || error);
+    recordAuthFailureEvent({
+      route: "/api/auth/forgot-password",
+      code: "FORGOT_PASSWORD_ERROR",
+      status: 500,
+      requestId,
+      nowMs: getNow(),
+    });
+    console.error(`[Forgot Password API Error] (req=${requestId}):`, error?.message || error);
     return res.status(500).json({
       success: false,
-      error: error.message || "Failed to initiate password reset. Please try again.",
+      code: "FORGOT_PASSWORD_ERROR",
+      requestId,
+      error: "Failed to initiate password reset right now. Please try again.",
     });
   }
 });
@@ -1298,6 +1377,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
               oobCode: cleanOob,
               newPassword,
             }),
+            signal: AbortSignal.timeout(12_000),
           }
         );
         const idtData: any = await idtRes.json().catch(() => ({}));

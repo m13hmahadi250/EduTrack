@@ -264,7 +264,111 @@ export type ErrorUiContext =
   | 'dashboard'
   | 'general';
 
-function extractErrorCodeAndMessage(error: unknown): { code: string; message: string } {
+export interface ParsedApiResponse<T = any> {
+  ok: boolean;
+  status: number;
+  data: T & {
+    success?: boolean;
+    code?: string;
+    providerCode?: string;
+    error?: string;
+    message?: string;
+    requestId?: string;
+  };
+  requestId?: string;
+}
+
+export class AuthApiError extends Error {
+  code?: string;
+  status?: number;
+  requestId?: string;
+  providerCode?: string;
+  isFormattedUserMessage?: boolean;
+
+  constructor(
+    message: string,
+    opts?: {
+      code?: string;
+      status?: number;
+      requestId?: string;
+      providerCode?: string;
+      isFormattedUserMessage?: boolean;
+    }
+  ) {
+    super(message);
+    this.name = 'AuthApiError';
+    this.code = opts?.code;
+    this.status = opts?.status;
+    this.requestId = opts?.requestId;
+    this.providerCode = opts?.providerCode;
+    this.isFormattedUserMessage = opts?.isFormattedUserMessage;
+  }
+}
+
+export async function parseApiResponse<T = any>(res: Response): Promise<ParsedApiResponse<T>> {
+  const headerReqId = res.headers?.get?.('x-request-id') || undefined;
+  let text = '';
+  try {
+    text = await res.text();
+  } catch {
+    text = '';
+  }
+
+  let parsed: any = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const reqId = typeof parsed.requestId === 'string' ? parsed.requestId : headerReqId;
+    return {
+      ok: res.ok,
+      status: res.status,
+      data: { ...parsed, ...(reqId ? { requestId: reqId } : {}) },
+      requestId: reqId,
+    };
+  }
+
+  const isGatewayOrServerError = res.status >= 500;
+  return {
+    ok: false,
+    status: res.status,
+    requestId: headerReqId,
+    data: {
+      success: false,
+      code: isGatewayOrServerError ? 'SERVER_UNAVAILABLE' : 'BAD_RESPONSE',
+      error: isGatewayOrServerError
+        ? 'Our verification service is temporarily unavailable. Please try again in a few moments.'
+        : 'Unexpected response received from server. Please try again.',
+      ...(headerReqId ? { requestId: headerReqId } : {}),
+    } as any,
+  };
+}
+
+export function createApiError(
+  data: any,
+  status?: number,
+  fallbackMessage = 'Service request failed. Please try again.'
+): AuthApiError {
+  const msg = String(data?.message || data?.error || fallbackMessage);
+  return new AuthApiError(msg, {
+    code: typeof data?.code === 'string' ? data.code : undefined,
+    providerCode: typeof data?.providerCode === 'string' ? data.providerCode : undefined,
+    status: typeof status === 'number' ? status : undefined,
+    requestId: typeof data?.requestId === 'string' ? data.requestId : undefined,
+  });
+}
+
+function extractErrorCodeAndMessage(error: unknown): {
+  code: string;
+  message: string;
+  status?: number;
+  requestId?: string;
+} {
   if (!error) return { code: '', message: '' };
   if (typeof error === 'string') {
     const trimmed = error.trim();
@@ -274,6 +378,8 @@ function extractErrorCodeAndMessage(error: unknown): { code: string; message: st
         return {
           code: String(parsed?.code || parsed?.errorCode || '').toLowerCase(),
           message: String(parsed?.error || parsed?.message || ''),
+          status: typeof parsed?.status === 'number' ? parsed.status : undefined,
+          requestId: typeof parsed?.requestId === 'string' ? parsed.requestId : undefined,
         };
       } catch {
         // Ignore JSON parse failure
@@ -295,12 +401,17 @@ function extractErrorCodeAndMessage(error: unknown): { code: string; message: st
         : typeof errObj.errorCode === 'string'
         ? errObj.errorCode
         : '';
+    const rawStatus = typeof errObj.status === 'number' ? errObj.status : undefined;
+    const rawReqId = typeof errObj.requestId === 'string' ? errObj.requestId : undefined;
+
     if (rawMsg.trim().startsWith('{') && rawMsg.trim().endsWith('}')) {
       try {
         const parsed = JSON.parse(rawMsg.trim());
         return {
           code: String(rawCode || parsed?.code || parsed?.errorCode || '').toLowerCase(),
           message: String(parsed?.error || parsed?.message || ''),
+          status: rawStatus ?? (typeof parsed?.status === 'number' ? parsed.status : undefined),
+          requestId: rawReqId ?? (typeof parsed?.requestId === 'string' ? parsed.requestId : undefined),
         };
       } catch {
         // Ignore JSON parse failure
@@ -309,6 +420,8 @@ function extractErrorCodeAndMessage(error: unknown): { code: string; message: st
     return {
       code: rawCode.toLowerCase(),
       message: rawMsg,
+      status: rawStatus,
+      requestId: rawReqId,
     };
   }
   return { code: '', message: String(error) };
@@ -325,6 +438,7 @@ export function isNetworkConnectivityError(error: unknown): boolean {
     code === 'auth/network-request-failed' ||
     code === 'unavailable' ||
     code === 'firestore/unavailable' ||
+    code === 'deadline-exceeded' ||
     combined.includes('auth/network-request-failed') ||
     combined.includes('network-request-failed') ||
     combined.includes('network request failed') ||
@@ -339,6 +453,8 @@ export function isNetworkConnectivityError(error: unknown): boolean {
     combined.includes('econnrefused') ||
     combined.includes('etimedout') ||
     combined.includes('enotfound') ||
+    combined.includes('aborterror') ||
+    combined.includes('timed out') ||
     combined.includes('err_internet_disconnected') ||
     combined.includes('err_network')
   );
@@ -369,8 +485,14 @@ export function isInvalidCredentialError(error: unknown): boolean {
 /**
  * Centralized user-friendly error message translator.
  * Never exposes Firebase error codes, stack traces, JSON payloads, or internal service names.
+ * Distinguishes server/storage/email outages from invalid user form inputs.
  */
 export function formatUserFriendlyError(error: unknown, context: ErrorUiContext = 'general'): string {
+  // 0. If already explicitly formatted by a safe internal layer, preserve clean message
+  if (error && typeof error === 'object' && (error as any).isFormattedUserMessage && typeof (error as any).message === 'string') {
+    return (error as any).message;
+  }
+
   // 1. Always check network connectivity first
   if (isNetworkConnectivityError(error)) {
     return 'Connection problem. Please check your internet connection and try again.';
@@ -381,11 +503,44 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     return 'Unable to sign in. Please check your email and password.';
   }
 
-  const { code, message } = extractErrorCodeAndMessage(error);
+  const { code, message, status } = extractErrorCodeAndMessage(error);
   const combined = `${code} ${message}`.toLowerCase();
 
-  // 3. Authentication & Account Errors
-  if (code === 'auth/invalid-email' || combined.includes('auth/invalid-email')) {
+  // 3. Specific Email Delivery Outages (check before generic status >= 500 fallback)
+  if (
+    code === 'email_delivery_failed' ||
+    code === 'email_ip_restricted' ||
+    code === 'email_auth_error' ||
+    code === 'email_provider_error' ||
+    code === 'email_network_error' ||
+    combined.includes('email delivery failed') ||
+    combined.includes('authorised_ips') ||
+    combined.includes('ip restrictions enabled')
+  ) {
+    return 'We could not send the verification email right now. Please check that your email address is spelled correctly or try again in a few minutes.';
+  }
+
+  // 4. Backend / Storage / Server Outages (never blame user's form inputs)
+  if (
+    code === 'storage_unavailable' ||
+    code === 'service_unavailable' ||
+    code === 'server_unavailable' ||
+    code === 'internal_server_error' ||
+    code === 'otp_send_error' ||
+    code === 'otp_verify_error' ||
+    code === 'forgot_password_error' ||
+    code === 'firebase_password_update_failed' ||
+    code === 'reset_provider_unconfigured' ||
+    (typeof status === 'number' && status >= 500)
+  ) {
+    if (context === 'otp' || code === 'otp_send_error' || code === 'otp_verify_error') {
+      return 'Our verification service is temporarily unavailable. Please try again in a few moments.';
+    }
+    return 'Our authentication service is temporarily unavailable. Please try again in a few moments.';
+  }
+
+  // 4. Authentication & Account Errors
+  if (code === 'auth/invalid-email' || code === 'email_invalid' || code === 'email_required' || combined.includes('auth/invalid-email')) {
     return 'Please enter a valid email address.';
   }
   if (
@@ -397,11 +552,15 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
   ) {
     return 'An account with this email already exists. Please sign in instead.';
   }
-  if (code === 'auth/weak-password' || combined.includes('auth/weak-password')) {
-    return 'Please choose a stronger password with at least 6 characters.';
+  if (code === 'auth/weak-password' || code === 'password_too_short' || combined.includes('auth/weak-password')) {
+    return 'Please choose a stronger password with at least 8 characters.';
+  }
+  if (code === 'auth/operation-not-allowed' || combined.includes('operation-not-allowed')) {
+    return 'Account registration with email and password is temporarily unavailable. Please try again later.';
   }
   if (
     code === 'auth/too-many-requests' ||
+    code === 'otp_rate_limited' ||
     code === 'rate_limited' ||
     code === 'cooldown' ||
     combined.includes('auth/too-many-requests') ||
@@ -427,27 +586,40 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     return 'For your security, please sign in again before making this change.';
   }
 
-  // 4. OTP & Password Reset Errors
-  if (code === 'expired_otp' || combined.includes('code has expired') || combined.includes('expired otp')) {
+  // 5. OTP & Password Reset Errors
+  if (code === 'otp_replaced' || combined.includes('newer verification code')) {
+    return 'A newer verification code was sent. Please enter the latest 6-digit code from your email.';
+  }
+  if (code === 'otp_already_used' || combined.includes('already been used')) {
+    return 'This verification code has already been used. Please request a new code if needed.';
+  }
+  if (code === 'otp_max_attempts' || combined.includes('maximum verification attempts')) {
+    return 'Maximum verification attempts reached. Please click Resend code for a new 6-digit code.';
+  }
+  if (code === 'otp_expired' || code === 'expired_otp' || combined.includes('code has expired') || combined.includes('expired otp')) {
     return 'This verification code has expired. Please request a new code.';
   }
-  if (code === 'invalid_otp' || combined.includes('incorrect verification code') || combined.includes('invalid otp')) {
+  if (code === 'otp_invalid' || code === 'invalid_otp' || code === 'otp_format_invalid' || combined.includes('incorrect verification code') || combined.includes('invalid otp')) {
     return 'The verification code you entered is incorrect. Please check and try again.';
   }
-  if (code === 'not_found' && context === 'otp') {
+  if ((code === 'otp_not_found' || code === 'not_found') && context === 'otp') {
     return 'No active verification code was found. Please request a new code.';
   }
   if (
     code === 'expired_token' ||
     code === 'invalid_token' ||
     code === 'used_token' ||
+    code === 'reset_token_expired' ||
+    code === 'reset_token_invalid' ||
+    code === 'reset_token_used' ||
+    code === 'reset_token_replaced' ||
     combined.includes('reset link has expired') ||
     combined.includes('invalid or expired reset')
   ) {
     return 'This password reset link is invalid or has expired. Please request a new link.';
   }
 
-  // 5. Permission & Database Errors
+  // 6. Permission & Database Errors
   if (
     code === 'permission-denied' ||
     code === 'firestore/permission-denied' ||
@@ -455,6 +627,9 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     combined.includes('permission-denied') ||
     combined.includes('unauthorized')
   ) {
+    if (context === 'signup') {
+      return 'We could not finish saving your profile right now due to a temporary account permission issue. Please try submitting again.';
+    }
     return 'You do not have permission to perform this action. Please make sure you are signed in to the right account.';
   }
   if (
@@ -466,7 +641,7 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     return 'The service is temporarily busy. Please wait a moment and try again.';
   }
 
-  // 6. Upload & Storage Errors
+  // 7. Upload & Storage Errors
   if (
     context === 'upload' ||
     combined.includes('r2_bucket') ||
@@ -489,7 +664,7 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     return 'Unable to upload your file right now. Please check the file and try again.';
   }
 
-  // 7. Sanitize any clean human-readable message that doesn't contain technical leaks
+  // 8. Sanitize any clean human-readable message that doesn't contain technical leaks
   const hasTechnicalLeak =
     /firebase|firestore|cloudflare|\br2\b|brevo|gemini|groq|s3client|auth\/|firestore\/|storage\/|r2_bucket|api_key|stack|typeerror|referenceerror|syntaxerror|\{"|\[object/i.test(
       message
@@ -499,12 +674,12 @@ export function formatUserFriendlyError(error: unknown, context: ErrorUiContext 
     return message;
   }
 
-  // 8. Context-specific fallback messages
+  // 9. Context-specific fallback messages (never blame form input for unexpected/technical errors)
   switch (context) {
     case 'login':
-      return 'Unable to sign in right now. Please check your details and try again.';
+      return 'Unable to sign in right now. Please try again in a moment.';
     case 'signup':
-      return 'Unable to create your account right now. Please check your information and try again.';
+      return 'We could not complete your registration right now due to a temporary service issue. Your form details are saved—please try again in a moment.';
     case 'otp':
       return 'Unable to verify your code right now. Please try again or request a new code.';
     case 'reset':

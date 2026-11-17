@@ -5,7 +5,11 @@ import { Key, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldChe
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import SEOHead from '../components/SEOHead';
-import { formatUserFriendlyError } from '../lib/errorMonitoring';
+import {
+  createApiError,
+  formatUserFriendlyError,
+  parseApiResponse,
+} from '../lib/errorMonitoring';
 import { scrollFieldIntoView } from '../utils/mobileWebView';
 
 export default function ResetPassword() {
@@ -90,14 +94,18 @@ export default function ResetPassword() {
         if (emailParam) queryParams.set('email', emailParam);
 
         const response = await fetch(`/api/auth/verify-reset-token?${queryParams.toString()}`);
-        const data = await response.json();
+        const { data, status } = await parseApiResponse(response);
 
         if (data.valid) {
           setTokenValid(true);
           setVerifiedEmail(data.email || emailParam || 'your account');
         } else {
           setTokenValid(false);
-          setTokenError(data.error || 'This password reset link is invalid or has expired.');
+          setTokenError(
+            status >= 500
+              ? formatUserFriendlyError(createApiError(data, status), 'reset')
+              : data.error || 'This password reset link is invalid or has expired.'
+          );
         }
       } catch (err: any) {
         console.error('[Verify Token Error]:', err);
@@ -202,13 +210,13 @@ export default function ResetPassword() {
         }),
       });
 
-      const data = await response.json();
+      const { data, status } = await parseApiResponse(response);
 
       if (response.ok && data.success === true) {
         setResetSuccess(true);
         setRedirectCountdown(3);
       } else {
-        setFormError(formatUserFriendlyError(data.error || data, 'reset'));
+        setFormError(formatUserFriendlyError(createApiError(data, status), 'reset'));
       }
     } catch (err: any) {
       console.error('[Reset Password Error]:', err);

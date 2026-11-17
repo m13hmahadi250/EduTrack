@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore, consumePostLoginDestination } from '../store';
-import { formatUserFriendlyError } from '../lib/errorMonitoring';
+import {
+  AuthApiError,
+  createApiError,
+  formatUserFriendlyError,
+  parseApiResponse,
+} from '../lib/errorMonitoring';
 import {
   X,
   AlertCircle,
@@ -100,8 +105,8 @@ export function buildSignupProfilePayload(options: {
 
   const payload: Record<string, any> = {
     ...formData,
-    name: cleanMeaningfulString(formData.name) || (formData.name || '').trim(),
-    ...(emailOverride !== undefined ? { email: emailOverride } : {}),
+    name: (cleanMeaningfulString(formData.name) || (formData.name || '').trim()).slice(0, 128),
+    ...(emailOverride !== undefined ? { email: emailOverride.trim().toLowerCase().slice(0, 128) } : {}),
     phone: normalizedPhone,
     whatsappNumber: finalWhatsapp,
     division: inferredDivision,
@@ -117,12 +122,12 @@ export function buildSignupProfilePayload(options: {
     role,
     ...(role === 'student'
       ? {
-          school: cleanSchool,
+          school: cleanSchool.slice(0, 200),
           accountType,
           ...(accountType === 'guardian'
             ? {
                 guardianRelationship: cleanMeaningfulString(formData.guardianRelationship),
-                studentName: cleanMeaningfulString(formData.studentName),
+                studentName: cleanMeaningfulString(formData.studentName).slice(0, 128),
               }
             : {}),
         }
@@ -134,7 +139,31 @@ export function buildSignupProfilePayload(options: {
         }),
   };
 
+  // Strip secrets, server-protected status fields, and role-mismatched draft fields
   delete payload.password;
+  delete payload.id;
+  delete payload.balance;
+  delete payload.isVerified;
+  delete payload.isBlocked;
+  delete payload.nidStatus;
+  delete payload.academicStatus;
+  delete payload.rating;
+  delete payload.totalRatings;
+  delete payload.ratingSum;
+  if (role === 'tutor') {
+    delete payload.accountType;
+    delete payload.guardianRelationship;
+    delete payload.studentName;
+    delete payload.studentClass;
+  } else {
+    delete payload.university;
+    delete payload.course;
+    delete payload.year;
+    delete payload.semester;
+    delete payload.teachingMode;
+    delete payload.teachingAreas;
+    delete payload.hourlyRate;
+  }
   return payload;
 }
 
@@ -308,6 +337,8 @@ export default function Signup() {
   const [resendSuccessMsg, setResendSuccessMsg] = useState('');
   const [ipNoticeMsg, setIpNoticeMsg] = useState('');
   const verifiedChallengeRef = React.useRef<{ email: string; challengeId: string } | null>(null);
+  const signupSubmitInFlightRef = React.useRef<boolean>(false);
+  const verifySubmitInFlightRef = React.useRef<boolean>(false);
 
   useEffect(() => {
     if (!showOtpModal || !resendAvailableAtMs) {
@@ -525,6 +556,7 @@ export default function Signup() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signupSubmitInFlightRef.current || loading) return;
     setError('');
     setIpNoticeMsg('');
 
@@ -575,6 +607,7 @@ export default function Signup() {
       }
     }
 
+    signupSubmitInFlightRef.current = true;
     setLoading(true);
     try {
       const res = await fetch('/api/auth/send-otp', {
@@ -586,12 +619,12 @@ export default function Signup() {
         }),
       });
 
-      const data = await res.json();
+      const { data, status } = await parseApiResponse(res);
       const clientNow = Date.now();
       const nextOffset = typeof data.serverNow === 'number' ? data.serverNow - clientNow : 0;
 
       // If a valid challenge was issued seconds ago on another tab/submission, restore it instead of blocking
-      if (res.status === 429 && data.challengeId && typeof data.expiresAt === 'number') {
+      if (status === 429 && data.challengeId && typeof data.expiresAt === 'number') {
         const activeExpiresAt = data.expiresAt;
         const activeResendAt = typeof data.resendAvailableAt === 'number' ? data.resendAvailableAt : clientNow + nextOffset + 55_000;
         const waitSec = Math.max(1, Math.ceil((activeResendAt - (clientNow + nextOffset)) / 1000));
@@ -622,7 +655,7 @@ export default function Signup() {
       }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || data.error || 'Failed to send OTP verification code to your email.');
+        throw createApiError(data, status, 'Failed to send OTP verification code to your email.');
       }
 
       const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
@@ -662,6 +695,8 @@ export default function Signup() {
       setError(msg);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      signupSubmitInFlightRef.current = false;
     }
   };
 
@@ -686,20 +721,20 @@ export default function Signup() {
         }),
       });
 
-      const data = await res.json();
+      const { data, status } = await parseApiResponse(res);
       const clientNow = Date.now();
       const nextOffset = typeof data.serverNow === 'number' ? data.serverNow - clientNow : 0;
 
-      if (res.status === 429) {
+      if (status === 429) {
         if (typeof data.resendAvailableAt === 'number') {
           setServerOffsetMs(nextOffset);
           setResendAvailableAtMs(data.resendAvailableAt);
         }
-        throw new Error(data.error || 'Please wait before requesting a new verification code.');
+        throw createApiError(data, status, 'Please wait before requesting a new verification code.');
       }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || data.error || 'Failed to resend verification code.');
+        throw createApiError(data, status, 'Failed to resend verification code.');
       }
 
       const serverOtpLen = typeof data.otpLength === 'number' ? data.otpLength : 6;
@@ -738,19 +773,22 @@ export default function Signup() {
   };
 
   const handleVerifyAndCompleteSignup = async (code: string) => {
+    if (verifySubmitInFlightRef.current) return;
     const cleanCode = String(code || '').replace(/\D/g, '');
     if (cleanCode.length !== otpLength) {
       const lenErr = `Please enter all ${otpLength} digits of the verification code received in your inbox.`;
       setOtpError(lenErr);
-      throw new Error(lenErr);
+      throw new AuthApiError(lenErr, { code: 'OTP_FORMAT_INVALID', isFormattedUserMessage: true });
     }
 
     const trimmedEmail = formData.email.trim();
     const normalizedEmail = trimmedEmail.toLowerCase();
 
+    verifySubmitInFlightRef.current = true;
     setOtpLoading(true);
     setOtpError('');
 
+    let activeStage: 'otp' | 'signup' = 'otp';
     try {
       const alreadyVerifiedForThisChallenge =
         verifiedChallengeRef.current &&
@@ -768,7 +806,7 @@ export default function Signup() {
           }),
         });
 
-        const verifyData = await verifyRes.json();
+        const { data: verifyData, status: verifyStatus } = await parseApiResponse(verifyRes);
 
         if (!verifyRes.ok || !verifyData.success) {
           if (
@@ -778,7 +816,7 @@ export default function Signup() {
           ) {
             writePersistedOtpChallenge(null);
           }
-          throw new Error(verifyData.error || 'Invalid or expired 6-digit OTP code.');
+          throw createApiError(verifyData, verifyStatus, 'Invalid or expired 6-digit OTP code.');
         }
 
         verifiedChallengeRef.current = {
@@ -787,6 +825,7 @@ export default function Signup() {
         };
       }
 
+      activeStage = 'signup';
       // Preserve exact user-entered password (never .trim())
       const password = formData.password;
       const payload = buildSignupProfilePayload({
@@ -807,10 +846,16 @@ export default function Signup() {
       setSignupSuccess(true);
     } catch (err: any) {
       console.error('OTP verification / signup error:', err);
-      const msg = formatUserFriendlyError(err, 'signup');
+      const msg = formatUserFriendlyError(err, activeStage);
       setOtpError(msg);
-      throw new Error(msg);
+      throw new AuthApiError(msg, {
+        code: typeof err?.code === 'string' ? err.code : undefined,
+        status: typeof err?.status === 'number' ? err.status : undefined,
+        requestId: typeof err?.requestId === 'string' ? err.requestId : undefined,
+        isFormattedUserMessage: true,
+      });
     } finally {
+      verifySubmitInFlightRef.current = false;
       setOtpLoading(false);
     }
   };

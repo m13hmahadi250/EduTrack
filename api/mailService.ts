@@ -915,6 +915,13 @@ export function generateOtpEmailText({
   ].join("\n");
 }
 
+function maskEmail(email: string): string {
+  const parts = String(email || "").split("@");
+  if (parts.length !== 2) return "***";
+  const local = parts[0];
+  return `${local.slice(0, Math.min(2, local.length))}***@${parts[1]}`;
+}
+
 export async function sendBrevoEmail({
   toEmail,
   toName,
@@ -928,12 +935,12 @@ export async function sendBrevoEmail({
   htmlContent: string;
   textContent?: string;
 }) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || "edutrackbangladesh@gmail.com";
-  const senderName = process.env.BREVO_SENDER_NAME || "EduTrack Bangladesh";
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim() || "edutrackbangladesh@gmail.com";
+  const senderName = process.env.BREVO_SENDER_NAME?.trim() || "EduTrack Bangladesh";
 
   if (!apiKey || apiKey === "MY_BREVO_API_KEY" || apiKey === "undefined" || apiKey === "null") {
-    console.warn(`[Brevo Email Service] BREVO_API_KEY is not configured. Email to ${toEmail} logged.`);
+    console.warn(`[Brevo Email Service] BREVO_API_KEY is not configured. Email to ${maskEmail(toEmail)} logged.`);
     return {
       success: true,
       simulated: true,
@@ -969,11 +976,12 @@ export async function sendBrevoEmail({
         "api-key": apiKey,
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {
       const errorBody: any = await response.json().catch(() => ({}));
-      console.warn("[Brevo Email API Warning]:", JSON.stringify(errorBody));
+      console.warn("[Brevo Email API Warning]:", JSON.stringify({ status: response.status, code: errorBody?.code, message: errorBody?.message }));
       
       const errMsg = errorBody.message || errorBody.code || `Brevo API error (HTTP ${response.status})`;
       const lowerMsg = String(errMsg).toLowerCase();
@@ -981,6 +989,7 @@ export async function sendBrevoEmail({
       if (lowerMsg.includes("unrecognised ip") || lowerMsg.includes("authorised_ips") || lowerMsg.includes("authorised ip")) {
         return {
           success: false,
+          code: "EMAIL_IP_RESTRICTED",
           isIpError: true,
           error: "Brevo IP Whitelist Restriction Active",
           message: "Brevo Security Notice: Your Brevo API key has IP restrictions enabled. Please go to https://app.brevo.com/security/authorised_ips and disable IP restrictions or authorize server IPs.",
@@ -992,6 +1001,7 @@ export async function sendBrevoEmail({
       if (lowerMsg.includes("key not found") || lowerMsg.includes("unauthorized") || lowerMsg.includes("invalid api key") || lowerMsg.includes("unregistered sender")) {
         return {
           success: false,
+          code: "EMAIL_AUTH_ERROR",
           isKeyError: true,
           error: "Brevo API Key / Account Configuration Notice",
           message: `Brevo Notice: ${errMsg}. Please verify BREVO_API_KEY and verified sender email in Brevo dashboard.`,
@@ -1001,6 +1011,7 @@ export async function sendBrevoEmail({
 
       return {
         success: false,
+        code: "EMAIL_PROVIDER_ERROR",
         isEmailError: true,
         error: "Brevo Delivery Warning",
         message: errMsg,
@@ -1009,15 +1020,16 @@ export async function sendBrevoEmail({
     }
 
     const data = await response.json();
-    console.log(`[Brevo Email Sent] Successfully sent email to ${toEmail}. ID:`, data.messageId);
+    console.log(`[Brevo Email Sent] Successfully sent email to ${maskEmail(toEmail)}. ID:`, data.messageId);
     return { success: true, messageId: data.messageId };
   } catch (err: any) {
     console.warn("[Brevo Email Network Exception]:", err?.message || err);
     return {
       success: false,
+      code: "EMAIL_NETWORK_ERROR",
       isNetworkError: true,
       error: "Email Service Network Exception",
-      message: err?.message || "Failed to reach Brevo email service.",
+      message: err?.message || "Failed to reach email delivery service.",
     };
   }
 }

@@ -38,7 +38,7 @@ import {
   TutorPrivacySettings,
 } from '../shared/tutorPrivacy';
 import { clearAuthorizedPhotoCache } from './lib/authorizedMedia';
-import { formatUserFriendlyError } from './lib/errorMonitoring';
+import { AuthApiError, formatUserFriendlyError } from './lib/errorMonitoring';
 import { normalizeAvailabilitySlots } from '../shared/availabilityUtils';
 import {
   AccountType,
@@ -50,6 +50,59 @@ import {
 
 export type { AccountType, StudentProfileRecord };
 export type Role = 'student' | 'tutor' | 'admin';
+
+// Coordinates explicit auth flows (signup, login, Google sign-in) with Firebase's async onAuthStateChanged
+// so onAuthStateChanged never overwrites a Tutor/Guardian profile with a 'student' fallback mid-registration.
+let activeAuthFlowDepth = 0;
+let activeAuthFlowPromise: Promise<void> | null = null;
+let activeAuthFlowWasSignup = false;
+
+async function runWithAuthFlowGuard<T>(options: { isSignup?: boolean }, fn: () => Promise<T>): Promise<T> {
+  activeAuthFlowDepth += 1;
+  if (options.isSignup) {
+    activeAuthFlowWasSignup = true;
+  }
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const prev = activeAuthFlowPromise;
+  activeAuthFlowPromise = prev ? prev.then(() => gate, () => gate) : gate;
+  try {
+    return await fn();
+  } finally {
+    release();
+    activeAuthFlowDepth = Math.max(0, activeAuthFlowDepth - 1);
+    if (activeAuthFlowDepth === 0) {
+      activeAuthFlowPromise = null;
+      activeAuthFlowWasSignup = false;
+    }
+  }
+}
+
+async function retryOnTransientFirestoreError<T>(operation: () => Promise<T>, maxRetries = 1): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (err: any) {
+      lastErr = err;
+      const code = String(err?.code || '').toLowerCase();
+      const msg = String(err?.message || '').toLowerCase();
+      const isTransient =
+        code === 'unavailable' ||
+        code === 'deadline-exceeded' ||
+        code === 'aborted' ||
+        msg.includes('client is offline') ||
+        msg.includes('network');
+      if (!isTransient || attempt >= maxRetries) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
 
 export function consumePostLoginDestination(defaultPath = '/dashboard'): string {
   try {
@@ -727,12 +780,33 @@ export const useAppStore = create<AppState>((set, get) => {
   // Listen for Auth changes
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
+      // Wait for any active explicit auth flow (signup / login / Google popup) to complete
+      // before reading or creating a Firestore profile document.
+      if (activeAuthFlowDepth > 0 && activeAuthFlowPromise) {
+        const flowWasSignup = activeAuthFlowWasSignup;
+        try {
+          await activeAuthFlowPromise;
+        } catch {
+          // Handled by caller
+        }
+        if (!auth.currentUser || auth.currentUser.uid !== firebaseUser.uid) {
+          return;
+        }
+        if (get().currentUser?.id === firebaseUser.uid) {
+          return;
+        }
+        if (flowWasSignup) {
+          // Do not run fallback 'student' profile creation if an explicit signup failed or aborted
+          return;
+        }
+      }
+
       // User is signed in, fetch profile
       set({ isLoading: true });
       try {
         let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         
-        // If doc not found immediately, retry after a short delay (in case signup/redirect is still writing to Firestore)
+        // If doc not found immediately, retry after a short delay (in case redirect is still settling)
         if (!userDoc.exists()) {
           await new Promise((r) => setTimeout(r, 450));
           userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -1148,107 +1222,110 @@ export const useAppStore = create<AppState>((set, get) => {
     setLoading: (loading) => set({ isLoading: loading }),
 
     login: async (email, password) => {
-      set({ isLoading: true });
-      const trimmedEmail = email.trim();
-      try {
-        const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-        const firebaseUser = result.user;
+      return runWithAuthFlowGuard({ isSignup: false }, async () => {
+        set({ isLoading: true });
+        const trimmedEmail = email.trim();
+        try {
+          const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+          const firebaseUser = result.user;
 
-        // Retrieve the user document from Firestore
-        let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (!userDoc.exists()) {
-          // Short retry in case it's in flight
-          await new Promise((r) => setTimeout(r, 400));
-          userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        }
+          // Retrieve the user document from Firestore
+          let userDoc = await retryOnTransientFirestoreError(() => getDoc(doc(db, 'users', firebaseUser.uid)));
+          if (!userDoc.exists()) {
+            // Short retry in case it's in flight
+            await new Promise((r) => setTimeout(r, 400));
+            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          }
 
-        let userData: User;
-        if (userDoc.exists()) {
-          userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
-          const lowerEmail = trimmedEmail.toLowerCase();
-          if (lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') {
-            if (userData.role !== 'admin' || !userData.isVerified) {
-              userData = { ...userData, role: 'admin', isVerified: true };
-              try {
-                await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin', isVerified: true });
-              } catch (e) {
-                console.error("Error upgrading main admin role in login:", e);
+          let userData: User;
+          if (userDoc.exists()) {
+            userData = normalizeUserProfileFields({ id: firebaseUser.uid, ...userDoc.data() } as User);
+            const lowerEmail = trimmedEmail.toLowerCase();
+            if (lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com') {
+              if (userData.role !== 'admin' || !userData.isVerified) {
+                userData = { ...userData, role: 'admin', isVerified: true };
+                try {
+                  await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin', isVerified: true });
+                } catch (e) {
+                  console.error("Error upgrading main admin role in login:", e);
+                }
               }
             }
-          }
-          if (userData.role === 'tutor') {
+            if (userData.role === 'tutor') {
+              try {
+                const privateSnap = await getDoc(doc(db, 'users', firebaseUser.uid, 'private', 'media'));
+                if (privateSnap.exists()) {
+                  userData = normalizeUserProfileFields({ ...userData, ...privateSnap.data() } as User);
+                }
+              } catch {}
+            }
+          } else {
+            // Self-heal user document if user authenticated in Firebase Auth
+            const lowerEmail = trimmedEmail.toLowerCase();
+            const isMainAdmin = lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com';
+            const finalRole: Role = isMainAdmin ? 'admin' : 'student';
+            const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
+            
+            userData = normalizeUserProfileFields({
+              id: firebaseUser.uid,
+              email: lowerEmail,
+              name: (firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : lowerEmail.split('@')[0])).slice(0, 128),
+              phone: firebaseUser.phoneNumber || '',
+              role: finalRole,
+              balance: 0,
+              isVerified: isMainAdmin || finalRole === 'student',
+              isTrackingOn: false,
+              rating: isMainAdmin ? 5 : 0,
+              profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
+              showTour: true,
+              createdAt: new Date().toISOString(),
+              referralCode,
+              referralPoints: 0,
+              serviceDiscounts: 0,
+            });
+
             try {
-              const privateSnap = await getDoc(doc(db, 'users', firebaseUser.uid, 'private', 'media'));
-              if (privateSnap.exists()) {
-                userData = normalizeUserProfileFields({ ...userData, ...privateSnap.data() } as User);
-              }
-            } catch {}
+              await setDoc(doc(db, 'users', firebaseUser.uid), cleanUndefined(userData));
+            } catch (createErr) {
+              console.warn("Could not save initial user doc in login:", createErr);
+            }
           }
-        } else {
-          // Self-heal user document if user authenticated in Firebase Auth
-          const lowerEmail = trimmedEmail.toLowerCase();
-          const isMainAdmin = lowerEmail === 'edutrackbangladesh@gmail.com' || lowerEmail === 'm13hmahadi.personal@gmail.com';
-          const finalRole: Role = isMainAdmin ? 'admin' : 'student';
-          const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
-          
-          userData = normalizeUserProfileFields({
-            id: firebaseUser.uid,
-            email: lowerEmail,
-            name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : lowerEmail.split('@')[0]),
-            phone: firebaseUser.phoneNumber || '',
-            role: finalRole,
-            balance: 0,
-            isVerified: isMainAdmin || finalRole === 'student',
-            isTrackingOn: false,
-            rating: isMainAdmin ? 5 : 0,
-            profileImage: isMainAdmin ? '/admin_profile.png' : (firebaseUser.photoURL || ''),
-            showTour: true,
-            createdAt: new Date().toISOString(),
-            referralCode,
-            referralPoints: 0,
-            serviceDiscounts: 0,
+
+          cleanupListeners();
+          clearAuthorizedPhotoCache();
+          // Reset stale collection slices before binding authenticated user's listeners
+          set({
+            currentUser: userData,
+            users: [],
+            payments: [],
+            sessions: [],
+            withdrawals: [],
+            messages: [],
+            notifications: [],
+            classLogs: [],
+            homeworkAssignments: [],
+            referrals: [],
+            typingStatus: {},
+            isLoading: false,
+            isInitialized: true,
           });
-
           try {
-            await setDoc(doc(db, 'users', firebaseUser.uid), cleanUndefined(userData));
-          } catch (createErr) {
-            console.warn("Could not save initial user doc in login:", createErr);
-          }
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
+            localStorage.removeItem('edutrack_cached_home_tutors');
+          } catch (e) {}
+
+          // Setup real-time listeners for data
+          setupListeners(firebaseUser.uid, userData.role, set, get);
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw error;
         }
-
-        cleanupListeners();
-        clearAuthorizedPhotoCache();
-        // Reset stale collection slices before binding authenticated user's listeners
-        set({
-          currentUser: userData,
-          users: [],
-          payments: [],
-          sessions: [],
-          withdrawals: [],
-          messages: [],
-          notifications: [],
-          classLogs: [],
-          homeworkAssignments: [],
-          referrals: [],
-          typingStatus: {},
-          isLoading: false,
-          isInitialized: true,
-        });
-        try {
-          localStorage.setItem('edutrack_cached_user', JSON.stringify(userData));
-          localStorage.removeItem('edutrack_cached_home_tutors');
-        } catch (e) {}
-
-        // Setup real-time listeners for data
-        setupListeners(firebaseUser.uid, userData.role, set, get);
-      } catch (error: any) {
-        set({ isLoading: false });
-        throw error;
-      }
+      });
     },
 
     loginWithGoogle: async (requestedRole, additionalUserData, destinationPath) => {
-      set({ isLoading: true });
+      return runWithAuthFlowGuard({ isSignup: false }, async () => {
+        set({ isLoading: true });
 
       // Store intended post-login destination in localStorage before initiating Google auth / redirect
       const destinationToStore = destinationPath || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null) || '/dashboard';
@@ -1405,10 +1482,13 @@ export const useAppStore = create<AppState>((set, get) => {
           setupListeners(firebaseUser.uid, userData.role, set, get);
         }
       } catch (error: any) {
-        console.error("Error initiating Google sign-in:", error);
+        if (error?.code && !String(error.message || '').includes('closed')) {
+          console.error("Error initiating Google sign-in:", error);
+        }
         set({ isLoading: false });
         throw error;
       }
+      });
     },
 
     loginAsDemo: async (role: Role) => {
@@ -1501,187 +1581,244 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     signup: async (userData, password, referredByCode) => {
-      set({ isLoading: true });
-      try {
-        let uid = '';
+      return runWithAuthFlowGuard({ isSignup: true }, async () => {
+        set({ isLoading: true });
+        let newlyCreatedAuthUser: FirebaseUser | null = null;
         try {
-          // Create auth user
-          const result = await createUserWithEmailAndPassword(auth, userData.email!, password);
-          uid = result.user.uid;
-        } catch (authErr: any) {
-          const code = authErr?.code || '';
-          const errStr = String(authErr).toLowerCase();
-          if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
-            // Self-heal only if Firestore profile is missing; never overwrite an existing registered account
-            let existingProfileExists = false;
-            try {
-              const signinRes = await signInWithEmailAndPassword(auth, userData.email!, password);
-              uid = signinRes.user.uid;
-              const existingDoc = await getDoc(doc(db, 'users', uid));
-              if (existingDoc.exists() && existingDoc.data()?.role) {
-                existingProfileExists = true;
-                await signOut(auth).catch(() => {});
+          const cleanEmail = String(userData.email || '').trim().toLowerCase().slice(0, 128);
+          let uid = '';
+          try {
+            // Create auth user
+            const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+            uid = result.user.uid;
+            newlyCreatedAuthUser = result.user;
+          } catch (authErr: any) {
+            const code = authErr?.code || '';
+            const errStr = String(authErr).toLowerCase();
+            if (code === 'auth/email-already-in-use' || errStr.includes('email-already-in-use')) {
+              // Self-heal only if Firestore profile is missing; never overwrite an existing registered account
+              let existingProfileExists = false;
+              try {
+                const signinRes = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                uid = signinRes.user.uid;
+                const existingDoc = await getDoc(doc(db, 'users', uid));
+                if (existingDoc.exists() && existingDoc.data()?.role) {
+                  existingProfileExists = true;
+                  await signOut(auth).catch(() => {});
+                }
+              } catch {
+                throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
+                  code: 'auth/email-already-in-use',
+                  isFormattedUserMessage: true,
+                });
               }
-            } catch (signinErr) {
-              throw new Error('এই ইমেইল দিয়ে ইতোমধ্যে একাউন্ট খোলা রয়েছে। আপনার অ্যাকাউন্টে লগইন করতে "সাইন ইন" এ যান অথবা পাসওয়ার্ড রিসেট করুন। (An account with this email already exists. Please sign in or reset password.)');
+              if (existingProfileExists) {
+                throw new AuthApiError('An account with this email already exists. Please sign in instead.', {
+                  code: 'auth/email-already-in-use',
+                  isFormattedUserMessage: true,
+                });
+              }
+            } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
+              throw new AuthApiError('Please choose a stronger password with at least 8 characters.', {
+                code: 'auth/weak-password',
+                isFormattedUserMessage: true,
+              });
+            } else if (code === 'auth/invalid-email' || errStr.includes('invalid-email')) {
+              throw new AuthApiError('Please enter a valid email address.', {
+                code: 'auth/invalid-email',
+                isFormattedUserMessage: true,
+              });
+            } else {
+              throw authErr;
             }
-            if (existingProfileExists) {
-              throw new Error('এই ইমেইল দিয়ে ইতোমধ্যে একাউন্ট খোলা রয়েছে। অনুগ্রহ করে সাইন ইন করুন। (An account with this email already exists. Please sign in instead.)');
-            }
-          } else if (code === 'auth/weak-password' || errStr.includes('weak-password')) {
-            throw new Error('পাসওয়ার্ডটি খুব ছোট। অনুগ্রহ করে অন্তত ৮ টি অক্ষরের পাসওয়ার্ড ব্যবহার করুন। (Password must be at least 8 characters.)');
-          } else if (code === 'auth/invalid-email' || errStr.includes('invalid-email')) {
-            throw new Error('ইমেইল এড্রেসটি সঠিকভাবে প্রদান করুন। (Please enter a valid email address.)');
+          }
+
+          // Determine role - handle the requested admin email
+          let finalRole: Role = userData.role === 'tutor' ? 'tutor' : 'student';
+          if (cleanEmail === 'admin@gmail.com' || cleanEmail === 'edutrackbangladesh@gmail.com' || cleanEmail === 'm13hmahadi.personal@gmail.com') {
+            finalRole = 'admin';
+          }
+
+          // Strip protected server-controlled and role-mismatched fields so Firestore security rules never reject signup
+          const sanitizedInput: Record<string, any> = { ...(userData as Record<string, any>) };
+          delete sanitizedInput.id;
+          delete sanitizedInput.role;
+          delete sanitizedInput.balance;
+          delete sanitizedInput.isVerified;
+          delete sanitizedInput.isBlocked;
+          delete sanitizedInput.nidStatus;
+          delete sanitizedInput.academicStatus;
+          delete sanitizedInput.rating;
+          delete sanitizedInput.totalRatings;
+          delete sanitizedInput.ratingSum;
+          delete (sanitizedInput as any).password;
+
+          if (finalRole === 'tutor') {
+            delete sanitizedInput.accountType;
+            delete sanitizedInput.guardianRelationship;
+            delete sanitizedInput.studentName;
+            delete sanitizedInput.studentClass;
+          }
+
+          const cleanName = (cleanMeaningfulString(sanitizedInput.name) || String(sanitizedInput.name || '').trim() || cleanEmail.split('@')[0]).slice(0, 128);
+          const referralPrefix = cleanName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'USER';
+          const referralCode = `EDU-${referralPrefix.slice(0, 12)}-${uid.substring(0, 4).toUpperCase()}`;
+
+          const rawNewUser: User = {
+            ...sanitizedInput,
+            id: uid,
+            email: cleanEmail,
+            name: cleanName,
+            role: finalRole,
+            balance: 0,
+            isVerified: finalRole === 'admin' || finalRole === 'student',
+            isTrackingOn: false,
+            rating: 0,
+            showTour: true,
+            createdAt: new Date().toISOString(),
+            profileImage: finalRole === 'admin' ? '/admin_profile.png' : (sanitizedInput.profileImage || ''),
+            referralCode,
+            referralPoints: 0,
+            serviceDiscounts: 0,
+          } as User;
+
+          const newUser = normalizeUserProfileFields(rawNewUser);
+          let initialStudentProfiles: StudentProfileRecord[] = [];
+
+          if (
+            finalRole === 'student' &&
+            newUser.accountType === 'guardian' &&
+            (cleanMeaningfulString(newUser.studentName) ||
+              cleanMeaningfulString(newUser.studentClass) ||
+              cleanMeaningfulString(newUser.school))
+          ) {
+            const spId = `sp_${uid}_${Date.now()}`;
+            const nowIso = new Date().toISOString();
+            const initialStudentProfile: StudentProfileRecord = cleanUndefined({
+              id: spId,
+              guardianId: uid,
+              studentName: (cleanMeaningfulString(newUser.studentName) || 'Student').slice(0, 128),
+              studentClass: (cleanMeaningfulString(newUser.studentClass) || '').slice(0, 128),
+              school: (cleanMeaningfulString(newUser.school) || '').slice(0, 200),
+              curriculum: cleanMeaningfulString(newUser.curriculum || newUser.group) || '',
+              subjects: newUser.subjects || [],
+              district: newUser.district || '',
+              thana: newUser.thana || '',
+              area: newUser.area || '',
+              address: newUser.address || '',
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            });
+            initialStudentProfiles = [initialStudentProfile];
+            newUser.activeStudentProfileId = spId;
+          }
+
+          const completion = calculateProfileCompletion(newUser, {
+            studentProfiles: initialStudentProfiles,
+          });
+          newUser.profileCompletionPercentage = completion.percentage;
+
+          const cleanedUser = cleanUndefined(newUser);
+          const publicUserToSave: Record<string, any> = { ...cleanedUser };
+
+          if (cleanedUser.role === 'tutor') {
+            const tutorPrivateMedia = cleanUndefined({
+              profileImage: cleanedUser.profileImage || '',
+              profilePhotoKey: (cleanedUser as any).profilePhotoKey || '',
+              nidFrontImg: cleanedUser.nidFrontImg,
+              nidBackImg: cleanedUser.nidBackImg,
+              documents: cleanedUser.documents,
+              updatedAt: new Date().toISOString(),
+            });
+            publicUserToSave.hasProfilePhoto = Boolean(cleanMeaningfulString(cleanedUser.profileImage));
+            publicUserToSave.photoVersion = Date.now();
+            publicUserToSave.profileImage = '';
+            delete publicUserToSave.profilePhotoKey;
+            delete publicUserToSave.nidFrontImg;
+            delete publicUserToSave.nidBackImg;
+            delete publicUserToSave.documents;
+            delete publicUserToSave.accountType;
+
+            await retryOnTransientFirestoreError(async () => {
+              await setDoc(doc(db, 'users', uid), publicUserToSave, { merge: true });
+              await setDoc(doc(db, 'users', uid, 'private', 'media'), tutorPrivateMedia, { merge: true });
+            });
           } else {
-            throw authErr;
+            await retryOnTransientFirestoreError(() =>
+              setDoc(doc(db, 'users', uid), cleanedUser, { merge: true })
+            );
           }
-        }
 
-        // Determine role - handle the requested admin email
-        let finalRole: Role = userData.role as Role;
-        const lowerSignupEmail = userData.email?.toLowerCase();
-        if (lowerSignupEmail === 'admin@gmail.com' || lowerSignupEmail === 'edutrackbangladesh@gmail.com' || lowerSignupEmail === 'm13hmahadi.personal@gmail.com') {
-          finalRole = 'admin';
-        }
+          if (initialStudentProfiles.length > 0) {
+            await retryOnTransientFirestoreError(() =>
+              setDoc(doc(db, 'student_profiles', initialStudentProfiles[0].id), initialStudentProfiles[0])
+            );
+          }
 
-        const referralCode = `EDU-${userData.name ? userData.name.split(' ')[0].toUpperCase() : 'USER'}-${uid.substring(0, 4).toUpperCase()}`;
+          // Profile persisted successfully; clear rollback handle
+          newlyCreatedAuthUser = null;
 
-        const rawNewUser: User = {
-          ...userData,
-          id: uid,
-          role: finalRole,
-          balance: 0,
-          isVerified: finalRole === 'admin' || finalRole === 'student',
-          isTrackingOn: false,
-          rating: 0,
-          showTour: true,
-          createdAt: new Date().toISOString(),
-          profileImage: finalRole === 'admin' ? '/admin_profile.png' : (userData.profileImage || ''),
-          referralCode,
-          referralPoints: 0,
-          serviceDiscounts: 0,
-        } as User;
-
-        const newUser = normalizeUserProfileFields(rawNewUser);
-        let initialStudentProfiles: StudentProfileRecord[] = [];
-
-        if (
-          finalRole === 'student' &&
-          newUser.accountType === 'guardian' &&
-          (cleanMeaningfulString(newUser.studentName) ||
-            cleanMeaningfulString(newUser.studentClass) ||
-            cleanMeaningfulString(newUser.school))
-        ) {
-          const spId = `sp_${uid}_${Date.now()}`;
-          const nowIso = new Date().toISOString();
-          const initialStudentProfile: StudentProfileRecord = cleanUndefined({
-            id: spId,
-            guardianId: uid,
-            studentName: cleanMeaningfulString(newUser.studentName) || 'Student',
-            studentClass: cleanMeaningfulString(newUser.studentClass) || '',
-            school: cleanMeaningfulString(newUser.school) || '',
-            curriculum: cleanMeaningfulString(newUser.curriculum || newUser.group) || '',
-            subjects: newUser.subjects || [],
-            district: newUser.district || '',
-            thana: newUser.thana || '',
-            area: newUser.area || '',
-            address: newUser.address || '',
-            createdAt: nowIso,
-            updatedAt: nowIso,
+          clearEphemeralAuthStorage();
+          set({
+            currentUser: cleanedUser,
+            studentProfiles: initialStudentProfiles,
+            isLoading: false,
+            isInitialized: true,
           });
-          initialStudentProfiles = [initialStudentProfile];
-          newUser.activeStudentProfileId = spId;
-        }
-
-        const completion = calculateProfileCompletion(newUser, {
-          studentProfiles: initialStudentProfiles,
-        });
-        newUser.profileCompletionPercentage = completion.percentage;
-
-        const cleanedUser = cleanUndefined(newUser);
-        const publicUserToSave: Record<string, any> = { ...cleanedUser };
-
-        if (cleanedUser.role === 'tutor') {
-          const tutorPrivateMedia = cleanUndefined({
-            profileImage: cleanedUser.profileImage || '',
-            profilePhotoKey: (cleanedUser as any).profilePhotoKey || '',
-            nidFrontImg: cleanedUser.nidFrontImg,
-            nidBackImg: cleanedUser.nidBackImg,
-            documents: cleanedUser.documents,
-            updatedAt: new Date().toISOString(),
-          });
-          publicUserToSave.hasProfilePhoto = Boolean(cleanMeaningfulString(cleanedUser.profileImage));
-          publicUserToSave.photoVersion = Date.now();
-          publicUserToSave.profileImage = '';
-          delete publicUserToSave.profilePhotoKey;
-          delete publicUserToSave.nidFrontImg;
-          delete publicUserToSave.nidBackImg;
-          delete publicUserToSave.documents;
-
-          // Save/Merge public profile and isolated private media
-          await setDoc(doc(db, 'users', uid), publicUserToSave, { merge: true });
-          await setDoc(doc(db, 'users', uid, 'private', 'media'), tutorPrivateMedia, { merge: true });
-        } else {
-          // Save/Merge to Firestore
-          await setDoc(doc(db, 'users', uid), cleanedUser, { merge: true });
-        }
-
-        if (initialStudentProfiles.length > 0) {
-          await setDoc(
-            doc(db, 'student_profiles', initialStudentProfiles[0].id),
-            initialStudentProfiles[0]
-          );
-        }
-
-        clearEphemeralAuthStorage();
-        set({
-          currentUser: cleanedUser,
-          studentProfiles: initialStudentProfiles,
-          isLoading: false,
-          isInitialized: true,
-        });
-        try {
-          localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
-        } catch (e) {}
-        setupListeners(uid, cleanedUser.role, set, get);
-
-        // Trigger Brevo Welcome Email once on account activation (Student, Guardian, or Tutor)
-        if (cleanedUser.email) {
-          sendWelcomeMail({
-            userId: cleanedUser.id,
-            profileUrl: cleanedUser.role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}` : undefined,
-            email: cleanedUser.email,
-            name: cleanedUser.name,
-            role: cleanedUser.role,
-            accountType: cleanedUser.accountType,
-            studentClass: cleanedUser.studentClass,
-            school: cleanedUser.school,
-            university: cleanedUser.university,
-            course: cleanedUser.course,
-            district: cleanedUser.district,
-          }).catch((mailErr) => console.error("Welcome mail error on signup:", mailErr));
-        }
-
-        if (referredByCode) {
           try {
-            await get().processReferralSignUp(uid, newUser.name, newUser.email, newUser.role as 'student' | 'tutor', referredByCode);
-          } catch (refErr) {
-            console.error("Non-blocking referral signup processing failed:", refErr);
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(cleanedUser));
+          } catch (e) {}
+          setupListeners(uid, cleanedUser.role, set, get);
+
+          // Trigger Brevo Welcome Email once on account activation (Student, Guardian, or Tutor)
+          if (cleanedUser.email) {
+            sendWelcomeMail({
+              userId: cleanedUser.id,
+              profileUrl: cleanedUser.role === 'tutor' ? `https://edutrackbd.vercel.app/teachers/${cleanedUser.id}` : undefined,
+              email: cleanedUser.email,
+              name: cleanedUser.name,
+              role: cleanedUser.role,
+              accountType: cleanedUser.accountType,
+              studentClass: cleanedUser.studentClass,
+              school: cleanedUser.school,
+              university: cleanedUser.university,
+              course: cleanedUser.course,
+              district: cleanedUser.district,
+            }).catch((mailErr) => console.error("Welcome mail error on signup:", mailErr));
           }
-        }
-      } catch (error: any) {
-        set({ isLoading: false });
-        const errMsg = error?.message || String(error);
-        if (errMsg.startsWith('{') && errMsg.includes('"error"')) {
-          try {
-            const parsed = JSON.parse(errMsg);
-            throw new Error(parsed.error || 'অ্যাকাউন্ট তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
-          } catch (pErr) {
-            throw new Error(errMsg);
+
+          if (referredByCode) {
+            try {
+              await get().processReferralSignUp(uid, newUser.name, newUser.email, newUser.role as 'student' | 'tutor', referredByCode);
+            } catch (refErr) {
+              console.error("Non-blocking referral signup processing failed:", refErr);
+            }
           }
+        } catch (error: any) {
+          // If Firestore persistence failed immediately after creating a brand-new auth account,
+          // roll back the orphan auth user so the user can retry registration cleanly without false "email-already-in-use".
+          if (newlyCreatedAuthUser) {
+            try {
+              await newlyCreatedAuthUser.delete();
+            } catch {
+              await signOut(auth).catch(() => {});
+            }
+          }
+          set({ isLoading: false });
+          const errMsg = error?.message || String(error);
+          if (errMsg.startsWith('{') && errMsg.includes('"error"')) {
+            try {
+              const parsed = JSON.parse(errMsg);
+              throw new AuthApiError(parsed.error || 'Account registration failed.', {
+                code: error?.code || parsed?.code,
+              });
+            } catch {
+              throw error;
+            }
+          }
+          throw error;
         }
-        throw error;
-      }
+      });
     },
 
     updateUser: async (id, data) => {

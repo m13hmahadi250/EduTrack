@@ -18,9 +18,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import SEOHead from '../components/SEOHead';
 import {
+  createApiError,
   formatUserFriendlyError,
   isNetworkConnectivityError,
   isInvalidCredentialError,
+  parseApiResponse,
 } from '../lib/errorMonitoring';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 
@@ -38,6 +40,7 @@ export default function Login() {
   const [loginSuccess, setLoginSuccess] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showInvalidCredPopup, setShowInvalidCredPopup] = useState(false);
+  const loginInFlightRef = React.useRef(false);
 
   // Forgot Password modal states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -115,6 +118,8 @@ export default function Login() {
         return;
       }
 
+      if (loginInFlightRef.current || loading) return;
+      loginInFlightRef.current = true;
       setLoading(true);
       setError('');
       try {
@@ -170,6 +175,7 @@ export default function Login() {
         setPageSuccessMessage('');
         setLoginSuccess(false);
       } finally {
+        loginInFlightRef.current = false;
         setLoading(false);
       }
     } else {
@@ -201,7 +207,7 @@ export default function Login() {
         body: JSON.stringify({ email: trimmedEmail }),
       });
 
-      const data = await response.json();
+      const { data, status } = await parseApiResponse(response);
 
       if (response.ok && data.success) {
         setResetSuccess(
@@ -212,7 +218,11 @@ export default function Login() {
       } else {
         setResetError(
           formatUserFriendlyError(
-            data.error || 'Unable to send password reset email right now. Please try again later.',
+            createApiError(
+              data,
+              status,
+              'Unable to send password reset email right now. Please try again later.'
+            ),
             'reset'
           )
         );

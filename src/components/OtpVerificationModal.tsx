@@ -195,7 +195,7 @@ export default function OtpVerificationModal({
       setIsVerified(true);
     } catch (err: any) {
       const errorMessage = formatUserFriendlyError(
-        err?.message || 'The verification code you entered is incorrect. Please check and try again.',
+        err || 'The verification code you entered is incorrect. Please check and try again.',
         'otp'
       );
       setLocalError(errorMessage);

@@ -3342,6 +3342,183 @@ async function runTests() {
           assert.equal(layoutSrc.includes('<AmbientBackground variant="dashboard" />'), true);
           assert.equal(profileSrc.includes("<AmbientBackground />"), true);
         });
+
+        // =========================================================================
+        // 26. Production Auth, Vercel Config, Error Classification & Race Guards
+        // =========================================================================
+        console.log("\n--- SECTION 26: Production Auth, Vercel Config, Error Classification & Race Guards ---");
+
+        await test("api/config resolves exact Firebase project & named database ID (never '(default)') and vercel.json bundles config", async () => {
+          const {
+            getFirebasePublicConfig,
+            inspectServiceAccountEnv,
+            getSafeHealthStatus,
+          } = await import("../api/config.ts");
+
+          const pubCfg = getFirebasePublicConfig();
+          assert.equal(pubCfg.projectId, "edutrackbd-233");
+          assert.equal(pubCfg.firestoreDatabaseId, "ai-studio-e4374c71-7f99-4902-8bb2-6b72aca112de");
+          assert.notEqual(pubCfg.firestoreDatabaseId, "(default)");
+
+          const vercelCfg = JSON.parse(fs.readFileSync(path.resolve("vercel.json"), "utf-8"));
+          assert.equal(vercelCfg?.functions?.["api/**/*.ts"]?.includeFiles, "firebase-applet-config.json");
+
+          // Service account parser supports raw JSON, quoted JSON, double-escaped JSON, and base64
+          const sampleSa = {
+            project_id: "edutrackbd-233",
+            client_email: "test-sa@edutrackbd-233.iam.gserviceaccount.com",
+            private_key: "-----BEGIN PRIVATE KEY-----\\nFAKE_KEY_FOR_UNIT_TEST\\n-----END PRIVATE KEY-----\\n",
+            token_uri: "https://oauth2.googleapis.com/token",
+          };
+          const prevSa = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+          try {
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY = JSON.stringify(sampleSa);
+            assert.equal(inspectServiceAccountEnv().configured, true);
+
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY = `"${JSON.stringify(sampleSa)}"`;
+            assert.equal(inspectServiceAccountEnv().configured, true);
+
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY = JSON.stringify(JSON.stringify(sampleSa));
+            assert.equal(inspectServiceAccountEnv().configured, true);
+
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY = Buffer.from(JSON.stringify(sampleSa), "utf-8").toString("base64");
+            const b64Res = inspectServiceAccountEnv();
+            assert.equal(b64Res.configured, true);
+            assert.equal(b64Res.account?.client_email, sampleSa.client_email);
+            assert.equal(b64Res.account?.private_key.includes("\n"), true);
+
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY = "not-valid-json";
+            const badRes = inspectServiceAccountEnv();
+            assert.equal(badRes.configured, false);
+            assert.equal(badRes.reason, "invalid_format");
+          } finally {
+            if (prevSa === undefined) {
+              delete process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+            } else {
+              process.env.FIREBASE_SERVICE_ACCOUNT_KEY = prevSa;
+            }
+          }
+
+          // Safe health summary exposes readiness booleans + requestId without leaking secrets
+          const healthObj = getSafeHealthStatus("req_test_health_1");
+          assert.equal(healthObj.requestId, "req_test_health_1");
+          assert.equal(typeof healthObj.readiness.firebaseAdminConfigured, "boolean");
+          assert.equal(typeof healthObj.readiness.firestoreDatabaseConfigured, "boolean");
+          assert.equal(typeof healthObj.readiness.brevoConfigured, "boolean");
+          assert.equal(typeof healthObj.readiness.r2Configured, "boolean");
+          assert.equal(typeof healthObj.readiness.aiConfigured, "boolean");
+          assert.equal(typeof healthObj.readiness.otpHmacConfigured, "boolean");
+          const serialized = JSON.stringify(healthObj);
+          assert.equal(/private_key|client_email|BREVO_API_KEY|R2_SECRET_ACCESS_KEY/i.test(serialized), false);
+        });
+
+        await test("Auth failure spike telemetry tracks sliding window & masks emails in logs", async () => {
+          const {
+            recordAuthFailureEvent,
+            getAuthFailureTelemetry,
+            resetAuthFailureTelemetryForTests,
+            maskEmailForLog,
+          } = await import("../api/config.ts");
+
+          assert.equal(maskEmailForLog("mahadi@example.com"), "ma***@example.com");
+          assert.equal(maskEmailForLog("a@b.com"), "a***@b.com");
+
+          resetAuthFailureTelemetryForTests();
+          try {
+            const t0 = 1_000_000;
+            for (let i = 0; i < 4; i++) {
+              recordAuthFailureEvent({
+                route: "/api/auth/send-otp",
+                code: "OTP_SEND_ERROR",
+                status: 503,
+                requestId: `req_spike_${i}`,
+                nowMs: t0 + i * 1000,
+              });
+            }
+            assert.equal(getAuthFailureTelemetry(t0 + 5000).spikeDetected, false);
+            recordAuthFailureEvent({
+              route: "/api/auth/send-otp",
+              code: "OTP_SEND_ERROR",
+              status: 503,
+              requestId: "req_spike_4",
+              nowMs: t0 + 6000,
+            });
+            assert.equal(getAuthFailureTelemetry(t0 + 6000).failuresLast5m, 5);
+            assert.equal(getAuthFailureTelemetry(t0 + 6000).spikeDetected, true);
+            // Sliding window expires after 5 minutes
+            assert.equal(getAuthFailureTelemetry(t0 + 6 * 60 * 1000).failuresLast5m, 0);
+          } finally {
+            resetAuthFailureTelemetryForTests();
+          }
+        });
+
+        await test("parseApiResponse, createApiError, and formatUserFriendlyError classify server/gateway/OTP/signup errors accurately without blaming user input", async () => {
+          const {
+            parseApiResponse,
+            createApiError,
+            formatUserFriendlyError,
+          } = await import("../src/lib/errorMonitoring.ts");
+
+          // Non-JSON HTML 502/503 gateway responses parse safely instead of SyntaxError
+          const htmlRes = new Response("<html><body>502 Bad Gateway</body></html>", {
+            status: 502,
+            headers: { "content-type": "text/html", "x-request-id": "req_gw_502" },
+          });
+          const parsedHtml = await parseApiResponse(htmlRes);
+          assert.equal(parsedHtml.ok, false);
+          assert.equal(parsedHtml.status, 502);
+          assert.equal(parsedHtml.requestId, "req_gw_502");
+          assert.equal(parsedHtml.data.code, "SERVER_UNAVAILABLE");
+
+          const apiCases: Array<{ err: any; ctx: "signup" | "otp" | "reset" | "login"; mustContain: string }> = [
+            { err: createApiError({ code: "STORAGE_UNAVAILABLE", error: "Vercel Admin missing" }, 503), ctx: "otp", mustContain: "temporarily unavailable" },
+            { err: createApiError({ code: "EMAIL_DELIVERY_FAILED", error: "Brevo rejected IP" }, 502), ctx: "otp", mustContain: "could not send the verification email" },
+            { err: createApiError({ code: "OTP_REPLACED", error: "Newer verification code sent" }, 400), ctx: "otp", mustContain: "latest 6-digit code" },
+            { err: createApiError({ code: "OTP_MAX_ATTEMPTS", error: "Maximum verification attempts reached" }, 429), ctx: "otp", mustContain: "Resend code" },
+            { err: createApiError({ code: "FIREBASE_PASSWORD_UPDATE_FAILED", error: "Internal Firebase failure" }, 502), ctx: "reset", mustContain: "temporarily unavailable" },
+            { err: { code: "permission-denied", message: "Missing or insufficient permissions." }, ctx: "signup", mustContain: "temporary account permission issue" },
+            { err: { code: "auth/weak-password", message: "Firebase: Password should be at least 6 characters" }, ctx: "signup", mustContain: "at least 8 characters" },
+            { err: new Error("TypeError: Cannot read properties of undefined (reading 'role')"), ctx: "signup", mustContain: "temporary service issue" },
+          ];
+
+          for (const tc of apiCases) {
+            const msg = formatUserFriendlyError(tc.err, tc.ctx);
+            assert.equal(msg.toLowerCase().includes(tc.mustContain.toLowerCase()), true, `Expected "${tc.mustContain}" in "${msg}"`);
+            assert.equal(msg.toLowerCase().includes("please check your information"), false, `Wrongly blamed form input: ${msg}`);
+            assert.equal(/firebase|firestore|cloudflare|\br2\b|brevo|gemini|groq|auth\/|permission-denied|\{/i.test(msg), false, `Vendor leak in "${msg}"`);
+          }
+        });
+
+        await test("Signup, Login, OtpVerificationModal & Store enforce race guards, protected-field stripping & auth rollback", () => {
+          const signupSrc = fs.readFileSync(path.resolve("src/pages/Signup.tsx"), "utf-8");
+          const loginSrc = fs.readFileSync(path.resolve("src/pages/Login.tsx"), "utf-8");
+          const otpSrc = fs.readFileSync(path.resolve("src/components/OtpVerificationModal.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const adminSrc = fs.readFileSync(path.resolve("api/firebaseAdmin.ts"), "utf-8");
+
+          // Protected & role-mismatched fields stripped before Firestore write (matches firestore.rules)
+          assert.equal(signupSrc.includes("delete payload.nidStatus"), true);
+          assert.equal(signupSrc.includes("delete payload.academicStatus"), true);
+          assert.equal(signupSrc.includes("delete payload.accountType"), true);
+          assert.equal(signupSrc.includes("signupSubmitInFlightRef"), true);
+          assert.equal(signupSrc.includes("verifySubmitInFlightRef"), true);
+          assert.equal(signupSrc.includes("parseApiResponse"), true);
+
+          // Store awaits active signup/login flow before onAuthStateChanged reads role + rolls back orphan Auth user
+          assert.equal(storeSrc.includes("runWithAuthFlowGuard"), true);
+          assert.equal(storeSrc.includes("activeAuthFlowDepth"), true);
+          assert.equal(storeSrc.includes("newlyCreatedAuthUser.delete()"), true);
+          assert.equal(storeSrc.includes("retryOnTransientFirestoreError"), true);
+
+          // Login & OTP modal single-flight guards + full error object classification
+          assert.equal(loginSrc.includes("loginInFlightRef"), true);
+          assert.equal(otpSrc.includes("inFlightRef"), true);
+          assert.equal(otpSrc.includes("formatUserFriendlyError(err"), true);
+
+          // Backend timeouts & never using '(default)' Firestore DB ID
+          assert.equal(adminSrc.includes("AbortSignal.timeout("), true);
+          assert.equal(adminSrc.includes('"(default)"'), false);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));
