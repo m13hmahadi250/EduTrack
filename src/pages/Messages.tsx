@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePersistentInput } from '../hooks/usePersistentInput';
 import { useBackHandler, scrollFieldIntoView } from '../utils/mobileWebView';
 import UserAvatar from '../components/UserAvatar';
+import SEOHead from '../components/SEOHead';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
 
 export default function Messages() {
@@ -156,6 +157,11 @@ export default function Messages() {
 
   return (
     <div className="h-[calc(100dvh-9.5rem)] lg:h-[calc(100dvh-6rem)] min-h-[420px]">
+      <SEOHead
+        title="Messages | EduTrack Bangladesh"
+        description="Private communication hub for EduTrack Bangladesh guardians, students, and tutors."
+        noindex
+      />
       <div className="bg-white dark:bg-[#111A2E] rounded-[1.75rem] sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-slate-200/80 dark:border-slate-800 shadow-sm h-full flex overflow-hidden">
         
         {/* Sidebar / List */}

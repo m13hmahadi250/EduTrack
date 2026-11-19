@@ -41,6 +41,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showInvalidCredPopup, setShowInvalidCredPopup] = useState(false);
   const loginInFlightRef = React.useRef(false);
+  const forgotResetInFlightRef = React.useRef(false);
+  const googleLoginInFlightRef = React.useRef(false);
 
   // Forgot Password modal states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -196,6 +198,8 @@ export default function Login() {
       return;
     }
 
+    if (forgotResetInFlightRef.current || resetLoading) return;
+    forgotResetInFlightRef.current = true;
     setResetLoading(true);
     setResetError('');
     setResetSuccess('');
@@ -230,6 +234,7 @@ export default function Login() {
     } catch (err: any) {
       setResetError(formatUserFriendlyError(err, 'reset'));
     } finally {
+      forgotResetInFlightRef.current = false;
       setResetLoading(false);
     }
   };
@@ -504,6 +509,9 @@ export default function Login() {
               <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1">
                 Sign in to access your Student, Tutor, or Admin dashboard.
               </p>
+              <p lang="bn" className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1 leading-[1.65]">
+                আপনার নিবন্ধিত ইমেইল ও পাসওয়ার্ড দিয়ে ড্যাশবোর্ডে প্রবেশ করুন।
+              </p>
             </div>
 
             {/* Toggle / Tabs */}
@@ -656,6 +664,8 @@ export default function Login() {
               <button
                 type="button"
                 onClick={async () => {
+                  if (googleLoginInFlightRef.current || loginInFlightRef.current || loading) return;
+                  googleLoginInFlightRef.current = true;
                   setPageSuccessMessage('');
                   setLoading(true);
                   setError('');
@@ -711,6 +721,7 @@ export default function Login() {
                     setPageSuccessMessage('');
                     setLoginSuccess(false);
                   } finally {
+                    googleLoginInFlightRef.current = false;
                     setLoading(false);
                   }
                 }}

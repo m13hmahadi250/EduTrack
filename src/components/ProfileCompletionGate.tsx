@@ -3,19 +3,25 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  Clock,
   Lock,
+  ShieldAlert,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import {
   AccountType,
   PROFILE_COMPLETED_CONFIRMATION,
   ProfileCompletionResult,
+  RoleMarketplaceAccessResult,
+  TUTOR_VERIFICATION_PENDING_MESSAGE,
 } from '../../shared/profileCompletion';
 
 export interface ProfileCompletionGateProps {
   role: 'student' | 'tutor';
   accountType?: AccountType | null;
   completion: ProfileCompletionResult;
+  accessEvaluation?: RoleMarketplaceAccessResult;
   onNavigateToField: (fieldId: string) => void;
   variant?: 'gate' | 'banner' | 'completed';
   contextTitle?: string;
@@ -27,6 +33,7 @@ export default function ProfileCompletionGate({
   role,
   accountType,
   completion,
+  accessEvaluation,
   onNavigateToField,
   variant = 'gate',
   contextTitle,
@@ -35,6 +42,196 @@ export default function ProfileCompletionGate({
 }: ProfileCompletionGateProps) {
   const isTutor = role === 'tutor';
   const isGuardian = !isTutor && accountType === 'guardian';
+
+  // Admin Verification Pending / Rejected / Unsubmitted Gates for Tutors with 100% profile
+  if (
+    isTutor &&
+    variant === 'gate' &&
+    accessEvaluation &&
+    !accessEvaluation.allowed &&
+    (accessEvaluation.status === 'restricted_verification_pending' ||
+      accessEvaluation.status === 'restricted_verification_rejected' ||
+      accessEvaluation.status === 'restricted_verification_unsubmitted')
+  ) {
+    const isPending = accessEvaluation.status === 'restricted_verification_pending';
+    const isRejected = accessEvaluation.status === 'restricted_verification_rejected';
+
+    const headerAccent = isRejected
+      ? 'from-[#2A0E18] via-[#1C1226] to-[#111A2E]'
+      : isPending
+      ? 'from-[#0B132B] via-[#122040] to-[#1D355E]'
+      : 'from-[#0B132B] via-[#111A2E] to-[#142B60]';
+
+    const iconBg = isRejected
+      ? 'bg-rose-500/20 border-rose-400/40 text-rose-300'
+      : isPending
+      ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
+      : 'bg-[#0D5BFF]/20 border-[#0D5BFF]/40 text-sky-300';
+
+    const statusBadgeStyle = isRejected
+      ? 'bg-rose-500/20 border-rose-400/30 text-rose-200'
+      : isPending
+      ? 'bg-amber-500/20 border-amber-400/30 text-amber-200'
+      : 'bg-sky-500/20 border-sky-400/30 text-sky-200';
+
+    const noticeCardStyle = isRejected
+      ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50'
+      : isPending
+      ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50'
+      : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200/70 dark:border-blue-900/50';
+
+    const targetField = accessEvaluation.primaryMissingFieldId || 'tutor-identity-verification-section';
+
+    return (
+      <div
+        data-testid="profile-completion-gate"
+        data-gate-status={accessEvaluation.status}
+        className="w-full max-w-3xl mx-auto my-4 sm:my-8 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111A2E] shadow-sm overflow-hidden text-left"
+      >
+        <div className={`bg-gradient-to-r ${headerAccent} p-6 sm:p-8 text-white`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border flex items-center justify-center shrink-0 ${iconBg}`}>
+                {isRejected ? (
+                  <ShieldAlert className="w-6 h-6" />
+                ) : isPending ? (
+                  <Clock className="w-6 h-6" />
+                ) : (
+                  <Upload className="w-6 h-6" />
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-widest text-sky-200">
+                    {contextTitle || 'Admin Verification Gate'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-[11px] font-bold text-emerald-200 tabular-nums">
+                    Profile: 100% Complete
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-md border text-[11px] font-bold ${statusBadgeStyle}`}>
+                    {isRejected ? 'Rejected' : isPending ? 'Pending Admin Approval' : 'ID Required'}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  {accessEvaluation.title}
+                </h2>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onNavigateToField(targetField)}
+              className={`min-h-[46px] px-6 py-3 rounded-xl text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer shrink-0 ${
+                isRejected
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : 'bg-[#0D5BFF] hover:bg-blue-600'
+              }`}
+            >
+              <span>{accessEvaluation.ctaLabel}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 space-y-6">
+          <div className={`p-4 sm:p-5 rounded-2xl border space-y-2 ${noticeCardStyle}`}>
+            <p
+              lang="bn"
+              data-testid={isPending ? 'tutor-verification-pending-message' : undefined}
+              className="font-bn text-sm sm:text-base font-bold text-[#0B132B] dark:text-white leading-[1.75]"
+            >
+              {isPending ? TUTOR_VERIFICATION_PENDING_MESSAGE : accessEvaluation.messageBn}
+            </p>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {accessEvaluation.messageEn}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/25 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-[#0B132B] dark:text-white">Step 1: Profile Info</p>
+                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  100% Completed ({completion.completedCount}/{completion.totalCount})
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
+                isPending
+                  ? 'border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/25'
+                  : isRejected
+                  ? 'border-rose-200/80 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/25'
+                  : 'border-amber-200/80 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/25'
+              }`}
+            >
+              {isPending ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle
+                  className={`w-5 h-5 shrink-0 ${
+                    isRejected ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                />
+              )}
+              <div>
+                <p className="text-xs font-bold text-[#0B132B] dark:text-white">Step 2: NID / Univ. ID</p>
+                <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  {isPending
+                    ? 'Document Submitted'
+                    : isRejected
+                    ? 'Needs Clear Re-upload'
+                    : 'Not Yet Uploaded'}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
+                isRejected
+                  ? 'border-rose-200/80 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/25'
+                  : 'border-amber-200/80 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/25'
+              }`}
+            >
+              {isRejected ? (
+                <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              ) : (
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              )}
+              <div>
+                <p className="text-xs font-bold text-[#0B132B] dark:text-white">Step 3: Admin Approval</p>
+                <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  {isRejected ? 'Rejected — Re-upload ID' : 'Awaiting Admin Review'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800/80">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {isPending
+                ? 'Your tuition marketplace and public tutor visibility will unlock automatically once an admin approves your verification — no logout or refresh needed.'
+                : isRejected
+                ? 'Upload a legible photo of your NID or University/College ID Card and save your profile to re-enter the Admin Verification Queue.'
+                : 'Submit either your National ID (NID) or University/College ID Card in your profile verification section.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigateToField(targetField)}
+              className={`min-h-[46px] px-6 py-3 rounded-xl text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer shrink-0 ${
+                isRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0D5BFF] hover:bg-blue-700'
+              }`}
+            >
+              <span>{accessEvaluation.ctaLabel}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 100% Completed State
   if (variant === 'completed' || completion.isComplete) {

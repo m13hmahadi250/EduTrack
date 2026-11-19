@@ -82,6 +82,7 @@ import {
   cleanMeaningfulString,
   evaluateRoleMarketplaceAccess,
   getTutorVerificationStatus,
+  TUTOR_VERIFICATION_PENDING_MESSAGE,
 } from "../../../shared/profileCompletion";
 import ProfileCompletionGate from "../../components/ProfileCompletionGate";
 import { motion, AnimatePresence } from "motion/react";
@@ -862,6 +863,14 @@ export default function TutorDashboard() {
       const syncedWhatsapp = sameWhatsappAsPhone
         ? cleanPhone
         : cleanMeaningfulString(profileForm.whatsappNumber) || cleanPhone;
+      const existingNidChanged =
+        Boolean(cleanMeaningfulString(profileForm.nidFrontImg)) &&
+        profileForm.nidFrontImg !== currentUser.nidFrontImg;
+      const existingDocsChanged =
+        Array.isArray(profileForm.documents) &&
+        profileForm.documents.length > 0 &&
+        JSON.stringify(profileForm.documents) !== JSON.stringify(currentUser.documents || []);
+
       await updateUser(currentUser.id, {
         ...profileForm,
         name: cleanName,
@@ -886,6 +895,12 @@ export default function TutorDashboard() {
           hideExpectedSalaryPublic: Boolean(profileForm.privacySettings?.hideExpectedSalaryPublic),
           hideFromSearch: Boolean(profileForm.privacySettings?.hideFromSearch),
         },
+        ...(!currentUser.isVerified && currentUser.nidStatus === "rejected" && existingNidChanged
+          ? { nidStatus: "pending" }
+          : {}),
+        ...(!currentUser.isVerified && currentUser.academicStatus === "rejected" && existingDocsChanged
+          ? { academicStatus: "pending" }
+          : {}),
         ...(existingLocation ? { location: existingLocation } : {})
       });
       setUpdateSuccess(true);
@@ -893,7 +908,8 @@ export default function TutorDashboard() {
       setIsEditingProfile(false);
       const latestUser = useAppStore.getState().currentUser;
       const updatedCompletion = calculateProfileCompletion(latestUser);
-      if (returnToFindStudentsAfterComplete && updatedCompletion.isComplete) {
+      const updatedAccess = evaluateRoleMarketplaceAccess(latestUser);
+      if (returnToFindStudentsAfterComplete && (updatedAccess.allowed || updatedCompletion.isComplete)) {
         setReturnToFindStudentsAfterComplete(false);
         handleTabChange("find_students");
       }
@@ -954,13 +970,35 @@ export default function TutorDashboard() {
                   VERIFIED
                 </span>
               </div>
-            ) : (
-              <div className="px-5 py-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/40 rounded-2xl flex items-center space-x-3">
-                <Zap className="w-4 h-4 text-rose-500" />
+            ) : tutorVerification.overall === "rejected" || tutorVerification.overall === "changes_required" ? (
+              <button
+                type="button"
+                onClick={() => navigateToMissingField("tutor-identity-verification-section")}
+                className="px-5 py-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 rounded-2xl flex items-center space-x-2.5 cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors"
+              >
+                <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">
-                  Verification Pending
+                  Verification Rejected — Re-upload ID
+                </span>
+              </button>
+            ) : tutorVerification.overall === "pending_review" ? (
+              <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40 rounded-2xl flex items-center gap-2.5">
+                <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                <span lang="bn" className="font-bn text-xs font-bold text-amber-800 dark:text-amber-200">
+                  {TUTOR_VERIFICATION_PENDING_MESSAGE}
                 </span>
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigateToMissingField("tutor-identity-verification-section")}
+                className="px-5 py-2.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/40 rounded-2xl flex items-center space-x-2.5 cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors"
+              >
+                <Zap className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">
+                  ID Verification Required
+                </span>
+              </button>
             )}
 
             <button
@@ -2312,17 +2350,32 @@ export default function TutorDashboard() {
                     <ProfileCompletionGate
                       role="tutor"
                       completion={tutorCompletion}
+                      accessEvaluation={tutorMarketplaceAccess}
                       onNavigateToField={navigateToMissingField}
                       variant={tutorCompletion.isComplete ? "completed" : "banner"}
-                      onExploreUnlocked={() => handleTabChange("find_students")}
+                      onExploreUnlocked={
+                        tutorMarketplaceAccess.allowed
+                          ? () => handleTabChange("find_students")
+                          : undefined
+                      }
                       exploreUnlockedLabel="Browse Tuition Opportunities"
                     />
                   </div>
 
                   {/* Independent Verification Status Summary */}
                   <div data-tour-id="tutor-verification-card" className="w-full space-y-3 mb-8">
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
-                      <div className="flex items-center justify-between">
+                    <div
+                      className={`p-4 rounded-2xl border space-y-2 ${
+                        tutorVerification.overall === "approved"
+                          ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/60"
+                          : tutorVerification.overall === "rejected" || tutorVerification.overall === "changes_required"
+                          ? "bg-rose-50/70 dark:bg-rose-950/25 border-rose-200/80 dark:border-rose-800/60"
+                          : tutorVerification.overall === "pending_review"
+                          ? "bg-amber-50/70 dark:bg-amber-950/25 border-amber-200/80 dark:border-amber-800/60"
+                          : "bg-slate-50 dark:bg-slate-950/50 border-slate-200/80 dark:border-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                           Verification Status
                         </span>
@@ -2333,16 +2386,41 @@ export default function TutorDashboard() {
                               : tutorVerification.overall === "rejected" || tutorVerification.overall === "changes_required"
                               ? "bg-rose-50 text-rose-700"
                               : tutorVerification.overall === "pending_review"
-                              ? "bg-amber-50 text-amber-700"
+                              ? "bg-amber-100 text-amber-800"
                               : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
                           {tutorVerification.label}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                      {tutorVerification.overall === "pending_review" ? (
+                        <p
+                          lang="bn"
+                          className="font-bn text-xs font-bold text-amber-900 dark:text-amber-200 leading-relaxed"
+                        >
+                          {TUTOR_VERIFICATION_PENDING_MESSAGE}
+                        </p>
+                      ) : null}
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
                         {tutorVerification.description}
                       </p>
+                      {(tutorVerification.overall === "not_submitted" ||
+                        tutorVerification.overall === "rejected" ||
+                        tutorVerification.overall === "changes_required") && (
+                        <button
+                          type="button"
+                          onClick={() => navigateToMissingField("tutor-identity-verification-section")}
+                          className={`mt-1 w-full py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white transition-colors cursor-pointer ${
+                            tutorVerification.overall === "rejected" || tutorVerification.overall === "changes_required"
+                              ? "bg-rose-600 hover:bg-rose-700"
+                              : "bg-[#0D5BFF] hover:bg-blue-700"
+                          }`}
+                        >
+                          {tutorVerification.overall === "not_submitted"
+                            ? "Upload NID or University/College ID"
+                            : "Re-upload Identity Document"}
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                       <div className="flex items-center gap-3">
@@ -3770,6 +3848,7 @@ export default function TutorDashboard() {
                 <ProfileCompletionGate
                   role="tutor"
                   completion={tutorCompletion}
+                  accessEvaluation={tutorMarketplaceAccess}
                   onNavigateToField={navigateToMissingField}
                   variant="gate"
                 />
@@ -3788,65 +3867,6 @@ export default function TutorDashboard() {
                     </Suspense>
                   </AppErrorBoundary>
 
-                  {!currentUser.isVerified ? (
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-14 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto my-8">
-                  <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-3xl flex items-center justify-center border border-rose-100 dark:border-rose-900/30 text-rose-500">
-                    <ShieldAlert className="w-10 h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-rose-500 bg-rose-50 dark:bg-rose-950/40 px-3 py-1 rounded-full border border-rose-200/50 dark:border-rose-900/30">
-                      Teacher Verification Required
-                    </span>
-                    <h3 className="text-2xl sm:text-3xl font-black text-[#0B132B] dark:text-white uppercase italic">
-                      Verification Pending
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto leading-relaxed">
-                      To safeguard our student community and ensure quality education standards, only verified teachers can discover student profiles, send tuition offers, or access student contact channels.
-                    </p>
-                  </div>
-
-                  <div className="w-full bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 text-left space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[#0B132B] dark:text-white flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                      What happens after verification?
-                    </h4>
-                    <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1.5 list-disc pl-5">
-                      <li>Your teacher profile becomes publicly visible to all students across Bangladesh.</li>
-                      <li>Unlock access to student search, filter by proximity/class, and dispatch tuition offers.</li>
-                      <li>Receive the verified badge on your profile and direct guardian booking inquiries.</li>
-                    </ul>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 justify-center pt-2">
-                    <button
-                      onClick={() => handleTabChange("pro_profile")}
-                      className="px-6 py-3.5 bg-[#0D5BFF] hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer flex items-center gap-2"
-                    >
-                      <Award className="w-4 h-4" />
-                      Complete Pro Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        const adminUser = users.find(
-                          (u) =>
-                            u.role === "admin" ||
-                            u.email === "edutrackbangladesh@gmail.com" ||
-                            u.email === "m13hmahadi.personal@gmail.com"
-                        );
-                        if (adminUser) {
-                          setSelectedRecipientId(adminUser.id);
-                        }
-                        handleTabChange("messages");
-                      }}
-                      className="px-6 py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#0B132B] dark:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      Contact Admin Support
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
                   <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                       <h3 className="text-2xl font-black text-[#0B132B] dark:text-white uppercase italic">
@@ -4351,8 +4371,6 @@ export default function TutorDashboard() {
                       </motion.div>
                     </div>
                   )}
-                </>
-              )}
                 </>
               )}
             </motion.div>

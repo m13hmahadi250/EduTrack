@@ -12,11 +12,12 @@ export interface SEOHeadProps {
   author?: string;
   publishedTime?: string;
   modifiedTime?: string;
+  noindex?: boolean;
 }
 
-const DEFAULT_TITLE = "EduTrack Bangladesh - #1 Verified Home Tutor & Tuition Platform | ঢাকা ও সারা বাংলাদেশে অভিজ্ঞ গৃহশিক্ষক";
-const DEFAULT_DESC = "Find 100% verified home & online tutors across Dhaka, Chittagong, Sylhet, and all 64 districts in Bangladesh. Connect with top university tutors from BUET, DU, Medical, and RU for SSC, HSC, English & Bangla Medium. Real-time GPS session tracking & secure bKash payments.";
-const DEFAULT_KEYWORDS = "tutor finder bangladesh, home tutor dhaka, tuition media bangladesh, buet tutor, du tutor, medical tutor, ssc hsc science tutor, english medium tutor dhaka, bangla medium tuition, female tutor dhaka, online tutor bangladesh, গৃহশিক্ষক, টিউটর বিডি, ঢাকা হোম টিউটর, এডু ট্র্যাক";
+const DEFAULT_TITLE = "EduTrack Bangladesh | Verified Home Tutor & Tuition Platform — গৃহশিক্ষক খুঁজুন";
+const DEFAULT_DESC = "Find verified home and online tutors in Dhaka, Chattogram, Sylhet, and all 64 districts of Bangladesh. Connect with university tutors for SSC, HSC, English Medium, Bangla Medium, and Admission coaching with live session tracking.";
+const DEFAULT_KEYWORDS = "Home Tutor in Bangladesh, Find Tutor in Dhaka, Home Tutor in Chattogram, Tuition Media Bangladesh, Verified Home Tutor, online tutor bangladesh, ssc hsc science tutor, english medium tutor dhaka, bangla medium tuition, গৃহশিক্ষক খুঁজুন, বাসায় পড়ানোর শিক্ষক, টিউশন খুঁজুন, ঢাকা হোম টিউটর, চট্টগ্রাম গৃহশিক্ষক, এডু ট্র্যাক";
 const BASE_URL = "https://edutrackbd.vercel.app";
 const DEFAULT_IMAGE = "https://edutrackbd.vercel.app/og-image.png";
 
@@ -31,6 +32,7 @@ export default function SEOHead({
   author = "EduTrack Bangladesh",
   publishedTime,
   modifiedTime,
+  noindex = false,
 }: SEOHeadProps) {
   const location = useLocation();
   const currentUrl = canonicalUrl || `${BASE_URL}${location.pathname}`;
@@ -60,7 +62,8 @@ export default function SEOHead({
       location.pathname.startsWith('/dashboard') ||
       location.pathname.startsWith('/messages') ||
       location.pathname.startsWith('/reset-password');
-    const robotsDirective = isPrivateRoute
+    const shouldNoIndex = Boolean(noindex) || isPrivateRoute;
+    const robotsDirective = shouldNoIndex
       ? 'noindex, nofollow'
       : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
 
@@ -94,7 +97,6 @@ export default function SEOHead({
     setMeta('twitter:description', description);
     setMeta('twitter:image', ogImage);
     setMeta('twitter:url', currentUrl);
-    setMeta('twitter:site', '@EduTrackBD');
 
     if (publishedTime) {
       setMeta('article:published_time', publishedTime, true);
@@ -133,7 +135,7 @@ export default function SEOHead({
       const existing = document.getElementById(scriptId);
       if (existing) existing.remove();
     };
-  }, [title, description, keywords, currentUrl, ogImage, ogType, jsonLd, author, publishedTime, modifiedTime]);
+  }, [title, description, keywords, currentUrl, ogImage, ogType, jsonLd, author, publishedTime, modifiedTime, noindex, location.pathname]);
 
   return null;
 }

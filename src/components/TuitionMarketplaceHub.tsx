@@ -23,7 +23,10 @@ import {
   isTutorVerified,
 } from '../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
-import { calculateProfileCompletion } from '../../shared/profileCompletion';
+import {
+  calculateProfileCompletion,
+  evaluateRoleMarketplaceAccess,
+} from '../../shared/profileCompletion';
 import ProfileCompletionGate from './ProfileCompletionGate';
 import { matchTuitionsForTutor, matchTutorsForStudentNeed } from '../../shared/matching';
 import {
@@ -137,11 +140,17 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     [currentUser, studentProfiles]
   );
 
+  const tutorMarketplaceAccess = useMemo(
+    () => evaluateRoleMarketplaceAccess(currentUser, { studentProfiles }),
+    [currentUser, studentProfiles]
+  );
+
   const handleNavigateToMissingField = (fieldId?: string | null) => {
     const resolvedField =
       fieldId ||
-      userCompletion.firstMissingFieldId ||
-      (currentUser?.role === 'tutor' ? 'tutor-field-university' : 'account-field-school');
+      (currentUser?.role === 'tutor'
+        ? tutorMarketplaceAccess.primaryMissingFieldId || userCompletion.firstMissingFieldId || 'tutor-field-university'
+        : userCompletion.firstMissingFieldId || 'account-field-school');
     navigate(`/dashboard/profile?focusField=${encodeURIComponent(resolvedField)}`);
   };
 
@@ -557,10 +566,10 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
     e.preventDefault();
     if (!currentUser || !applyingTuition) return;
 
-    if (currentUser.role === 'tutor' && !userCompletion.isComplete) {
+    if (currentUser.role === 'tutor' && !tutorMarketplaceAccess.allowed) {
       setFeedbackBanner({
         type: 'error',
-        text: 'নতুন টিউশনে আবেদন করতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন। (Please complete all required tutor profile fields before applying.)',
+        text: tutorMarketplaceAccess.messageBn,
       });
       setApplyingTuition(null);
       return;
@@ -2026,16 +2035,17 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       {/* =====================================================================
           TUTOR VIEW: RECOMMENDED OPPORTUNITIES (EXPLAINABLE MATCHING)
       ===================================================================== */}
-      {mode === 'tutor' && activeSubTab === 'recommended' && !userCompletion.isComplete && (
+      {mode === 'tutor' && activeSubTab === 'recommended' && !tutorMarketplaceAccess.allowed && (
         <ProfileCompletionGate
           role="tutor"
           completion={userCompletion}
+          accessEvaluation={tutorMarketplaceAccess}
           onNavigateToField={handleNavigateToMissingField}
           variant="gate"
         />
       )}
 
-      {mode === 'tutor' && activeSubTab === 'recommended' && userCompletion.isComplete && (
+      {mode === 'tutor' && activeSubTab === 'recommended' && tutorMarketplaceAccess.allowed && (
         <div className="space-y-4">
           {recommendedTuitionsForTutor.length === 0 ? (
             <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
@@ -2111,10 +2121,11 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       {/* =====================================================================
           BROWSE & INSTANT MULTI-FILTER TUITION JOB BOARD (TUTOR / ADMIN / PUBLIC)
       ===================================================================== */}
-      {mode === 'tutor' && activeSubTab === 'browse' && !userCompletion.isComplete && (
+      {mode === 'tutor' && activeSubTab === 'browse' && !tutorMarketplaceAccess.allowed && (
         <ProfileCompletionGate
           role="tutor"
           completion={userCompletion}
+          accessEvaluation={tutorMarketplaceAccess}
           onNavigateToField={handleNavigateToMissingField}
           variant="gate"
         />
@@ -2122,7 +2133,7 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
       {(mode === 'public' ||
         mode === 'admin' ||
-        (mode === 'tutor' && activeSubTab === 'browse' && userCompletion.isComplete)) && (
+        (mode === 'tutor' && activeSubTab === 'browse' && tutorMarketplaceAccess.allowed)) && (
         <div className="space-y-5">
           {/* Real-Time Search & Multi-Filter Bar */}
           <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 space-y-4">

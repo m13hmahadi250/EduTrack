@@ -1,4 +1,5 @@
 import { useAppStore, User } from "../../store";
+import { getTutorVerificationStatus } from "../../../shared/profileCompletion";
 import {
   CheckCircle,
   XCircle,
@@ -187,6 +188,7 @@ export default function AdminDashboard() {
             ...prev,
             nidStatus: status,
             academicStatus: status,
+            isVerified: status === "approved",
           };
         });
       }
@@ -210,9 +212,14 @@ export default function AdminDashboard() {
       await verifyTutor(tutorId, type, status);
       setSelectedTutor((prev) => {
         if (!prev || prev.id !== tutorId) return prev;
-        return {
+        const updated = {
           ...prev,
           [type === "nid" ? "nidStatus" : "academicStatus"]: status,
+        };
+        const verif = getTutorVerificationStatus(updated);
+        return {
+          ...updated,
+          isVerified: verif.overall === "approved",
         };
       });
       if (status === "approved") {
@@ -301,10 +308,11 @@ export default function AdminDashboard() {
         (tutor.nidNumber || '').toLowerCase().includes(query) ||
         (tutor.course || '').toLowerCase().includes(query);
 
+      const verif = getTutorVerificationStatus(tutor);
       let matchesStatus = true;
-      const isPending = tutor.nidStatus === 'pending' || tutor.academicStatus === 'pending' || !tutor.nidStatus || !tutor.academicStatus;
-      const isApproved = tutor.nidStatus === 'approved' && tutor.academicStatus === 'approved';
-      const isRejected = tutor.nidStatus === 'rejected' || tutor.academicStatus === 'rejected';
+      const isApproved = verif.overall === "approved";
+      const isRejected = verif.overall === "rejected" || verif.overall === "changes_required";
+      const isPending = verif.overall === "pending_review" || verif.overall === "not_submitted";
 
       if (verificationStatusFilter === 'pending') matchesStatus = isPending;
       else if (verificationStatusFilter === 'approved') matchesStatus = isApproved;
@@ -313,9 +321,16 @@ export default function AdminDashboard() {
       return matchesSearch && matchesStatus;
     }).sort((a, b) => {
       if (verificationSortOrder === 'pending') {
-        const aPending = (a.nidStatus === 'pending' || a.academicStatus === 'pending' || !a.nidStatus) ? 1 : 0;
-        const bPending = (b.nidStatus === 'pending' || b.academicStatus === 'pending' || !b.nidStatus) ? 1 : 0;
-        if (aPending !== bPending) return bPending - aPending;
+        const rank = (u: User) => {
+          const ov = getTutorVerificationStatus(u).overall;
+          if (ov === 'pending_review') return 3;
+          if (ov === 'changes_required') return 2;
+          if (ov === 'not_submitted') return 1;
+          return 0;
+        };
+        const aRank = rank(a);
+        const bRank = rank(b);
+        if (aRank !== bRank) return bRank - aRank;
       }
       if (verificationSortOrder === 'newest' || verificationSortOrder === 'pending') {
         if (a.createdAt && b.createdAt) {
@@ -432,11 +447,10 @@ export default function AdminDashboard() {
           </div>
           <h3 className="text-3xl font-black italic text-white my-1">
             {
-              tutors.filter(
-                (t) =>
-                  t.nidStatus !== "approved" ||
-                  t.academicStatus !== "approved",
-              ).length
+              tutors.filter((t) => {
+                const overall = getTutorVerificationStatus(t).overall;
+                return overall === "pending_review" || overall === "changes_required";
+              }).length
             }
           </h3>
           <p className="text-[11px] font-bold text-white/90 uppercase tracking-wider">

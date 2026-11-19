@@ -50,6 +50,22 @@ service cloud.firestore {
       return isSignedIn();
     }
 
+    function isApprovedTutor() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'tutor' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isVerified', false) == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) != true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('profileCompletionPercentage', 100) == 100;
+    }
+
+    function isVerifiedTutorUser(tutorId) {
+      return exists(/databases/$(database)/documents/users/$(tutorId)) &&
+        get(/databases/$(database)/documents/users/$(tutorId)).data.get('role', '') == 'tutor' &&
+        get(/databases/$(database)/documents/users/$(tutorId)).data.get('isVerified', false) == true &&
+        get(/databases/$(database)/documents/users/$(tutorId)).data.get('isBlocked', false) != true;
+    }
+
     // --- Users Collection ---
     match /users/{userId} {
       function isValidUser(data) {
@@ -95,6 +111,7 @@ service cloud.firestore {
 
       allow create: if isOwner(userId) && isValidUser(incoming()) && 
                     (incoming().role != 'admin' || isSuperAdmin()) &&
+                    (incoming().role != 'tutor' || incoming().isVerified == false || isSuperAdmin()) &&
                     incoming().get('nidStatus', null) == null &&
                     incoming().get('academicStatus', null) == null;
 
@@ -104,8 +121,10 @@ service cloud.firestore {
                        incoming().email == existing().email && 
                        (incoming().balance == existing().balance || (incoming().role == 'tutor' && incoming().balance < existing().balance) || isSuperAdmin()) && 
                        (incoming().isVerified == existing().isVerified || isSuperAdmin()) &&
-                       incoming().get('nidStatus', null) == existing().get('nidStatus', null) &&
-                       incoming().get('academicStatus', null) == existing().get('academicStatus', null)
+                       (incoming().get('nidStatus', null) == existing().get('nidStatus', null) ||
+                        (existing().get('nidStatus', null) == 'rejected' && incoming().get('nidStatus', null) == 'pending' && incoming().isVerified == false)) &&
+                       (incoming().get('academicStatus', null) == existing().get('academicStatus', null) ||
+                        (existing().get('academicStatus', null) == 'rejected' && incoming().get('academicStatus', null) == 'pending' && incoming().isVerified == false))
                     ) || (
                        isSignedIn() && 
                        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingSum', 'totalRatings'])
@@ -202,8 +221,11 @@ service cloud.firestore {
       allow get: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid)) || (resource.data.get('rating', 0) > 0);
 
       allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming()) && 
-                    (incoming().studentId == request.auth.uid || incoming().tutorId == request.auth.uid) &&
-                    incoming().status in ['scheduled', 'proposed_by_tutor', 'requested_by_student'];
+                    incoming().status in ['scheduled', 'proposed_by_tutor', 'requested_by_student'] && (
+                      isAdmin() ||
+                      (incoming().tutorId == request.auth.uid && incoming().status == 'proposed_by_tutor' && isApprovedTutor()) ||
+                      (incoming().studentId == request.auth.uid && incoming().status in ['requested_by_student', 'scheduled'] && isVerifiedTutorUser(incoming().tutorId))
+                    );
 
       allow update: if isAdmin() || (
         isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.tutorId == request.auth.uid) && isValidSession(incoming())
@@ -464,7 +486,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (isSignedIn() && (
         resource.data.get('studentId', '') == request.auth.uid ||
         resource.data.get('userId', '') == request.auth.uid ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['applications', 'status'])
+        (incoming().diff(existing()).affectedKeys().hasOnly(['applications', 'status']) && isApprovedTutor())
       ));
       allow delete: if isAdmin() || (isSignedIn() && (
         resource.data.get('studentId', '') == request.auth.uid ||
@@ -478,7 +500,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (isSignedIn() && (
         resource.data.get('studentId', '') == request.auth.uid ||
         resource.data.get('userId', '') == request.auth.uid ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['applications', 'status'])
+        (incoming().diff(existing()).affectedKeys().hasOnly(['applications', 'status']) && isApprovedTutor())
       ));
       allow delete: if isAdmin() || (isSignedIn() && (
         resource.data.get('studentId', '') == request.auth.uid ||

@@ -2240,6 +2240,23 @@ app.post("/api/notifications/workflow", async (req, res) => {
       workflowStore.getUserDoc(derivedRecipientId, authCtx.token).catch(() => null),
     ]);
 
+    const tutorVerificationProtectedEvents = new Set<WorkflowNotificationEventType>([
+      "tuition_application_received",
+      "tutor_request_created",
+      "trial_scheduled",
+    ]);
+    if (
+      actorUser?.role === "tutor" &&
+      tutorVerificationProtectedEvents.has(eventType) &&
+      (!actorUser.isVerified || actorUser.isBlocked)
+    ) {
+      return res.status(403).json({
+        success: false,
+        code: "TUTOR_VERIFICATION_REQUIRED",
+        error: "Verification Pending — আপনার প্রোফাইল অ্যাডমিন যাচাই করছেন। অনুগ্রহ করে অপেক্ষা করুন।",
+      });
+    }
+
     const recipientEmail = String(recipientUser?.email || "").trim().toLowerCase();
     if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
       return res.status(200).json({
@@ -2438,7 +2455,13 @@ app.post("/api/notifications/tuition-alert", async (req, res) => {
 
     for (const tutorId of uniqueTutorIds) {
       const tutorDoc = await workflowStore.getUserDoc(tutorId, authCtx.token).catch(() => null);
-      if (!tutorDoc || tutorDoc.role !== "tutor" || !tutorDoc.isVerified || tutorDoc.isBlocked) {
+      if (
+        !tutorDoc ||
+        tutorDoc.role !== "tutor" ||
+        !tutorDoc.isVerified ||
+        tutorDoc.isBlocked ||
+        (typeof tutorDoc.profileCompletionPercentage === "number" && tutorDoc.profileCompletionPercentage < 100)
+      ) {
         skippedCount++;
         continue;
       }

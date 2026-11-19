@@ -8,13 +8,13 @@ Allow: /tuitions/
 Allow: /tuitions
 Allow: /signup
 Allow: /login
-Allow: /reset-password
 Allow: /sitemap.xml
 Allow: /favicon.ico
 Allow: /manifest.json
 Allow: /og-image.png
 
 # Protect private user authentication & admin endpoints from indexing
+Disallow: /reset-password
 Disallow: /dashboard/
 Disallow: /dashboard/*
 Disallow: /messages

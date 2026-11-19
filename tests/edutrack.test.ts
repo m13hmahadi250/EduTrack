@@ -13,6 +13,7 @@ import {
   isMeaningfulValue,
   normalizeUserProfileFields,
   parseSubjectsList,
+  TUTOR_VERIFICATION_PENDING_MESSAGE,
   type ProfileCompletionUserInput,
   type StudentProfileRecord,
 } from "../shared/profileCompletion";
@@ -4915,8 +4916,8 @@ async function runTests() {
           );
           assert.equal(tutIncAccess.completion.firstMissingFieldId, "tutor-field-course");
 
-          // Scenario 6: Tutor completes required fields -> Tuition listings unlock immediately (even while ID verification is pending)
-          const completeTutor = {
+          // Scenario 6a: Tutor completes 100% required fields WITHOUT ID -> remains restricted until ID submitted & Admin Approved
+          const completeTutorNoId = {
             ...incompleteTutor,
             course: "B.Sc. in Mechanical Engineering",
             year: "4th Year",
@@ -4929,19 +4930,67 @@ async function runTests() {
               Saturday: ["05:00 PM"],
             },
             isVerified: false,
+          };
+          const tutNoIdAccess = evaluateRoleMarketplaceAccess(completeTutorNoId);
+          assert.equal(tutNoIdAccess.allowed, false);
+          assert.equal(tutNoIdAccess.status, "restricted_verification_unsubmitted");
+          assert.equal(tutNoIdAccess.completion.isComplete, true);
+          assert.equal(tutNoIdAccess.completion.percentage, 100);
+          assert.equal(tutNoIdAccess.primaryMissingFieldId, "tutor-identity-verification-section");
+
+          // Scenario 6b: Tutor completes 100% required fields AND submits NID/University ID -> waits for Admin Approval with exact Bangla status
+          const completeTutor = {
+            ...completeTutorNoId,
+            isVerified: false,
             nidFrontImg: "https://cdn.example.com/nid-front.jpg",
             nidStatus: "pending",
           };
-          const tutCompAccess = evaluateRoleMarketplaceAccess(completeTutor);
+          const tutPendingAccess = evaluateRoleMarketplaceAccess(completeTutor);
           const tutVerif = getTutorVerificationStatus(completeTutor);
-          assert.equal(tutCompAccess.allowed, true);
-          assert.equal(tutCompAccess.completion.isComplete, true);
-          assert.equal(tutCompAccess.completion.percentage, 100);
+          assert.equal(tutPendingAccess.allowed, false);
+          assert.equal(tutPendingAccess.status, "restricted_verification_pending");
+          assert.equal(tutPendingAccess.completion.isComplete, true);
+          assert.equal(tutPendingAccess.completion.percentage, 100);
           assert.equal(tutVerif.overall, "pending_review");
+          assert.equal(
+            tutPendingAccess.messageBn,
+            "Verification Pending — আপনার প্রোফাইল অ্যাডমিন যাচাই করছেন। অনুগ্রহ করে অপেক্ষা করুন।"
+          );
+          assert.equal(
+            TUTOR_VERIFICATION_PENDING_MESSAGE,
+            "Verification Pending — আপনার প্রোফাইল অ্যাডমিন যাচাই করছেন। অনুগ্রহ করে অপেক্ষা করুন।"
+          );
 
-          // Scenario 7: User edits profile and removes a required field -> Restriction re-applies immediately
-          const editedTutorMissingBio = {
+          // Scenario 6c: Admin rejects Tutor verification -> remains restricted with clear re-upload guidance
+          const rejectedTutor = {
             ...completeTutor,
+            isVerified: false,
+            nidStatus: "rejected",
+          };
+          const tutRejectedAccess = evaluateRoleMarketplaceAccess(rejectedTutor);
+          assert.equal(tutRejectedAccess.allowed, false);
+          assert.equal(tutRejectedAccess.status, "restricted_verification_rejected");
+          assert.equal(tutRejectedAccess.primaryMissingFieldId, "tutor-identity-verification-section");
+
+          // Scenario 6d: Admin approves Tutor via existing Admin Panel (NID or University ID) -> immediately unlocks marketplace & public listings
+          const approvedTutor = {
+            ...completeTutor,
+            isVerified: true,
+            nidStatus: "approved",
+          };
+          const tutApprovedAccess = evaluateRoleMarketplaceAccess(approvedTutor);
+          assert.equal(tutApprovedAccess.allowed, true);
+          assert.equal(tutApprovedAccess.status, "allowed");
+          assert.equal(tutApprovedAccess.completion.isComplete, true);
+          assert.equal(isTutorEligibleForHome(approvedTutor), true);
+          assert.equal(isTutorEligibleForStudentSearch(approvedTutor), true);
+          assert.equal(isTutorEligibleForHome(completeTutor), false);
+          assert.equal(isTutorEligibleForStudentSearch(completeTutor), false);
+          assert.equal(isTutorEligibleForStudentSearch(rejectedTutor), false);
+
+          // Scenario 7: Approved tutor edits profile and removes a required field -> Restriction re-applies immediately
+          const editedTutorMissingBio = {
+            ...approvedTutor,
             bio: "   ",
           };
           const reRestrictedAccess = evaluateRoleMarketplaceAccess(editedTutorMissingBio);
@@ -4969,7 +5018,7 @@ async function runTests() {
           assert.equal(adminAccess.completion.percentage, 100);
 
           // Scenario 9: Refreshing page preserves unlocked state & 100% confirmation banner constants
-          const normalizedTutor = normalizeUserProfileFields(completeTutor);
+          const normalizedTutor = normalizeUserProfileFields(approvedTutor);
           const refreshedCompletion = calculateProfileCompletion(normalizedTutor);
           assert.equal(refreshedCompletion.isComplete, true);
           assert.equal(refreshedCompletion.percentage, 100);
@@ -4979,16 +5028,24 @@ async function runTests() {
             "অভিনন্দন! আপনার প্রোফাইল সম্পূর্ণ হয়েছে। এখন আপনি EduTrack-এর সকল প্রযোজ্য সুবিধা ব্যবহার করতে পারবেন।"
           );
 
-          // Scenario 10: Direct route & component wiring across StudentDashboard, TutorDashboard, TuitionMarketplaceHub, TuitionDetail, TeacherProfile & store
+          // Scenario 10: Direct route, component, Firestore rules, API & Facebook integration wiring
           const gateSrc = fs.readFileSync(path.resolve("src/components/ProfileCompletionGate.tsx"), "utf-8");
           const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
           const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const adminDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/AdminDashboard.tsx"), "utf-8");
           const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
           const tuitionDetailSrc = fs.readFileSync(path.resolve("src/pages/TuitionDetail.tsx"), "utf-8");
           const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
           const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+          const rulesSrc = fs.readFileSync(path.resolve("firestore.rules"), "utf-8");
+          const apiSrc = fs.readFileSync(path.resolve("api/app.ts"), "utf-8");
+          const homeSrc = fs.readFileSync(path.resolve("src/pages/Home.tsx"), "utf-8");
+          const indexHtmlSrc = fs.readFileSync(path.resolve("index.html"), "utf-8");
 
           assert.equal(gateSrc.includes("PROFILE_COMPLETED_CONFIRMATION"), true);
+          assert.equal(gateSrc.includes("TUTOR_VERIFICATION_PENDING_MESSAGE"), true);
+          assert.equal(gateSrc.includes("restricted_verification_pending"), true);
+          assert.equal(gateSrc.includes("restricted_verification_rejected"), true);
           assert.equal(gateSrc.includes("data-testid=\"profile-completion-gate\""), true);
           assert.equal(gateSrc.includes("data-testid=\"profile-completed-confirmation\""), true);
 
@@ -5000,18 +5057,108 @@ async function runTests() {
           assert.equal(tutorDashSrc.includes("ProfileCompletionGate"), true);
           assert.equal(tutorDashSrc.includes("evaluateRoleMarketplaceAccess"), true);
           assert.equal(tutorDashSrc.includes("!tutorMarketplaceAccess.allowed"), true);
+          assert.equal(tutorDashSrc.includes("TUTOR_VERIFICATION_PENDING_MESSAGE"), true);
           assert.equal(tutorDashSrc.includes("returnToFindStudentsAfterComplete"), true);
           assert.equal(tutorDashSrc.includes('id="tutor-field-course"'), true);
           assert.equal(tutorDashSrc.includes('id="tutor-field-year"'), true);
 
+          assert.equal(adminDashSrc.includes("getTutorVerificationStatus"), true);
+
           assert.equal(hubSrc.includes("ProfileCompletionGate"), true);
-          assert.equal(hubSrc.includes("!userCompletion.isComplete"), true);
+          assert.equal(hubSrc.includes("tutorMarketplaceAccess.allowed"), true);
           assert.equal(tuitionDetailSrc.includes("ProfileCompletionGate"), true);
-          assert.equal(tuitionDetailSrc.includes("isIncompleteTutor"), true);
+          assert.equal(tuitionDetailSrc.includes("isTutorMarketplaceBlocked"), true);
           assert.equal(teacherProfileSrc.includes("ProfileCompletionGate"), true);
           assert.equal(teacherProfileSrc.includes("!studentCompletion.isComplete"), true);
+          assert.equal(teacherProfileSrc.includes("isApprovedPublicTutor"), true);
 
           assert.equal(storeSrc.includes("profileCompletionPercentage: completion.percentage"), true);
+          assert.equal(rulesSrc.includes("function isApprovedTutor()"), true);
+          assert.equal(rulesSrc.includes("function isVerifiedTutorUser(tutorId)"), true);
+          assert.equal(rulesSrc.includes("incoming().role != 'tutor' || incoming().isVerified == false"), true);
+          assert.equal(apiSrc.includes("TUTOR_VERIFICATION_REQUIRED"), true);
+
+          // Official EduTrack Bangladesh Facebook page integration
+          const officialFbUrl = "https://www.facebook.com/people/EduTrack-Bangladesh/61593739314956/";
+          assert.equal(homeSrc.includes(officialFbUrl), true);
+          assert.equal(indexHtmlSrc.includes(officialFbUrl), true);
+        });
+
+        await test("POST /api/notifications/workflow blocks unverified tutors from dispatching tuition applications or proposals", async () => {
+          const sentEmails: string[] = [];
+          const usersDb: Record<string, any> = {
+            stu_1: { id: "stu_1", name: "Guardian One", email: "guardian@edutrack.test", role: "student", isVerified: true },
+            tut_pending: { id: "tut_pending", name: "Pending Tutor", email: "pending@edutrack.test", role: "tutor", isVerified: false, nidStatus: "pending" },
+            tut_approved: { id: "tut_approved", name: "Approved Tutor", email: "approved@edutrack.test", role: "tutor", isVerified: true, nidStatus: "approved" },
+          };
+          const tuitionsDb: Record<string, any> = {
+            tuit_1: {
+              id: "tuit_1",
+              studentId: "stu_1",
+              title: "HSC Physics Tutor Needed",
+              subject: "Physics",
+              studentClass: "HSC",
+              district: "Dhaka",
+              applications: [{ tutorId: "tut_pending" }, { tutorId: "tut_approved" }],
+            },
+          };
+
+          const verifyApp = createApp({
+            verifyIdToken: async (token: string) => ({
+              uid: token.replace("tok_", ""),
+              email: `${token.replace("tok_", "")}@edutrack.test`,
+              emailVerified: true,
+            }),
+            emailSender: async (params) => {
+              sentEmails.push(params.toEmail);
+              return { success: true, messageId: "msg_verif_1" };
+            },
+            notificationStore: {
+              getSessionDoc: async () => null,
+              getTuitionDoc: async (id) => tuitionsDb[id] || null,
+              getUserDoc: async (id) => usersDb[id] || null,
+              claimIdempotencyKey: async () => "claimed",
+            },
+          });
+
+          const verifySrv = await startTestServer(verifyApp);
+          try {
+            const pendingRes = await fetch(`${verifySrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_tut_pending",
+              },
+              body: JSON.stringify({
+                eventType: "tuition_application_received",
+                tuitionId: "tuit_1",
+                idempotencyKey: "app_pending_1",
+              }),
+            });
+            assert.equal(pendingRes.status, 403);
+            const pendingBody = await pendingRes.json();
+            assert.equal(pendingBody.code, "TUTOR_VERIFICATION_REQUIRED");
+            assert.equal(sentEmails.length, 0);
+
+            const approvedRes = await fetch(`${verifySrv.baseUrl}/api/notifications/workflow`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer tok_tut_approved",
+              },
+              body: JSON.stringify({
+                eventType: "tuition_application_received",
+                tuitionId: "tuit_1",
+                idempotencyKey: "app_approved_1",
+              }),
+            });
+            assert.equal(approvedRes.status, 200);
+            const approvedBody = await approvedRes.json();
+            assert.equal(approvedBody.dispatched, true);
+            assert.equal(sentEmails.length, 1);
+          } finally {
+            await new Promise<void>((resolve) => verifySrv.server.close(() => resolve()));
+          }
         });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));

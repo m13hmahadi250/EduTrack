@@ -91,18 +91,31 @@ export interface ProfileCompletionResult {
   firstMissingFieldId: string | null;
 }
 
+export type RoleMarketplaceAccessStatus =
+  | 'loading'
+  | 'unauthenticated'
+  | 'allowed'
+  | 'restricted_incomplete_profile'
+  | 'restricted_verification_unsubmitted'
+  | 'restricted_verification_pending'
+  | 'restricted_verification_rejected';
+
 export interface RoleMarketplaceAccessResult {
   allowed: boolean;
-  status: 'loading' | 'unauthenticated' | 'allowed' | 'restricted_incomplete_profile';
+  status: RoleMarketplaceAccessStatus;
   role: 'student' | 'guardian' | 'tutor' | 'admin' | 'guest';
   targetResource: 'tutor_listings' | 'tuition_opportunities' | 'admin_panel' | 'none';
   completion: ProfileCompletionResult;
+  verification?: TutorVerificationSummary;
   title: string;
   messageBn: string;
   messageEn: string;
   ctaLabel: string;
   primaryMissingFieldId: string;
 }
+
+export const TUTOR_VERIFICATION_PENDING_MESSAGE =
+  'Verification Pending — আপনার প্রোফাইল অ্যাডমিন যাচাই করছেন। অনুগ্রহ করে অপেক্ষা করুন।';
 
 export const PROFILE_COMPLETED_CONFIRMATION = {
   title: 'Profile Completed — 100%',
@@ -1023,13 +1036,33 @@ export function evaluateRoleMarketplaceAccess(
   }
 
   if (rawUser.role === 'tutor') {
-    if (completion.isComplete) {
+    const verification = getTutorVerificationStatus(rawUser);
+
+    if (!completion.isComplete) {
+      return {
+        allowed: false,
+        status: 'restricted_incomplete_profile',
+        role: 'tutor',
+        targetResource: 'tuition_opportunities',
+        completion,
+        verification,
+        title: 'Complete Your Tutor Profile',
+        messageBn: 'নতুন টিউশন খুঁজতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।',
+        messageEn:
+          'Please complete all mandatory tutor profile details below, and ensure your identity document is approved by Admin, to unlock available tuition opportunities and student listings.',
+        ctaLabel: 'Complete Now',
+        primaryMissingFieldId: completion.firstMissingFieldId || 'tutor-field-university',
+      };
+    }
+
+    if (verification.overall === 'approved') {
       return {
         allowed: true,
         status: 'allowed',
         role: 'tutor',
         targetResource: 'tuition_opportunities',
         completion,
+        verification,
         title: PROFILE_COMPLETED_CONFIRMATION.title,
         messageBn: PROFILE_COMPLETED_CONFIRMATION.messageBn,
         messageEn: PROFILE_COMPLETED_CONFIRMATION.messageEn,
@@ -1037,18 +1070,56 @@ export function evaluateRoleMarketplaceAccess(
         primaryMissingFieldId: '',
       };
     }
+
+    if (verification.overall === 'rejected' || verification.overall === 'changes_required') {
+      return {
+        allowed: false,
+        status: 'restricted_verification_rejected',
+        role: 'tutor',
+        targetResource: 'tuition_opportunities',
+        completion,
+        verification,
+        title: 'Verification Rejected — Re-upload Required',
+        messageBn:
+          'আপনার পরিচয়পত্র যাচাইকরণ অনুমোদিত হয়নি। টিউশন মার্কেটপ্লেস আনলক করতে স্পষ্ট NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড পুনরায় আপলোড করে সেভ করুন।',
+        messageEn:
+          'Your submitted verification document was rejected or needs clarification. Please re-upload a clear National ID (NID) or University/College ID Card and save your profile for Admin review.',
+        ctaLabel: 'Re-upload Document',
+        primaryMissingFieldId: 'tutor-identity-verification-section',
+      };
+    }
+
+    if (verification.overall === 'pending_review') {
+      return {
+        allowed: false,
+        status: 'restricted_verification_pending',
+        role: 'tutor',
+        targetResource: 'tuition_opportunities',
+        completion,
+        verification,
+        title: 'Verification Pending',
+        messageBn: TUTOR_VERIFICATION_PENDING_MESSAGE,
+        messageEn:
+          'Your tutor profile is 100% complete and your identity document is awaiting Admin Approval. Tuition opportunities and public tutor visibility will unlock automatically once approved.',
+        ctaLabel: 'View Verification Status',
+        primaryMissingFieldId: 'tutor-identity-verification-section',
+      };
+    }
+
     return {
       allowed: false,
-      status: 'restricted_incomplete_profile',
+      status: 'restricted_verification_unsubmitted',
       role: 'tutor',
       targetResource: 'tuition_opportunities',
       completion,
-      title: 'Complete Your Tutor Profile',
-      messageBn: 'নতুন টিউশন খুঁজতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।',
+      verification,
+      title: 'Identity Verification Required',
+      messageBn:
+        'আপনার প্রোফাইল ১০০% সম্পূর্ণ হয়েছে। এখন টিউশন ও ছাত্রছাত্রীদের তালিকা আনলক করতে NID অথবা বিশ্ববিদ্যালয়/কলেজের আইডি কার্ড আপলোড করে অ্যাডমিন যাচাইয়ের জন্য জমা দিন।',
       messageEn:
-        'Please complete all mandatory tutor profile details below to unlock available tuition opportunities and student listings.',
-      ctaLabel: 'Complete Now',
-      primaryMissingFieldId: completion.firstMissingFieldId || 'tutor-field-university',
+        'Your tutor profile is 100% complete! Submit either a National ID (NID) or University/College ID Card for Admin Approval before tuition opportunities and public tutor visibility unlock.',
+      ctaLabel: 'Upload ID Document',
+      primaryMissingFieldId: 'tutor-identity-verification-section',
     };
   }
 

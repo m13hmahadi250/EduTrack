@@ -4,6 +4,7 @@ import { useAppStore } from '../store';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
+import SEOHead from '../components/SEOHead';
 
 const AdminDashboard = lazyWithRetry(() => import('./dashboard/AdminDashboard'), 'AdminDashboard');
 const TutorDashboard = lazyWithRetry(() => import('./dashboard/TutorDashboard'), 'TutorDashboard');
@@ -58,8 +59,20 @@ const DashboardRouter = memo(function DashboardRouter() {
     return <BlockedScreen />;
   }
 
+  const roleTitle =
+    role === 'admin'
+      ? 'Admin Dashboard | EduTrack Bangladesh'
+      : role === 'tutor'
+      ? 'Tutor Dashboard | EduTrack Bangladesh'
+      : 'Student & Guardian Dashboard | EduTrack Bangladesh';
+
   return (
     <AppErrorBoundary level="dashboard" sectionName={`${role} Dashboard`} resetKey={location.pathname}>
+      <SEOHead
+        title={roleTitle}
+        description="Private account dashboard for managing EduTrack Bangladesh tutoring sessions, requests, and profiles."
+        noindex
+      />
       <Suspense fallback={<DashboardLoading />}>
         {(() => {
           switch (role) {

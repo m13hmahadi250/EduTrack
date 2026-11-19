@@ -1917,7 +1917,15 @@ export default function StudentDashboard() {
                       <span className="w-2 h-2 rounded-full bg-[#0D5BFF] animate-ping" />
                       <span className="text-[9px] font-black uppercase tracking-widest text-[#0D5BFF]">Tuition Pipeline</span>
                     </div>
-                    <h3 className="text-xl font-black uppercase italic">Pending Offers & Requests</h3>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center space-x-3">
+                        <Zap className="w-5 h-5 text-[#0D5BFF] fill-[#0D5BFF]" />
+                        <h3 className="text-xl font-black uppercase italic">Pending Offers & Requests</h3>
+                      </div>
+                      <p lang="bn" className="font-bn text-xs text-slate-300 leading-[1.6]">
+                        শিক্ষকের প্রস্তাব যাচাই করুন এবং ডেমো বা নিয়মিত ক্লাস নিশ্চিত করুন।
+                      </p>
+                    </div>
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-3 py-1.5 rounded-xl border border-white/5">
                     {mySessions.filter(s => s.status === 'proposed_by_tutor' || s.status === 'requested_by_student').length} Pending
@@ -3895,6 +3903,7 @@ export default function StudentDashboard() {
                         <div className="py-20 text-left md:text-center">
                            <Calendar className="w-12 h-12 text-slate-100 ml-0 mr-auto md:mx-auto mb-4" />
                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No active sessions requiring transit oversight</p>
+                           <p lang="bn" className="font-bn text-xs text-slate-400 mt-1">বর্তমানে কোনো চলমান সেশনের লাইভ ট্র্যাকিং চালু নেই।</p>
                            <p lang="bn" className="font-bn text-xs text-slate-500 dark:text-slate-400 mt-1.5">
                              সক্রিয় টিউশন সেশন শুরু হলে এখানে শিক্ষকের লাইভ লোকেশন দেখা যাবে।
                            </p>

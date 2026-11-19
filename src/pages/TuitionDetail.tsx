@@ -4,7 +4,10 @@ import { useAppStore } from '../store';
 import SEOHead from '../components/SEOHead';
 import ApplicationStatusTracker from '../components/ApplicationStatusTracker';
 import ProfileCompletionGate from '../components/ProfileCompletionGate';
-import { calculateProfileCompletion } from '../../shared/profileCompletion';
+import {
+  calculateProfileCompletion,
+  evaluateRoleMarketplaceAccess,
+} from '../../shared/profileCompletion';
 import { resolveApplicationTrackerState, formatDhakaDateTime } from '../../shared/tuitionLifecycle';
 import { sendWorkflowEmailNotification } from '../services/mailService';
 import {
@@ -167,10 +170,17 @@ export default function TuitionDetail() {
   const [appStatusMsg, setAppStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const tutorCompletion = calculateProfileCompletion(currentUser);
+  const tutorMarketplaceAccess = evaluateRoleMarketplaceAccess(currentUser);
   const isIncompleteTutor = currentUser?.role === 'tutor' && !tutorCompletion.isComplete;
+  const isTutorMarketplaceBlocked =
+    currentUser?.role === 'tutor' && !tutorMarketplaceAccess.allowed;
 
   const handleNavigateToMissingTutorField = (fieldId?: string | null) => {
-    const resolvedField = fieldId || tutorCompletion.firstMissingFieldId || 'tutor-field-university';
+    const resolvedField =
+      fieldId ||
+      tutorMarketplaceAccess.primaryMissingFieldId ||
+      tutorCompletion.firstMissingFieldId ||
+      'tutor-field-university';
     navigate(`/dashboard/profile?focusField=${encodeURIComponent(resolvedField)}`);
   };
 
@@ -295,8 +305,8 @@ export default function TuitionDetail() {
     if (!currentUser) {
       navigate('/signup?role=tutor');
     } else if (currentUser.role === 'tutor') {
-      if (!tutorCompletion.isComplete) {
-        handleNavigateToMissingTutorField(tutorCompletion.firstMissingFieldId);
+      if (!tutorMarketplaceAccess.allowed) {
+        handleNavigateToMissingTutorField(tutorMarketplaceAccess.primaryMissingFieldId);
         return;
       }
       setProposedRate(String(tuition?.salary || currentUser.hourlyRate || 7000));
@@ -309,10 +319,10 @@ export default function TuitionDetail() {
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tuition || !currentUser) return;
-    if (currentUser.role === 'tutor' && !tutorCompletion.isComplete) {
+    if (currentUser.role === 'tutor' && !tutorMarketplaceAccess.allowed) {
       setAppStatusMsg({
         type: 'error',
-        text: 'নতুন টিউশনে আবেদন করতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন। (Please complete all required tutor profile fields first.)',
+        text: tutorMarketplaceAccess.messageBn,
       });
       return;
     }
@@ -700,8 +710,10 @@ export default function TuitionDetail() {
               type="button"
               onClick={handleApply}
               disabled={Boolean(
-                currentUser?.role === 'tutor' &&
-                  tuition.applications?.some((a) => a.tutorId === currentUser.id)
+                (currentUser?.role === 'tutor' &&
+                  tuition.applications?.some((a) => a.tutorId === currentUser.id)) ||
+                  (currentUser?.role === 'tutor' &&
+                    tutorMarketplaceAccess.status === 'restricted_verification_pending')
               )}
               className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#0D5BFF] hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-semibold tracking-wide shadow-sm transition-colors cursor-pointer"
             >
@@ -710,19 +722,24 @@ export default function TuitionDetail() {
                 ? 'Application Submitted'
                 : isIncompleteTutor
                   ? 'Complete Profile to Apply →'
-                  : currentUser?.role === 'tutor'
-                    ? 'Submit Tutor Application →'
-                    : 'Apply as Tutor →'}
+                  : tutorMarketplaceAccess.status === 'restricted_verification_pending'
+                    ? 'Verification Pending'
+                    : isTutorMarketplaceBlocked
+                      ? `${tutorMarketplaceAccess.ctaLabel} →`
+                      : currentUser?.role === 'tutor'
+                        ? 'Submit Tutor Application →'
+                        : 'Apply as Tutor →'}
             </button>
           </div>
         </div>
 
-        {/* Incomplete Tutor Profile Gate on Direct Circular Route */}
-        {isIncompleteTutor && (
+        {/* Incomplete or Unverified Tutor Gate on Direct Circular Route */}
+        {isTutorMarketplaceBlocked && (
           <div className="mb-8">
             <ProfileCompletionGate
               role="tutor"
               completion={tutorCompletion}
+              accessEvaluation={tutorMarketplaceAccess}
               onNavigateToField={handleNavigateToMissingTutorField}
               variant="gate"
             />

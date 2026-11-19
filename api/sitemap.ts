@@ -299,14 +299,13 @@ export function buildSitemapXml(baseUrl: string, data: SitemapData): string {
       changefreq: 'daily',
       priority: '1.0',
       image: {
-        loc: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&h=630&q=80',
-        title: 'EduTrack Bangladesh - #1 Home Tutor & Tuition Platform in Bangladesh',
-        caption: 'Find verified home & online tutors from BUET, DU, Medical, and top universities in Dhaka, Chittagong, Sylhet, and all 64 districts'
+        loc: 'https://edutrackbd.vercel.app/og-image.png',
+        title: 'EduTrack Bangladesh - Verified Home Tutor & Tuition Platform in Bangladesh',
+        caption: 'Find verified home & online tutors across Dhaka, Chattogram, Sylhet, and all 64 districts of Bangladesh'
       }
     },
     { path: '/signup', changefreq: 'weekly', priority: '0.9' },
     { path: '/login', changefreq: 'monthly', priority: '0.8' },
-    { path: '/reset-password', changefreq: 'monthly', priority: '0.5' },
   ];
 
   staticPages.forEach((page) => {
@@ -420,12 +419,6 @@ export async function generateSitemap(req: Request, res: Response) {
     fallbackXml += `    <lastmod>${currentDate}</lastmod>\n`;
     fallbackXml += `    <changefreq>monthly</changefreq>\n`;
     fallbackXml += `    <priority>0.8</priority>\n`;
-    fallbackXml += `  </url>\n`;
-    fallbackXml += `  <url>\n`;
-    fallbackXml += `    <loc>${baseUrl}/reset-password</loc>\n`;
-    fallbackXml += `    <lastmod>${currentDate}</lastmod>\n`;
-    fallbackXml += `    <changefreq>monthly</changefreq>\n`;
-    fallbackXml += `    <priority>0.5</priority>\n`;
     fallbackXml += `  </url>\n`;
     fallbackXml += `</urlset>\n`;
 

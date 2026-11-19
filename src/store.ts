@@ -1015,11 +1015,21 @@ export const useAppStore = create<AppState>((set, get) => {
           const finalRole = isMainAdmin ? 'admin' : (requestedRoleStr || 'student');
           const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
+          const sanitizedAdditionalData = { ...(additionalUserData || {}) };
+          delete sanitizedAdditionalData.id;
+          delete sanitizedAdditionalData.role;
+          delete sanitizedAdditionalData.isVerified;
+          delete sanitizedAdditionalData.nidStatus;
+          delete sanitizedAdditionalData.academicStatus;
+          delete sanitizedAdditionalData.isBlocked;
+          delete sanitizedAdditionalData.balance;
+
           const rawGoogleRedirectUser: User = {
+            ...sanitizedAdditionalData,
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'EduTrack User')),
-            phone: firebaseUser.phoneNumber || (additionalUserData?.phone || ''),
+            phone: firebaseUser.phoneNumber || (sanitizedAdditionalData?.phone || ''),
             role: finalRole,
             balance: 0,
             isVerified: isMainAdmin || finalRole === 'student',
@@ -1030,7 +1040,7 @@ export const useAppStore = create<AppState>((set, get) => {
             onboarding: {
               quickStartTour: {
                 status: finalRole === 'admin' ? 'dismissed' : 'not_started',
-                role: finalRole === 'student' && additionalUserData?.accountType === 'guardian' ? 'guardian' : finalRole,
+                role: finalRole === 'student' && sanitizedAdditionalData?.accountType === 'guardian' ? 'guardian' : finalRole,
                 updatedAt: new Date().toISOString(),
               },
             },
@@ -1038,7 +1048,6 @@ export const useAppStore = create<AppState>((set, get) => {
             referralCode,
             referralPoints: 0,
             serviceDiscounts: 0,
-            ...additionalUserData
           };
 
           const normalizedRedirectUser = normalizeUserProfileFields(rawGoogleRedirectUser);
@@ -1545,11 +1554,21 @@ export const useAppStore = create<AppState>((set, get) => {
             const finalRole = isMainAdmin ? 'admin' : (requestedRole || 'student');
             const referralCode = `EDU-${firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0].toUpperCase() : 'USER'}-${firebaseUser.uid.substring(0, 4).toUpperCase()}`;
 
+            const sanitizedAdditionalData = { ...(additionalUserData || {}) };
+            delete sanitizedAdditionalData.id;
+            delete sanitizedAdditionalData.role;
+            delete sanitizedAdditionalData.isVerified;
+            delete sanitizedAdditionalData.nidStatus;
+            delete sanitizedAdditionalData.academicStatus;
+            delete sanitizedAdditionalData.isBlocked;
+            delete sanitizedAdditionalData.balance;
+
             const rawGoogleUser: User = {
+              ...sanitizedAdditionalData,
               id: firebaseUser.uid,
               email: firebaseUser.email!,
               name: firebaseUser.displayName || (isMainAdmin ? 'Main Provider Admin' : 'Google User'),
-              phone: firebaseUser.phoneNumber || (additionalUserData?.phone || ''),
+              phone: firebaseUser.phoneNumber || (sanitizedAdditionalData?.phone || ''),
               role: finalRole,
               balance: 0,
               isVerified: isMainAdmin || finalRole === 'student',
@@ -1560,7 +1579,7 @@ export const useAppStore = create<AppState>((set, get) => {
               onboarding: {
                 quickStartTour: {
                   status: finalRole === 'admin' ? 'dismissed' : 'not_started',
-                  role: finalRole === 'student' && additionalUserData?.accountType === 'guardian' ? 'guardian' : finalRole,
+                  role: finalRole === 'student' && sanitizedAdditionalData?.accountType === 'guardian' ? 'guardian' : finalRole,
                   updatedAt: new Date().toISOString(),
                 },
               },
@@ -1568,7 +1587,6 @@ export const useAppStore = create<AppState>((set, get) => {
               referralCode,
               referralPoints: 0,
               serviceDiscounts: 0,
-              ...additionalUserData
             };
             const newUser = normalizeUserProfileFields(rawGoogleUser);
             const initialCompletion = calculateProfileCompletion(newUser);
@@ -2025,6 +2043,18 @@ export const useAppStore = create<AppState>((set, get) => {
         const current = get().currentUser;
         const baseUser = current?.id === id ? current : get().users.find(u => u.id === id);
         let payloadToWrite: Partial<User> = cleanUndefined(data);
+        if (current?.role !== 'admin') {
+          delete payloadToWrite.isVerified;
+          delete payloadToWrite.isBlocked;
+          delete payloadToWrite.balance;
+          delete payloadToWrite.role;
+          if (payloadToWrite.nidStatus && payloadToWrite.nidStatus !== 'pending') {
+            delete payloadToWrite.nidStatus;
+          }
+          if (payloadToWrite.academicStatus && payloadToWrite.academicStatus !== 'pending') {
+            delete payloadToWrite.academicStatus;
+          }
+        }
 
         if (baseUser) {
           const mergedNormalized = normalizeUserProfileFields({

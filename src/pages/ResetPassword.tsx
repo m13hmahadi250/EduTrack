@@ -34,6 +34,7 @@ export default function ResetPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const submitInFlightRef = React.useRef(false);
   const [formError, setFormError] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
@@ -171,6 +172,8 @@ export default function ResetPassword() {
       return;
     }
 
+    if (submitInFlightRef.current || submitting) return;
+    submitInFlightRef.current = true;
     setSubmitting(true);
 
     try {
@@ -222,6 +225,7 @@ export default function ResetPassword() {
       console.error('[Reset Password Error]:', err);
       setFormError(formatUserFriendlyError(err, 'reset'));
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -233,6 +237,7 @@ export default function ResetPassword() {
         description="Securely reset and update your EduTrack Bangladesh account password. Enter your new password to regain access to your tutor or student profile."
         keywords="reset password edutrack, recover password, tutor account recovery, student account recovery"
         canonicalUrl="https://edutrackbd.vercel.app/reset-password"
+        noindex
       />
       {/* Toast Notification Banner for Successful Password Reset */}
       <AnimatePresence>

@@ -21,7 +21,11 @@ import {
   normalizeBangladeshScheduleIso,
   resolveSessionTrackerState,
 } from '../../shared/tuitionLifecycle';
-import { calculateProfileCompletion } from '../../shared/profileCompletion';
+import {
+  calculateProfileCompletion,
+  TUTOR_VERIFICATION_PENDING_MESSAGE,
+} from '../../shared/profileCompletion';
+import { isTutorVerified } from '../../shared/tutorListing';
 import ProfileCompletionGate from '../components/ProfileCompletionGate';
 import {
   ArrowLeft,
@@ -93,6 +97,7 @@ export default function TeacherProfile() {
   };
 
   const [tutor, setTutor] = useState<any | null>(null);
+  const [isPendingApprovalUnavailable, setIsPendingApprovalUnavailable] = useState(false);
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photoUnlocked, setPhotoUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -175,12 +180,27 @@ export default function TeacherProfile() {
             const raw = { id: docSnap.id, ...docSnap.data() } as any;
             if (raw.role !== 'tutor') {
               setTutor(null);
+              setIsPendingApprovalUnavailable(false);
               setContactUnlocked(false);
               setPhotoUnlocked(false);
               setLoading(false);
               return;
             }
 
+            const isOwnerOrAdminViewer = Boolean(
+              viewerContext && (viewerContext.role === 'admin' || viewerContext.id === raw.id)
+            );
+            const isApprovedPublicTutor = isTutorVerified(raw) && raw.isBlocked !== true;
+            if (!isApprovedPublicTutor && !isOwnerOrAdminViewer) {
+              setTutor(null);
+              setIsPendingApprovalUnavailable(true);
+              setContactUnlocked(false);
+              setPhotoUnlocked(false);
+              setLoading(false);
+              return;
+            }
+
+            setIsPendingApprovalUnavailable(false);
             const {
               tutor: safeTutor,
               contactUnlocked: unlocked,
@@ -357,6 +377,13 @@ export default function TeacherProfile() {
     e.preventDefault();
     if (!currentUser || !tutor || !id) return;
 
+    if (!isTutorVerified(tutor) || tutor.isBlocked === true) {
+      setBookingError(
+        'This tutor profile is currently awaiting Admin Approval and cannot accept bookings yet.'
+      );
+      return;
+    }
+
     if (currentUser.role === 'student' && !studentCompletion.isComplete) {
       setBookingError(
         'টিচার বুকিং বা ট্রায়াল ক্লাস অনুরোধ পাঠাতে প্রথমে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।'
@@ -486,10 +513,14 @@ export default function TeacherProfile() {
             <GraduationCap className="w-7 h-7" />
           </div>
           <h2 className="text-xl font-black font-heading text-[#0B132B] dark:text-white mb-2">
-            Tutor Profile Unavailable
+            {isPendingApprovalUnavailable
+              ? 'Tutor Verification Pending'
+              : 'Tutor Profile Unavailable'}
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
-            This educator profile may have been deactivated or moved. Browse other verified tutors across Bangladesh.
+            {isPendingApprovalUnavailable
+              ? 'This tutor profile is currently under Admin Verification and is not yet listed publicly. Please browse our verified tutors across Bangladesh.'
+              : 'This educator profile may have been deactivated or moved. Browse other verified tutors across Bangladesh.'}
           </p>
           <Link
             to="/#find-tutors"
@@ -1110,14 +1141,12 @@ export default function TeacherProfile() {
                   </span>
                   <span
                     className={`font-bold ${
-                      tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
+                      isStrictlyVerified
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }`}
                   >
-                    {tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
-                      ? 'Verified'
-                      : 'Under Review'}
+                    {isStrictlyVerified ? 'Verified' : 'Under Review'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
@@ -1126,16 +1155,19 @@ export default function TeacherProfile() {
                   </span>
                   <span
                     className={`font-bold ${
-                      tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
+                      isStrictlyVerified
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }`}
                   >
-                    {tutor.isVerified || tutor.nidStatus === 'approved' || tutor.academicStatus === 'approved'
-                      ? 'Approved'
-                      : 'Pending Check'}
+                    {isStrictlyVerified ? 'Approved' : 'Pending Check'}
                   </span>
                 </div>
+                {!isStrictlyVerified && isOwner && (
+                  <p lang="bn" className="font-bn text-xs font-semibold text-amber-700 dark:text-amber-300 pt-1">
+                    {TUTOR_VERIFICATION_PENDING_MESSAGE}
+                  </p>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 Identity documents (NID or University/College ID Card) are reviewed privately by EduTrack compliance administrators and are never exposed publicly.
