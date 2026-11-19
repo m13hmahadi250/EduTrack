@@ -21,6 +21,8 @@ import {
   normalizeBangladeshScheduleIso,
   resolveSessionTrackerState,
 } from '../../shared/tuitionLifecycle';
+import { calculateProfileCompletion } from '../../shared/profileCompletion';
+import ProfileCompletionGate from '../components/ProfileCompletionGate';
 import {
   ArrowLeft,
   Mail,
@@ -76,8 +78,19 @@ export default function TeacherProfile() {
 
   const currentUser = useAppStore((state) => state.currentUser);
   const storeSessions = useAppStore((state) => state.sessions);
+  const studentProfiles = useAppStore((state) => state.studentProfiles);
   const bookSession = useAppStore((state) => state.bookSession);
   const toggleSavedTutor = useAppStore((state) => state.toggleSavedTutor);
+
+  const studentCompletion = useMemo(
+    () => calculateProfileCompletion(currentUser, { studentProfiles }),
+    [currentUser, studentProfiles]
+  );
+
+  const handleNavigateToMissingStudentField = (fieldId?: string | null) => {
+    const resolvedField = fieldId || studentCompletion.firstMissingFieldId || 'account-field-school';
+    navigate(`/dashboard/profile?focusField=${encodeURIComponent(resolvedField)}`);
+  };
 
   const [tutor, setTutor] = useState<any | null>(null);
   const [contactUnlocked, setContactUnlocked] = useState(false);
@@ -343,6 +356,13 @@ export default function TeacherProfile() {
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !tutor || !id) return;
+
+    if (currentUser.role === 'student' && !studentCompletion.isComplete) {
+      setBookingError(
+        'টিচার বুকিং বা ট্রায়াল ক্লাস অনুরোধ পাঠাতে প্রথমে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।'
+      );
+      return;
+    }
 
     if (activeOrPendingBooking) {
       setBookingError('You already have an active or pending booking with this tutor.');
@@ -1311,7 +1331,18 @@ export default function TeacherProfile() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmitBooking} className="space-y-5 pt-5">
+              {currentUser?.role === 'student' && !studentCompletion.isComplete ? (
+                <div className="pt-5">
+                  <ProfileCompletionGate
+                    role="student"
+                    accountType={currentUser.accountType === 'guardian' ? 'guardian' : 'student'}
+                    completion={studentCompletion}
+                    onNavigateToField={handleNavigateToMissingStudentField}
+                    variant="gate"
+                  />
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitBooking} className="space-y-5 pt-5">
                 {bookingError && (
                   <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1447,6 +1478,7 @@ export default function TeacherProfile() {
                   </button>
                 </div>
               </form>
+              )}
             </motion.div>
           </div>
         )}

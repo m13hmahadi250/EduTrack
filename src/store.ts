@@ -2526,9 +2526,22 @@ export const useAppStore = create<AppState>((set, get) => {
       const user = get().currentUser;
       if (!user) return;
       const normalized = normalizeAvailabilitySlots(slots);
+      const candidateUser = normalizeUserProfileFields({
+        ...user,
+        availabilitySlots: normalized,
+      } as User);
+      const completion = calculateProfileCompletion(candidateUser, {
+        studentProfiles: get().studentProfiles,
+      });
+      const updatedUser: User = {
+        ...candidateUser,
+        profileCompletionPercentage: completion.percentage,
+      };
       try {
-        await updateDoc(doc(db, 'users', user.id), { availabilitySlots: normalized });
-        const updatedUser = { ...user, availabilitySlots: normalized };
+        await updateDoc(doc(db, 'users', user.id), {
+          availabilitySlots: normalized,
+          profileCompletionPercentage: completion.percentage,
+        });
         set((state) => ({
           currentUser: updatedUser,
           users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
@@ -3742,6 +3755,10 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
         ...userData,
         ...(privateMediaByUserId.get(uid) || {}),
       } as User);
+      const computedSelfCompletion = calculateProfileCompletion(finalMergedSelf, {
+        studentProfiles: get().studentProfiles,
+      });
+      finalMergedSelf.profileCompletionPercentage = computedSelfCompletion.percentage;
       set({ currentUser: finalMergedSelf });
       try {
         localStorage.setItem('edutrack_cached_user', JSON.stringify(finalMergedSelf));
@@ -3812,7 +3829,20 @@ function setupListeners(uid: string, role: Role, set: any, get: any) {
         const studentProfiles = snapshot.docs.map(
           (docSnap) => ({ id: docSnap.id, ...docSnap.data() } as StudentProfileRecord)
         );
-        set({ studentProfiles });
+        const cur = get().currentUser;
+        if (cur && cur.id === uid) {
+          const nextCompletion = calculateProfileCompletion(cur, { studentProfiles });
+          const updatedCur: User = {
+            ...cur,
+            profileCompletionPercentage: nextCompletion.percentage,
+          };
+          set({ studentProfiles, currentUser: updatedCur });
+          try {
+            localStorage.setItem('edutrack_cached_user', JSON.stringify(updatedCur));
+          } catch {}
+        } else {
+          set({ studentProfiles });
+        }
         persistOfflineData(uid, get());
       },
       (error) => {

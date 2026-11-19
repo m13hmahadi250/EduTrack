@@ -4785,6 +4785,234 @@ async function runTests() {
           assert.equal(tutorDashSrc.includes("edutrackTourActive"), true);
           assert.equal(tutorDashSrc.includes("fromTour"), true);
         });
+
+        console.log("\n--- 30. Smart Profile Completion, Access Control & Real-Time Unlock System ---");
+
+        await test("Smart Profile Completion: 12-scenario role-based access control, bilingual gates & real-time unlock verification", async () => {
+          const {
+            calculateProfileCompletion,
+            evaluateRoleMarketplaceAccess,
+            getTutorVerificationStatus,
+            normalizeUserProfileFields,
+            PROFILE_COMPLETED_CONFIRMATION,
+          } = await import("../shared/profileCompletion.ts");
+
+          // Scenario 1: New Student with incomplete profile -> Tutor Search restricted
+          const incompleteStudent = {
+            id: "stu-inc-1",
+            role: "student",
+            accountType: "student",
+            name: "Tanvir Ahmed",
+            phone: "01711223344",
+            studentClass: "Class 10 (SSC)",
+            curriculum: "",
+            school: "",
+            district: "Dhaka",
+            area: "",
+            subjects: [],
+          };
+          const stuIncAccess = evaluateRoleMarketplaceAccess(incompleteStudent);
+          assert.equal(stuIncAccess.allowed, false);
+          assert.equal(stuIncAccess.status, "restricted_incomplete_profile");
+          assert.equal(stuIncAccess.ctaLabel, "Complete Profile");
+          assert.equal(
+            stuIncAccess.messageBn,
+            "টিচার খোঁজার সুবিধা চালু করতে প্রথমে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।"
+          );
+          assert.equal(stuIncAccess.completion.percentage < 100, true);
+          assert.equal(stuIncAccess.completion.missingFields.length > 0, true);
+          assert.equal(
+            stuIncAccess.completion.missingFields.every((f) => Boolean(f.labelBn)),
+            true
+          );
+
+          // Scenario 2: Student completes required fields -> Tutor Search unlocks immediately
+          // Scenario 8: 100% reached even when optional fields (WhatsApp, photo, gender, tuition post) are empty
+          const completeStudent = {
+            ...incompleteStudent,
+            curriculum: "Bangla Medium (NCTB)",
+            school: "Dhaka Residential Model College",
+            area: "Mohammadpur",
+            subjects: ["Physics", "Higher Math"],
+            teachingMode: "Home Tutoring",
+            whatsappNumber: "",
+            profileImage: "",
+            gender: "",
+          };
+          const stuCompAccess = evaluateRoleMarketplaceAccess(completeStudent);
+          assert.equal(stuCompAccess.allowed, true);
+          assert.equal(stuCompAccess.status, "allowed");
+          assert.equal(stuCompAccess.completion.isComplete, true);
+          assert.equal(stuCompAccess.completion.percentage, 100);
+          assert.equal(stuCompAccess.completion.missingFields.length, 0);
+
+          // Scenario 3: New Guardian with incomplete profile (missing linked student profile) -> Tutor Search restricted
+          const incompleteGuardian = {
+            id: "grd-inc-1",
+            role: "student",
+            accountType: "guardian",
+            name: "Farida Yasmin",
+            phone: "01811223344",
+            guardianRelationship: "Mother",
+            district: "Dhaka",
+            area: "Dhanmondi",
+            address: "House 14, Road 5, Dhanmondi",
+          };
+          const grdIncAccess = evaluateRoleMarketplaceAccess(incompleteGuardian, {
+            studentProfiles: [],
+          });
+          assert.equal(grdIncAccess.allowed, false);
+          assert.equal(grdIncAccess.status, "restricted_incomplete_profile");
+          assert.equal(
+            grdIncAccess.completion.firstMissingFieldId,
+            "guardian-student-profile-section"
+          );
+
+          // Scenario 4: Guardian completes required fields (adds linked student profile) -> Tutor Search unlocks immediately
+          const guardianChildProfiles = [
+            {
+              id: "child-1",
+              guardianId: "grd-inc-1",
+              studentName: "Ayman Sadik",
+              studentClass: "Class 9",
+              curriculum: "English Version (NCTB)",
+              school: "St. Joseph Higher Secondary School",
+              subjects: ["Mathematics", "Chemistry"],
+            },
+          ];
+          const grdCompAccess = evaluateRoleMarketplaceAccess(incompleteGuardian, {
+            studentProfiles: guardianChildProfiles,
+          });
+          assert.equal(grdCompAccess.allowed, true);
+          assert.equal(grdCompAccess.completion.isComplete, true);
+          assert.equal(grdCompAccess.completion.percentage, 100);
+
+          // Scenario 5: New Tutor with incomplete profile -> Tuition listings restricted
+          const incompleteTutor = {
+            id: "tut-inc-1",
+            role: "tutor",
+            name: "Mahmudul Hasan",
+            phone: "01911223344",
+            university: "BUET",
+            course: "",
+            year: "",
+            subjects: ["Physics"],
+            classes: [],
+            district: "Dhaka",
+            area: "",
+            teachingMode: "Home & Online",
+            hourlyRate: 0,
+            bio: "",
+            availabilitySlots: {},
+          };
+          const tutIncAccess = evaluateRoleMarketplaceAccess(incompleteTutor);
+          assert.equal(tutIncAccess.allowed, false);
+          assert.equal(tutIncAccess.status, "restricted_incomplete_profile");
+          assert.equal(tutIncAccess.ctaLabel, "Complete Now");
+          assert.equal(
+            tutIncAccess.messageBn,
+            "নতুন টিউশন খুঁজতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।"
+          );
+          assert.equal(tutIncAccess.completion.firstMissingFieldId, "tutor-field-course");
+
+          // Scenario 6: Tutor completes required fields -> Tuition listings unlock immediately (even while ID verification is pending)
+          const completeTutor = {
+            ...incompleteTutor,
+            course: "B.Sc. in Mechanical Engineering",
+            year: "4th Year",
+            classes: ["Class 9", "Class 10 (SSC)", "HSC 1st Year"],
+            area: "Buet Campus / Palashi",
+            hourlyRate: 7000,
+            bio: "Experienced BUET mentor specializing in HSC & Admission Physics and Higher Mathematics.",
+            availabilitySlots: {
+              Friday: ["04:00 PM", "06:00 PM"],
+              Saturday: ["05:00 PM"],
+            },
+            isVerified: false,
+            nidFrontImg: "https://cdn.example.com/nid-front.jpg",
+            nidStatus: "pending",
+          };
+          const tutCompAccess = evaluateRoleMarketplaceAccess(completeTutor);
+          const tutVerif = getTutorVerificationStatus(completeTutor);
+          assert.equal(tutCompAccess.allowed, true);
+          assert.equal(tutCompAccess.completion.isComplete, true);
+          assert.equal(tutCompAccess.completion.percentage, 100);
+          assert.equal(tutVerif.overall, "pending_review");
+
+          // Scenario 7: User edits profile and removes a required field -> Restriction re-applies immediately
+          const editedTutorMissingBio = {
+            ...completeTutor,
+            bio: "   ",
+          };
+          const reRestrictedAccess = evaluateRoleMarketplaceAccess(editedTutorMissingBio);
+          assert.equal(reRestrictedAccess.allowed, false);
+          assert.equal(reRestrictedAccess.status, "restricted_incomplete_profile");
+          assert.equal(reRestrictedAccess.completion.percentage, 88);
+          assert.equal(reRestrictedAccess.completion.firstMissingFieldId, "tutor-field-bio");
+
+          // Loading state distinction: does not falsely restrict while auth/profile is initializing
+          const loadingAccess = evaluateRoleMarketplaceAccess(null, {
+            isInitialized: false,
+            isLoading: true,
+          });
+          assert.equal(loadingAccess.status, "loading");
+          assert.equal(loadingAccess.allowed, false);
+
+          // Admin role always has full unrestricted access
+          const adminAccess = evaluateRoleMarketplaceAccess({
+            id: "admin-1",
+            role: "admin",
+            name: "System Admin",
+            email: "edutrackbangladesh@gmail.com",
+          });
+          assert.equal(adminAccess.allowed, true);
+          assert.equal(adminAccess.completion.percentage, 100);
+
+          // Scenario 9: Refreshing page preserves unlocked state & 100% confirmation banner constants
+          const normalizedTutor = normalizeUserProfileFields(completeTutor);
+          const refreshedCompletion = calculateProfileCompletion(normalizedTutor);
+          assert.equal(refreshedCompletion.isComplete, true);
+          assert.equal(refreshedCompletion.percentage, 100);
+          assert.equal(PROFILE_COMPLETED_CONFIRMATION.title, "Profile Completed — 100%");
+          assert.equal(
+            PROFILE_COMPLETED_CONFIRMATION.messageBn,
+            "অভিনন্দন! আপনার প্রোফাইল সম্পূর্ণ হয়েছে। এখন আপনি EduTrack-এর সকল প্রযোজ্য সুবিধা ব্যবহার করতে পারবেন।"
+          );
+
+          // Scenario 10: Direct route & component wiring across StudentDashboard, TutorDashboard, TuitionMarketplaceHub, TuitionDetail, TeacherProfile & store
+          const gateSrc = fs.readFileSync(path.resolve("src/components/ProfileCompletionGate.tsx"), "utf-8");
+          const studentDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/StudentDashboard.tsx"), "utf-8");
+          const tutorDashSrc = fs.readFileSync(path.resolve("src/pages/dashboard/TutorDashboard.tsx"), "utf-8");
+          const hubSrc = fs.readFileSync(path.resolve("src/components/TuitionMarketplaceHub.tsx"), "utf-8");
+          const tuitionDetailSrc = fs.readFileSync(path.resolve("src/pages/TuitionDetail.tsx"), "utf-8");
+          const teacherProfileSrc = fs.readFileSync(path.resolve("src/pages/TeacherProfile.tsx"), "utf-8");
+          const storeSrc = fs.readFileSync(path.resolve("src/store.ts"), "utf-8");
+
+          assert.equal(gateSrc.includes("PROFILE_COMPLETED_CONFIRMATION"), true);
+          assert.equal(gateSrc.includes("data-testid=\"profile-completion-gate\""), true);
+          assert.equal(gateSrc.includes("data-testid=\"profile-completed-confirmation\""), true);
+
+          assert.equal(studentDashSrc.includes("ProfileCompletionGate"), true);
+          assert.equal(studentDashSrc.includes("evaluateRoleMarketplaceAccess"), true);
+          assert.equal(studentDashSrc.includes("!marketplaceAccess.allowed"), true);
+          assert.equal(studentDashSrc.includes("returnToFindAfterComplete"), true);
+
+          assert.equal(tutorDashSrc.includes("ProfileCompletionGate"), true);
+          assert.equal(tutorDashSrc.includes("evaluateRoleMarketplaceAccess"), true);
+          assert.equal(tutorDashSrc.includes("!tutorMarketplaceAccess.allowed"), true);
+          assert.equal(tutorDashSrc.includes("returnToFindStudentsAfterComplete"), true);
+          assert.equal(tutorDashSrc.includes('id="tutor-field-course"'), true);
+          assert.equal(tutorDashSrc.includes('id="tutor-field-year"'), true);
+
+          assert.equal(hubSrc.includes("ProfileCompletionGate"), true);
+          assert.equal(hubSrc.includes("!userCompletion.isComplete"), true);
+          assert.equal(tuitionDetailSrc.includes("ProfileCompletionGate"), true);
+          assert.equal(tuitionDetailSrc.includes("isIncompleteTutor"), true);
+          assert.equal(teacherProfileSrc.includes("ProfileCompletionGate"), true);
+          assert.equal(teacherProfileSrc.includes("!studentCompletion.isComplete"), true);
+
+          assert.equal(storeSrc.includes("profileCompletionPercentage: completion.percentage"), true);
+        });
       } finally {
         await new Promise<void>((resolve) => srvA.server.close(() => resolve()));
         await new Promise<void>((resolve) => srvB.server.close(() => resolve()));

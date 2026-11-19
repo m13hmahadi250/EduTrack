@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import SEOHead from '../components/SEOHead';
 import ApplicationStatusTracker from '../components/ApplicationStatusTracker';
+import ProfileCompletionGate from '../components/ProfileCompletionGate';
+import { calculateProfileCompletion } from '../../shared/profileCompletion';
 import { resolveApplicationTrackerState, formatDhakaDateTime } from '../../shared/tuitionLifecycle';
 import { sendWorkflowEmailNotification } from '../services/mailService';
 import {
@@ -164,6 +166,14 @@ export default function TuitionDetail() {
   const [submittingApp, setSubmittingApp] = useState<boolean>(false);
   const [appStatusMsg, setAppStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const tutorCompletion = calculateProfileCompletion(currentUser);
+  const isIncompleteTutor = currentUser?.role === 'tutor' && !tutorCompletion.isComplete;
+
+  const handleNavigateToMissingTutorField = (fieldId?: string | null) => {
+    const resolvedField = fieldId || tutorCompletion.firstMissingFieldId || 'tutor-field-university';
+    navigate(`/dashboard/profile?focusField=${encodeURIComponent(resolvedField)}`);
+  };
+
   const isTuitionSaved = Boolean(
     tuition?.id &&
       (currentUser?.savedTuitions
@@ -285,6 +295,10 @@ export default function TuitionDetail() {
     if (!currentUser) {
       navigate('/signup?role=tutor');
     } else if (currentUser.role === 'tutor') {
+      if (!tutorCompletion.isComplete) {
+        handleNavigateToMissingTutorField(tutorCompletion.firstMissingFieldId);
+        return;
+      }
       setProposedRate(String(tuition?.salary || currentUser.hourlyRate || 7000));
       setApplyModalOpen(true);
     } else {
@@ -295,6 +309,13 @@ export default function TuitionDetail() {
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tuition || !currentUser) return;
+    if (currentUser.role === 'tutor' && !tutorCompletion.isComplete) {
+      setAppStatusMsg({
+        type: 'error',
+        text: 'নতুন টিউশনে আবেদন করতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন। (Please complete all required tutor profile fields first.)',
+      });
+      return;
+    }
     if (tuition.applications?.some((a) => a.tutorId === currentUser.id)) {
       setAppStatusMsg({
         type: 'error',
@@ -687,12 +708,26 @@ export default function TuitionDetail() {
               {currentUser?.role === 'tutor' &&
               tuition.applications?.some((a) => a.tutorId === currentUser.id)
                 ? 'Application Submitted'
-                : currentUser?.role === 'tutor'
-                  ? 'Submit Tutor Application →'
-                  : 'Apply as Tutor →'}
+                : isIncompleteTutor
+                  ? 'Complete Profile to Apply →'
+                  : currentUser?.role === 'tutor'
+                    ? 'Submit Tutor Application →'
+                    : 'Apply as Tutor →'}
             </button>
           </div>
         </div>
+
+        {/* Incomplete Tutor Profile Gate on Direct Circular Route */}
+        {isIncompleteTutor && (
+          <div className="mb-8">
+            <ProfileCompletionGate
+              role="tutor"
+              completion={tutorCompletion}
+              onNavigateToField={handleNavigateToMissingTutorField}
+              variant="gate"
+            />
+          </div>
+        )}
 
         {/* Tutor Application Tracker for Logged-in Applicant */}
         {currentUser?.role === 'tutor' &&

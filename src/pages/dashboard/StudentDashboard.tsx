@@ -76,6 +76,7 @@ import { useBackHandler, scrollFieldIntoView } from '../../utils/mobileWebView';
 import {
   calculateProfileCompletion,
   cleanMeaningfulString,
+  evaluateRoleMarketplaceAccess,
   parseSubjectsList,
   StudentProfileRecord,
 } from '../../../shared/profileCompletion';
@@ -91,6 +92,7 @@ import {
 } from '../../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../../shared/tutorPrivacy';
 import UserAvatar from '../../components/UserAvatar';
+import ProfileCompletionGate from '../../components/ProfileCompletionGate';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
 import { AppErrorBoundary } from '../../components/AppErrorBoundary';
 const MapTracker = lazyWithRetry(() => import('../../components/MapTracker'), 'MapTracker');
@@ -732,6 +734,13 @@ export default function StudentDashboard() {
     [currentUser, studentProfiles]
   );
 
+  const marketplaceAccess = useMemo(
+    () => evaluateRoleMarketplaceAccess(currentUser, { studentProfiles }),
+    [currentUser, studentProfiles]
+  );
+
+  const [returnToFindAfterComplete, setReturnToFindAfterComplete] = useState(false);
+
   const isProfileIncomplete =
     !profileCompletion.isComplete &&
     !currentUser?.hasDismissedProfileNotice;
@@ -911,10 +920,29 @@ export default function StudentDashboard() {
     gender: '',
   });
 
+  // আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।
   const navigateToMissingField = (fieldId?: string | null) => {
+    if (location.pathname.endsWith('/search')) {
+      setReturnToFindAfterComplete(true);
+    }
     handleTabChange('account');
-    setIsEditingAccount(true);
     setAccountUpdateError('');
+    if (fieldId === 'guardian-student-profile-section') {
+      setIsEditingAccount(false);
+      setTimeout(() => {
+        const el = document.getElementById('guardian-student-profile-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (studentProfiles.length === 0) {
+          openAddChildModal();
+        } else if (activeChildProfile) {
+          openEditChildModal(activeChildProfile);
+        }
+      }, 220);
+      return;
+    }
+    setIsEditingAccount(true);
     if (fieldId) {
       setTimeout(() => {
         const el = document.getElementById(fieldId);
@@ -927,6 +955,17 @@ export default function StudentDashboard() {
       }, 220);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focusField = params.get('focusField');
+    if (location.pathname.endsWith('/profile') && focusField) {
+      navigate('/dashboard/profile', { replace: true });
+      setTimeout(() => {
+        navigateToMissingField(focusField);
+      }, 80);
+    }
+  }, [location.pathname, location.search]);
 
   // Sync form state when currentUser changes or editing is toggled
   useEffect(() => {
@@ -1276,6 +1315,14 @@ export default function StudentDashboard() {
       });
       setIsEditingAccount(false);
       setAccountUpdateSuccess('Your profile has been saved and synchronized.');
+      const latestState = useAppStore.getState();
+      const updatedCompletion = calculateProfileCompletion(latestState.currentUser, {
+        studentProfiles: latestState.studentProfiles,
+      });
+      if (returnToFindAfterComplete && updatedCompletion.isComplete) {
+        setReturnToFindAfterComplete(false);
+        handleTabChange('find');
+      }
       setTimeout(() => setAccountUpdateSuccess(''), 4000);
     } catch (err: any) {
       console.error('Failed to update account profile:', err);
@@ -1365,6 +1412,14 @@ export default function StudentDashboard() {
       setAccountUpdateSuccess(
         editingChildId ? 'Student profile updated.' : 'New student profile added under your Guardian account.'
       );
+      const latestState = useAppStore.getState();
+      const updatedCompletion = calculateProfileCompletion(latestState.currentUser, {
+        studentProfiles: latestState.studentProfiles,
+      });
+      if (returnToFindAfterComplete && updatedCompletion.isComplete) {
+        setReturnToFindAfterComplete(false);
+        handleTabChange('find');
+      }
       setTimeout(() => setAccountUpdateSuccess(''), 4000);
     } catch (err: any) {
       setChildFormError(formatUserFriendlyError(err, 'dashboard'));
@@ -2216,6 +2271,16 @@ export default function StudentDashboard() {
             transition={{ duration: 0.04, ease: "easeOut" }}
             className="flex flex-col gap-8"
           >
+            {!marketplaceAccess.allowed ? (
+              <ProfileCompletionGate
+                role="student"
+                accountType={effectiveAccountType}
+                completion={profileCompletion}
+                onNavigateToField={navigateToMissingField}
+                variant="gate"
+              />
+            ) : (
+              <>
             {/* Map Preview of All Tutors */}
             <div className="bg-white rounded-[3.5rem] p-4 border border-slate-100 shadow-sm overflow-hidden h-72 relative">
                <div className="absolute top-8 left-8 z-10 bg-white/90 backdrop-blur px-4 py-2 rounded-xl text-[10px] font-black uppercase italic text-[#0B132B] shadow-sm border border-slate-100">
@@ -3461,6 +3526,8 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+              </>
+            )}
           </motion.div>
         )}
 
@@ -4067,56 +4134,26 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            {/* Centralized Profile Completion Meter */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Profile Completion
-                  </p>
-                  <p className="text-sm font-black text-[#0B132B] dark:text-white mt-0.5">
-                    {profileCompletion.isComplete
-                      ? 'Your profile is 100% complete and synchronized.'
-                      : `${profileCompletion.missingFields.length} required detail${profileCompletion.missingFields.length > 1 ? 's' : ''} remaining`}
-                  </p>
-                  <p
-                    lang="bn"
-                    className="font-bn text-xs text-slate-600 dark:text-slate-300 mt-1"
-                  >
-                    আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।
-                  </p>
-                </div>
-                <span
-                  className={`text-xl font-black font-mono ${
-                    profileCompletion.isComplete ? 'text-emerald-600' : 'text-[#0D5BFF]'
-                  }`}
-                >
-                  {profileCompletion.percentage}%
-                </span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    profileCompletion.isComplete ? 'bg-emerald-500' : 'bg-[#0D5BFF]'
-                  }`}
-                  style={{ width: `${profileCompletion.percentage}%` }}
-                />
-              </div>
-              {!profileCompletion.isComplete && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {profileCompletion.missingFields.map((mf) => (
-                    <button
-                      key={mf.key}
-                      type="button"
-                      onClick={() => navigateToMissingField(mf.targetFieldId)}
-                      className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-bold hover:bg-amber-100 transition-colors cursor-pointer"
-                    >
-                      Complete {mf.label} →
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Centralized Profile Completion Meter & 100% Confirmation */}
+            {profileCompletion.isComplete ? (
+              <ProfileCompletionGate
+                role="student"
+                accountType={effectiveAccountType}
+                completion={profileCompletion}
+                onNavigateToField={navigateToMissingField}
+                variant="completed"
+                onExploreUnlocked={() => handleTabChange('find')}
+                exploreUnlockedLabel="Find Verified Tutors"
+              />
+            ) : (
+              <ProfileCompletionGate
+                role="student"
+                accountType={effectiveAccountType}
+                completion={profileCompletion}
+                onNavigateToField={navigateToMissingField}
+                variant="banner"
+              />
+            )}
 
             {accountUpdateError && (
               <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs font-bold flex items-center gap-3">

@@ -68,6 +68,7 @@ export interface ProfileCompletionUserInput {
 export interface ProfileFieldRequirement {
   key: string;
   label: string;
+  labelBn?: string;
   completed: boolean;
   displayValue: string;
   targetTab: string;
@@ -89,6 +90,27 @@ export interface ProfileCompletionResult {
   needsAccountTypeSelection: boolean;
   firstMissingFieldId: string | null;
 }
+
+export interface RoleMarketplaceAccessResult {
+  allowed: boolean;
+  status: 'loading' | 'unauthenticated' | 'allowed' | 'restricted_incomplete_profile';
+  role: 'student' | 'guardian' | 'tutor' | 'admin' | 'guest';
+  targetResource: 'tutor_listings' | 'tuition_opportunities' | 'admin_panel' | 'none';
+  completion: ProfileCompletionResult;
+  title: string;
+  messageBn: string;
+  messageEn: string;
+  ctaLabel: string;
+  primaryMissingFieldId: string;
+}
+
+export const PROFILE_COMPLETED_CONFIRMATION = {
+  title: 'Profile Completed — 100%',
+  messageBn:
+    'অভিনন্দন! আপনার প্রোফাইল সম্পূর্ণ হয়েছে। এখন আপনি EduTrack-এর সকল প্রযোজ্য সুবিধা ব্যবহার করতে পারবেন।',
+  messageEn:
+    'Your mandatory profile information is 100% complete. All eligible marketplace features are unlocked.',
+} as const;
 
 export type TutorVerificationOverallStatus =
   | 'not_submitted'
@@ -527,6 +549,7 @@ export function calculateProfileCompletion(
       {
         key: 'basic_contact',
         label: 'Name & Contact Phone',
+        labelBn: 'পূর্ণ নাম ও মোবাইল নম্বর (Name & Contact Phone)',
         completed: hasContact,
         displayValue: hasContact
           ? `${user.name} (${user.phone})`
@@ -534,23 +557,29 @@ export function calculateProfileCompletion(
           ? 'Missing Name'
           : 'Missing Phone',
         targetTab: 'pro_profile',
-        targetFieldId: 'tutor-field-phone',
+        targetFieldId: !isMeaningfulValue(user.name) ? 'tutor-field-name' : 'tutor-field-phone',
         category: 'contact',
       },
       {
         key: 'academic',
         label: 'University, Department & Year',
+        labelBn: 'বিশ্ববিদ্যালয়, বিভাগ ও বর্ষ (University, Department & Year)',
         completed: hasAcademic,
         displayValue: hasAcademic
           ? `${user.university} • ${user.course} (${user.year})`
           : 'Missing Academic Info',
         targetTab: 'pro_profile',
-        targetFieldId: 'tutor-field-university',
+        targetFieldId: !isMeaningfulValue(user.university)
+          ? 'tutor-field-university'
+          : !isMeaningfulValue(user.course)
+          ? 'tutor-field-course'
+          : 'tutor-field-year',
         category: 'academic',
       },
       {
         key: 'subjects',
         label: 'Teaching Subjects',
+        labelBn: 'পড়ানোর বিষয়সমূহ (Preferred Subjects)',
         completed: hasSubjects,
         displayValue: hasSubjects
           ? `${user.subjects!.slice(0, 3).join(', ')}${user.subjects!.length > 3 ? ` +${user.subjects!.length - 3}` : ''}`
@@ -562,6 +591,7 @@ export function calculateProfileCompletion(
       {
         key: 'classes',
         label: 'Target Classes',
+        labelBn: 'পড়ানোর ক্লাস বা লেভেল (Preferred Classes)',
         completed: hasClasses,
         displayValue: hasClasses
           ? `${user.classes!.slice(0, 3).join(', ')}${user.classes!.length > 3 ? ` +${user.classes!.length - 3}` : ''}`
@@ -573,6 +603,7 @@ export function calculateProfileCompletion(
       {
         key: 'location_mode',
         label: 'Location & Teaching Mode',
+        labelBn: 'জেলা, এলাকা ও টিউশন ধরন (District, Area & Teaching Mode)',
         completed: hasLocation && hasTeachingMode,
         displayValue:
           hasLocation && hasTeachingMode
@@ -591,6 +622,7 @@ export function calculateProfileCompletion(
       {
         key: 'hourlyRate',
         label: 'Expected Monthly Salary',
+        labelBn: 'প্রত্যাশিত মাসিক সম্মানী (Expected Monthly Salary)',
         completed: hasRate,
         displayValue: hasRate ? `৳${Number(user.hourlyRate).toLocaleString()}/month` : 'Salary Not Set',
         targetTab: 'pro_profile',
@@ -600,6 +632,7 @@ export function calculateProfileCompletion(
       {
         key: 'bio',
         label: 'Teaching Bio',
+        labelBn: 'টিউশন অভিজ্ঞতা ও সংক্ষিপ্ত পরিচিতি (Short Bio)',
         completed: hasBio,
         displayValue: hasBio ? 'Bio Added' : 'Bio Not Added',
         targetTab: 'pro_profile',
@@ -609,6 +642,7 @@ export function calculateProfileCompletion(
       {
         key: 'availability',
         label: 'Weekly Availability Slots',
+        labelBn: 'সাপ্তাহিক পড়ানোর সময়সূচি (Weekly Availability)',
         completed: hasAvailability,
         displayValue: hasAvailability ? 'Schedule Configured' : 'No Slots Selected',
         targetTab: 'pro_profile',
@@ -621,6 +655,7 @@ export function calculateProfileCompletion(
       {
         key: 'profileImage',
         label: 'Profile Photo',
+        labelBn: 'প্রোফাইল ছবি (Profile Photo)',
         completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
         displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
         targetTab: 'pro_profile',
@@ -630,6 +665,7 @@ export function calculateProfileCompletion(
       {
         key: 'gender',
         label: 'Gender',
+        labelBn: 'লিঙ্গ (Gender)',
         completed: isMeaningfulValue(user.gender),
         displayValue: cleanMeaningfulString(user.gender) || 'Optional',
         targetTab: 'pro_profile',
@@ -693,6 +729,7 @@ export function calculateProfileCompletion(
       {
         key: 'name',
         label: 'Guardian Full Name',
+        labelBn: 'অভিভাবকের পূর্ণ নাম (Guardian Full Name)',
         completed: isMeaningfulValue(user.name),
         displayValue: cleanMeaningfulString(user.name) || 'Not Specified',
         targetTab: 'account',
@@ -702,6 +739,7 @@ export function calculateProfileCompletion(
       {
         key: 'phone',
         label: 'Guardian Contact Phone',
+        labelBn: 'মোবাইল নম্বর (Guardian Mobile Number)',
         completed: isMeaningfulValue(user.phone),
         displayValue: cleanMeaningfulString(user.phone) || 'Not Specified',
         targetTab: 'account',
@@ -711,6 +749,7 @@ export function calculateProfileCompletion(
       {
         key: 'guardianRelationship',
         label: 'Relationship to Student',
+        labelBn: 'শিক্ষার্থীর সাথে সম্পর্ক (Relationship to Student)',
         completed: isMeaningfulValue(user.guardianRelationship),
         displayValue: cleanMeaningfulString(user.guardianRelationship) || 'Not Specified',
         targetTab: 'account',
@@ -720,6 +759,7 @@ export function calculateProfileCompletion(
       {
         key: 'location',
         label: 'Tuition Location & Address',
+        labelBn: 'জেলা ও বাসার ঠিকানা (District / Location)',
         completed: hasLocation,
         displayValue: locationDisplay || 'Not Specified',
         targetTab: 'account',
@@ -731,6 +771,7 @@ export function calculateProfileCompletion(
       {
         key: 'studentProfile',
         label: 'Linked Student Profile',
+        labelBn: 'সন্তানের একাডেমিক তথ্য — নাম, ক্লাস ও স্কুল (Linked Student Profile)',
         completed: hasLinkedStudent,
         displayValue: hasLinkedStudent
           ? `${studentName} • ${studentClass} (${studentSchool})`
@@ -751,6 +792,7 @@ export function calculateProfileCompletion(
       {
         key: 'subjects',
         label: 'Target Learning Subjects',
+        labelBn: 'টিউশনের বিষয়সমূহ (Learning Subjects)',
         completed:
           (activeProfile?.subjects && activeProfile.subjects.length > 0) ||
           (Array.isArray(user.subjects) && user.subjects.length > 0),
@@ -767,6 +809,7 @@ export function calculateProfileCompletion(
       {
         key: 'profileImage',
         label: 'Profile Photo',
+        labelBn: 'প্রোফাইল ছবি (Profile Photo)',
         completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
         displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
         targetTab: 'account',
@@ -800,6 +843,7 @@ export function calculateProfileCompletion(
     {
       key: 'name',
       label: 'Full Name',
+      labelBn: 'আপনার পূর্ণ নাম (Full Name)',
       completed: isMeaningfulValue(user.name),
       displayValue: cleanMeaningfulString(user.name) || 'Not Specified',
       targetTab: 'account',
@@ -809,6 +853,7 @@ export function calculateProfileCompletion(
     {
       key: 'phone',
       label: 'Contact Phone',
+      labelBn: 'মোবাইল নম্বর (Contact Phone)',
       completed: isMeaningfulValue(user.phone),
       displayValue: cleanMeaningfulString(user.phone) || 'Not Specified',
       targetTab: 'account',
@@ -818,6 +863,7 @@ export function calculateProfileCompletion(
     {
       key: 'studentClass',
       label: 'Academic Class',
+      labelBn: 'আপনার বর্তমান ক্লাস (Academic Class)',
       completed: isMeaningfulValue(user.studentClass),
       displayValue: cleanMeaningfulString(user.studentClass) || 'Not Specified',
       targetTab: 'account',
@@ -827,6 +873,7 @@ export function calculateProfileCompletion(
     {
       key: 'school',
       label: 'School / College',
+      labelBn: 'শিক্ষা প্রতিষ্ঠান (School / College)',
       completed: isMeaningfulValue(user.school),
       displayValue: cleanMeaningfulString(user.school) || 'Not Specified',
       targetTab: 'account',
@@ -836,6 +883,7 @@ export function calculateProfileCompletion(
     {
       key: 'curriculum',
       label: 'Curriculum / Group',
+      labelBn: 'কারিকুলাম বা বিভাগ (Curriculum / Group)',
       completed: isMeaningfulValue(user.curriculum),
       displayValue: cleanMeaningfulString(user.curriculum) || 'Not Specified',
       targetTab: 'account',
@@ -845,6 +893,7 @@ export function calculateProfileCompletion(
     {
       key: 'location',
       label: 'Delivery / Tuition Address',
+      labelBn: 'জেলা ও বর্তমান ঠিকানা (District / Location)',
       completed: hasLocation,
       displayValue: locationDisplay || 'Not Specified',
       targetTab: 'account',
@@ -859,6 +908,7 @@ export function calculateProfileCompletion(
     {
       key: 'subjects',
       label: 'Learning Subjects',
+      labelBn: 'টিউশনের বিষয়সমূহ (Learning Subjects)',
       completed: Array.isArray(user.subjects) && user.subjects.length > 0,
       displayValue:
         Array.isArray(user.subjects) && user.subjects.length > 0
@@ -871,6 +921,7 @@ export function calculateProfileCompletion(
     {
       key: 'profileImage',
       label: 'Profile Photo',
+      labelBn: 'প্রোফাইল ছবি (Profile Photo)',
       completed: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto),
       displayValue: isMeaningfulValue(user.profileImage) || Boolean((user as any).hasProfilePhoto) ? 'Uploaded' : 'Optional',
       targetTab: 'account',
@@ -898,3 +949,138 @@ export function calculateProfileCompletion(
     firstMissingFieldId: missingFields[0]?.targetFieldId || null,
   };
 }
+
+/**
+ * Evaluates role-based access to marketplace listings:
+ * - Student / Guardian: requires 100% mandatory profile completion before accessing Tutor Search & tutor listings.
+ * - Tutor: requires 100% mandatory tutor profile completion before accessing Tuition Circulars & student requests.
+ * - Admin: full unrestricted access to all records and panels.
+ * - Distinguishes loading states from incomplete profile states so users never see false restriction flashes.
+ */
+export function evaluateRoleMarketplaceAccess(
+  rawUser: ProfileCompletionUserInput | null | undefined,
+  options?: {
+    studentProfiles?: StudentProfileRecord[];
+    isInitialized?: boolean;
+    isLoading?: boolean;
+  }
+): RoleMarketplaceAccessResult {
+  const completion = calculateProfileCompletion(rawUser, {
+    studentProfiles: options?.studentProfiles,
+  });
+
+  if (options?.isInitialized === false || options?.isLoading === true) {
+    return {
+      allowed: false,
+      status: 'loading',
+      role: !rawUser
+        ? 'guest'
+        : rawUser.role === 'admin'
+        ? 'admin'
+        : rawUser.role === 'tutor'
+        ? 'tutor'
+        : completion.accountType === 'guardian'
+        ? 'guardian'
+        : 'student',
+      targetResource: 'none',
+      completion,
+      title: 'Checking Profile Status...',
+      messageBn: 'প্রোফাইল তথ্য যাচাই করা হচ্ছে...',
+      messageEn: 'Verifying your profile completion status...',
+      ctaLabel: 'Please Wait',
+      primaryMissingFieldId: '',
+    };
+  }
+
+  if (!rawUser) {
+    return {
+      allowed: false,
+      status: 'unauthenticated',
+      role: 'guest',
+      targetResource: 'none',
+      completion,
+      title: 'Sign In Required',
+      messageBn: 'এই সুবিধাটি ব্যবহার করতে অনুগ্রহ করে লগইন করুন।',
+      messageEn: 'Please sign in to access personalized listings.',
+      ctaLabel: 'Sign In',
+      primaryMissingFieldId: '',
+    };
+  }
+
+  if (rawUser.role === 'admin') {
+    return {
+      allowed: true,
+      status: 'allowed',
+      role: 'admin',
+      targetResource: 'admin_panel',
+      completion,
+      title: PROFILE_COMPLETED_CONFIRMATION.title,
+      messageBn: PROFILE_COMPLETED_CONFIRMATION.messageBn,
+      messageEn: PROFILE_COMPLETED_CONFIRMATION.messageEn,
+      ctaLabel: 'Admin Panel',
+      primaryMissingFieldId: '',
+    };
+  }
+
+  if (rawUser.role === 'tutor') {
+    if (completion.isComplete) {
+      return {
+        allowed: true,
+        status: 'allowed',
+        role: 'tutor',
+        targetResource: 'tuition_opportunities',
+        completion,
+        title: PROFILE_COMPLETED_CONFIRMATION.title,
+        messageBn: PROFILE_COMPLETED_CONFIRMATION.messageBn,
+        messageEn: PROFILE_COMPLETED_CONFIRMATION.messageEn,
+        ctaLabel: 'Browse Tuitions',
+        primaryMissingFieldId: '',
+      };
+    }
+    return {
+      allowed: false,
+      status: 'restricted_incomplete_profile',
+      role: 'tutor',
+      targetResource: 'tuition_opportunities',
+      completion,
+      title: 'Complete Your Tutor Profile',
+      messageBn: 'নতুন টিউশন খুঁজতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।',
+      messageEn:
+        'Please complete all mandatory tutor profile details below to unlock available tuition opportunities and student listings.',
+      ctaLabel: 'Complete Now',
+      primaryMissingFieldId: completion.firstMissingFieldId || 'tutor-field-university',
+    };
+  }
+
+  // Student or Guardian
+  const effectiveRole = completion.accountType === 'guardian' ? 'guardian' : 'student';
+  if (completion.isComplete) {
+    return {
+      allowed: true,
+      status: 'allowed',
+      role: effectiveRole,
+      targetResource: 'tutor_listings',
+      completion,
+      title: PROFILE_COMPLETED_CONFIRMATION.title,
+      messageBn: PROFILE_COMPLETED_CONFIRMATION.messageBn,
+      messageEn: PROFILE_COMPLETED_CONFIRMATION.messageEn,
+      ctaLabel: 'Find Tutors',
+      primaryMissingFieldId: '',
+    };
+  }
+
+  return {
+    allowed: false,
+    status: 'restricted_incomplete_profile',
+    role: effectiveRole,
+    targetResource: 'tutor_listings',
+    completion,
+    title: 'Complete Your Profile',
+    messageBn: 'টিচার খোঁজার সুবিধা চালু করতে প্রথমে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন।',
+    messageEn:
+      'Please complete your mandatory profile details below to unlock tutor search results and personalized tutor recommendations.',
+    ctaLabel: 'Complete Profile',
+    primaryMissingFieldId: completion.firstMissingFieldId || 'account-field-school',
+  };
+}
+

@@ -80,8 +80,10 @@ import { sanitizeTutorProfileForViewer } from "../../../shared/tutorPrivacy";
 import {
   calculateProfileCompletion,
   cleanMeaningfulString,
+  evaluateRoleMarketplaceAccess,
   getTutorVerificationStatus,
 } from "../../../shared/profileCompletion";
+import ProfileCompletionGate from "../../components/ProfileCompletionGate";
 import { motion, AnimatePresence } from "motion/react";
 import { BANGLADESH_DISTRICTS, BANGLADESH_THANAS } from "../../data/bangladeshData";
 import { getCoordinatesForLocation, getCurrentAccuratePosition, watchAccuratePosition } from "../../utils/geocoding";
@@ -494,6 +496,11 @@ export default function TutorDashboard() {
     [currentUser]
   );
 
+  const tutorMarketplaceAccess = useMemo(
+    () => evaluateRoleMarketplaceAccess(currentUser),
+    [currentUser]
+  );
+
   const tutorVerification = useMemo(
     () => getTutorVerificationStatus(currentUser),
     [currentUser]
@@ -614,13 +621,20 @@ export default function TutorDashboard() {
     return "nid";
   });
 
+  const [returnToFindStudentsAfterComplete, setReturnToFindStudentsAfterComplete] =
+    useState(false);
+
   const navigateToMissingField = (fieldId?: string | null) => {
+    if (activeTab === "find_students") {
+      setReturnToFindStudentsAfterComplete(true);
+    }
     handleTabChange("pro_profile");
     setIsEditingProfile(true);
     setProfileUpdateError("");
-    if (fieldId) {
+    const resolvedFieldId = fieldId || tutorCompletion.firstMissingFieldId;
+    if (resolvedFieldId) {
       setTimeout(() => {
-        const el = document.getElementById(fieldId);
+        const el = document.getElementById(resolvedFieldId);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
           if (typeof (el as HTMLElement).focus === "function") {
@@ -630,6 +644,23 @@ export default function TutorDashboard() {
       }, 220);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focusField = params.get("focusField");
+    if (focusField && activeTab === "pro_profile") {
+      setIsEditingProfile(true);
+      setTimeout(() => {
+        const el = document.getElementById(focusField);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (typeof (el as HTMLElement).focus === "function") {
+            (el as HTMLElement).focus({ preventScroll: true });
+          }
+        }
+      }, 240);
+    }
+  }, [location.search, activeTab]);
 
   // Sync profile form when currentUser changes or editing is toggled
   useEffect(() => {
@@ -860,6 +891,12 @@ export default function TutorDashboard() {
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3500);
       setIsEditingProfile(false);
+      const latestUser = useAppStore.getState().currentUser;
+      const updatedCompletion = calculateProfileCompletion(latestUser);
+      if (returnToFindStudentsAfterComplete && updatedCompletion.isComplete) {
+        setReturnToFindStudentsAfterComplete(false);
+        handleTabChange("find_students");
+      }
     } catch (error: any) {
       console.error("Failed to update profile", error);
       setProfileUpdateError(formatUserFriendlyError(error, "dashboard"));
@@ -2271,49 +2308,15 @@ export default function TutorDashboard() {
                   )}
 
                   {/* Profile Completion Meter (Independent of Verification Status) */}
-                  <div data-tour-id="tutor-profile-completion-card" className="w-full p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                        Profile Completion
-                      </span>
-                      <span
-                        className={`text-sm font-black font-mono ${
-                          tutorCompletion.isComplete ? "text-emerald-600" : "text-[#0D5BFF]"
-                        }`}
-                      >
-                        {tutorCompletion.percentage}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          tutorCompletion.isComplete ? "bg-emerald-500" : "bg-[#0D5BFF]"
-                        }`}
-                        style={{ width: `${tutorCompletion.percentage}%` }}
-                      />
-                    </div>
-                    {!tutorCompletion.isComplete && (
-                      <>
-                        <p
-                          lang="bn"
-                          className="font-bn text-xs text-slate-600 dark:text-slate-300"
-                        >
-                          আপনার প্রোফাইলের বাকি তথ্যগুলো সম্পূর্ণ করুন।
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {tutorCompletion.missingFields.map((mf) => (
-                            <button
-                              key={mf.key}
-                              type="button"
-                              onClick={() => navigateToMissingField(mf.targetFieldId)}
-                              className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-800 dark:text-amber-300 cursor-pointer"
-                            >
-                              + {mf.label}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                  <div data-tour-id="tutor-profile-completion-card" className="w-full mb-6">
+                    <ProfileCompletionGate
+                      role="tutor"
+                      completion={tutorCompletion}
+                      onNavigateToField={navigateToMissingField}
+                      variant={tutorCompletion.isComplete ? "completed" : "banner"}
+                      onExploreUnlocked={() => handleTabChange("find_students")}
+                      exploreUnlockedLabel="Browse Tuition Opportunities"
+                    />
                   </div>
 
                   {/* Independent Verification Status Summary */}
@@ -2497,12 +2500,14 @@ export default function TutorDashboard() {
                             placeholder="e.g. BUET, University of Dhaka"
                           />
                           <ProfileField
+                            id="tutor-field-course"
                             label="Department / Degree *"
                             value={profileForm.course}
                             onChange={(v) => setProfileForm({ ...profileForm, course: v })}
                             placeholder="e.g. B.Sc. in CSE"
                           />
                           <ProfileField
+                            id="tutor-field-year"
                             label="Academic Year / Batch *"
                             value={profileForm.year}
                             onChange={(v) => setProfileForm({ ...profileForm, year: v })}
@@ -3761,20 +3766,29 @@ export default function TutorDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 text-left"
             >
-              {/* Live Tuition Circulars Job Board, Recommendations & Application Tracker */}
-              <AppErrorBoundary level="widget" sectionName="Tuition Marketplace">
-                <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
-                  <TuitionMarketplaceHub
-                    mode="tutor"
-                    onMessageUser={(studentId) => {
-                      setSelectedRecipientId(studentId);
-                      handleTabChange("messages");
-                    }}
-                  />
-                </Suspense>
-              </AppErrorBoundary>
+              {!tutorMarketplaceAccess.allowed ? (
+                <ProfileCompletionGate
+                  role="tutor"
+                  completion={tutorCompletion}
+                  onNavigateToField={navigateToMissingField}
+                  variant="gate"
+                />
+              ) : (
+                <>
+                  {/* Live Tuition Circulars Job Board, Recommendations & Application Tracker */}
+                  <AppErrorBoundary level="widget" sectionName="Tuition Marketplace">
+                    <Suspense fallback={<div className="h-48 rounded-2xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />}>
+                      <TuitionMarketplaceHub
+                        mode="tutor"
+                        onMessageUser={(studentId) => {
+                          setSelectedRecipientId(studentId);
+                          handleTabChange("messages");
+                        }}
+                      />
+                    </Suspense>
+                  </AppErrorBoundary>
 
-              {!currentUser.isVerified ? (
+                  {!currentUser.isVerified ? (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-14 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto my-8">
                   <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-3xl flex items-center justify-center border border-rose-100 dark:border-rose-900/30 text-rose-500">
                     <ShieldAlert className="w-10 h-10" />
@@ -4337,6 +4351,8 @@ export default function TutorDashboard() {
                       </motion.div>
                     </div>
                   )}
+                </>
+              )}
                 </>
               )}
             </motion.div>

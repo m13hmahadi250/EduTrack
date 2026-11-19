@@ -23,6 +23,8 @@ import {
   isTutorVerified,
 } from '../../shared/tutorListing';
 import { canViewTutorPhoto } from '../../shared/tutorPrivacy';
+import { calculateProfileCompletion } from '../../shared/profileCompletion';
+import ProfileCompletionGate from './ProfileCompletionGate';
 import { matchTuitionsForTutor, matchTutorsForStudentNeed } from '../../shared/matching';
 import {
   formatDhakaDateTime,
@@ -129,6 +131,19 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
 
   const [tuitions, setTuitions] = useState<TuitionCircularRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const userCompletion = useMemo(
+    () => calculateProfileCompletion(currentUser, { studentProfiles }),
+    [currentUser, studentProfiles]
+  );
+
+  const handleNavigateToMissingField = (fieldId?: string | null) => {
+    const resolvedField =
+      fieldId ||
+      userCompletion.firstMissingFieldId ||
+      (currentUser?.role === 'tutor' ? 'tutor-field-university' : 'account-field-school');
+    navigate(`/dashboard/profile?focusField=${encodeURIComponent(resolvedField)}`);
+  };
 
   // Active sub-view inside the hub
   const [activeSubTab, setActiveSubTab] = useState<'browse' | 'post' | 'my_posts' | 'my_applications' | 'recommended'>(
@@ -541,6 +556,15 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
   const handleTutorSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !applyingTuition) return;
+
+    if (currentUser.role === 'tutor' && !userCompletion.isComplete) {
+      setFeedbackBanner({
+        type: 'error',
+        text: 'নতুন টিউশনে আবেদন করতে আপনার প্রোফাইলের প্রয়োজনীয় তথ্যগুলো সম্পূর্ণ করুন। (Please complete all required tutor profile fields before applying.)',
+      });
+      setApplyingTuition(null);
+      return;
+    }
 
     const alreadyApplied = applyingTuition.applications?.some(
       (a) => a.tutorId === currentUser.id
@@ -1768,7 +1792,17 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       {/* =====================================================================
           STUDENT VIEW 3: RECOMMENDED VERIFIED TUTORS (EXPLAINABLE MATCHING)
       ===================================================================== */}
-      {mode === 'student' && activeSubTab === 'recommended' && (
+      {mode === 'student' && activeSubTab === 'recommended' && !userCompletion.isComplete && (
+        <ProfileCompletionGate
+          role="student"
+          accountType={currentUser?.accountType === 'guardian' ? 'guardian' : 'student'}
+          completion={userCompletion}
+          onNavigateToField={handleNavigateToMissingField}
+          variant="gate"
+        />
+      )}
+
+      {mode === 'student' && activeSubTab === 'recommended' && userCompletion.isComplete && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {recommendedTutorsForStudent.map(({ tutor, reasons }) => {
             const subjectSummary = formatTutorSubjectsSummary(tutor, 5);
@@ -1992,7 +2026,16 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       {/* =====================================================================
           TUTOR VIEW: RECOMMENDED OPPORTUNITIES (EXPLAINABLE MATCHING)
       ===================================================================== */}
-      {mode === 'tutor' && activeSubTab === 'recommended' && (
+      {mode === 'tutor' && activeSubTab === 'recommended' && !userCompletion.isComplete && (
+        <ProfileCompletionGate
+          role="tutor"
+          completion={userCompletion}
+          onNavigateToField={handleNavigateToMissingField}
+          variant="gate"
+        />
+      )}
+
+      {mode === 'tutor' && activeSubTab === 'recommended' && userCompletion.isComplete && (
         <div className="space-y-4">
           {recommendedTuitionsForTutor.length === 0 ? (
             <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center">
@@ -2068,9 +2111,18 @@ export default function TuitionMarketplaceHub({ mode, onMessageUser }: TuitionMa
       {/* =====================================================================
           BROWSE & INSTANT MULTI-FILTER TUITION JOB BOARD (TUTOR / ADMIN / PUBLIC)
       ===================================================================== */}
+      {mode === 'tutor' && activeSubTab === 'browse' && !userCompletion.isComplete && (
+        <ProfileCompletionGate
+          role="tutor"
+          completion={userCompletion}
+          onNavigateToField={handleNavigateToMissingField}
+          variant="gate"
+        />
+      )}
+
       {(mode === 'public' ||
         mode === 'admin' ||
-        (mode === 'tutor' && activeSubTab === 'browse')) && (
+        (mode === 'tutor' && activeSubTab === 'browse' && userCompletion.isComplete)) && (
         <div className="space-y-5">
           {/* Real-Time Search & Multi-Filter Bar */}
           <div className="bg-white dark:bg-[#111A2E] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 space-y-4">
